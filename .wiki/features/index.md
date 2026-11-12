@@ -4,7 +4,7 @@
 
 ## In progress
 
-- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Follow the OKF Browser design, coordinate the ACORN skill with browser/desktop releases, and publish the Tauri GUI through WinGet, Scoop, Debian, AppImage and Homebrew cask. Revised previews cover the nine-tool inventory and Install/Skill; ABW-20 design acceptance is complete; ABW-02 is accepted; ABW-10 is implemented with theme/tour/sample checks passing; remaining live file/drop and chrome acceptance is open, with native file-dialog control failing; the nine-operation browser is ready for local review; preserve the existing portable, `acorn-wasm`, `acorn-host`, and `acorn-lib` ownership boundaries. Remaining batch: ABW-10 → 03 → 04 → 05 → 32 → 06; see the [execution brief](acorn-browser-workspace/execution-preparation.md).
+- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Browser parity items 1–5 are implemented, including tool-specific results, folders/Portfolio/local map, Settings and browser Skill/Install; ABW-10 is accepted and pruned. Remaining phases cover focused and cross-engine acceptance, native integration and verified publication. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Native routes cover 46/46 bounded rows; PAR-34's synthetic safety matrix is accepted and PAR-16 is ready to release explicit dispatch. Automatic Needle selection remains preview-only after failed calibration.
 
 ## Planned

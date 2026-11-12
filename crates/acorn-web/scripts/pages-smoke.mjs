@@ -43,10 +43,12 @@ try {
     await page.waitForFunction(() => { const image = document.querySelector(".home-banner img"); return image?.complete && image.naturalWidth > 0; });
     await page.waitForFunction(() => getComputedStyle(document.querySelector(".sidebar")).position !== "static");
     await page.getByRole("button", { name: "Try sample data" }).click();
+    await page.getByRole("heading", { name: "Portfolio", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Open selected activity", exact: true }).click();
     await page.getByRole("heading", { name: "Research Activity", exact: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, `${prefix}/research-activity`);
     await page.getByRole("button", { name: "Run Research Activity", exact: true }).click();
-    await page.getByRole("button", { name: "Copy JSON", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Copy result", exact: true }).waitFor();
     const direct = await page.goto(`${origin}${prefix}/readability`);
     assert.equal(direct.status(), 404, "Exercise GitHub Pages' custom 404 response");
     await page.getByRole("heading", { name: "Readability", exact: true }).waitFor();

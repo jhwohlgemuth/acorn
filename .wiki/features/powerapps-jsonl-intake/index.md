@@ -35,7 +35,7 @@ Durable evidence remains in the [SharePoint pilot](sharepoint-pilot.md), [native
 
 | Order | Plan | Stable phases | Remaining outcome |
 |---:|---|---|---|
-| 1 | [Approval pilot acceptance and cutover](approval-release/index.md) | PA-40A, PA-41, PA-41A | Accept the end-to-end report-authoring workflow, then deploy both consistent apps and the approval gate with rollback. |
+| 1 | [Approval pilot acceptance and cutover](approval-release/index.md) | PA-40B, PA-40C, PA-40D, PA-40A, PA-41, PA-41A | Accept the end-to-end report-authoring workflow, then deploy both consistent apps and the approval gate with rollback. |
 | 2 | [Retained GitLab fallback hardening](gitlab-fallback-hardening/index.md) | PA-15, PA-16, PA-17 | Finish bounded-write, concurrency, and native-restore acceptance only in recreated isolated systems. |
 | 3 | [Shared Power Platform deployment](shared-deployment/index.md) | PA-12 and PA-12A | Move the accepted SharePoint solution to a named shared environment and audience after the pilot release. |
 

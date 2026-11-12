@@ -445,6 +445,7 @@ dependencies = [
 name = "acorn-web"
 version = "0.6.3"
 dependencies = [
+ "acorn-schema",
  "acorn-wasm",
  "dioxus",
  "serde",

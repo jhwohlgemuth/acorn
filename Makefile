@@ -482,7 +482,7 @@ test-webmcp-package: ## Verify the staged WebMCP package contents.
 version: ## Print the project version string.
 	@echo $(VERSION)
 
-web-build: web-prepare ## Build the release browser and verify its single WASM payload.
+web-build: web-map web-prepare ## Build the release browser and verify its single WASM payload.
 	@python3 crates/acorn-web/scripts/clean-output.py
 	@$(DIOXUS) build --package acorn-web --platform web --release --profile web-release --debug-symbols false --base-path "$(WEB_BASE_PATH)" --locked
 	@python3 scripts/package-acorn-skill.py --output $(WEB_PUBLIC)/acorn-skill
@@ -495,8 +495,13 @@ web-check: web-prepare ## Check browser Rust, WASM portability, formatting and l
 	@cargo clippy -p acorn-web --all-targets -- -D warnings
 	@cargo clippy -p acorn-web --target wasm32-unknown-unknown -- -D warnings
 
-web-dev: web-prepare ## Run the ACORN browser with Dioxus hot reload on loopback.
-	@$(DIOXUS) serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false
+web-dev: web-map web-prepare ## Run coordinated Dioxus and map Fast Refresh servers on loopback.
+	@python3 crates/acorn-web/scripts/dev.py $(DIOXUS) serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false
+
+web-map: ## Build and stage the pinned offline organization map.
+	@npm --prefix crates/acorn-web/geospatial ci --ignore-scripts
+	@npm --prefix crates/acorn-web/geospatial run build
+	@node crates/acorn-web/scripts/stage-map.mjs
 
 web-package: web-build ## Package the browser release archive and SHA-256 sidecar.
 	@cargo xtask package-web
@@ -529,6 +534,7 @@ web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebM
 	@cargo test -p acorn-web
 	@$(MAKE) test-webmcp
 	@node --test crates/acorn-web/scripts/acceptance.test.mjs
+	@node --experimental-strip-types --test crates/acorn-web/geospatial/tests/*.test.mjs
 	@$(MAKE) web-test-wasm
 
 web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and playwright install first).

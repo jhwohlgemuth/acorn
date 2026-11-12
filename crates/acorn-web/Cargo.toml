@@ -10,6 +10,7 @@ rust-version.workspace = true
 description = "Local-first ACORN browser workspace"
 
 [dependencies]
+acorn-schema.workspace = true
 acorn-wasm = { path = "../acorn-wasm" }
 dioxus = { version = "=0.7.3", features = ["web", "router"] }
 serde.workspace = true

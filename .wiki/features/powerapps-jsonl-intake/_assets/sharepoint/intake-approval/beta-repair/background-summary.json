@@ -1,0 +1,315 @@
+{
+  "name": "d73b0c35-04ea-5b2c-a4a6-6568a5b2dfd3",
+  "id": "/providers/Microsoft.Flow/flows/d73b0c35-04ea-5b2c-a4a6-6568a5b2dfd3",
+  "type": "Microsoft.Flow/flows",
+  "properties": {
+    "apiId": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+    "displayName": "[BETA] Generate Reviewer Summary",
+    "definition": {
+      "metadata": {
+        "workflowEntityId": null,
+        "processAdvisorMetadata": null,
+        "flowChargedByPaygo": null,
+        "flowclientsuspensionreason": "None",
+        "flowclientsuspensiontime": null,
+        "flowclientsuspensionreasondetails": null,
+        "creator": {
+          "id": "ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8",
+          "type": "User",
+          "tenantId": "db3dbd43-4c4b-4544-9f8a-0553f9f5f25e"
+        },
+        "provisioningMethod": "FromDefinition",
+        "failureAlertSubscription": true,
+        "clientLastModifiedTime": "2026-11-08T20:49:21.4397635Z",
+        "lastModifiedBy": "ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8",
+        "connectionKeySavedTimeKey": "2026-11-08T20:49:21.4397635Z",
+        "creationSource": null
+      },
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "When_a_request_is_created": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnNewItems"
+            },
+            "parameters": {
+              "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+              "table": "442cdec0-52b9-4f24-97b6-092961312c41"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          },
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "splitOn": "@triggerOutputs()?['body/value']"
+        }
+      },
+      "actions": {
+        "Parse_request": {
+          "type": "ParseJson",
+          "inputs": {
+            "content": "@triggerBody()?['RequestJson']",
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "content",
+                "owner",
+                "requestId"
+              ],
+              "properties": {
+                "content": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 12000
+                },
+                "owner": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "requestId": {
+                  "type": "string",
+                  "minLength": 36,
+                  "maxLength": 36
+                }
+              }
+            }
+          },
+          "runAfter": {},
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs"
+              ]
+            }
+          }
+        },
+        "Valid_request": {
+          "type": "If",
+          "expression": {
+            "equals": [
+              "@and(equals(toLower(coalesce(triggerBody()?['Author']?['Claims'],'')),'i:0#.f|membership|o9w@ornl.gov'),equals(body('Parse_request')?['requestId'],triggerBody()?['Title']),empty(triggerBody()?['ResponseJson']),not(empty(trim(body('Parse_request')?['content']))))",
+              true
+            ]
+          },
+          "actions": {
+            "Run_a_prompt": {
+              "runAfter": {},
+              "metadata": {
+                "flowSystemMetadata": {
+                  "portalOperationId": "aibuilderpredict_customprompt",
+                  "portalOperationGroup": "aibuilder",
+                  "portalOperationApiDisplayNameOverride": "AI Builder",
+                  "portalOperationIconOverride": "https://gov.content.powerapps.us/resource/makerx/static/pauto/images/designeroperations/aibuilderIcon2026.8e878397.png",
+                  "portalOperationBrandColorOverride": "#0A76C4",
+                  "portalOperationApiTierOverride": "Standard"
+                }
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "recordId": "4d199cce-5673-4675-9046-d70eeb69b188",
+                  "item/requestv2/text": "@body('Parse_request')?['content']",
+                  "item/source": "{\"consumptionSource\":\"PowerAutomate\",\"partnerSource\":\"AIBuilder\",\"consumptionSourceVersion\":\"Flow\",\"partnerSourceVersion\":\"0ddfbf82-88c1-499f-93af-c3d33718ff22\"}"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "aibuilderpredict_customprompt"
+                },
+                "authentication": "@parameters('$authentication')",
+                "retryPolicy": {
+                  "type": "none"
+                }
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Valid_summary": {
+              "type": "If",
+              "expression": {
+                "equals": [
+                  "@and(greater(length(trim(coalesce(outputs('Run_a_prompt')?['body/responsev2/predictionOutput/text'],''))),0),lessOrEquals(length(trim(coalesce(outputs('Run_a_prompt')?['body/responsev2/predictionOutput/text'],''))),1200))",
+                  true
+                ]
+              },
+              "actions": {
+                "Ready_response": {
+                  "type": "Compose",
+                  "inputs": {
+                    "status": "ready",
+                    "summary": "@trim(coalesce(outputs('Run_a_prompt')?['body/responsev2/predictionOutput/text'],''))"
+                  },
+                  "runAfter": {},
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs"
+                      ]
+                    }
+                  }
+                },
+                "Save_summary": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "PatchItem"
+                    },
+                    "parameters": {
+                      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                      "table": "442cdec0-52b9-4f24-97b6-092961312c41",
+                      "id": "@triggerBody()?['ID']",
+                      "item/Title": "@triggerBody()?['Title']",
+                      "item/ResponseJson": "@string(outputs('Ready_response'))"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Ready_response": [
+                      "Succeeded"
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Save_invalid_result": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "PatchItem"
+                      },
+                      "parameters": {
+                        "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                        "table": "442cdec0-52b9-4f24-97b6-092961312c41",
+                        "id": "@triggerBody()?['ID']",
+                        "item/Title": "@triggerBody()?['Title']",
+                        "item/ResponseJson": "{\"status\":\"error\",\"summary\":\"\"}"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    },
+                    "runAfter": {},
+                    "runtimeConfiguration": {
+                      "secureData": {
+                        "properties": [
+                          "inputs",
+                          "outputs"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "Run_a_prompt": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Save_failure": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PatchItem"
+                },
+                "parameters": {
+                  "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                  "table": "442cdec0-52b9-4f24-97b6-092961312c41",
+                  "id": "@triggerBody()?['ID']",
+                  "item/Title": "@triggerBody()?['Title']",
+                  "item/ResponseJson": "{\"status\":\"error\",\"summary\":\"\"}"
+                },
+                "authentication": "@parameters('$authentication')"
+              },
+              "runAfter": {
+                "Run_a_prompt": [
+                  "Failed",
+                  "TimedOut"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Parse_request": [
+              "Succeeded"
+            ]
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "connectionName": "shared-commondataser-400dc39e-1acf-4b65-93d5-e4f08a9d5da3",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+        "tier": "NotSpecified",
+        "apiName": "commondataserviceforapps",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
+      },
+      "shared_sharepointonline": {
+        "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "tier": "NotSpecified",
+        "apiName": "sharepointonline",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
+      }
+    },
+    "flowFailureAlertSubscribed": false,
+    "isManaged": false
+  }
+}

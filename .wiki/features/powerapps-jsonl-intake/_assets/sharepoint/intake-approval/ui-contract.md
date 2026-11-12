@@ -1,6 +1,6 @@
 # Sponsor Highlights shared UI contract
 
-- Contract version: `1.0.7` for the TEST ONLY app and shared-control behavior; the original PA-34 baseline remains `1.0.0`
+- Contract version: `1.0.12` for the TEST ONLY app and shared-control behavior; the original PA-34 baseline remains `1.0.0`
 - Power Apps component library: `Sponsor Highlights UI TEST ONLY`
 - Status: TEST ONLY revision; actual published properties are recorded below
 - Source baseline: ACORN `10b17f22`, November 7, 2026
@@ -9,7 +9,13 @@ This contract defines the shared controls, tokens, responsive behavior, state la
 
 The user deferred all further accessibility features and checks on November 8, 2026. Existing labels, focus cues, and live validation remain implemented; the unperformed screen-reader, zoom, contrast, and cross-app accessibility checks are not acceptance gates for the current pilot.
 
-PA-39C changed the reviewer app's own decision controls and report-card styling without changing the published component library. The fixture decision bar reads `Needs review`, `Approve`, and `Exclude`; its selected option adds a check mark and the matching amber, green, or red state color. Every report card repeats the decision in text and a full-width color band, followed by the page name. At narrow inspector widths, the decision buttons stack at full width. An excluded item shows its required reason field and the inclusion state before Next problem. The [cross-app acceptance record](acceptance/cross-app-ui.md) contains desktop and 375-pixel proof.
+The reviewer app's live ledger and fixture workspace use three single-choice decision buttons: `◷ Unresolved` (amber `#8A4B08`), `✓ Approve` (ORNL green `#00662C`), and `× Exclude` (red `#A4262C`). The selected choice has a solid fill and white text; alternatives use a neutral fill with colored text and border. Hover previews the choice color, and pressing darkens it. Buttons retain zero focus-border thickness. The live ledger uses a horizontal row above 499 pixels and a full-width stack below that breakpoint; each button is 40 pixels high with 10-pixel gaps. Fixture buttons stack at narrow inspector widths.
+
+Live decision buttons remain disabled until an item is selected and while saving. Choosing a decision changes the local draft only; Save persists it. Exclude changes the notes placeholder to a required-reason prompt, and the existing save validation remains authoritative. The hidden native decision control preserves the existing save payload contract. Fixture decisions remain local-only, with the required exclusion reason and inclusion state shown before Next problem. Report cards continue to repeat the decision in text and a color band. The [usability record](acceptance/usability.md) records the current desktop and 375-pixel checks.
+
+After a confirmed live-ledger save (`saved` or `unchanged`) with `approve` selected, the app invokes the existing AI summary generation action automatically. The trigger runs only when the save state is `Saved` and generation is not already in progress. Conflicts, validation failures, service failures, and non-approved decisions do not trigger it. Generation remains a separate suggestion: Use suggestion changes the local summary and a later Save persists it. Generation errors leave the confirmed review intact, and After an initial generation attempt, the panel shows Additional context (optional), limited to 2,000 characters, followed by `↻ Regenerate summary`. The action is labeled `↻ Retry summary` for error, invalid, stale, or over-limit states and is hidden while generation runs. Context is disabled during generation. The field is scoped by batch/item key and is not persisted with the review. Generation appends the typed context to the original submission under an explicit reviewer-provided-context heading; the combined 12,000-character input limit and 1,200-character output limit remain enforced. Regeneration never writes the review summary or decision. Use suggestion updates the local summary, resets its input, and marks the review dirty; Save is still required. The panel sizes to its visible children without nested scrolling. Fixture decisions remain local-only.
+
+The November 12 compact typography revision uses Power Apps size 11 for shared input values, choices, narrative text, and status messages; app-owned reviewer body text and intake receipt/preview text follow the same scale. Supporting metadata and helper labels use size 10. Shared field labels remain size 12, contributor section titles remain size 14, and primary actions and page titles retain their existing emphasis. Control dimensions and spacing are preserved so smaller text has more breathing room.
 
 ## Authoritative sources
 
@@ -202,7 +208,7 @@ Text and state colors must meet 4.5:1 contrast against their assigned background
 | `FocusWidth` | `3` |
 | `FocusWidthButtonToggle` | `0` |
 | `FontBody` | `Segoe UI` |
-| `FontSizeBody` | `12` |
+| `FontSizeBody` | `11` |
 | `FontSizeHelp` | `10` |
 | `FontSizeHeading` | `18` |
 | `PageMaxWidth` | `816` |
@@ -320,4 +326,8 @@ Classification is not added to contributor intake by this contract.
 
 ## Versioning and adoption
 
-The PA-34 library baseline was published with semantic version `1.0.0`. The TEST ONLY library's live version 18, published November 10, 2026, carries the radio reset repair, `SecondChoiceTooltip`, and two-choice spacing. Both isolated apps explicitly adopted that revision. The contributor app's live version 16 uses the shorter placement label and tooltip. The reviewer prototype remains unpublished and uses the Office Green theme for its app-owned classic buttons and dropdown accents; shared segmented and narrative components retain the semantic tokens above.
+The current [BETA] library and both isolated apps were published November 12, 2026. Both apps adopted the library revision published at 15:01:41 Eastern. Shared narrative fields have complete bottom clearance; choice buttons use Title Case, green selected/hover states, and gray unselected states. Two-choice toggles show both states and derive their canonical output from the native switch. Buttons and toggles have no focus outline at the owner’s request; fields retain blue focus borders. Accessibility acceptance remains deferred.
+
+The current contributor order is Submission Type, Report Placement, Project when applicable, Date, mode-specific options, narrative fields, Report Preview with validation, then Submit. Project labels use catalog titles and retain stable IDs. Current live review editing supports summary, decision, and decision reason; the broader inspector field matrix above remains the target contract, not a claim that every source field is editable in the beta.
+
+Both reviewer views generate an AI suggestion after an approved Save and support explicit application and contextual regeneration through the standard SharePoint request path. See [beta verification](beta-repair/verification.md) for publication, visual checks, runtime evidence, and participant acceptance still required.

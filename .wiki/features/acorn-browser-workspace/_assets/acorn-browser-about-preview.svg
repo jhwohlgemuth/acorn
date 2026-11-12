@@ -189,7 +189,7 @@
     <rect x="732" y="598" width="196" height="62" rx="10" fill="#282c34" stroke="#3c424e" />
     <use href="#compass" x="746" y="617" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
     <text x="781" y="624" font-size="13" fill="#e4e7ed" font-weight="600" text-anchor="start">Driver.js</text>
-    <text x="781" y="642" font-size="10" fill="#a0a7b4" font-weight="400" text-anchor="start">Guided tour · planned</text>
+    <text x="781" y="642" font-size="10" fill="#a0a7b4" font-weight="400" text-anchor="start">Local guided tour</text>
     <rect x="946" y="598" width="196" height="62" rx="10" fill="#282c34" stroke="#3c424e" />
     <use href="#shield" x="960" y="617" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color:#8fd4ab" />
     <text x="995" y="624" font-size="13" fill="#e4e7ed" font-weight="600" text-anchor="start">WebMCP</text>

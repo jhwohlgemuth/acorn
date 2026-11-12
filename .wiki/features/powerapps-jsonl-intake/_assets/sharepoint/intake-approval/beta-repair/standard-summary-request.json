@@ -1,0 +1,322 @@
+{
+  "name": "0ddfbf82-88c1-499f-93af-c3d33718ff22",
+  "id": "/providers/Microsoft.Flow/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22",
+  "type": "Microsoft.Flow/flows",
+  "properties": {
+    "apiId": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+    "displayName": "[BETA] Request Reviewer Summary",
+    "definition": {
+      "metadata": {
+        "workflowEntityId": null,
+        "processAdvisorMetadata": null,
+        "flowChargedByPaygo": null,
+        "flowclientsuspensionreason": "None",
+        "flowclientsuspensiontime": null,
+        "flowclientsuspensionreasondetails": null,
+        "creator": {
+          "id": "ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8",
+          "type": "User",
+          "tenantId": "db3dbd43-4c4b-4544-9f8a-0553f9f5f25e"
+        },
+        "provisioningMethod": "FromDefinition",
+        "failureAlertSubscription": true,
+        "clientLastModifiedTime": "2026-11-08T20:49:21.4397635Z",
+        "lastModifiedBy": "ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8",
+        "connectionKeySavedTimeKey": "2026-11-08T20:49:21.4397635Z",
+        "creationSource": null
+      },
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "PowerAppV2",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "description": "Please enter your input",
+                  "title": "content",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Caller_email": {
+          "type": "Compose",
+          "inputs": "@toLower(if(not(empty(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])),base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded']),coalesce(triggerOutputs()?['headers']?['x-ms-user-email'],'')))",
+          "runAfter": {},
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs"
+              ]
+            }
+          }
+        },
+        "Read_reviewers": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "HttpRequest"
+            },
+            "parameters": {
+              "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+              "parameters/method": "GET",
+              "parameters/uri": "_api/web/sitegroups/getbyid(42)/users",
+              "parameters/headers": {
+                "Accept": "application/json;odata=nometadata"
+              }
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {
+            "Caller_email": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          }
+        },
+        "Caller_membership": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('Read_reviewers')?['value']",
+            "where": "@equals(toLower(item()?['LoginName']),concat('i:0#.f|membership|',outputs('Caller_email')))"
+          },
+          "runAfter": {
+            "Read_reviewers": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs"
+              ]
+            }
+          }
+        },
+        "Authorized_request": {
+          "type": "If",
+          "expression": {
+            "equals": [
+              "@and(not(empty(outputs('Caller_email'))),equals(length(body('Caller_membership')),1),greater(length(trim(coalesce(triggerBody()?['text'],''))),0),lessOrEquals(length(coalesce(triggerBody()?['text'],'')),12000))",
+              true
+            ]
+          },
+          "actions": {
+            "Request_id": {
+              "type": "Compose",
+              "inputs": "@guid()",
+              "runAfter": {},
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs"
+                  ]
+                }
+              }
+            },
+            "Request_json": {
+              "type": "Compose",
+              "inputs": {
+                "content": "@triggerBody()?['text']",
+                "owner": "@outputs('Caller_email')",
+                "requestId": "@outputs('Request_id')"
+              },
+              "runAfter": {
+                "Request_id": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs"
+                  ]
+                }
+              }
+            },
+            "Create_request": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PostItem"
+                },
+                "parameters": {
+                  "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                  "table": "442cdec0-52b9-4f24-97b6-092961312c41",
+                  "item/Title": "@outputs('Request_id')",
+                  "item/RequestJson": "@string(outputs('Request_json'))"
+                },
+                "authentication": "@parameters('$authentication')"
+              },
+              "runAfter": {
+                "Request_json": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Wait_for_summary": {
+              "type": "Until",
+              "expression": "@not(empty(body('Read_result')?['ResponseJson']))",
+              "limit": {
+                "count": 18,
+                "timeout": "PT95S"
+              },
+              "actions": {
+                "Wait": {
+                  "type": "Wait",
+                  "inputs": {
+                    "interval": {
+                      "count": 5,
+                      "unit": "Second"
+                    }
+                  },
+                  "runAfter": {}
+                },
+                "Read_result": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "GetItem"
+                    },
+                    "parameters": {
+                      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                      "table": "442cdec0-52b9-4f24-97b6-092961312c41",
+                      "id": "@body('Create_request')?['ID']"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Wait": [
+                      "Succeeded"
+                    ]
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "Create_request": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          },
+          "runAfter": {
+            "Caller_membership": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Respond_to_a_Power_App_or_flow": {
+          "runAfter": {
+            "Authorized_request": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          },
+          "type": "Response",
+          "kind": "PowerApp",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "summary": {
+                  "title": "summary",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "additionalProperties": {}
+            },
+            "statusCode": 200,
+            "body": {
+              "summary": "@{if(equals(json(if(empty(body('Read_result')?['ResponseJson']),'{\"status\":\"pending\",\"summary\":\"\"}',body('Read_result')?['ResponseJson']))?['status'],'ready'),json(body('Read_result')?['ResponseJson'])?['summary'],'')}"
+            }
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "tier": "NotSpecified",
+        "apiName": "sharepointonline",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
+      }
+    },
+    "flowFailureAlertSubscribed": false,
+    "isManaged": false
+  }
+}

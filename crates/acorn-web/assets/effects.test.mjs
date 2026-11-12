@@ -2,6 +2,111 @@ import assert from "node:assert/strict";
 import { setTimeout } from "node:timers/promises";
 import test from "node:test";
 
+async function effectContext(extra = {}) {
+    const { readFile } = await import("node:fs/promises");
+    const { runInNewContext } = await import("node:vm");
+    const context = { window: {}, document: { getElementById: () => null, querySelector: () => null }, TextDecoder, setTimeout, clearTimeout, ...extra };
+    runInNewContext(await readFile(new URL("effects.js", import.meta.url), "utf8"), context);
+    return context;
+}
+test("map origins allow both loopback names and reject remote development imports", async () => {
+    const context = await effectContext();
+    for (const page of ["http://127.0.0.1:9000", "http://localhost:9000"]) {
+        for (const module of ["http://127.0.0.1:8083/src/main.tsx", "http://localhost:8083/src/main.tsx"]) {
+            assert.equal(context.isLocalMapUrl(new URL(module), new URL(page)), true);
+        }
+    }
+    assert.equal(context.isLocalMapUrl(new URL("https://example.org/map.js"), new URL("https://example.org/app")), true);
+    for (const [module, page] of [
+        ["http://127.0.0.1:8083/map.js", "https://example.org"],
+        ["https://example.org/map.js", "http://localhost:9000"],
+        ["http://localhost.evil:8083/map.js", "http://localhost:9000"],
+        ["ftp://localhost:8083/map.js", "http://localhost:9000"],
+    ]) assert.equal(context.isLocalMapUrl(new URL(module), new URL(page)), false);
+});
+test("rejected or malformed map URLs deliver the accessible fallback", async () => {
+    const errors = [];
+    const context = await effectContext({ URL, location: new URL("http://localhost:9000"), console: { error() {} }, document: { baseURI: "http://localhost:9000/", getElementById: () => null, querySelector: () => null } });
+    for (const url of ["https://remote.example/map.js", "http://["]) {
+        await context.window.acornMap.connect(url, "", (event) => errors.push(event));
+    }
+    assert.equal(errors.length, 2);
+    assert.ok(errors.every((event) => event.type === "error" && /table/.test(event.message)));
+});
+test("workspace input enforces UTF-8, size, path, duplicate and partial-success boundaries", async () => {
+    const context = await effectContext();
+    const file = (path, content) => ({ path, file: new Blob([content]) });
+    const result = await context.readWorkspaceFiles([
+        file("b/valid.json", "{}"), file("a.txt", "hello"), file("a.txt", "duplicate"), file("../escape.json", "{}"),
+        file("binary.json", new Uint8Array([0xff])), file("large.txt", "x".repeat(262145)), file("wrong.exe", "x"),
+        { path: "unreadable.txt", file: { size: 1, arrayBuffer: async () => { throw new Error("denied"); } } },
+    ]);
+    assert.deepEqual(JSON.parse(JSON.stringify(result)), { files: [{ path: "a.txt", content: "hello" }, { path: "b/valid.json", content: "{}" }], skipped: 6 });
+    assert.equal(context.validWorkspacePath("a/".repeat(20) + "x.json"), false);
+    assert.equal(context.validWorkspacePath("a\\x.json"), false);
+    const many = await context.readWorkspaceFiles(Array.from({ length: 501 }, (_, i) => file(`${i}.json`, "{}")));
+    assert.equal(many.files.length, 500);
+    assert.equal(many.skipped, 1);
+    const total = await context.readWorkspaceFiles(Array.from({ length: 65 }, (_, i) => file(`${i}.txt`, "x".repeat(262144))));
+    assert.equal(total.files.length, 64);
+    assert.equal(total.skipped, 1);
+});
+test("folder drops exhaust directory batches and preserve sorted relative paths", async () => {
+    const context = await effectContext();
+    const leaf = (name) => ({ name, isFile: true, file: (resolve) => resolve(new Blob(["{}"])) });
+    let reads = 0;
+    const folder = { name: "root", isDirectory: true, createReader: () => ({ readEntries(resolve) { resolve([[leaf("z.json")], [leaf("a.json")], []][reads++]); } }) };
+    const result = await context.readWorkspaceEntries([folder]);
+    assert.equal(reads, 3);
+    assert.deepEqual(Array.from(result.files, (file) => file.path), ["root/a.json", "root/z.json"]);
+});
+test("a pending drop cannot replace the session after leaving Home", async () => {
+    const context = await effectContext();
+    const deliveries = [];
+    let resolve;
+    const file = { name: "late.json", size: 2, arrayBuffer: () => new Promise((done) => { resolve = done; }) };
+    context.window.acornWorkspace.connect((batch) => deliveries.push(batch));
+    context.window.acornWorkspace.drop({ dataTransfer: { files: [file], items: [] } });
+    context.window.acornWorkspace.disconnect();
+    resolve(new TextEncoder().encode("{}").buffer);
+    await setTimeout(0);
+    assert.equal(deliveries.length, 0);
+});
+test("skill exports reject mismatched, corrupt and incomplete bundles", async () => {
+    const { createHash } = await import("node:crypto");
+    const context = await effectContext();
+    const definition = new TextEncoder().encode("Skill definition");
+    const archive = new TextEncoder().encode("Archive bytes");
+    const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
+    const manifest = { schemaVersion: 1, appVersion: "1.0", compatibility: { cli: "1.0" }, skillRevision: "a".repeat(64), files: { "SKILL.md": hash(definition) }, definition: { file: "SKILL.md", sha256: hash(definition) }, archive: { file: "acorn-skill.zip", sha256: hash(archive) } };
+    assert.equal((await context.verifySkill(manifest, definition, archive, "1.0", hash)).definition, "Skill definition");
+    await assert.rejects(context.verifySkill(manifest, definition, archive, "2.0", hash), /does not match/);
+    await assert.rejects(context.verifySkill(manifest, definition, new Uint8Array([1]), "1.0", hash), /integrity/);
+    await assert.rejects(context.verifySkill({ ...manifest, files: {} }, definition, archive, "1.0", hash), /does not match/);
+    await assert.rejects(context.verifySkill({ ...manifest, schemaVersion: 2 }, definition, archive, "1.0", hash), /does not match/);
+});
+test("format-specific downloads preserve bytes and revoke object URLs", async () => {
+    const blobs = [];
+    const timers = [];
+    const revoked = [];
+    const link = { click() { this.clicked = true; } };
+    const context = await effectContext({ Blob, URL: { createObjectURL(blob) { blobs.push(blob); return "blob:test"; }, revokeObjectURL(url) { revoked.push(url); } }, setTimeout: (callback) => timers.push(callback), document: { getElementById: () => null, querySelector: () => null, createElement: () => link } });
+    context.window.acornDownload("+literal <script>\n", "../changes.diff", "text/plain;charset=utf-8");
+    assert.equal(link.download, ".._changes.diff");
+    assert.equal(link.clicked, true);
+    assert.equal(blobs[0].type, "text/plain;charset=utf-8");
+    assert.equal(await blobs[0].text(), "+literal <script>\n");
+    timers[0]();
+    assert.deepEqual(revoked, ["blob:test"]);
+});
+test("explicit theme tiles remain selected across system changes", async () => {
+    const context = await effectContext();
+    const states = [];
+    const theme = context.createTheme(true, (dark, system) => states.push([dark, system]));
+    theme.choose("light"); theme.update(true); theme.choose("dark"); theme.update(false); theme.choose("system"); theme.choose("invalid");
+    assert.deepEqual(states, [[false, false], [false, false], [true, false], [true, false], [false, true]]);
+});
+
 test("WebMCP survives cached navigation and disposes on final unload", async (t) => {
     const globals = ["document", "window"].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]);
     t.after(() => globals.forEach(([name, descriptor]) => {
@@ -75,7 +180,7 @@ test("leaving the drawer layout closes an open drawer through its state-owning c
     window.matchMedia = () => Object.assign(new EventTarget(), { matches: false });
     window.getComputedStyle = (element) => { assert.equal(element, header); return element; };
     const context = {
-        window,
+        window, Event,
         document: {
             getElementById: (id) => id === "nav-toggle" ? toggle : null,
             querySelector: (selector) => selector === ".workspace" ? { dataset: {} } : null,

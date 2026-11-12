@@ -8,20 +8,23 @@
 \definecolor{Forest}{HTML}{1E4035}
 \definecolor{Green}{HTML}{00662C}
 \definecolor{Energy}{HTML}{7DBA00}
+\definecolor{AiGreen}{HTML}{498205}
 \definecolor{ChoiceGray}{HTML}{F1F2F3}
 \definecolor{ChoiceText}{HTML}{6B7074}
 \definecolor{Disabled}{HTML}{A6A6A6}
+\definecolor{Amber}{HTML}{8A4B08}
+\definecolor{Danger}{HTML}{A4262C}
 \definecolor{Navy}{HTML}{00454D}
 \definecolor{Mint}{HTML}{EDF4EF}
 \definecolor{Line}{HTML}{C7D8CF}
 \definecolor{Ink}{HTML}{18372E}
 \definecolor{Muted}{HTML}{4D665B}
-\hypersetup{colorlinks=true,linkcolor=Green,urlcolor=Green,pdftitle={PA-40A Participant Guide - TEST ONLY},pdfauthor={ACORN / ORNL}}
+\hypersetup{colorlinks=true,linkcolor=Green,urlcolor=Green,pdftitle={Sponsor Highlights Participant Guide - BETA},pdfauthor={ACORN / ORNL}}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{6pt}
 \setlist[itemize]{topsep=3pt,itemsep=3pt,leftmargin=18pt}
 \pagestyle{fancy}\fancyhf{}
-\fancyfoot[L]{\color{Muted}\scriptsize PA-40A / TEST ONLY / 12 NOV 2026}
+\fancyfoot[L]{\color{Muted}\scriptsize PA-40A / BETA / 12 NOV 2026}
 \fancyfoot[R]{\color{Muted}\scriptsize \thepage\ / 5}
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0.4pt}
@@ -31,18 +34,19 @@
 \newtcolorbox{note}{colback=Mint,colframe=Line,boxrule=.6pt,arc=7pt,left=10pt,right=10pt,top=8pt,bottom=8pt}
 \newcommand{\tile}[3]{\node[draw=Line,fill=#3,rounded corners=5pt,minimum width=2.95in,minimum height=.39in,text=Ink,font=\small\bfseries] at (#1) {#2};}
 \newcommand{\choice}[4]{\node[draw=Line,fill=#3,rounded corners=5pt,minimum width=2.95in,minimum height=.39in,text=#4,font=\small\bfseries] at (#1) {#2};}
+\newcommand{\pendingicon}{\tikz[baseline=-.5ex,scale=.16]{\draw[line width=.7pt] (0,0) circle(.5);\draw[line width=.7pt] (0,.35)--(0,0)--(.3,0);}}
 \begin{document}
 
 \eyebrow{PARTICIPANT ORIENTATION}
 \titleline{Sponsor Highlights walkthrough}
-\subline{A short guide to the published TEST ONLY contributor and reviewer forms. Use invented, non-sensitive content. Work independently and record the first place you hesitate.}
+\subline{A short guide to the published [BETA] contributor and reviewer forms. Use invented, non-sensitive content. Work independently and record the first place you hesitate.}
 
 \begin{note}
 \textbf{Two roles.} The contributor submits a highlight and checks the receipt and export status. The reviewer opens a Ready batch, inspects a selected item, records a decision, and saves the review. A saved review does not publish a report.
 \end{note}
 
 \vspace{12pt}
-\eyebrow{ROUTE THROUGH THE TEST WORKFLOW}
+\eyebrow{ROUTE THROUGH THE WORKFLOW}
 \begin{tikzpicture}[x=1in,y=1in]
   \foreach \x/\number/\heading/\body in {
     0/1/Contributor/{Choose type and placement. Write a short update.},
@@ -62,9 +66,9 @@
 \vspace{16pt}
 \eyebrow{BEFORE STARTING}
 \begin{enumerate}[leftmargin=20pt,itemsep=6pt]
-\item Open the published TEST ONLY app link for your assigned role with your ORNL work account.
+\item Open the published [BETA] app link for your assigned role with your ORNL work account.
 \item Confirm the app name. If a connection prompt appears, inspect its services before allowing access.
-\item Use fictional people, projects, sponsors, and facts. Do not enter sensitive information.
+\item Choose a real project from the list, but use invented, non-sensitive facts for this walkthrough. Do not enter sensitive information.
 \item If a task fails, note the exact message and stop that task. Do not repeat a submission or save to work around uncertainty.
 \end{enumerate}
 \begin{note}
@@ -73,17 +77,17 @@
 \newpage
 
 \eyebrow{CONTRIBUTOR}
-\titleline{Submit and correct a highlight}
-\subline{Task goal: make one synthetic activity highlight, confirm its receipt, find it in My Submissions, and make one summary correction.}
+\titleline{Submit and edit an update}
+\subline{Task goal: make one synthetic activity submission, confirm its receipt, find it in My Submissions, and make one summary correction.}
 
 \begin{tcolorbox}[colback=Forest,colframe=Forest,arc=7pt,left=12pt,right=12pt,top=8pt,bottom=8pt]
-{\color{white}\large\bfseries Sponsor Highlights}\hfill {\color{white}\small My Submissions}\par
+{\color{white}\large\bfseries [BETA] Sponsor Highlights}\hfill {\color{white}\small My Submissions}\par
 {\color{white}\small Document progress. Connect research to impact.}
 \end{tcolorbox}
 
 {\color{Green}\large\bfseries 01 // Highlight details}\par
 \begin{tikzpicture}[x=1in,y=1in]
-  \foreach \y/\heading/\value in {0/{Highlight type}/{Project status},-.68/{Report placement}/{Project highlight}}{
+  \foreach \y/\heading/\value in {0/{Submission Type}/{$\circ$ Activity  $\checkmark$ Project Status},-.68/{Report Placement}/{$\checkmark$ Project  $\circ$ General}}{
     \node[anchor=west,text=Ink,font=\bfseries] at (0,\y) {\heading};
     \ifdim\y pt=0pt\def\togglecolor{Energy}\def\thumbx{.34}\def\valuecolor{Ink}\else\def\togglecolor{Disabled}\def\thumbx{.13}\def\valuecolor{Disabled}\fi
     \draw[fill=\togglecolor,draw=\togglecolor,rounded corners=9pt] (0,\y-.43) rectangle ++(.47,.25);
@@ -91,64 +95,74 @@
     \node[anchor=west,text=\valuecolor,font=\small] at (.54,\y-.305) {\value};
   }
 \end{tikzpicture}\par
-{\color{Muted}\scriptsize Current control reference (redrawn): aligned toggle values; bright green shows the on state.}\par
-Click the switch or its adjacent value label; the hand cursor marks an enabled toggle. Highlight type switches between Activity highlight and Project status. Report placement switches between Project highlight and General update. Project status locks placement to Project highlight.\par
+{\color{Muted}\scriptsize Current control reference (redrawn): both states are labeled; a check marks the selected state.}\par
+Click the switch or its adjacent labels. Submission Type switches between Activity and Project Status; Report Placement switches between Project and General. Project Status locks placement to Project. The enabled on state is bright green.\par
 \begin{tabularx}{\linewidth}{@{}X X@{}}
 \textbf{Project} & \textbf{Date}\\[4pt]
-Select a project & Choose the activity date\\[12pt]
+Choose its index title (for example, LandScan) & Choose the activity date\\[12pt]
 \textbf{For an activity highlight} & \textbf{For a project status}\\[4pt]
 Choose a category, status, and optional event type & Choose project health; choose a risk or None; add proof if available\\
 \end{tabularx}
 
 \vspace{5pt}
 {\color{Green}\large\bfseries 02 // The development}\par
-Write the short summary first. Add the context requested for the selected type. Field labels stay visible while you type; optional details may stay empty. The third section, Report preview, helps you check how the text reads.
+Write the short summary first. Add the context requested for the selected type. Field labels stay visible while you type; optional details may stay empty. The third section, Report Preview, shows the submission and a red warning if a required field is missing or invalid. Correct the warning before submitting; no TEST ONLY prefix is required.
 
 \begin{note}
-\textbf{Choice buttons:} project health and risk appear as two-column button grids with icons describing each option. The row and column gaps are similar, and a green button shows the single selected choice. The other buttons are gray, turn green on hover, and remain clickable; selecting another replaces the previous choice. All choices in each grid are visible without a separate list scrollbar. For a status marked At risk, Delayed, or Paused, explain the health context. If you choose a risk other than None, add the effect or action needed.
+\textbf{Choice buttons:} project health and risk appear as two-column button grids with icons describing each option. The row and column gaps are similar, and a green button shows the single selected choice. The other buttons are gray, turn green on hover, and remain clickable; selecting another replaces the previous choice. All choices in each grid are visible without a separate list scrollbar. For a status marked At Risk, Delayed, or Paused, explain the health context. If you choose a risk other than None, add the effect or action needed.
 \end{note}
 
 \vspace{4pt}
 \eyebrow{FINISH AND CORRECT}
 \begin{enumerate}[leftmargin=20pt,itemsep=5pt]
 \item Submit once and read the receipt and export status before starting another action.
-\item Open My Submissions in the header, select your receipt, then choose Edit selected.
-\item Change the summary and save the correction. The original receipt remains; the correction has a linked receipt.
+\item Open My Submissions in the header, select your receipt, then choose Edit.
+\item Change the summary and choose Submit. The original receipt remains; the correction has a linked receipt.
 \end{enumerate}
 
-Button icons reinforce the text label. Buttons and toggles have no focus outline. Text fields and dropdowns retain their blue focus borders.
+If Submit is unavailable, read the red message in Report Preview and correct the indicated field. Keep the form open until you see a confirmed receipt; use Retry Submit if the save could not be confirmed.
 \newpage
 
 \eyebrow{CONTRIBUTOR REFERENCE VIEWS}
 \titleline{Find the status choices}
-\subline{The upper image is a historical TEST ONLY reference screenshot. The lower control reference is redrawn from the published November 12 status form because the browser blocked exporting the current capture as a local image. Use the live app for exact placement.}
+\subline{Current UI reference, redrawn from the published [BETA] form. These diagrams show the current controls and states; use the live app for exact placement.}
 
-\begin{center}
-\fcolorbox{Line}{white}{\includegraphics[width=.73\linewidth,height=2.40in,keepaspectratio]{pa40a-contributor-desktop.png}}\\[3pt]
-{\color{Muted}\scriptsize Historical reference screenshot: earlier activity form and header.}
-\end{center}
-
-\vspace{4pt}
+\begin{tcolorbox}[colback=Forest,colframe=Forest,arc=7pt,left=12pt,right=12pt,top=10pt,bottom=10pt]
+{\color{white}\large\bfseries [BETA] Sponsor Highlights}\hfill{\color{white}\small My Submissions}\par
+{\color{white}\small Document progress. Connect research to impact.}
+\end{tcolorbox}
+{\color{Green}\large\bfseries 01 // Highlight details}\par
+\begin{tikzpicture}[x=1in,y=1in]
+  \foreach \y/\heading/\value in {0/{Submission Type}/{$\circ$ Activity  $\checkmark$ Project Status},-.68/{Report Placement}/{$\checkmark$ Project  $\circ$ General}}{
+    \node[anchor=west,text=Ink,font=\bfseries] at (0,\y) {\heading};
+    \ifdim\y pt=0pt\def\togglecolor{Energy}\def\thumbx{.34}\def\valuecolor{Ink}\else\def\togglecolor{Disabled}\def\thumbx{.13}\def\valuecolor{Disabled}\fi
+    \draw[fill=\togglecolor,draw=\togglecolor,rounded corners=9pt] (0,\y-.43) rectangle ++(.47,.25);
+    \fill[white] (\thumbx,\y-.305) circle (.095);
+    \node[anchor=west,text=\valuecolor,font=\small] at (.54,\y-.305) {\value};
+  }
+\end{tikzpicture}\par
+{\color{Muted}\scriptsize Project Status is selected; report placement is locked to Project.}\par
+\vspace{7pt}
 {\color{Forest}\bfseries Current published status controls (redrawn reference)}\par
 \begin{tikzpicture}[x=1in,y=1in]
   \node[anchor=west,text=Forest,font=\small\bfseries] at (0,0) {Project health *};
-  \choice{1.50,-.34}{$\rightarrow$ On track}{Green}{white}\choice{4.60,-.34}{$\nearrow$ Ahead of plan}{ChoiceGray}{ChoiceText}
-  \choice{1.50,-.88}{$\triangle$ At risk}{ChoiceGray}{ChoiceText}\choice{4.60,-.88}{$\circlearrowleft$ Delayed}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-.34}{$\rightarrow$ On Track}{Green}{white}\choice{4.60,-.34}{$\nearrow$ Ahead Of Plan}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-.88}{$\triangle$ At Risk}{ChoiceGray}{ChoiceText}\choice{4.60,-.88}{$\circlearrowleft$ Delayed}{ChoiceGray}{ChoiceText}
   \choice{1.50,-1.42}{$\Vert$ Paused}{ChoiceGray}{ChoiceText}\choice{4.60,-1.42}{$\checkmark$ Complete}{ChoiceGray}{ChoiceText}
   \node[anchor=west,text=Forest,font=\small\bfseries] at (0,-1.95) {Risk or dependency};
   \choice{1.50,-2.29}{$\circ$ None}{Green}{white}\choice{4.60,-2.29}{$\equiv$ Data}{ChoiceGray}{ChoiceText}
-  \choice{1.50,-2.83}{$\boxplus$ Infrastructure}{ChoiceGray}{ChoiceText}\choice{4.60,-2.83}{$\square$ Security accreditation}{ChoiceGray}{ChoiceText}
-  \choice{1.50,-3.37}{$\ast$ Software environment}{ChoiceGray}{ChoiceText}\choice{4.60,-3.37}{$\star$ Sponsor prioritization}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-2.83}{$\boxplus$ Infrastructure}{ChoiceGray}{ChoiceText}\choice{4.60,-2.83}{$\square$ Security Accreditation}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-3.37}{$\ast$ Software Environment}{ChoiceGray}{ChoiceText}\choice{4.60,-3.37}{$\star$ Sponsor Prioritization}{ChoiceGray}{ChoiceText}
   \node[anchor=west,text=Muted,font=\scriptsize] at (0,-3.75) {Six more risk buttons follow in the live grid; select one or choose None.};
 \end{tikzpicture}
 \newpage
 
 \eyebrow{REVIEWER}
-\titleline{Review a test batch}
-\subline{Task goal: load a Ready TEST ONLY batch, inspect one unresolved item, edit its summary if needed, choose a decision, and save. Fixture review is separate local-only practice.}
+\titleline{Review a Ready batch}
+\subline{Task goal: load the assigned Ready batch, inspect one unresolved item, edit its summary if needed, choose a decision, and save.}
 
 \begin{tcolorbox}[colback=Forest,colframe=Forest,arc=7pt,left=12pt,right=12pt,top=8pt,bottom=8pt]
-{\color{white}\large\bfseries Sponsor Highlights / Review ledger}\hfill{\color{white}\small Load batches}
+{\color{white}\large\bfseries [BETA] Sponsor Highlights / Review}\hfill{\color{white}\small Load Batches}
 \end{tcolorbox}
 
 \vspace{5pt}
@@ -168,14 +182,23 @@ Button icons reinforce the text label. Buttons and toggles have no focus outline
 
 \vspace{11pt}
 \eyebrow{INSPECT AND DECIDE}
+\begin{tikzpicture}[x=1in,y=1in]
+  \draw[fill=Amber,draw=Amber,rounded corners=5pt] (0,0) rectangle (2.1,.44);
+  \draw[fill=ChoiceGray,draw=Green,rounded corners=5pt] (2.28,0) rectangle (4.38,.44);
+  \draw[fill=ChoiceGray,draw=Danger,rounded corners=5pt] (4.56,0) rectangle (6.66,.44);
+  \node[text=white,font=\bfseries] at (1.05,.22) {\pendingicon\ Unresolved};
+  \node[text=Green,font=\bfseries] at (3.33,.22) {$\checkmark$ Approve};
+  \node[text=Danger,font=\bfseries] at (5.61,.22) {$\times$ Exclude};
+\end{tikzpicture}\par
+{\color{Muted}\scriptsize Current decision controls (redrawn): Unresolved selected.}\par
 \begin{enumerate}[leftmargin=20pt,itemsep=5pt]
-\item Use the checkbox-marked Needs review filter to narrow the item list. Select an item and read the source summary. View JSON is optional detail.
-\item Edit the one summary field if the report text needs work. Choose Unresolved, Approve, or Exclude. Exclude requires a reason.
-\item Save the review in the ledger. The optional AI suggestion must be checked against the source before applying it.
+\item Use the checkbox-marked Needs Review filter to narrow the item list. Select an item and read the source summary. View JSON is optional detail.
+\item Edit the one summary field if the report text needs work. Choose one icon button: amber Unresolved, green Approve, or red Exclude. The selected button has a solid fill. Exclude requires a reason; choosing a button does not save the review.
+\item Save the review in the ledger. A successful save with Approve selected automatically generates an AI summary suggestion. Check it against the source before choosing Use Suggestion; this changes the local summary, which needs another save. To refine it, add facts in Additional context (optional), then choose Regenerate Summary. Context is limited to 2,000 characters and stored with the summary request in a restricted queue. It does not change the source submission or saved review. Generation can take about a minute.
 \end{enumerate}
 
 \begin{note}
-At a narrow browser width, the period, item, and selected-item blocks stack in reading order. The reviewer form uses a short decision row; the fixture practice view uses icon buttons. Saving a review does not publish a report.
+At a narrow browser width, the period, item, and selected-item blocks stack in reading order. The live ledger uses a three-button decision row that stacks at phone width. Hovering a choice previews its color; a click selects it. Decisions are disabled until an item is selected. Saving a review does not publish a report.
 \end{note}
 
 \vspace{8pt}
@@ -183,29 +206,36 @@ If a Ready batch or item is missing, record that state. Do not save a substitute
 \newpage
 
 \eyebrow{REVIEWER REFERENCE VIEWS}
-\titleline{Find the practice decisions}
-\subline{The upper image is a historical TEST ONLY fixture screenshot. The lower decision reference is redrawn from the current published fixture view. The current live ledger is described on page 4.}
+\titleline{Save, then review the AI suggestion}
+\subline{Current UI references, redrawn. The live ledger generates a suggestion after a successful approved save.}
 
-\begin{center}
-\fcolorbox{Line}{white}{\includegraphics[width=.92\linewidth,height=2.48in,keepaspectratio]{pa40a-reviewer-tablet.png}}\\[3pt]
-{\color{Muted}\scriptsize Historical reference screenshot: report preview and inspector.}
-\end{center}
-
-\vspace{5pt}
-{\color{Forest}\bfseries Current published fixture decision block (redrawn reference)}\par
+\begin{tcolorbox}[colback=Forest,colframe=Forest,arc=7pt,left=12pt,right=12pt,top=9pt,bottom=9pt]
+{\color{white}\large\bfseries [BETA] Sponsor Highlights / Review}
+\end{tcolorbox}
 \begin{tikzpicture}[x=1in,y=1in]
-  \draw[fill=white,draw=Line,rounded corners=7pt] (0,0) rectangle (6.66,2.12);
-  \node[anchor=west,text=Ink,font=\bfseries] at (.18,1.85) {Review decision / fixture only};
-  \node[anchor=west,text=Muted,font=\small] at (.18,1.54) {Current: Needs review};
-  \draw[fill=Navy,draw=Navy,rounded corners=5pt] (.18,.82) rectangle (2.15,1.34);
-  \draw[fill=Mint,draw=Line,rounded corners=5pt] (2.34,.82) rectangle (4.31,1.34);
-  \draw[fill=Mint,draw=Line,rounded corners=5pt] (4.50,.82) rectangle (6.47,1.34);
-  \node[text=white,font=\bfseries] at (1.16,1.08) {$\square$ Review};
-  \node[text=Ink,font=\bfseries] at (3.33,1.08) {$\checkmark$ Approve};
-  \node[text=Ink,font=\bfseries] at (5.49,1.08) {$\times$ Exclude};
-  \draw[fill=Green,draw=Green,rounded corners=5pt] (.18,.18) rectangle (6.47,.64);
-  \node[text=white,font=\bfseries] at (3.33,.41) {Next problem};
-\end{tikzpicture}
+  \draw[fill=white,draw=Line,rounded corners=7pt] (0,0) rectangle (6.66,2.65);
+  \node[anchor=west,text=Ink,font=\bfseries] at (.18,2.39) {AI summary suggestion};
+  \node[anchor=north west,text=Muted,text width=6.12in,font=\small] at (.18,2.19) {Approved saves generate a suggestion. Check facts before use.};
+  \node[anchor=north west,text=Ink,text width=6.12in,font=\small] at (.18,1.85) {The generated suggestion appears here. Review it before applying.};
+  \draw[fill=AiGreen,draw=AiGreen] (.18,1.24) rectangle (3.28,1.61);
+  \draw[fill=AiGreen,draw=AiGreen] (3.38,1.24) rectangle (6.47,1.61);
+  \node[text=white,font=\bfseries] at (1.73,1.425) {Use Suggestion};
+  \node[text=white,font=\bfseries] at (4.925,1.425) {Discard};
+  \node[anchor=west,text=Ink,font=\small\bfseries] at (.18,1.04) {Additional context (optional)};
+  \draw[fill=white,draw=Line] (.18,.50) rectangle (6.47,.89);
+  \node[anchor=west,text=Muted,font=\small] at (.28,.695) {Add facts, dates, or outcomes to include, then regenerate.};
+  \draw[fill=AiGreen,draw=AiGreen] (.18,.08) rectangle (6.47,.41);
+  \node[text=white,font=\bfseries] at (3.33,.245) {$\circlearrowleft$ Regenerate Summary};
+\end{tikzpicture}\par
+{\color{Muted}\scriptsize Current AI panel after generation (redrawn); suggestion text is explanatory.}\par
+\vspace{8pt}
+{\color{Forest}\bfseries Validation in Report Preview (redrawn reference)}\par
+\begin{tcolorbox}[colback=red!4,colframe=Danger,arc=6pt,left=12pt,right=12pt,top=10pt,bottom=10pt]
+{\color{Danger}\bfseries 03 // Report Preview}\par
+{\color{Danger}$\triangle$ Choose a project.}\par
+{\color{Ink}\small The warning appears with the preview at the bottom of the intake form. Complete the required fields above; Submit becomes available when the form is valid.}
+\end{tcolorbox}
+\textbf{Report View:} opens the selected batch as a report-oriented workspace. Select a project or General Updates from its picker. After Use Suggestion in this view, select Approve again when the wording is ready, then Save. Saving does not publish a report.
 
 \begin{note}
 \textbf{Record the independent walkthrough:} what you expected, what happened, any label or decision you could not interpret, extra clicks or typing, scrolling that hid the next action, and the exact failure message. Tell the facilitator after you have written the observation.

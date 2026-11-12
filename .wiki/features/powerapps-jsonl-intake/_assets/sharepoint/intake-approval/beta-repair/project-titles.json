@@ -1,0 +1,63 @@
+{
+  "revision": "ca480f129ece7f8ef6bb27572fc33c8988020225",
+  "source": "https://code.ornl.gov/research-enablement/experiments/power-automate",
+  "projects": [
+    {
+      "id": "building-damage-indicators",
+      "title": "Building Damage Indicators"
+    },
+    {
+      "id": "global-terrain",
+      "title": "Global Terrain"
+    },
+    {
+      "id": "gravity",
+      "title": "AI-driven Gravity Maps"
+    },
+    {
+      "id": "hifld",
+      "title": "HIFLD",
+      "sourceFile": "hifld/index.md",
+      "sourceField": "heading"
+    },
+    {
+      "id": "landscan",
+      "title": "LandScan"
+    },
+    {
+      "id": "landscan-global",
+      "title": "LandScan Global"
+    },
+    {
+      "id": "landscan-mosaic",
+      "title": "LandScan Mosaic"
+    },
+    {
+      "id": "myriad",
+      "title": "Myriad"
+    },
+    {
+      "id": "nautical-charts",
+      "title": "Nautical Charts"
+    },
+    {
+      "id": "planetsense",
+      "title": "PlanetSense"
+    },
+    {
+      "id": "planetsense-segraph",
+      "title": "PlanetSense SeGraph Technology"
+    },
+    {
+      "id": "precision-imagery",
+      "title": "Precision Imagery"
+    }
+  ],
+  "fallbacks": [
+    {
+      "id": "acorn",
+      "label": "acorn",
+      "reason": "No index.json title or index.md heading exists for acorn in the inspected revision."
+    }
+  ]
+}

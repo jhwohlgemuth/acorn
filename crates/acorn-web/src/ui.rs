@@ -1,5 +1,11 @@
+use crate::geospatial_page::Geospatial;
+use crate::results::ResultView;
+use crate::skill::{Install, Skill};
+use crate::workspace::{FileTree, Loader, Portfolio};
 use acorn_web::operations::{self, Request, Tool};
-use dioxus::html::{FileData, HasFileData};
+use acorn_web::presentation;
+use acorn_web::session::{Selection, SuppliedFile, Workspace};
+use dioxus::html::FileData;
 use dioxus::prelude::*;
 use serde_json::Value;
 use strum::IntoEnumIterator;
@@ -38,7 +44,8 @@ fn Shell() -> Element {
             a { class: "skip", href: "#content-main", "Skip to content" }
             header { class: "mobile-bar", span { "ACORN" } button { id: "nav-toggle", onclick: move |_| { drawer.toggle(); if drawer() { document::eval("requestAnimationFrame(() => document.querySelector('#workspace-navigation a')?.focus())"); } }, "aria-expanded": drawer(), "aria-controls": "workspace-navigation", "aria-label": "Toggle navigation", Icon { name: "panel" } } }
             aside { id: "workspace-navigation", class: "sidebar", "aria-label": "Workspace navigation",
-                div { class: "brand", img { src: asset!("/assets/generated/acorn.svg"), alt: "", width: "29" } span { "ACORN" } button { class: "collapse", onclick: move |_| collapsed.toggle(), title: "Toggle sidebar", "aria-label": "Toggle sidebar", "aria-expanded": !collapsed(), "aria-controls": "workspace-navigation", Icon { name: "panel" } } }
+                div { class: "brand", img { src: asset!("/assets/generated/acorn.svg"), alt: "", width: "29" } span { "ACORN" small { "Browser" } } button { class: "collapse", onclick: move |_| collapsed.toggle(), title: "Toggle sidebar", "aria-label": "Toggle sidebar", "aria-expanded": !collapsed(), "aria-controls": "workspace-navigation", Icon { name: "panel" } } }
+                p { class: "brand-caption", "9 tools · local workspace" }
                 nav { "aria-label": "Primary", onclick: move |_| { if drawer() { drawer.set(false); document::eval("requestAnimationFrame(() => document.querySelector('#content-main h1')?.focus())"); } },
                     p { class: "nav-heading", "WORKSPACE" }
                     Link { to: Route::Home {}, class: if current == "home" { "nav-item active" } else { "nav-item" }, title: "Home", "aria-label": "Home", "aria-current": if current == "home" { "page" } else { "false" }, Icon { name: "home" } span { class: "nav-label", "Home" } }
@@ -62,13 +69,13 @@ fn Shell() -> Element {
                     }
                 }
                 div { class: "sidebar-bottom",
-                    button { id: "theme-toggle", class: "theme-toggle", "aria-label": "Dark theme", title: "Toggle dark or light theme", "aria-pressed": "true", onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { id: "theme-label", class: "nav-label", "Dark" } }
+
                     small { "v{VERSION} · Browser" }
                     small { id: "webmcp-status", "data-adapter": asset!("/assets/generated/webmcp.js"), "WebMCP: initializing" }
                 }
             }
             div { id: "notification", class: "notification", hidden: true, span { id: "notification-text", role: "status", "aria-live": "polite" } button { "aria-label": "Dismiss notification", onclick: move |_| { document::eval("window.acornChrome?.notifications.dismiss()"); }, "Dismiss" } }
-            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", Outlet::<Route> {} }
+            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": "Dark theme", title: "Toggle dark or light theme", "aria-pressed": "true", onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { id: "theme-label", class: "nav-label", "Dark" } } } Outlet::<Route> {} }
         }
     }
 }
@@ -76,9 +83,7 @@ fn Shell() -> Element {
 fn Home() -> Element {
     let mut session = use_context::<Signal<String>>();
     let nav = use_navigator();
-    let mut example = use_signal(|| 1_usize);
-    let mut drop_error = use_signal(String::new);
-    let mut dragging = use_signal(|| false);
+    let mut workspace = use_context::<Signal<Workspace>>();
     rsx! {
         document::Title { "ACORN · Research workspace" }
         section { class: "home",
@@ -86,33 +91,15 @@ fn Home() -> Element {
             h1 { "ACORN Browser" }
             div { id: "home-actions", class: "actions centered",
                 button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { document::eval("window.acornChrome?.tour.start()"); }, "Take a tour" }
-                button { id: "sample-data", onclick: move |_| { if let Some((_, content)) = RAD_EXAMPLES.get(example()) { session.set((*content).into()); nav.push(Route::Page { page: "research-activity".into() }); document::eval("window.acornChrome?.notifications.notify('Sample loaded. Run validation when ready.')"); } }, "Try sample data" }
-            }
-            label { class: "field sample-select", span { "Sample data" }
-                select { value: "{example()}", onchange: move |event| { if let Ok(index) = event.value().parse::<usize>() { if index < RAD_EXAMPLES.len() { example.set(index); } } },
-                    for (index, (label, _)) in RAD_EXAMPLES.iter().enumerate() { option { value: "{index}", selected: index == example(), "{label}" } }
-                }
+                button { id: "sample-data", onclick: move |_| {
+                    let mut loaded = Workspace::default().replace(Selection { files: RAD_EXAMPLES.iter().enumerate().map(|(index, (_, content))| SuppliedFile { path: format!("sample-{index}.json"), content: (*content).into() }).collect(), skipped: 0 });
+                    loaded.validations = loaded.files.iter().filter_map(|file| operations::run(Tool::Activity, &Request { input: file.content.clone(), ..Request::default() }).ok().map(|value| (file.path.clone(), value))).collect();
+                    session.set(loaded.content()); workspace.set(loaded); nav.push(Route::Page { page: "portfolio".into() });
+                    document::eval("window.acornChrome?.notifications.notify('Bundled sample activities loaded.')");
+                }, "Try sample data" }
             }
             Link { id: "skill-entry", to: Route::Page { page: "skill".into() }, class: "skill-card", span { "The home of the ACORN Skill" } p { "Validate metadata, convert formats and inspect identifiers, then use ACORN in your agent environment." } span { class: "muted", "Explore the skill guide →" } }
-            div { id: "local-entry", class: if dragging() { "card open-card dragging" } else { "card open-card" },
-                ondragover: move |event| { event.prevent_default(); dragging.set(true); },
-                ondragleave: move |_| dragging.set(false),
-                ondrop: move |event: DragEvent| async move {
-                    event.prevent_default(); dragging.set(false);
-                    let files = event.files();
-                    if files.len() != 1 { drop_error.set("Drop one UTF-8 file at a time. Folder loading is not available yet.".into()); }
-                    else if let Some(file) = files.into_iter().next() {
-                        match read_local_file(file, 262144).await {
-                            Ok(text) => { drop_error.set(String::new()); session.set(text); nav.push(Route::Page { page: "research-activity".into() }); document::eval("window.acornChrome?.notifications.notify('File loaded. Run validation when ready.')"); },
-                            Err(message) => drop_error.set(message),
-                        }
-                    }
-                },
-                h2 { "Open research activity data" } p { "Drop one UTF-8 file here, or choose a local file." }
-                FileInput { onload: move |text| { session.set(text); nav.push(Route::Page { page: "research-activity".into() }); document::eval("window.acornChrome?.notifications.notify('File loaded. Run validation when ready.')"); }, limit: 262144 }
-                if !drop_error().is_empty() { p { role: "alert", class: "error", "{drop_error}" } }
-                p { class: "small muted", "Up to 256 KiB. Folder loading is not available yet." }
-            }
+            Loader {}
             p { id: "privacy-note", class: "privacy", "Local by default. No uploads or telemetry. Your content stays in this tab; tools run only when you ask." }
             Link { to: Route::Page { page: "install".into() }, "Prefer a desktop app? View install options →" }
             Footer {}
@@ -167,11 +154,12 @@ fn FileInput(onload: EventHandler<String>, limit: usize) -> Element {
 }
 #[component]
 fn SelectField(label: &'static str, value: String, options: Vec<&'static str>, onchange: EventHandler<String>) -> Element {
-    rsx! { label { class: "field", span { "{label}" } select { value, onchange: move |event| onchange.call(event.value()), for option in options { option { value: option, if option.is_empty() { "Auto-detect" } else { "{option}" } } } } } }
+    rsx! { label { class: "field", span { "{label}" } select { value, onchange: move |event| onchange.call(event.value()), for option in options { option { value: option, "{presentation::label(option)}" } } } } }
 }
 #[component]
 fn ToolWorkspace(tool: Tool) -> Element {
-    let mut session = use_context::<Signal<String>>();
+    let session = use_context::<Signal<String>>();
+    let mut workspace = use_context::<Signal<Workspace>>();
     let mut request = use_signal(|| Request {
         input: session(),
         ..Request::default()
@@ -188,16 +176,22 @@ fn ToolWorkspace(tool: Tool) -> Element {
         let _ = request();
         result.set(None);
     });
+    use_effect(move || {
+        let content = session();
+        let previous = request.peek().clone();
+        request.set(Request { input: content, ..previous });
+    });
     let title = tool.to_string();
     let limit = tool.limit();
     let input = request().input;
     rsx! {
         document::Title { "{title} · ACORN" }
         section { class: "page tool-page",
-            div { class: "eyebrow", "RESEARCH TOOLS / LOCAL COMPUTATION" }
+
             h1 { "{title}" } p { class: "lede", "{tool.description()}" }
+            if !workspace().files.is_empty() { details { summary { "Loaded files" } FileTree { paths: workspace.read().files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } } }
             div { class: "tool-grid",
-                section { class: "card editor", h2 { "Input" }
+                section { class: "card editor",
                     div { class: "actions", FileInput { limit, onload: move |text: String| { request.set(Request { input: text, ..request() }); result.set(None); } }
                         button { onclick: move |_| { let (input, after) = sample(tool); request.set(Request { input, after, ..Request::default() }); result.set(None); }, "Use example" }
                     }
@@ -210,23 +204,37 @@ fn ToolWorkspace(tool: Tool) -> Element {
                         if tool == Tool::Diff { SelectField { label: "Diff format", value: request().mode, options: vec!["unified", "json-patch"], onchange: move |v| request.set(Request { mode: v, ..request() }) } }
                         if tool == Tool::Inspect { SelectField { label: "Identifier kind", value: request().kind, options: vec!["", "ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "rrid", "swhid"], onchange: move |v| request.set(Request { kind: v, ..request() }) } }
                     }
-                    label { class: "field", span { if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" } }
-                        textarea { id: "content", spellcheck: "false", rows: if tool == Tool::BigO { "3" } else { "14" }, value: input.clone(), oninput: move |e| { request.set(Request { input: e.value(), ..request() }); result.set(None); } }
+                    div { class: if matches!(tool, Tool::Diff | Tool::BigO) { "editor-pair" } else { "" },
+                        label { class: "field", span { if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" } }
+                            textarea { id: "content", spellcheck: "false", rows: if tool == Tool::BigO { "3" } else { "7" }, value: input.clone(), oninput: move |e| { request.set(Request { input: e.value(), ..request() }); result.set(None); } }
+                            small { class: if input.len() > limit { "error" } else { "muted" }, "{input.len()} / {limit} UTF-8 bytes" }
+                        }
+                        if matches!(tool, Tool::Diff | Tool::BigO) {
+                            label { class: "field", span { if tool == Tool::BigO { "Right expression" } else { "After" } }
+                                textarea { id: "after", rows: if tool == Tool::BigO { "3" } else { "7" }, spellcheck: "false", value: request().after, oninput: move |e| { request.set(Request { after: e.value(), ..request() }); result.set(None); } }
+                                small { class: if request().after.len() > limit { "error" } else { "muted" }, "{request().after.len()} / {limit} UTF-8 bytes" }
+                            }
+                        }
                     }
-                    small { class: if input.len() > limit { "error" } else { "muted" }, "{input.len()} / {limit} UTF-8 bytes" }
-                    if matches!(tool, Tool::Diff | Tool::BigO) {
-                        label { class: "field", span { if tool == Tool::BigO { "Right expression" } else { "After" } } textarea { id: "after", rows: "4", spellcheck: "false", value: request().after, oninput: move |e| { request.set(Request { after: e.value(), ..request() }); result.set(None); } } }
-                    }
+                    if tool == Tool::Readability { p { class: "small muted", "{input.split_whitespace().count()} words · {input.len()} UTF-8 bytes" } }
                     if tool == Tool::BigO { label { class: "field", "Symbol assumptions (JSON)" textarea { rows: "2", value: request().assumptions, oninput: move |e| request.set(Request { assumptions: e.value(), ..request() }) } } }
                     if tool == Tool::Crosswalk { details { summary { "Import seeds (when required)" } label { class: "field", "Contact JSON" textarea { rows: "3", value: request().contact, oninput: move |e| request.set(Request { contact: e.value(), ..request() }) } } label { class: "field", "Local identifier" input { value: request().local_identifier, oninput: move |e| request.set(Request { local_identifier: e.value(), ..request() }) } } } }
-                    div { class: "actions run-actions", button { class: "primary", onclick: move |_| { session.set(request().input); result.set(Some(operations::run(tool, &request()))); }, "Run {title}" } button { onclick: move |_| { request.set(Request::default()); result.set(None); }, "Clear" } }
+                    div { class: "actions run-actions", button { class: "primary", onclick: move |_| { let output = operations::run(tool, &request());
+                        if tool == Tool::Activity {
+                            let mut next = workspace();
+                            if let Some(file) = next.files.iter().find(|file| Some(&file.path) == next.selected.as_ref() && file.content == request().input) {
+                                if let Ok(value) = &output { next.validations.insert(file.path.clone(), value.clone()); }
+                            }
+                            workspace.set(next);
+                        }
+                        result.set(Some(output)); document::eval("requestAnimationFrame(() => document.getElementById('result-heading')?.focus())"); }, "Run {title}" } button { onclick: move |_| { request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
                 }
-                section { class: "card results", "aria-live": "polite", h2 { "Results" }
+                section { class: "card results", "aria-live": "polite", h2 { id: "result-heading", tabindex: "-1", "Results" }
                     match result() {
                         None => rsx! { div { class: "empty", span { "◇" } h3 { "Ready when you are" } p { "Add your content, choose options, and run the tool." } } },
                         Some(Err(message)) => rsx! { div { class: "error", role: "alert", h3 { "Could not complete this operation" } p { "{message}" } } },
-                        Some(Ok(value)) => rsx! { ResultView { value } },
+                        Some(Ok(value)) => rsx! { ResultView { tool, value } },
                     }
                 }
             }
@@ -235,22 +243,7 @@ fn ToolWorkspace(tool: Tool) -> Element {
     }
 }
 #[component]
-fn ResultView(value: Value) -> Element {
-    let json = serde_json::to_string_pretty(&value).unwrap_or_default();
-    let download = json.clone();
-    let copy = json.clone();
-    rsx! {
-        p { class: if value.get("valid") == Some(&Value::Bool(false)) { "status invalid" } else { "status" },
-            if value.get("valid") == Some(&Value::Bool(false)) { "Review needed · validation diagnostics below" } else { "Operation complete" }
-        }
-        ResultTree { value: value.clone(), depth: 0 }
-        div { class: "actions", button { onclick: move |_| { let encoded = serde_json::to_string(&download).unwrap_or_default(); document::eval(&format!("window.acornDownload({encoded})")); }, "Download JSON" } button { onclick: move |_| { let encoded = serde_json::to_string(&copy).unwrap_or_default(); document::eval(&format!("window.acornCopy({encoded})")); }, "Copy JSON" } }
-        p { id: "output-status", role: "status", class: "muted small" }
-        details { summary { "Raw JSON" } pre { "{json}" } }
-    }
-}
-#[component]
-fn ResultTree(value: Value, depth: usize) -> Element {
+pub(crate) fn ResultTree(value: Value, depth: usize) -> Element {
     match value {
         | Value::Object(fields) => {
             rsx! { dl { class: "result-fields", for (name, value) in fields { div { class: "result-field", dt { "{name}" } dd { ResultTree { value, depth: depth.saturating_add(1) } } } } } }
@@ -266,7 +259,8 @@ fn ResultTree(value: Value, depth: usize) -> Element {
 }
 #[component]
 fn InfoPage(page: String) -> Element {
-    let session = use_context::<Signal<String>>();
+    let mut session = use_context::<Signal<String>>();
+    let mut workspace = use_context::<Signal<Workspace>>();
     let title = match page.as_str() {
         | "portfolio" => "Portfolio",
         | "geospatial" => "Geospatial",
@@ -280,12 +274,28 @@ fn InfoPage(page: String) -> Element {
         document::Title { "{title} · ACORN" }
         section { class: "page info-page", "data-page": "{page}", h1 { "{title}" }
             match page.as_str() {
-                "portfolio" => rsx! { p { class: "lede", "Research Activity Data in this session." } div { class: "card", if session().is_empty() { h2 { "No content loaded" } p { "Open a file or try the sample from Home to get started." } } else { h2 { "Current document" } p { "{session().len()} UTF-8 bytes loaded in this tab." } p { "Validate the document to review its Research Activity fields." } Link { to: Route::Page { page: "research-activity".into() }, "Review Research Activity →" } } } p { class: "muted", "Multi-activity portfolios are not available yet." } },
-                "geospatial" => rsx! { p { class: "lede", "Research organizations, in context." } div { class: "card", h2 { "Map workspace is planned" } p { "The offline organization map and equivalent location table are not available yet. No map or registry requests are made by this browser." } } },
-                "install" => rsx! { p { class: "lede", "Run the browser workspace from your checkout." } div { class: "card", h2 { "Browser development" } pre { "make web-dev\nmake web-build\nmake web-preview\nmake web-check\nmake web-test" } } div { class: "card", h2 { "Desktop packages · pending" } p { "Windows, macOS and Linux GUI packages are planned. WinGet, Scoop, Debian, AppImage and Homebrew cask publication is not yet available." } } },
-                "skill" => rsx! { p { class: "lede", "ACORN workflows for your coding agent." } div { class: "card", h2 { "Canonical repository skill" } p { "The skill explains ACORN workflows to an agent. It does not run inside this application or grant access to this tab." } a { href: "https://code.ornl.gov/research-enablement/acorn/-/tree/main/crates/acorn-cli/assets/skills/acorn", target: "_blank", rel: "noopener noreferrer", "View canonical skill source ↗" } p { class: "muted", "Release-matched offline skill downloads are not yet exposed in this interface. Exported agent copies remain user-managed." } } },
-                "settings" => rsx! { p { class: "lede", "A local workspace, with no account or persistent storage." } div { class: "card", h2 { "Appearance" } p { id: "theme-mode", "Following your system preference." } p { "Use the theme switch to choose dark or light for this session." } button { onclick: move |_| { document::eval("window.acornChrome?.theme.reset()"); }, "Use system theme" } h2 { "Session" } p { "Content is held in this tab only. Reloading clears it." } h2 { "Release" } p { "ACORN {VERSION} · Browser" } } },
-                "about" => rsx! { p { class: "lede", "Accessible Content Optimization for Research Needs" } a { class: "card source-card", href: "https://code.ornl.gov/research-enablement/acorn", target: "_blank", rel: "noopener noreferrer", h2 { "Built in the open ↗" } p { "Explore the source, report an issue, or contribute." } } h2 { "ACORN Skill" } p { "The app provides local research tools; the matching skill explains their workflows in your agent environment." } div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "Explore the ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } } h2 { "Research tools, close to your data" } p { "ACORN helps maintain and validate research activity data. This browser workspace runs the existing portable ACORN operations on content you supply." } h2 { "Local by design" } p { "Rust and WebAssembly power the tools. Dioxus renders the interface. A shared Tauri desktop delivery is planned." } Technology {} div { class: "card ai-disclosure", a { href: "https://www.aihonestybadge.com/ai-assisted-badge", target: "_blank", rel: "noopener noreferrer", img { src: asset!("/assets/ai-assisted.svg"), alt: "AI Assisted", width: "113", height: "20" } } h2 { "AI-use disclosure" } p { "AI tools assisted with code, documentation and design under human direction. The maintainer reviews and tests the work. Review generated code before use." } div { class: "agent-links",
+                "portfolio" => rsx! { Portfolio {} },
+                "geospatial" => rsx! { Geospatial {} },
+                "install" => rsx! { Install {} },
+                "skill" => rsx! { Skill { compact: false } },
+                "settings" => rsx! { p { class: "lede", "Appearance and your local session." }
+                    div { class: "card", h2 { "Appearance" }
+                        div { class: "theme-choices", "aria-label": "Appearance",
+                            for mode in ["Dark", "Light", "System"] {
+                                button { "data-theme-choice": mode.to_lowercase(), "aria-pressed": "false", onclick: move |_| { let mode = mode.to_lowercase(); document::eval(&format!("window.acornChrome?.theme.choose('{mode}')")); }, "{mode}" }
+                            }
+                        }
+                        p { id: "theme-mode", class: "small muted", "Following your system preference." }
+                    }
+                    div { class: "card", h2 { "Loaded session" }
+                        dl { class: "result-fields", dt { "Activities" } dd { "{workspace().activities().len()} validated" } dt { "Files" } dd { "{workspace().files.len()} · {workspace().bytes()} UTF-8 bytes" } dt { "Persistence" } dd { "None · this tab only" } }
+                        button { disabled: workspace().files.is_empty() && session().is_empty(), onclick: move |_| { workspace.set(Workspace::default()); session.set(String::new()); document::eval("window.acornWorkspace?.cancel(); window.acornChrome?.notifications.notify('Loaded session cleared. Exported copies are unchanged.')"); }, "Clear loaded session" }
+                        p { class: "small muted", "Clearing or reloading removes this session only. Exported files and installed skill copies are unchanged." } }
+                    div { class: "card", h2 { "Release" } p { "ACORN {VERSION} · Browser" } Skill { compact: true }
+                        div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } }
+                    }
+                },
+                "about" => rsx! { p { class: "lede", "Accessible Content Optimization for Research Needs" } a { class: "card source-card", href: "https://code.ornl.gov/research-enablement/acorn", target: "_blank", rel: "noopener noreferrer", div { img { src: asset!("/assets/generated/acorn.svg"), alt: "", width: "32" } h2 { "ACORN" } } span { "View source ↗" } } h2 { "ACORN Skill" } p { "The app provides local research tools; the matching skill explains their workflows in your agent environment." } div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "Explore the ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } } div { class: "about-principles", div { class: "card", h2 { "Local by default" } p { "Your content stays on this device. No uploads, accounts or telemetry." } } div { class: "card", h2 { "One workspace" } p { "Portable research tools and a matching agent skill. Desktop delivery is planned." } } } Technology {} div { class: "card ai-disclosure", a { href: "https://www.aihonestybadge.com/ai-assisted-badge", target: "_blank", rel: "noopener noreferrer", img { src: asset!("/assets/ai-assisted.svg"), alt: "AI Assisted", width: "113", height: "20" } } h2 { "AI-use disclosure" } p { "AI tools assisted with code, documentation and design under human direction. The maintainer reviews and tests the work. Review generated code before use." } div { class: "agent-links",
                     for (id, name, url) in [("codex", "Codex", "https://openai.com/codex/"), ("copilot", "GitHub Copilot", "https://github.com/features/copilot"), ("microsoft", "Microsoft 365 Copilot", "https://www.microsoft.com/microsoft-365/copilot")] {
                         a { href: url, target: "_blank", rel: "noopener noreferrer", img { src: format!("{}#{id}", asset!("/assets/agent-marks.svg")), alt: "", width: "20", height: "20" } "{name}" }
                     }
