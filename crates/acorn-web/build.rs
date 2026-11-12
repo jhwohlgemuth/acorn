@@ -4,6 +4,8 @@ use std::{fs, io};
 fn main() -> io::Result<()> {
     let assets = [
         ("../../docs/src/_assets/acorn.svg", "assets/generated/acorn.svg"),
+        ("../../docs/src/_assets/banner_dark_mode.png", "assets/generated/banner_dark_mode.png"),
+        ("../../docs/src/_assets/banner_light_mode.png", "assets/generated/banner_light_mode.png"),
         ("../acorn-wasm/web/webmcp.js", "assets/generated/webmcp.js"),
     ];
     fs::create_dir_all("assets/generated").and_then(|()| {

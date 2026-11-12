@@ -484,7 +484,9 @@ version: ## Print the project version string.
 
 web-build: web-prepare ## Build the release browser and verify its single WASM payload.
 	@python3 crates/acorn-web/scripts/clean-output.py
-	@$(DIOXUS) build --package acorn-web --platform web --release --profile web-release --base-path "$(WEB_BASE_PATH)" --locked
+	@$(DIOXUS) build --package acorn-web --platform web --release --profile web-release --debug-symbols false --base-path "$(WEB_BASE_PATH)" --locked
+	@python3 scripts/package-acorn-skill.py --output $(WEB_PUBLIC)/acorn-skill
+	@python3 scripts/package-acorn-skill.py --output $(WEB_PUBLIC)/acorn-skill --check
 	@node crates/acorn-web/scripts/check-package.mjs $(WEB_PUBLIC)
 
 web-check: web-prepare ## Check browser Rust, WASM portability, formatting and lint.
@@ -518,9 +520,15 @@ web-setup: ## Install the pinned Dioxus CLI locally and the WASM target.
 	@rustup target add wasm32-unknown-unknown
 	@cargo install dioxus-cli --version 0.7.3 --locked --root target/tools/dioxus
 
+web-skill: ## Stage and verify the canonical release-matched skill bundle.
+	@python3 scripts/package-acorn-skill.py
+	@python3 scripts/package-acorn-skill.py --check
+
 web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebMCP.
+	@python3 -m unittest discover -s scripts/tests -p 'test_package_acorn_skill.py'
 	@cargo test -p acorn-web
 	@$(MAKE) test-webmcp
+	@node --test crates/acorn-web/scripts/acceptance.test.mjs
 	@$(MAKE) web-test-wasm
 
 web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and playwright install first).

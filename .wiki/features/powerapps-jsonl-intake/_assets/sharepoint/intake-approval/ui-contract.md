@@ -48,7 +48,7 @@ Use only for genuine Boolean values.
 
 ### `cmpSegmentedChoice`
 
-The published implementation supports two or three short, mutually exclusive choices. Every option is a real button. The selected option adds a check mark to its text; the component does not claim radio semantics. The buttons sit in a row above the 500-pixel app breakpoint and in a full-width stack below it. Two-choice rows have a 12-pixel horizontal gap; three-choice rows have a 4-pixel gap. Button activation updates a component-scoped selected key before invoking `OnChange`; `Reset` clears that key so `DefaultKey` can initialize the next record. The contributor placement control displays `General update` while retaining the canonical key `Report-wide update (no associated project)`.
+The TEST ONLY implementation uses a native toggle for two choices and buttons for three choices. The intake's two toggles occupy separate left-aligned rows. Their visible values begin ten pixels after the 66-pixel switch tracks, with a shared left edge. A separate left-aligned text label sits behind the native toggle's transparent built-in text. A transparent button above the enabled switch and value supplies the pointer cursor; it is excluded from the Tab sequence and hidden when the native control is disabled. Its click changes a separate component-local toggle-default variable and resets the native toggle, whose existing check/uncheck events preserve the selected key and app callback. Component reset clears both variables. The native switch retains its announced value and keyboard target. The on state uses ORNL Energy green. The selected button remains ORNL green while its alternatives become neutral gray and remain clickable. Hovering an alternative uses ORNL green with white text; choosing another replaces the selected canonical key. Button activation updates the component-scoped selected key before invoking `OnChange`; `Reset` clears that key so `DefaultKey` can initialize the next record. The contributor placement control displays `General update` while retaining the canonical key `Report-wide update (no associated project)`.
 
 | Property | Direction | Type | Meaning |
 |---|---|---|---|
@@ -66,7 +66,7 @@ The published implementation supports two or three short, mutually exclusive cho
 
 ### `cmpRadioChoice`
 
-Use for more than five or long mutually exclusive choices. It wraps the native Radio control and preserves native keyboard behavior. Options are vertical at compact and medium widths.
+The TEST ONLY implementation presents mutually exclusive choices in a two-column gallery of icon buttons; the native Radio control is hidden. Selected buttons use ORNL green. Once a selection exists, alternative buttons use neutral gray fill and text but remain clickable. On hover they use ORNL green (`#00662C`) with white text, returning to gray when the pointer leaves. Activating another button replaces the selected canonical key. The intake sizes its health and risk galleries to show every option without inner scrolling.
 
 | Property | Direction | Type | Meaning |
 |---|---|---|---|
@@ -176,14 +176,17 @@ Revision 1.0.1 renders the complete `Message` in an auto-height label with `Live
 |---|---|---|
 | `ColorBackground` | `#F5F8F6` | App background. |
 | `ColorBorder` | `#B7C9C0` | Neutral borders and dividers. |
+| `ColorChoiceMuted` | `#F1F2F3` | Unselected alternatives after a single choice is selected; alternatives remain clickable. |
+| `ColorChoiceMutedText` | `#6B7074` | Text on unselected gray choice buttons. |
 | `ColorDanger` | `#A4262C` | Errors and destructive warnings. |
-| `ColorFocus` | `#123B31` | Three-pixel keyboard focus border. |
+| `ColorFocus` | `#006BA6` | ORNL Infinity: three-pixel focus border on text fields and dropdowns; matching hover border where supported. Buttons and toggles have no focus outline. |
 | `ColorMutedText` | `#52685F` | Secondary text on white or background surfaces. |
 | `ColorPrimary` | `#007833` | Primary actions and selected accents. |
 | `ColorPrimarySoft` | `#D9EDDF` | Selected and success-adjacent background. |
 | `ColorSurface` | `#FFFFFF` | Cards, fields, and report pages. |
 | `ColorSurfaceSoft` | `#EDF4EF` | Secondary controls and grouped regions. |
 | `ColorText` | `#123B31` | Primary text. |
+| `ColorToggleOn` | `#7DBA00` | ORNL Energy: intake toggle on state and on-state hover. |
 | `ColorWarning` | `#8A4B08` | Warning text and icons. |
 
 Text and state colors must meet 4.5:1 contrast against their assigned background. Large decorative marks do not carry required meaning.
@@ -197,6 +200,7 @@ Text and state colors must meet 4.5:1 contrast against their assigned background
 | `CornerControl` | `6` |
 | `ElevationCard` | `0 2 8 rgba(18,59,49,0.12)` |
 | `FocusWidth` | `3` |
+| `FocusWidthButtonToggle` | `0` |
 | `FontBody` | `Segoe UI` |
 | `FontSizeBody` | `12` |
 | `FontSizeHelp` | `10` |

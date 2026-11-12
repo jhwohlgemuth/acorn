@@ -90,12 +90,16 @@
 
 ## Implementation — ACORN browser
 
-- Plan: `.wiki/features/acorn-browser-workspace/index.md`; local initial browser release delivered; no active implementation phase. Completed composition/initial browser release phases pruned, remaining IDs retained.
-- Scope delivered: Nine real WASM operations, routed Dioxus shell, structured results, bounded local input and explicit output effects, optional unchanged WebMCP adapter, theme/mobile navigation, Make setup/dev/build/preview/check/test tasks.
-- Evidence: `crates/acorn-web/README.md` contains exact validation and limits. Workspace Clippy passed; 3,044 workspace tests passed with 18 skipped; four native, two real WASM and 25 adapter tests passed. Release has one payload and nine exports; Safari manual flows and portrait layout observed, Chrome installation status observed.
-- Preserved: Concurrent preview/design work and unrelated ACD/SPD/DBA/PA implementations. No workspace-wide formatting, publication or desktop packaging performed.
-- Remaining: ABW-02/20/35 are ready for shell/design/build acceptance; full tool presentation, browser effects/matrix, Portfolio/map, skill and desktop/channel phases remain. File chooser completion was unverified when computer-use capture failed. Pasting and examples are verified. Binaryen optimizer fallback is recorded in ABW-35.
-- Exact next action: Review locally with `make web-preview` (after `make web-build` when source changes), or `make web-dev`; select a remaining ready phase with its exclusive shared-file lock before further implementation.
+- Plan: `.wiki/features/acorn-browser-workspace/index.md`; ABW-10 active, implemented but awaiting live acceptance. ABW-02, ABW-20 and ABW-21 are accepted and pruned. ABW-35 optimizer repair is accepted; watcher and hosted Pages/HTTPS evidence remains.
+- Authorized scope: Execute as many eligible ABW phases as possible. Remaining prepared sequence: ABW-10 → 03 → 04 → 05 → 32 → 06; independent build work is authorized. Preserve unrelated PA guide/usability changes.
+- Local work: `d0fe5103` plus uncommitted browser UI/assets/effects, skill packager, build/test wiring, docs and ABW scheduling edits. No commits, push, publication or deployment in this batch.
+- Verified shell/design: six exceptional-state previews rendered and inspected; live 1440×900 reference comparison; native Chrome 156/macOS 26.7.2 collapsed navigation, heading focus, 390×844/844×390 drawer keyboard checks and actual desktop 200% zoom. Shell provenance/contrast and seven native tests passed.
+- Verified chrome: local Driver.js 1.10.2, theme reset/change state, notification/tour lifecycle, canonical badge and agent assets. Desktop and 393×852/852×393 keyboard tour completion/dismissal/focus, sample routing without execution, theme toggle/reset and local About marks observed. `make web-build`, `make web-check`, `make web-test` and four asset/contrast tests pass; payload 6,281,724 bytes, bindings 74,128 bytes, nine exports. Browser README records exact scope.
+- Remaining ABW-10: live file chooser/drop, system-change/reduced-motion emulation, light tour/narrow About, offline/network inspection and final preview comparison. Do not prune or begin dependent ABW-03 until these pass.
+- Budget: estimated approximately two active hours for ABW-10 including implementation, builds and native review; below the five-hour ceiling. Completed design/shell/skill slices were each below five hours.
+- Blocker: native macOS file chooser repeatedly resets its path sheet to `/` on selecting the fixture; Escape also failed to dismiss it. Browser tab connector reports unavailable. Existing local preview remains on port 8082. Avoid repeating the failed path-entry method without changed evidence.
+- Integration validation: final `make lint`, `make test` (3,059 passed, 18 skipped), `make check-wasm`, wiki validation and whitespace checks passed. Lint/test needed approved loopback access; the sandboxed lint failed to bind its locking listener. Logs: `target/abw-final-lint.log`, `target/abw-test.log`, `target/abw-final-wasm.log`. The final optimized release rebuild passed, including the complete Driver.js license in its shipped notice.
+- Next action: restore usable file-dialog/browser control and complete the remaining ABW-10 live checks. ABW-35 observed hot reload and first mirrored deployment/HTTPS remain independent pending acceptance.
 
 ## Review — Hunk comments on browser and parallel slices
 

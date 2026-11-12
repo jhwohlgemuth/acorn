@@ -4,6 +4,7 @@
 
 ## In progress
 
+- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Follow the OKF Browser design, coordinate the ACORN skill with browser/desktop releases, and publish the Tauri GUI through WinGet, Scoop, Debian, AppImage and Homebrew cask. Revised previews cover the nine-tool inventory and Install/Skill; ABW-20 design acceptance is complete; ABW-02 is accepted; ABW-10 is implemented with theme/tour/sample checks passing; remaining live file/drop and chrome acceptance is open, with native file-dialog control failing; the nine-operation browser is ready for local review; preserve the existing portable, `acorn-wasm`, `acorn-host`, and `acorn-lib` ownership boundaries. Remaining batch: ABW-10 → 03 → 04 → 05 → 32 → 06; see the [execution brief](acorn-browser-workspace/execution-preparation.md).
 - [Needle routing and native capability parity](needle-router-native-parity.md) - Native routes cover 46/46 bounded rows; PAR-34's synthetic safety matrix is accepted and PAR-16 is ready to release explicit dispatch. Automatic Needle selection remains preview-only after failed calibration.
 
 ## Planned
@@ -30,7 +31,6 @@
 - [Release-gated Beam inference integration](beam-inference-integration.md) - Verify released serving contracts, then evaluate an explicitly configured hosted or operator-owned endpoint independently of local SLM sidecars.
 
 - [Database-backed artifact generation](database-backed-artifact-generation.md) - Generate reproducible current or historical artifacts from canonical database state through existing typed renderers.
-- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Follow the OKF Browser design, coordinate the ACORN skill with browser/desktop releases, and publish the Tauri GUI through WinGet, Scoop, Debian, AppImage and Homebrew cask. Revised previews cover the nine-tool inventory and Install/Skill; ABW-20 retains exceptional-state visual acceptance before full release; the nine-operation browser is ready for local review; preserve the existing portable, `acorn-wasm`, `acorn-host`, and `acorn-lib` ownership boundaries.
 - [CEL metadata validation-profile pilot](cel-validation-profile-pilot.md) - Evaluate bounded, optional institutional rules against existing Rust/Rhai behavior before adopting a CEL runtime; see the [OPA/CEL review](../_assets/opa-cel-review.md).
 - [dPID research-object support](dpid-research-object-support.md) - Recognize and resolve versioned dPIDs, import resolver RO-Crate metadata into RAD, and preserve manifest provenance through a read-only first release.
 - [Deterministic and assisted gather extraction](gather-extraction.md) - Add bounded CSS extraction first, then an explicitly selected typed inference fallback for unresolved required fields.

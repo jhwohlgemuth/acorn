@@ -1,6 +1,6 @@
 ---
 name: acorn
-description: Operate and develop the ACORN CLI and research activity data (RAD) workflows. Use when creating, editing, validating, formatting, linking, gathering, downloading, importing, or exporting RAD and related metadata; working with RAD, RAiD, CFF, DOCX, or crosswalk schemas; diagnosing ACORN installations; downloading GGUF models; running ACORN from source; or verifying PDF, PowerPoint, BagIt, JSON, YAML, Markdown, and CFF artifacts.
+description: Operate and develop ACORN CLI, browser, and research activity data (RAD) workflows. Use when creating, editing, validating, formatting, linking, gathering, downloading, importing, or exporting RAD and related metadata; working with RAD, RAiD, CFF, DOCX, or crosswalk schemas; diagnosing ACORN installations; downloading GGUF models; running ACORN from source; or verifying PDF, PowerPoint, BagIt, JSON, YAML, Markdown, and CFF artifacts.
 ---
 
 # ACORN
@@ -44,6 +44,18 @@ cargo run --bin acorn -- -vv check ./content
 ```
 
 Use `CommandLineHelp.md` in the repository for a complete generated command reference. Re-run `<invocation> --help` when the checkout may be newer than this skill.
+
+## Browser and desktop workspace
+
+For local browser work from the checkout, use `make web-dev`, or build with `make web-build` and serve with `make web-preview`. Use `make web-check` and `make web-test` for focused verification. Load supplied text or a bundled example, choose a tool and options, run explicitly, then inspect structured results before copying or downloading JSON.
+
+The browser provides nine local operations: Research Activity validation, metadata-standard validation, metadata crosswalk, FAIR assessment, readability, content diff, identifier discovery, identifier inspection and Big-O comparison. It does not resolve identifiers or upload supplied content. Optional read-only WebMCP uses the same operations; an unsupported browser still supports the manual forms. WebMCP grants no native file authority.
+
+Input limits count UTF-8 bytes: metadata 256 KiB, each diff side 128 KiB, readability/discovery 16 KiB, identifier inspection 2 KiB and each Big-O expression 256 bytes. Results are bounded to 256 KiB and visible lists to 100 entries; inspect truncation indicators. A symbolic Big-O result is not established by sampled curves. FAIR checks assess supplied metadata, not remotely verified resources.
+
+State lives in the tab; reload clears it. Current browser release capabilities do not include folder/Portfolio/map completion, a full guided tour, native dialogs or desktop package installation. The Tauri desktop application remains planned. When desktop artifacts become available, verify their release metadata and documented capabilities before using them; do not infer native open/save authority from browser controls. PDF/PowerPoint export, authenticated downloads, databases, shell operations and other host workflows require the CLI or another explicitly authorized host interface.
+
+The release skill archive and raw definition come from this same authored source. Compare the bundle manifest's app version and hashes with the selected release before installing a user-managed copy in an agent. Retain the prior copy for explicit rollback. Application updates and removal do not update or delete exported agent copies. Loading these instructions does not run the skill or grant additional permissions. Browser Skill downloads and desktop export UI remain pending until their release documents explicitly report availability.
 
 ## Input selection
 
@@ -233,7 +245,7 @@ acorn --version
 For repository development:
 
 ```shell
-cargo install --locked --path ./acorn-cli
+cargo install --locked --path ./crates/acorn-cli
 acorn --version
 ```
 

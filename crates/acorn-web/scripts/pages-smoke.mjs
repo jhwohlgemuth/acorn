@@ -39,8 +39,8 @@ try {
         if (request.url().startsWith("http") && !request.url().startsWith(`${origin}${prefix}/`)) failures.push(`Unexpected request: ${request.url()}`);
     });
     await page.goto(`${origin}${prefix}/`);
-    await page.getByRole("heading", { name: "Your research, connected." }).waitFor();
-    await page.waitForFunction(() => { const image = document.querySelector(".home-mark"); return image?.complete && image.naturalWidth > 0; });
+    await page.getByRole("heading", { name: "ACORN Browser" }).waitFor();
+    await page.waitForFunction(() => { const image = document.querySelector(".home-banner img"); return image?.complete && image.naturalWidth > 0; });
     await page.waitForFunction(() => getComputedStyle(document.querySelector(".sidebar")).position !== "static");
     await page.getByRole("button", { name: "Try sample data" }).click();
     await page.getByRole("heading", { name: "Research Activity", exact: true }).waitFor();
@@ -53,7 +53,7 @@ try {
     await page.reload();
     await page.getByRole("heading", { name: "Readability", exact: true }).waitFor();
     await page.locator('nav a[title="Home"]').click();
-    await page.getByRole("heading", { name: "Your research, connected." }).waitFor();
+    await page.getByRole("heading", { name: "ACORN Browser" }).waitFor();
     assert.equal(new URL(page.url()).pathname, `${prefix}/`);
     assert.deepEqual(failures, []);
     console.log(`Pages browser smoke passed at ${prefix || "/"}: assets, WASM operation, navigation and direct-route refresh.`);

@@ -7,6 +7,10 @@ const walk = async (path) => (await Promise.all((await readdir(path, { withFileT
 const files = await walk(root);
 const wasm = files.filter((p) => p.endsWith(".wasm"));
 assert.equal(wasm.length, 1, "The UI and ACORN must share exactly one WASM payload");
+const compiled = await WebAssembly.compile(await readFile(wasm[0]));
+for (const section of [".debug_info", ".debug_line", ".debug_abbrev", ".debug_str"]) {
+    assert.equal(WebAssembly.Module.customSections(compiled, section).length, 0, `Release payload retains ${section}; build with --debug-symbols false`);
+}
 const modulePath = files.find((p) => /acorn-web(?:-dxh[^/]+)?\.js$/.test(p));
 assert.ok(modulePath, "Missing application JS module");
 const bindings = await readFile(modulePath, "utf8");

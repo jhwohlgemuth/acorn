@@ -7,6 +7,10 @@
 \usetikzlibrary{arrows.meta,positioning}
 \definecolor{Forest}{HTML}{1E4035}
 \definecolor{Green}{HTML}{00662C}
+\definecolor{Energy}{HTML}{7DBA00}
+\definecolor{ChoiceGray}{HTML}{F1F2F3}
+\definecolor{ChoiceText}{HTML}{6B7074}
+\definecolor{Disabled}{HTML}{A6A6A6}
 \definecolor{Navy}{HTML}{00454D}
 \definecolor{Mint}{HTML}{EDF4EF}
 \definecolor{Line}{HTML}{C7D8CF}
@@ -17,7 +21,7 @@
 \setlength{\parskip}{6pt}
 \setlist[itemize]{topsep=3pt,itemsep=3pt,leftmargin=18pt}
 \pagestyle{fancy}\fancyhf{}
-\fancyfoot[L]{\color{Muted}\scriptsize PA-40A / TEST ONLY / 11 NOV 2026}
+\fancyfoot[L]{\color{Muted}\scriptsize PA-40A / TEST ONLY / 12 NOV 2026}
 \fancyfoot[R]{\color{Muted}\scriptsize \thepage\ / 5}
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0.4pt}
@@ -26,6 +30,7 @@
 \newcommand{\subline}[1]{{\color{Muted}\small #1}\par\vspace{9pt}}
 \newtcolorbox{note}{colback=Mint,colframe=Line,boxrule=.6pt,arc=7pt,left=10pt,right=10pt,top=8pt,bottom=8pt}
 \newcommand{\tile}[3]{\node[draw=Line,fill=#3,rounded corners=5pt,minimum width=2.95in,minimum height=.39in,text=Ink,font=\small\bfseries] at (#1) {#2};}
+\newcommand{\choice}[4]{\node[draw=Line,fill=#3,rounded corners=5pt,minimum width=2.95in,minimum height=.39in,text=#4,font=\small\bfseries] at (#1) {#2};}
 \begin{document}
 
 \eyebrow{PARTICIPANT ORIENTATION}
@@ -77,24 +82,33 @@
 \end{tcolorbox}
 
 {\color{Green}\large\bfseries 01 // Highlight details}\par
+\begin{tikzpicture}[x=1in,y=1in]
+  \foreach \y/\heading/\value in {0/{Highlight type}/{Project status},-.68/{Report placement}/{Project highlight}}{
+    \node[anchor=west,text=Ink,font=\bfseries] at (0,\y) {\heading};
+    \ifdim\y pt=0pt\def\togglecolor{Energy}\def\thumbx{.34}\def\valuecolor{Ink}\else\def\togglecolor{Disabled}\def\thumbx{.13}\def\valuecolor{Disabled}\fi
+    \draw[fill=\togglecolor,draw=\togglecolor,rounded corners=9pt] (0,\y-.43) rectangle ++(.47,.25);
+    \fill[white] (\thumbx,\y-.305) circle (.095);
+    \node[anchor=west,text=\valuecolor,font=\small] at (.54,\y-.305) {\value};
+  }
+\end{tikzpicture}\par
+{\color{Muted}\scriptsize Current control reference (redrawn): aligned toggle values; bright green shows the on state.}\par
+Click the switch or its adjacent value label; the hand cursor marks an enabled toggle. Highlight type switches between Activity highlight and Project status. Report placement switches between Project highlight and General update. Project status locks placement to Project highlight.\par
 \begin{tabularx}{\linewidth}{@{}X X@{}}
-\textbf{Type} & \textbf{Report placement}\\[4pt]
-Activity highlight / Project status & Project highlight / General update\\[12pt]
 \textbf{Project} & \textbf{Date}\\[4pt]
 Select a project & Choose the activity date\\[12pt]
 \textbf{For an activity highlight} & \textbf{For a project status}\\[4pt]
 Choose a category, status, and optional event type & Choose project health; choose a risk or None; add proof if available\\
 \end{tabularx}
 
-\vspace{10pt}
+\vspace{5pt}
 {\color{Green}\large\bfseries 02 // The development}\par
 Write the short summary first. Add the context requested for the selected type. Field labels stay visible while you type; optional details may stay empty. The third section, Report preview, helps you check how the text reads.
 
 \begin{note}
-\textbf{Choice buttons:} project health and risk appear as two-column button grids with icons describing each option. The row and column gaps are similar, and a green button shows your selection. All choices in each grid are visible without a separate list scrollbar. For a status marked At risk, Delayed, or Paused, explain the health context. If you choose a risk other than None, add the effect or action needed.
+\textbf{Choice buttons:} project health and risk appear as two-column button grids with icons describing each option. The row and column gaps are similar, and a green button shows the single selected choice. The other buttons are gray, turn green on hover, and remain clickable; selecting another replaces the previous choice. All choices in each grid are visible without a separate list scrollbar. For a status marked At risk, Delayed, or Paused, explain the health context. If you choose a risk other than None, add the effect or action needed.
 \end{note}
 
-\vspace{8pt}
+\vspace{4pt}
 \eyebrow{FINISH AND CORRECT}
 \begin{enumerate}[leftmargin=20pt,itemsep=5pt]
 \item Submit once and read the receipt and export status before starting another action.
@@ -102,12 +116,12 @@ Write the short summary first. Add the context requested for the selected type. 
 \item Change the summary and save the correction. The original receipt remains; the correction has a linked receipt.
 \end{enumerate}
 
-Button icons reinforce the action: arrows move through the form, the circular arrow means refresh or retry, the pencil means edit, and the check means save or selected. Use the text label as the action name.
+Button icons reinforce the text label. Buttons and toggles have no focus outline. Text fields and dropdowns retain their blue focus borders.
 \newpage
 
 \eyebrow{CONTRIBUTOR REFERENCE VIEWS}
 \titleline{Find the status choices}
-\subline{The upper image is a historical TEST ONLY reference screenshot. The lower control reference is redrawn from the published November 11 status form because the browser blocked exporting the current capture as a local image. Use the live app for exact placement.}
+\subline{The upper image is a historical TEST ONLY reference screenshot. The lower control reference is redrawn from the published November 12 status form because the browser blocked exporting the current capture as a local image. Use the live app for exact placement.}
 
 \begin{center}
 \fcolorbox{Line}{white}{\includegraphics[width=.73\linewidth,height=2.40in,keepaspectratio]{pa40a-contributor-desktop.png}}\\[3pt]
@@ -118,13 +132,13 @@ Button icons reinforce the action: arrows move through the form, the circular ar
 {\color{Forest}\bfseries Current published status controls (redrawn reference)}\par
 \begin{tikzpicture}[x=1in,y=1in]
   \node[anchor=west,text=Forest,font=\small\bfseries] at (0,0) {Project health *};
-  \tile{1.50,-.34}{$\rightarrow$ On track}{Mint}\tile{4.60,-.34}{$\nearrow$ Ahead of plan}{Mint}
-  \tile{1.50,-.88}{$\triangle$ At risk}{Mint}\tile{4.60,-.88}{$\circlearrowleft$ Delayed}{Mint}
-  \tile{1.50,-1.42}{$\Vert$ Paused}{Mint}\tile{4.60,-1.42}{$\checkmark$ Complete}{Mint}
+  \choice{1.50,-.34}{$\rightarrow$ On track}{Green}{white}\choice{4.60,-.34}{$\nearrow$ Ahead of plan}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-.88}{$\triangle$ At risk}{ChoiceGray}{ChoiceText}\choice{4.60,-.88}{$\circlearrowleft$ Delayed}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-1.42}{$\Vert$ Paused}{ChoiceGray}{ChoiceText}\choice{4.60,-1.42}{$\checkmark$ Complete}{ChoiceGray}{ChoiceText}
   \node[anchor=west,text=Forest,font=\small\bfseries] at (0,-1.95) {Risk or dependency};
-  \tile{1.50,-2.29}{$\circ$ None}{Mint}\tile{4.60,-2.29}{$\equiv$ Data}{Mint}
-  \tile{1.50,-2.83}{$\boxplus$ Infrastructure}{Mint}\tile{4.60,-2.83}{$\square$ Security accreditation}{Mint}
-  \tile{1.50,-3.37}{$\ast$ Software environment}{Mint}\tile{4.60,-3.37}{$\star$ Sponsor prioritization}{Mint}
+  \choice{1.50,-2.29}{$\circ$ None}{Green}{white}\choice{4.60,-2.29}{$\equiv$ Data}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-2.83}{$\boxplus$ Infrastructure}{ChoiceGray}{ChoiceText}\choice{4.60,-2.83}{$\square$ Security accreditation}{ChoiceGray}{ChoiceText}
+  \choice{1.50,-3.37}{$\ast$ Software environment}{ChoiceGray}{ChoiceText}\choice{4.60,-3.37}{$\star$ Sponsor prioritization}{ChoiceGray}{ChoiceText}
   \node[anchor=west,text=Muted,font=\scriptsize] at (0,-3.75) {Six more risk buttons follow in the live grid; select one or choose None.};
 \end{tikzpicture}
 \newpage

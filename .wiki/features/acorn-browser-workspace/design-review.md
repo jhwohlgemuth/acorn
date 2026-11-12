@@ -28,8 +28,19 @@ The reference [Install page](https://www.jasonwohlgemuth.com/okf-plan-browser/in
 - Provide the ACORN-specific geospatial route with an equivalent organization table. Its offline, selection and WebGL behavior requires independent acceptance because the reference does not supply that workflow.
 - Use top-bar/drawer navigation at short landscape heights. The observed reference retained its desktop sidebar at 844×390; ACORN's adaptation preserves usable content height.
 
-## Remaining acceptance
+## Exceptional-state acceptance — November 11, 2026
 
-ABW-20 retains only empty/single-record Portfolio, invalid/oversized tool input, WebGL-unavailable map and skill version-mismatch visual states, plus final comparison of those states with the established design. The revised normal-state boards, theme variants and responsive navigation are the current design specification and must change with subsequent design decisions.
+Native Chrome access was restored for this pass. Home, empty Portfolio and Planning Skill were inspected with the responsive viewport explicitly set to 1440×900. Portfolio initially failed to load a stale dynamic module; reloading the route restored the current reference. The reference retains a 220 px sidebar, compact outlined navigation, restrained borders and an 848 px Skill column. ACORN keeps that shell and content rhythm, with the documented green branding and Research Activity content. Its empty Portfolio offers an explicit Home action instead of the reference's empty filtered-plan message.
 
-ABW-08 owns live keyboard, screen-reader, responsive reflow, interaction and browser acceptance. Static SVG rendering cannot establish those behaviors. ACORN product crates remain absent at repository baseline `75cc88ec`; no running ACORN UI or distribution channel is accepted by this preview update.
+All six new SVGs were parsed, rendered with `rsvg-convert`, and visually inspected at 1440×900 plus the 32 px annotation strip. The two data tables were corrected to use positioned columns after the first render exposed collapsed whitespace. Final renders have readable text, distinct columns, contained actions and no overlap with navigation or footer.
+
+| State | Accepted design evidence |
+|---|---|
+| Empty Portfolio | [Preview](_assets/acorn-browser-portfolio-empty-preview.svg): no invented counts or charts; Home entry action. |
+| Single-record Portfolio | [Preview](_assets/acorn-browser-portfolio-single-preview.svg): one-record counts, labeled 100% bar, table and selection details. |
+| Invalid input | [Preview](_assets/acorn-browser-validation-invalid-preview.svg): preserved input, diagnostic paths and retry action; illustrative diagnostics are labeled. |
+| Oversized input | [Preview](_assets/acorn-browser-validation-oversized-preview.svg): byte limit, selected size, recovery and preserved previous content. |
+| WebGL unavailable | [Preview](_assets/acorn-browser-geospatial-unavailable-preview.svg): local organization table, unresolved location and no remote-map fallback. |
+| Skill version mismatch | [Preview](_assets/acorn-browser-skill-mismatch-preview.svg): both versions, unavailable exports and recovery without inspecting agent folders. |
+
+These states complete ABW-20's visual specification. Their ACORN-specific behaviors have no equivalent in the reference and remain implementation acceptance requirements for their owning phases. ABW-02 and ABW-08 own live keyboard, screen-reader, responsive reflow, interaction and browser acceptance. Static SVG rendering cannot establish those behaviors. The earlier `75cc88ec` review preceded the accepted local nine-operation browser; current implementation evidence is in the browser README. No distribution channel is accepted by this design review.

@@ -73,6 +73,19 @@ impl Tool {
             | Self::BigO => "Compare asymptotic growth with explicit symbol assumptions.",
         }
     }
+    /// Decorative icon from the shared navigation artwork.
+    pub fn icon(self) -> &'static str {
+        match self {
+            | Self::Activity | Self::Standard => "filecheck",
+            | Self::Crosswalk => "shuffle",
+            | Self::Fair => "shield",
+            | Self::Readability => "book",
+            | Self::Diff => "diff",
+            | Self::Discover => "search",
+            | Self::Inspect => "compass",
+            | Self::BigO => "chart",
+        }
+    }
     /// Maximum UTF-8 bytes for the primary editor.
     pub fn limit(self) -> usize {
         match self {
