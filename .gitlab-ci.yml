@@ -94,6 +94,21 @@ prepare-environment:
 
 # ------------------------------------------------------------------- test ----
 
+coverage:
+  extends: .rust-test
+  stage: test
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - command -v buf >/dev/null || (curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-$(uname -m)" -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf)
+    - rustup component add llvm-tools-preview
+    - cargo tarpaulin --version || cargo install --locked cargo-tarpaulin
+    - make cover
+  coverage: '/^\d+(?:\.\d+)?% coverage/'
+
 modelkit-upstream:
   stage: test
   image: golang@sha256:564e366a28ad1d70f460a2b97d1d299a562f08707eb0ecb24b659e5bd6c108e1
