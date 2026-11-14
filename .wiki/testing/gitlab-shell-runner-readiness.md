@@ -69,7 +69,7 @@ A valid `verify` result does not mean job updates work. A 403 on "Checking for j
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: runner 55645 must finish a tagged job and upload its final status. Job 4483744 was canceled after checkout, and the final update returned 403.
+- Prerequisites: runner-administrator remediation or an external service change resolves runner 55645's 403 on final trace/status updates. Job 4483744 checked out the branch but was canceled and its final update failed; `gitlab-runner verify` alone does not prove job completion.
 - Exact write set: GitLab project 16689 runner 55645 tags, one disposable CI job, `CONTRIBUTING.md`, `.wiki/testing/gitlab-shell-runner-readiness.md`, `.wiki/testing/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/migrations/index.md`, `.wiki/migrations/needle-3-upgrade.md`, `.wiki/features/model-acquisition-hardening.md`, `.wiki/migrations/podman-makefile.md`
 - Primary integration lock: Windows runner host
 - Outcome: Finish a tagged PowerShell job on runner 55645 and record its native OS and architecture.

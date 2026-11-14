@@ -3,7 +3,7 @@ name = "acorn-web"
 default_platform = "web"
 
 [web.app]
-title = "ACORN · Research workspace"
+title = "RAD Workspace"
 
 [web.watcher]
 watch_path = ["src", "assets"]

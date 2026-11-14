@@ -13,15 +13,43 @@ public class Script : ScriptBase
     private const string Repository = "https://code.ornl.gov/api/v4/projects/22464/repository/";
     public override async Task<HttpResponseMessage> ExecuteAsync()
     {
-        if (this.Context.OperationId != "GetProjectCatalog" && this.Context.OperationId != Convert.ToBase64String(Encoding.UTF8.GetBytes("GetProjectCatalog")))
+        var operation = this.Context.OperationId;
+        var fixedCatalog = operation == "GetProjectCatalog" || operation == Convert.ToBase64String(Encoding.UTF8.GetBytes("GetProjectCatalog"));
+        var configurableCatalog = operation == "GetProjectCatalogForRepository" || operation == Convert.ToBase64String(Encoding.UTF8.GetBytes("GetProjectCatalogForRepository"));
+        if (!fixedCatalog && !configurableCatalog)
             return await this.Context.SendAsync(this.Context.Request, this.CancellationToken).ConfigureAwait(false);
         try
         {
-            var branch = await ReadAsync("branches/main");
+            var repository = Repository;
+            var branchName = "main";
+            var queryProject = QueryValue(this.Context.Request.RequestUri, "projectId");
+            var queryBranch = QueryValue(this.Context.Request.RequestUri, "branch");
+            if (fixedCatalog && (queryProject != null || queryBranch != null))
+            {
+                if (!Int32.TryParse(queryProject, out var projectId) || projectId <= 0 || String.IsNullOrWhiteSpace(queryBranch))
+                    return Failure(HttpStatusCode.BadRequest, "A positive GitLab project ID and branch are required.");
+                branchName = queryBranch;
+                repository = "https://code.ornl.gov/api/v4/projects/" + projectId + "/repository/";
+            }
+            else if (configurableCatalog)
+            {
+                var segments = this.Context.Request.RequestUri.AbsolutePath.Split('/');
+                var projectIndex = Array.FindIndex(segments, segment => segment == "projects");
+                if (projectIndex < 0 || projectIndex + 1 >= segments.Length ||
+                    !Int32.TryParse(segments[projectIndex + 1], out var projectId) || projectId <= 0 ||
+                    segments.Length < 2 || segments[segments.Length - 2] != "branches")
+                    return Failure(HttpStatusCode.BadRequest, "A positive GitLab project ID and branch are required.");
+                branchName = Uri.UnescapeDataString(segments[segments.Length - 1]);
+                repository = "https://code.ornl.gov/api/v4/projects/" + projectId + "/repository/";
+            }
+            if (String.IsNullOrWhiteSpace(branchName) || branchName != branchName.Trim() ||
+                branchName.Contains("..") || branchName.Any(Char.IsControl))
+                return Failure(HttpStatusCode.BadRequest, "Invalid GitLab branch.");
+            var branch = await ReadAsync(repository, "branches/" + Uri.EscapeDataString(branchName));
             if (!branch.IsSuccessStatusCode) return Failure(branch.StatusCode, "Could not read the project repository.");
             var revision = (string)JObject.Parse(await branch.Content.ReadAsStringAsync())["commit"]?["id"];
             if (String.IsNullOrWhiteSpace(revision)) return Failure(HttpStatusCode.BadGateway, "Repository revision is missing.");
-            var config = await ReadAsync("files/.acorn.jsonc?ref=" + Uri.EscapeDataString(revision));
+            var config = await ReadAsync(repository, "files/.acorn.jsonc?ref=" + Uri.EscapeDataString(revision));
             if (config.IsSuccessStatusCode)
             {
                 var file = JObject.Parse(await config.Content.ReadAsStringAsync());
@@ -38,7 +66,7 @@ public class Script : ScriptBase
             var ids = new HashSet<string>(StringComparer.Ordinal);
             for (var page = 1; page <= 100; page++)
             {
-                var response = await ReadAsync("tree?recursive=true&per_page=100&page=" + page + "&ref=" + Uri.EscapeDataString(revision));
+                var response = await ReadAsync(repository, "tree?recursive=true&per_page=100&page=" + page + "&ref=" + Uri.EscapeDataString(revision));
                 if (!response.IsSuccessStatusCode) return Failure(response.StatusCode, "Could not discover project folders.");
                 var entries = JArray.Parse(await response.Content.ReadAsStringAsync());
                 foreach (var entry in entries)
@@ -99,9 +127,19 @@ public class Script : ScriptBase
     {
         return new HttpResponseMessage(status) { Content = CreateJsonContent(new JObject { ["message"] = message }.ToString(Newtonsoft.Json.Formatting.None)) };
     }
-    private async Task<HttpResponseMessage> ReadAsync(string relative)
+    private static string QueryValue(Uri uri, string name)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, Repository + relative);
+        foreach (var pair in uri.Query.TrimStart('?').Split('&'))
+        {
+            var parts = pair.Split(new[] { '=' }, 2);
+            if (Uri.UnescapeDataString(parts[0]) == name)
+                return parts.Length == 2 ? Uri.UnescapeDataString(parts[1]) : "";
+        }
+        return null;
+    }
+    private async Task<HttpResponseMessage> ReadAsync(string repository, string relative)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, repository + relative);
         foreach (var header in this.Context.Request.Headers)
             if (!String.Equals(header.Key, "Host", StringComparison.OrdinalIgnoreCase))
                 request.Headers.TryAddWithoutValidation(header.Key, header.Value);

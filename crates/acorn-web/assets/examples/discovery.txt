@@ -1,0 +1,45 @@
+RESEARCH HANDOVER: IDENTIFIER DISCOVERY WORKSHOP
+
+This illustrative inventory mixes repository links, inline citations, plain identifiers,
+resolver URLs and repeated aliases. Identifiers demonstrate local syntax recognition;
+they are not assertions of ownership, affiliation, live availability or related research.
+
+Publications and preprints
+The methods bibliography cites DOI 10.1000/182, https://doi.org/10.1038/nature12373,
+and doi:10.5072/acorn-watershed-methods. Preprints include arXiv:2106.09685,
+https://arxiv.org/abs/2301.01234 and arXiv:hep-th/9901001.
+The handover repeats https://doi.org/10.1000/182 to demonstrate deduplication.
+
+People and organizations
+Author identifiers: https://orcid.org/0000-0002-1825-0097,
+ORCID: 0000-0002-2057-9115, and https://orcid.org/0000-0001-5109-3700.
+Authority records: ISNI: 0000 0004 9229 9539,
+https://isni.org/isni/0000000120960218 and ISNI: 0000 0000 8405 6132.
+Organization records: https://ror.org/01qz5mb56, https://ror.org/042nb2s44,
+and https://ror.org/03vek6s52. The first ROR also appears as http://ror.org/01qz5mb56.
+
+Archives and project records
+Archival objects: https://n2t.net/ark:/13030/xf93gt2q and
+https://n2t.net/ark:/12148/btv1b8449691v/f29.
+Repository objects: https://hdl.handle.net/10013/epic.10033 and
+https://hdl.handle.net/20.500.12345/watershed-demo.
+Activity records: RAID:10.83962/fb5be317 and https://raid.org/10.26259/0e59e9a5.
+
+Books, patents and research resources
+Reading list: ISBN 978-0-306-40627-0, ISBN 978-3-16-148410-0 and ISBN 0-306-40615-2.
+Patent examples: US1234567B2, US 7,654,321 B1 and US20250123456A2.
+Resource identifiers: RRID:SCR_003512, RRID:SCR_014641 and RRID:CVCL_3588.
+The first resource is repeated as https://n2t.net/RRID:SCR_003512.
+
+Software provenance
+Content: swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b
+Directory: swh:1:dir:d198bc9d7a6bcf6db04f476d29314f157507d505
+Revision: swh:1:rev:2db189928c94d62a3b4757b3eec68f0a4d4113f0
+Release: swh:1:rel:22ece559cc7cc2364edc5e5593d63ae8bd229f9f
+Snapshot: swh:1:snp:d7f1b9eb7ccb596c2622c4780febaa02549830f9
+
+Deliberate lookalikes to reject
+ROR https://ror.org/01qz5mb56xxx; ORCID: 0000-0002-1825-0098;
+ISBN 978-0-306-40627-1; arXiv:2100.00000;
+swh:2:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b.
+Ordinary URLs such as https://example.org/project are not persistent identifiers.

@@ -9,29 +9,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const ID: &str = "11111111-1111-4111-8111-111111111111";
-
 const LINE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../tests/fixtures/automation/powerautomate/logbook.jsonl"
 ));
-
 fn apply(config_path: &Path, submission_id: &str) -> ApiResult<ApplyStatus> {
     ApplicationConfiguration::load_local_intake(config_path).and_then(|(configuration, path)| configuration.apply(&path, submission_id))
 }
-
 fn apply_batch(config_path: &Path, batch_id: &str) -> ApiResult<local::BatchApplySummary> {
     ApplicationConfiguration::load_local_intake(config_path).and_then(|(configuration, path)| configuration.apply_batch(&path, batch_id))
 }
-
-/// Build the canonical absolute file URI for one local path on every platform.
-fn file_uri(path: &Path) -> String {
-    let text = path.display().to_string();
-    match cfg!(windows) {
-        | true => format!("file:///{}", text.replace('\\', "/")),
-        | false => format!("file://{text}"),
-    }
-}
-
 fn batch_setup() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<PathBuf>) {
     let directory = tempfile::tempdir().unwrap();
     let config = directory.path().join(".acorn.json");
@@ -40,7 +27,9 @@ fn batch_setup() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<PathBuf>) {
         .into_iter()
         .map(|id| {
             let path = directory.path().join(format!("{id}.json"));
-            fs::write(&path, serde_json::to_vec(&ResearchActivity::default()).unwrap()).unwrap();
+            let mut activity = ResearchActivity::default();
+            activity.meta.identifier = id.to_string();
+            fs::write(&path, serde_json::to_vec(&activity).unwrap()).unwrap();
             path
         })
         .collect::<Vec<_>>();
@@ -71,7 +60,6 @@ fn batch_setup() -> (tempfile::TempDir, PathBuf, PathBuf, Vec<PathBuf>) {
     .unwrap();
     (directory, config, inbox, indexes)
 }
-
 fn configure_general(config: &Path) -> PathBuf {
     let mut document: serde_json::Value = serde_json::from_slice(&fs::read(config).unwrap()).unwrap();
     document["options"] = serde_json::json!({"generalLogbook": {
@@ -80,7 +68,6 @@ fn configure_general(config: &Path) -> PathBuf {
     fs::write(config, serde_json::to_vec(&document).unwrap()).unwrap();
     config.parent().unwrap().join("general/logbook.json")
 }
-
 fn correction(original: &str, id: &str) -> String {
     let mut row: serde_json::Value = serde_json::from_str(original).unwrap();
     let root = row["revision"]["rootSubmissionId"]
@@ -92,7 +79,14 @@ fn correction(original: &str, id: &str) -> String {
     row["entry"]["summary"] = "Corrected synthetic highlight".into();
     serde_json::to_string(&row).unwrap()
 }
-
+/// Build the canonical absolute file URI for one local path on every platform.
+fn file_uri(path: &Path) -> String {
+    let text = path.display().to_string();
+    match cfg!(windows) {
+        | true => format!("file:///{}", text.replace('\\', "/")),
+        | false => format!("file://{text}"),
+    }
+}
 fn general_row(id: &str) -> String {
     let mut row: serde_json::Value = serde_json::from_str(LINE.lines().next().unwrap()).unwrap();
     row["submissionId"] = id.into();
@@ -100,13 +94,14 @@ fn general_row(id: &str) -> String {
     row["entry"]["global"] = true.into();
     serde_json::to_string(&row).unwrap()
 }
-
 fn setup(destination: &str) -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
     let directory = tempfile::tempdir().unwrap();
     let config = directory.path().join(".acorn.json");
     let inbox = directory.path().join("logbook.jsonl");
     let index = directory.path().join("index.json");
-    fs::write(&index, serde_json::to_string(&ResearchActivity::default()).unwrap()).unwrap();
+    let mut activity = ResearchActivity::default();
+    activity.meta.identifier = "acorn".to_string();
+    fs::write(&index, serde_json::to_string(&activity).unwrap()).unwrap();
     fs::write(&inbox, LINE.lines().next().unwrap().to_string() + "\n").unwrap();
     let path = match destination {
         | "local" => file_uri(&index),
@@ -120,7 +115,6 @@ fn setup(destination: &str) -> (tempfile::TempDir, PathBuf, PathBuf, PathBuf) {
     fs::write(&config, serde_json::to_vec(&config_content).unwrap()).unwrap();
     (directory, config, inbox, index)
 }
-
 fn stage(config_path: &Path, inbox_path: &Path) -> ApiResult<StageSummary> {
     ApplicationConfiguration::load_local_intake(config_path).and_then(|(configuration, path)| configuration.stage(&path, inbox_path))
 }

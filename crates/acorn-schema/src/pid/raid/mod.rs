@@ -5,7 +5,7 @@
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
 use crate::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse};
 use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
-use crate::validation::{report_of, validate_license, IntoValidationReport, Validate, ValidationReport};
+use crate::validation::{is_iso_639_3_language_code, report_of, validate_license, IntoValidationReport, Validate, ValidationReport};
 use crate::vocabulary;
 use crate::Date;
 use crate::OneOrMany;
@@ -611,7 +611,7 @@ pub struct Language {
     /// - "jpn"
     ///
     /// <div class="warning">Limited to <a href="https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes">ISO 639:2023 (Set 3)</a></div>
-    #[validate(length(equal = 3))]
+    #[validate(length(equal = 3), custom(function = "is_iso_639_3_language_code"))]
     pub id: String,
     /// URI of the associated type schema
     #[validate(url)]
@@ -944,6 +944,7 @@ pub struct Role {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct SpatialCoverage {
     /// Spatial region or named place that is the subject or target of the project or activity. Repeat this property as necessary to indicate different locations. Do not duplicate organisational locations
+    #[validate(nonempty)]
     pub id: String,
     /// URI of the geolocation schema used for spatial coverage
     #[validate(url)]

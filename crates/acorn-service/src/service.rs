@@ -6,7 +6,7 @@ use crate::model::{
 use crate::repository::process_repository;
 use crate::{ServiceError, ServiceErrorKind, ServiceResult};
 use acorn_analysis::readability::score::ReadabilityScore;
-use acorn_analysis::{CheckBatch, CheckSeverity};
+use acorn_analysis::{Check, CheckBatch, CheckCategory, CheckSeverity, FairEvidence};
 use acorn_core::prelude::{format, ToString, Vec};
 use acorn_core::util::MimeType;
 use acorn_schema::codec::{CodecDiagnostic, DocumentCodec};
@@ -26,25 +26,41 @@ impl AcornService {
     /// Validate caller-supplied research activity data and return every diagnostic.
     pub fn validate_research_activity(&self, request: ValidateResearchActivityRequest) -> ServiceResult<ValidateResearchActivityResponse> {
         let source = request.source_uri.as_deref();
-        decode_validated::<ResearchActivity>(&request.content, &request.format, source)
-            .map(|value| {
-                let diagnostics = CheckBatch::resolve_research_activity_vocabulary(
+        match ResearchActivity::decode(&request.content, &request.format) {
+            | Ok(value) => serde_json::to_value(&value).map_err(ServiceError::from).map(|metadata| {
+                let validation = value.validate();
+                let valid = validation.is_ok();
+                let schema = validation.err().map(validation_diagnostics).unwrap_or_default();
+                let vocabulary = CheckBatch::resolve_research_activity_vocabulary(
                     &value,
                     request.vocabulary_fuzzy,
                     source.unwrap_or("input"),
                     VocabularyResolver::embedded,
-                )
-                .into_iter()
-                .map(vocabulary_diagnostic)
-                .collect();
+                );
+                let fair = FairEvidence::from_value(
+                    source.unwrap_or("memory://metadata"),
+                    Standard::ResearchActivityData.to_string(),
+                    &metadata,
+                );
+                let diagnostics = schema
+                    .into_iter()
+                    .chain(vocabulary.into_iter().map(Diagnostic::from))
+                    .chain(fair.assess().into_iter().map(Check::from).map(Diagnostic::from))
+                    .collect();
                 ValidateResearchActivityResponse {
-                    diagnostics,
-                    valid: true,
+                    diagnostics: with_source(diagnostics, source),
+                    valid,
                     vocabulary_fuzzy: Some(request.vocabulary_fuzzy),
                 }
-            })
-            .or_else(Ok)
+            }),
+            | Err(diagnostics) => Ok(ValidateResearchActivityResponse {
+                diagnostics: with_source(diagnostics.into_iter().map(Diagnostic::from).collect(), source),
+                valid: false,
+                vocabulary_fuzzy: None,
+            }),
+        }
     }
+
     /// Validate caller-supplied data against a selected portable metadata standard.
     pub fn validate_standard(&self, request: ValidateStandardRequest) -> ServiceResult<ValidateResearchActivityResponse> {
         let source = request.source_uri.as_deref();
@@ -96,9 +112,27 @@ impl AcornService {
         process_repository(request)
     }
 }
+impl From<Check> for Diagnostic {
+    fn from(check: Check) -> Self {
+        let message = match check.fair_details() {
+            | Some(details) if !check.message.contains(&details.indicator.description) => {
+                format!("{} — {}", details.indicator.description, check.message)
+            }
+            | _ => check.message,
+        };
+        Diagnostic {
+            category: check.category,
+            code: check.rule_id.unwrap_or_else(|| "analysis.advisory".to_string()),
+            message,
+            path: check.locator,
+            severity: check.severity,
+        }
+    }
+}
 impl From<CodecDiagnostic> for Diagnostic {
     fn from(diagnostic: CodecDiagnostic) -> Self {
         Diagnostic {
+            category: CheckCategory::Schema,
             code: diagnostic.code,
             message: diagnostic.message,
             path: diagnostic.path,
@@ -144,20 +178,13 @@ fn validation_diagnostics(report: ValidationReport) -> Vec<Diagnostic> {
         .into_issues()
         .into_iter()
         .map(|issue| Diagnostic {
+            category: CheckCategory::Schema,
             code: issue.error.code,
             message: issue.error.message.unwrap_or_else(|| "Validation failed".to_string()),
             path: (!issue.path.is_empty()).then_some(issue.path),
             severity: CheckSeverity::Error,
         })
         .collect()
-}
-fn vocabulary_diagnostic(check: acorn_analysis::Check) -> Diagnostic {
-    Diagnostic {
-        code: check.rule_id.unwrap_or_else(|| "vocabulary.advisory".to_string()),
-        message: check.message,
-        path: check.locator,
-        severity: check.severity,
-    }
 }
 fn with_source(diagnostics: Vec<Diagnostic>, source: Option<&str>) -> Vec<Diagnostic> {
     diagnostics

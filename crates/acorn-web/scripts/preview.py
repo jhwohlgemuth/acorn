@@ -19,5 +19,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not (args.directory / "index.html").is_file():
         parser.error("Build the browser first with make web-build")
-    print(f"ACORN preview: http://127.0.0.1:{args.port}", flush=True)
+    print(f"RAD Workspace preview: http://127.0.0.1:{args.port}", flush=True)
     ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(args.directory))).serve_forever()

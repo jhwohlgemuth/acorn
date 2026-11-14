@@ -68,6 +68,7 @@ message Diagnostic {
   string message = 2;
   optional string path = 3;
   Severity severity = 4;
+  string category = 5;
 }
 
 message ValidateResearchActivityRequest {

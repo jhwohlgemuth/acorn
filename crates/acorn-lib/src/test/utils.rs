@@ -16,58 +16,6 @@ use jiff::Timestamp;
 use ring::hmac as ring_hmac;
 use std::{path::PathBuf, time::SystemTime};
 
-/// Computes a Standard Webhooks HMAC-SHA256 signature for the given message components.
-#[cfg(feature = "agentic")]
-pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, webhook_id: &str, timestamp: &str, body: &[u8]) -> String {
-    let key_bytes = BASE64.decode(signing_token_base64.strip_prefix("whsec_").unwrap().as_bytes()).unwrap();
-    let key = ring_hmac::Key::new(ring_hmac::HMAC_SHA256, &key_bytes);
-    let mut message = format!("{webhook_id}.{timestamp}.").into_bytes();
-    message.extend_from_slice(body);
-    format!("v1,{}", BASE64.encode(ring_hmac::sign(&key, &message).as_ref()))
-}
-/// Returns the current UTC time as a Unix timestamp string.
-#[cfg(feature = "agentic")]
-pub(crate) fn current_unix_timestamp() -> String {
-    Timestamp::now().as_second().to_string()
-}
-/// Get path to test fixtures relative to workspace root
-pub fn fixture_path(path: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("tests")
-        .join("fixtures")
-        .join(path)
-}
-/// Returns a Unix timestamp string that is `stale_by_secs` seconds in the past.
-#[cfg(feature = "agentic")]
-pub(crate) fn stale_unix_timestamp(stale_by_secs: u64) -> String {
-    (Timestamp::now().as_second() - stale_by_secs as i64).to_string()
-}
-/// Build a unique temporary directory path under `target/test_artifacts`.
-pub(crate) fn temp_dir(name: &str) -> PathBuf {
-    let timestamp = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or(Duration::from_nanos(0))
-        .as_nanos();
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .join("target")
-        .join("test_artifacts")
-        .join(format!("{name}-{timestamp}"))
-}
-/// Build a unique path under `target/test_artifacts`.
-pub(crate) fn unique_path(name: &str, extension: &str) -> PathBuf {
-    let timestamp = Timestamp::now().as_nanosecond();
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .join("target")
-        .join("test_artifacts")
-        .join(format!("{name}-{timestamp}.{extension}"))
-}
-
 #[cfg(feature = "agentic")]
 mod gitlab_review {
     use crate::test::server::TestServer;
@@ -76,6 +24,7 @@ mod gitlab_review {
     use axum::routing::{get, post};
     use axum::{extract::State, http::StatusCode, Json, Router};
     use std::sync::Mutex;
+
     #[derive(Clone)]
     pub(crate) struct ReviewState {
         pub(crate) branches: BTreeMap<String, String>,
@@ -88,12 +37,16 @@ mod gitlab_review {
     impl ReviewState {
         fn new(inbox: String) -> Self {
             let base = format!("{:040x}", 1);
-            let activity = serde_json::to_string(&acorn_schema::research_activity::ResearchActivity::default()).unwrap();
+            let activity = |identifier: &str| {
+                let mut activity = acorn_schema::research_activity::ResearchActivity::default();
+                activity.meta.identifier = identifier.to_string();
+                serde_json::to_string(&activity).unwrap()
+            };
             Self {
                 branches: BTreeMap::from([("main".to_string(), base.clone())]),
                 content: BTreeMap::from([
-                    (("main".to_string(), "acorn/index.json".to_string()), activity.clone()),
-                    (("main".to_string(), "research-data/index.json".to_string()), activity),
+                    (("main".to_string(), "acorn/index.json".to_string()), activity("acorn")),
+                    (("main".to_string(), "research-data/index.json".to_string()), activity("research-data")),
                 ]),
                 inbox,
                 merge_requests: Vec::new(),
@@ -202,4 +155,55 @@ mod gitlab_review {
             .with_state(Arc::clone(&state));
         (TestServer::start(router).await.unwrap(), state)
     }
+}
+/// Computes a Standard Webhooks HMAC-SHA256 signature for the given message components.
+#[cfg(feature = "agentic")]
+pub(crate) fn compute_standard_webhook_signature(signing_token_base64: &str, webhook_id: &str, timestamp: &str, body: &[u8]) -> String {
+    let key_bytes = BASE64.decode(signing_token_base64.strip_prefix("whsec_").unwrap().as_bytes()).unwrap();
+    let key = ring_hmac::Key::new(ring_hmac::HMAC_SHA256, &key_bytes);
+    let mut message = format!("{webhook_id}.{timestamp}.").into_bytes();
+    message.extend_from_slice(body);
+    format!("v1,{}", BASE64.encode(ring_hmac::sign(&key, &message).as_ref()))
+}
+/// Returns the current UTC time as a Unix timestamp string.
+#[cfg(feature = "agentic")]
+pub(crate) fn current_unix_timestamp() -> String {
+    Timestamp::now().as_second().to_string()
+}
+/// Get path to test fixtures relative to workspace root
+pub fn fixture_path(path: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("tests")
+        .join("fixtures")
+        .join(path)
+}
+/// Returns a Unix timestamp string that is `stale_by_secs` seconds in the past.
+#[cfg(feature = "agentic")]
+pub(crate) fn stale_unix_timestamp(stale_by_secs: u64) -> String {
+    (Timestamp::now().as_second() - stale_by_secs as i64).to_string()
+}
+/// Build a unique temporary directory path under `target/test_artifacts`.
+pub(crate) fn temp_dir(name: &str) -> PathBuf {
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or(Duration::from_nanos(0))
+        .as_nanos();
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("target")
+        .join("test_artifacts")
+        .join(format!("{name}-{timestamp}"))
+}
+/// Build a unique path under `target/test_artifacts`.
+pub(crate) fn unique_path(name: &str, extension: &str) -> PathBuf {
+    let timestamp = Timestamp::now().as_nanosecond();
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("target")
+        .join("test_artifacts")
+        .join(format!("{name}-{timestamp}.{extension}"))
 }

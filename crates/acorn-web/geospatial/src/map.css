@@ -1,4 +1,10 @@
 #geospatial-map canvas:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: -3px;
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+}
+#geospatial-map:fullscreen {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
 }

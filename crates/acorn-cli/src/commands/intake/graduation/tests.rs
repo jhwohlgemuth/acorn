@@ -1,11 +1,15 @@
 #![allow(clippy::panic)] // Unexpected review callbacks must fail the test, even on expected-error paths.
 use super::*;
-use acorn_schema::research_activity::{GraduationCandidate, GraduationTarget, Logbook};
+use acorn_schema::research_activity::{GraduationCandidate, GraduationTarget, Logbook, ResearchActivityMetadata};
 use std::fs;
 
 fn fixture(directory: &Path, extension: &str) -> PathBuf {
     let path = directory.join(format!("index.{extension}"));
     let activity = ResearchActivity {
+        meta: ResearchActivityMetadata {
+            identifier: "acorn".to_string(),
+            ..ResearchActivityMetadata::default()
+        },
         logbook: Some(
             Logbook::init()
                 .entries(vec![
@@ -35,7 +39,6 @@ fn fixture(directory: &Path, extension: &str) -> PathBuf {
     fs::write(&path, activity.encode(&format(&path).unwrap()).unwrap()).unwrap();
     path
 }
-
 fn preview(index: &Path) -> Result<Value> {
     execute(
         index,

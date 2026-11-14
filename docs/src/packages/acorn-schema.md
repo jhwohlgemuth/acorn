@@ -33,6 +33,12 @@ Research activity records can carry time-coded developments and project-health a
 
 Local PID validation checks parsed structure and, for ISBNs, ISNIs, ORCIDs, and RORs, the implemented check digit. It does not confirm registration with an external authority.
 
+RAD typed identifiers dispatch to these validators using their declared scheme: ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, RRID, and SWHID. URL identifiers require an absolute HTTP or HTTPS address. Recognized registry URIs can select a scheme when its name is absent; conflicting names and recognized registry URIs are rejected. Unspecified local identifiers, custom schemes, and schemes without a dedicated validator retain nonempty-value validation. These rules apply to nested organization identifiers, affiliations, related resources, and output identifiers. Typed funders also check ROR/ISNI values and registry coherence, while DataCite related items validate identifier types with implemented parsers.
+
+RAD validation also checks required contact and prose text, award identifiers, nested ASPECT data, and ISO 639-3 language codes against an embedded snapshot of the [ISO 639-3 registry](https://iso639-3.sil.org/). Web locations require HTTP or HTTPS with a nonempty host. Role end dates cannot precede their start dates; geographic boxes require south latitude to be at or below north latitude, while longitude bounds may cross the antimeridian. Environment and computation identifiers must be unique within a record, platform identifiers within an environment, and logbook entries must reference their containing activity.
+
+Validation paths use serialized field names, such as `contact.givenName` and `meta.relatedResources`. JSON decoding collects independent errors without treating omitted optional fields as missing. Prose limits count Unicode characters. RAD YAML output uses ordinary mappings for enum values, including hardware resources, so encoded records can be read back without custom YAML tags.
+
 ## Computation complexity
 
 Use `bigo!` to check a Big-O string literal during compilation:

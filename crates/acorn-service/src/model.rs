@@ -65,6 +65,9 @@ pub struct CheckReadabilityResponse {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Diagnostic {
+    /// Analyzer category that produced this diagnostic.
+    #[serde(default)]
+    pub category: CheckCategory,
     /// Stable diagnostic code.
     pub code: String,
     /// Human-readable message.
@@ -138,7 +141,7 @@ pub struct ValidateResearchActivityRequest {
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ValidateResearchActivityResponse {
-    /// Every normalized parse or validation diagnostic.
+    /// Every parse, schema, vocabulary and local FAIR diagnostic.
     pub diagnostics: Vec<Diagnostic>,
     /// Whether parsing and schema validation succeeded.
     pub valid: bool,
@@ -168,6 +171,14 @@ pub struct WorkflowFileReport {
     pub format: MimeType,
     /// Portable repository-relative path.
     pub path: String,
+}
+impl From<FileChangeKind> for &'static str {
+    fn from(value: FileChangeKind) -> Self {
+        match value {
+            | FileChangeKind::Create => "create",
+            | FileChangeKind::Update => "update",
+        }
+    }
 }
 impl From<WorkflowAction> for CheckCategory {
     fn from(value: WorkflowAction) -> Self {
@@ -203,14 +214,6 @@ impl RepositoryFileInput {
                 | MimeType::Zon
         )
         .then_some(format)
-    }
-}
-impl From<FileChangeKind> for &'static str {
-    fn from(value: FileChangeKind) -> Self {
-        match value {
-            | FileChangeKind::Create => "create",
-            | FileChangeKind::Update => "update",
-        }
     }
 }
 const fn relaxed_vocabulary_fuzzy() -> VocabularyFuzzyMode {

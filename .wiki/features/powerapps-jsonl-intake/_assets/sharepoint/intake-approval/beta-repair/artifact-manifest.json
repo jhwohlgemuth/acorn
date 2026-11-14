@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-12",
+  "artifacts": [
+    {
+      "file": "background-summary.zip",
+      "bytes": 4563,
+      "sha256": "bfd4eaea586b1f94a130b7bc8de07bc014f16f9ab6b85a72114651f4e602cf56"
+    },
+    {
+      "file": "standard-summary-request.zip",
+      "bytes": 4150,
+      "sha256": "0a585aa8bff5ae505e6e3680cdc728345c056238257cffc6b3b2677f081ff3a8"
+    },
+    {
+      "file": "reviewer-updates-before-cleanup.zip",
+      "bytes": 3050,
+      "sha256": "a7a62d452c3431198b1fa74e988c62cdf14a89ac83c9527356a43164c93b77cb"
+    },
+    {
+      "file": "../acceptance/pa40a-participant-guide.pdf",
+      "pages": 5,
+      "bytes": 78063,
+      "sha256": "335410fe623cce92bcf95ead55fa9b728583b7fc19ed4509eb5ea2b261bb655a"
+    }
+  ],
+  "retainedSolutions": [
+    {
+      "name": "ACORN SharePoint",
+      "components": "2 cloud flows and 1 connection reference"
+    },
+    {
+      "name": "ACORN Sponsor Highlights Intake",
+      "components": "1 fallback canvas app, 3 cloud flows and 3 connection references"
+    }
+  ],
+  "browserCleanup": {
+    "closedWorkingTabs": 13,
+    "retained": [
+      "Published contributor",
+      "Published reviewer",
+      "Owner\u2019s unrelated unsaved summ flow"
+    ],
+    "note": "Thirteen working tabs closed during the repair pass; obsolete-reader deletion dialog is no longer pending."
+  },
+  "removedResources": [
+    {
+      "id": "261bef08-d788-45f6-9127-7ffadafca0b0",
+      "name": "ACORN Reviewer Updates TEST ONLY",
+      "state": "Removed; exact details page reports flow could not be found",
+      "backup": "reviewer-updates-before-cleanup.zip",
+      "scope": "Obsolete JSONL reader only; no receipt or audit deletion.",
+      "confirmation": "Owner explicitly approved permanent deletion on 2026-11-12",
+      "verification": "Already absent on resumption from the 30-flow inventory; exact details URL reports flow could not be found. No additional Delete action was needed."
+    }
+  ]
+}

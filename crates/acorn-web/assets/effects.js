@@ -9,9 +9,41 @@ window.acornDownload = (text, filename = "acorn-result.json", mime = "applicatio
 };
 window.acornCopy = async (text) => {
     const status = document.getElementById("output-status");
-    try { await navigator.clipboard.writeText(text); if (status) status.textContent = "Copied to clipboard."; }
-    catch { if (status) status.textContent = "Clipboard unavailable. Use Download result or select the raw result."; }
+    const report = (message) => {
+        if (status) status.textContent = message;
+        window.acornChrome?.notifications.notify(message);
+    };
+    try { await navigator.clipboard.writeText(text); report("Copied to clipboard."); }
+    catch { report("Clipboard unavailable. Select and copy the code manually."); }
 };
+window.acornCelebrate = (() => {
+    let celebrated = false;
+    return () => {
+        const heading = document.getElementById("result-heading");
+        if (celebrated || !heading) return;
+        celebrated = true;
+        const burst = document.createElement("span");
+        burst.className = "acorn-celebration";
+        burst.setAttribute("aria-hidden", "true");
+        const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        for (const index of Array.from({ length: reduced ? 4 : 48 }, (_, index) => index)) {
+            const angle = index * 2.4;
+            const radius = 28 + index % 7 * 8;
+            const piece = document.createElement("span");
+            piece.className = "celebration-piece";
+            piece.dataset.shape = ["circle", "square", "triangle", "strip"][index % 4];
+            piece.style.setProperty("--x", `${20 + Math.cos(angle) * radius}px`);
+            piece.style.setProperty("--y", `${Math.sin(angle) * radius * .75 - 18}px`);
+            piece.style.setProperty("--rotation", `${index * 71}deg`);
+            piece.style.setProperty("--delay", `${index % 6 * 20}ms`);
+            piece.style.setProperty("--size", `${5 + index % 4}px`);
+            piece.style.setProperty("--still-x", `${index % 4 * 12}px`);
+            burst.append(piece);
+        }
+        heading.append(burst);
+        setTimeout(() => burst.remove(), 1700);
+    };
+})();
 async function installWebMcp() {
     const status = document.getElementById("webmcp-status");
     const moduleScript = document.querySelector('script[type="module"][src*="acorn-web"]');
@@ -70,10 +102,9 @@ function createTour(loadDriver, environment) {
             const request = generation;
             const trigger = environment.find("#tour-start");
             const steps = [
-                ["#home-actions", "Start with an example", "Try sample data to explore the tools without opening a file."],
+                ["#sample-data", "Start with an example", "Try Sample Data to explore the tools without opening a file."],
                 ["#skill-entry", "Use the ACORN Skill", "Read the release's workflows for your coding agent."],
                 ["#local-entry", "Open your data", "Choose local UTF-8 files or a folder. Loading keeps tools under your control."],
-                ["#privacy-note", "Keep control", "Your content stays in this tab. Choose a tool and run it explicitly."],
             ].map(([element, title, description]) => ({ element, popover: { title, description } }));
             try {
                 const { driver } = await loadDriver();
@@ -209,8 +240,9 @@ function createWorkspaceInput() {
     let subscriber;
     let generation = 0;
     let picker;
-    const cancel = () => { generation += 1; picker?.remove(); picker = undefined; };
+    const cancel = () => { generation += 1; picker?.remove(); picker = undefined; window.acornRemote?.cancel(); };
     const deliver = async (work) => {
+        window.acornRemote?.cancel();
         const request = ++generation;
         try {
             const result = await work;
@@ -248,8 +280,14 @@ function createWorkspaceInput() {
         },
     };
 }
-window.acornWorkspace = createWorkspaceInput();
+window.acornWorkspace = { ...createWorkspaceInput(), validPath: validWorkspacePath };
 if (document.addEventListener) {
+    document.addEventListener("click", (event) => {
+        document.querySelectorAll(".workflow-menu[open]").forEach((menu) => { if (!menu.contains(event.target)) menu.removeAttribute("open"); });
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") document.querySelectorAll(".workflow-menu[open]").forEach((menu) => { menu.removeAttribute("open"); menu.querySelector("summary").focus(); });
+    });
     document.addEventListener("dragover", (event) => { if (event.target.closest?.("[data-workspace-drop]")) event.preventDefault(); });
     document.addEventListener("drop", (event) => {
         if (event.target.closest?.("[data-workspace-drop]")) { event.preventDefault(); window.acornWorkspace.drop(event); }

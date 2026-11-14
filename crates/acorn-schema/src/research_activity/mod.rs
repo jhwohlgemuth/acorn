@@ -2,6 +2,8 @@
 //!
 //! Module that defines the research activity schema
 //!
+#[cfg(feature = "std")]
+use crate::codec::DocumentCodec;
 use crate::enrichment::Provider;
 use crate::hardware::Resource;
 use crate::infrastructure::ComputeEnvironment;
@@ -33,10 +35,22 @@ use acorn_core::util::{LinkedData, MarkdownDecode, MarkdownSupport, ToProse, Uns
 use acorn_core::validation::ValidationError;
 use acorn_core::AcornResult;
 use acorn_macros::With;
+use aspect::AspectFramework;
 use bon::Builder;
+pub use common::{
+    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, ControlledSubject, DatedAgentRole, DatedOrganizationRole,
+    RelatedResourceCategory, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
+};
 use convert_case::{Case, Casing};
 use core::hash::{Hash, Hasher};
 use derive_more::Display;
+pub use logbook::{
+    ActivityEntry, GraduationCandidate, GraduationCandidates, GraduationTarget, Logbook, LogbookCategory, LogbookDiscovery, LogbookEntry,
+    LogbookEntryOrigin, LogbookError, LogbookEventType, LogbookState, LogbookUpdates, ProjectHealth, ProjectRisk, ReportingWindow,
+    RiskDependencyType, StatusUpdateEntry,
+};
+use markdown::Document;
+pub use output::ResearchOutput;
 #[cfg(feature = "std")]
 use schemars::schema_for;
 use schemars::JsonSchema;
@@ -50,28 +64,13 @@ pub mod logbook;
 mod markdown;
 pub mod output;
 pub mod s3a;
-use aspect::AspectFramework;
-pub use common::{
-    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, ControlledSubject, DatedAgentRole, DatedOrganizationRole,
-    RelatedResourceCategory, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
-};
-pub use logbook::{
-    ActivityEntry, GraduationCandidate, GraduationCandidates, GraduationTarget, Logbook, LogbookCategory, LogbookDiscovery, LogbookEntry,
-    LogbookEntryOrigin, LogbookError, LogbookEventType, LogbookState, LogbookUpdates, ProjectHealth, ProjectRisk, ReportingWindow,
-    RiskDependencyType, StatusUpdateEntry,
-};
-use markdown::Document;
-pub use output::ResearchOutput;
-
 type ValidationResult = core::result::Result<(), ValidationError>;
-
 #[derive(Deserialize, JsonSchema)]
 #[serde(untagged)]
 enum StringOrStructured<T> {
     String(String),
     Structured(T),
 }
-
 #[cfg(feature = "alloc")]
 #[derive(Clone, Copy, Debug, Display)]
 enum Vocabulary {
@@ -84,7 +83,6 @@ enum Vocabulary {
     #[display("technology")]
     Technology,
 }
-
 /// Provenance for fields contributed by one enrichment provider.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize)]
@@ -99,7 +97,6 @@ pub struct EnrichmentProvenance {
     #[builder(default)]
     pub fields: Vec<String>,
 }
-
 /// Overview of research focus and areas
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate, With)]
 #[builder(start_fn = init)]
@@ -109,18 +106,21 @@ pub struct Research {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_RESEARCH_FOCUS",
-        message = "Focus is too long, reduce the length below 150 characters."
+        message = "Focus must contain between 10 and 150 characters."
     ))]
     #[builder(default = "Focus of the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
     pub focus: String,
     /// Topics related to and encapsulated within the project or organization
-    #[validate(length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"), custom(function = "is_attribute_areas"))]
+    #[validate(
+        length(min = 1, max = "MAX_COUNT_RESEARCH_AREAS"),
+        each(nonempty),
+        custom(function = "is_attribute_areas")
+    )]
     #[builder(default = vec!["Areas of research".to_string()])]
     #[serde(deserialize_with = "vec_string_trim")]
     pub areas: Vec<String>,
 }
-
 /// # Research Activity
 /// Identifiable package of work involving organized, systematic investigation
 #[skip_serializing_none]
@@ -131,12 +131,12 @@ pub struct Research {
 #[validate(schema(function = "ResearchActivity::is_valid", skip_on_field_errors = false))]
 pub struct ResearchActivity {
     /// Linked data (e.g., JSON-LD) context for research activity
-    #[serde(rename = "@context")]
+    #[serde(rename = "@context", default)]
     #[eserde(compat)]
     #[with(skip)]
     pub context: Option<ResearchActivityContext>,
     /// Linked data (e.g., JSON-LD) type for research activity
-    #[serde(rename = "@type")]
+    #[serde(rename = "@type", default)]
     pub research_activity_type: Option<String>,
     /// Associated metadata
     #[validate(nested)]
@@ -145,6 +145,7 @@ pub struct ResearchActivity {
     /// Technology ASPECT of associated research activity - describes the data, compute, and algorithms used in the associated research activity
     #[eserde(compat)]
     #[validate(nested)]
+    #[serde(default)]
     pub aspect: Option<AspectFramework>,
     /// Heading that identifies and describes the associated research activity
     #[validate(length(min = 4, max = "MAX_LENGTH_TITLE"))]
@@ -158,6 +159,7 @@ pub struct ResearchActivity {
     /// Prose components of associated research activity
     #[validate(nested)]
     #[eserde(compat)]
+    #[serde(default)]
     pub sections: Option<Sections>,
     /// Contact point (i.e. point of contact) for research activity
     #[validate(nested)]
@@ -166,15 +168,16 @@ pub struct ResearchActivity {
     pub contact: ContactPoint,
     /// Other information related to the associated research activity not easily captured in structured areas of the schema
     #[eserde(compat)]
+    #[serde(default)]
     pub notes: Option<Other>,
     /// Time-coded developments augmenting canonical metadata and contact data.
     ///
     /// Entry timestamps are distinct from activity dates, record update timestamps, and lifecycle status.
     #[validate(nested)]
     #[eserde(compat)]
+    #[serde(default)]
     pub logbook: Option<Logbook>,
 }
-
 /// Linked data (e.g., JSON-LD) context for research activity
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
@@ -198,7 +201,6 @@ pub struct ResearchActivityContext {
     #[serde(default = "default_logbook_context")]
     pub logbook: String,
 }
-
 /// ## Research Activity Metadata
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, eserde::Deserialize, JsonSchema, Validate, With)]
@@ -206,12 +208,12 @@ pub struct ResearchActivityContext {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ResearchActivityMetadata {
     /// Linked data (e.g., JSON-LD) context for contact point
-    #[serde(rename = "@context")]
+    #[serde(rename = "@context", default)]
     #[eserde(compat)]
     #[with(skip)]
     pub context: Option<ResearchActivityMetadataContext>,
     /// Linked data (e.g., JSON-LD) type for contact point
-    #[serde(rename = "@type")]
+    #[serde(rename = "@type", default)]
     pub metadata_type: Option<String>,
     /// Deterministic record of metadata added by enrichment providers.
     #[builder(into)]
@@ -219,6 +221,7 @@ pub struct ResearchActivityMetadata {
     pub enrichment: Option<OneOrMany<EnrichmentProvenance>>,
     /// Classification level of associated research activity data
     #[eserde(compat)]
+    #[serde(default)]
     pub classification: Option<ClassificationLevel>,
     /// Describes the active status of the associated research activity data
     ///
@@ -268,11 +271,12 @@ pub struct ResearchActivityMetadata {
     pub books: Option<OneOrMany<String>>,
     /// Patent(s) related to the associated research activity data
     #[builder(into)]
+    #[validate(each(patent))]
     #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
     pub patents: Option<OneOrMany<String>>,
     /// URL(s) of internet location where associated publication(s) can be found
     #[builder(into)]
-    #[validate(each(url))]
+    #[validate(each(uri))]
     #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
     pub publications: Option<OneOrMany<String>>,
     /// Structured publications, datasets, software, and other products of this research activity.
@@ -282,7 +286,7 @@ pub struct ResearchActivityMetadata {
     pub outputs: Option<OneOrMany<ResearchOutput>>,
     /// Research Activity Identifier (RAiD)
     #[builder(into)]
-    #[validate(each(doi))]
+    #[validate(each(raid))]
     #[serde(default, deserialize_with = "deserialize_optional_one_or_many_strings")]
     pub raid: Option<OneOrMany<String>>,
     /// Software Hash Identifier(s) for software objects related to the research activity data
@@ -301,6 +305,7 @@ pub struct ResearchActivityMetadata {
     pub ror: Option<OneOrMany<String>>,
     /// Type of associated research activity data when directly associated with an organization
     #[eserde(compat)]
+    #[serde(default)]
     pub additional_type: Option<OrganizationType>,
     /// Images, videos, and other media related to the associated research activity data
     #[builder(into)]
@@ -468,7 +473,6 @@ pub struct ResearchActivityMetadata {
     #[serde(default, deserialize_with = "deserialize_string_or_structured")]
     pub access: Option<StructuredRights>,
 }
-
 /// Linked data (e.g., JSON-LD) context for metadata.
 ///
 /// See <https://www.w3.org/TR/json-ld11/#the-context> for more information
@@ -549,7 +553,6 @@ pub struct ResearchActivityMetadataContext {
     #[serde(default = "default_access_context")]
     pub access: String,
 }
-
 /// Research activity prose components that describe the activity using natural language
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate, With)]
@@ -562,7 +565,7 @@ pub struct Sections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_MISSION",
-        message = "Mission is too long, reduce the length below 250 characters."
+        message = "Mission must contain between 10 and 250 characters."
     ))]
     #[builder(default = "Purpose of the research".to_string())]
     #[serde(alias = "introduction", deserialize_with = "string_trim")]
@@ -573,7 +576,7 @@ pub struct Sections {
     #[validate(length(
         min = 10,
         max = "MAX_LENGTH_SECTION_CHALLENGE",
-        message = "Challenge is too long, reduce the length below 500 characters."
+        message = "Challenge must contain between 10 and 500 characters."
     ))]
     #[builder(default = "Reason for the research".to_string())]
     #[serde(deserialize_with = "string_trim")]
@@ -584,7 +587,8 @@ pub struct Sections {
     /// - "Research into new fields including nuclear fission, isotope separation methods, uranium enrichment, plutonium development, and weapons design"
     /// - "Military coordination for project construction and security management as well as defense communications to national leaders"
     #[validate(
-        length(min = 1, max = "MAX_COUNT_APPROACH", message = "Limit the number of approaches to 6"),
+        length(min = 1, max = "MAX_COUNT_APPROACH", message = "Provide between 1 and 6 approach statements"),
+        each(nonempty),
         custom(function = "is_attribute_approach")
     )]
     #[builder(default = vec!["List of actions taken to perform the research".to_string()])]
@@ -595,7 +599,7 @@ pub struct Sections {
     /// - "Development of the world's first atomic weapons"
     /// - "Introduction of the nuclear age, including advancements in nuclear science, engineering and a new source of energy"
     /// - "The end of WWII, along with many ethical and moral considerations related to use of atomic weapons"
-    #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), custom(function = "is_attribute_impact"))]
+    #[validate(length(min = 1, max = "MAX_COUNT_IMPACT"), each(nonempty), custom(function = "is_attribute_impact"))]
     #[builder(default = vec!["List of tangible proof that validates the research approach".to_string()])]
     #[serde(alias = "outcomes", deserialize_with = "vec_string_trim")]
     pub impact: Vec<String>,
@@ -603,7 +607,7 @@ pub struct Sections {
     /// ### Examples
     /// - "At least six Nobel Prizes awarded to Manhattan Project researchers in the years following the end of the project"
     /// - "Creation of the Atomic Energy Commission in 1946, later becoming the Department of Energy and Nuclear Regulatory Commission"
-    #[validate(length(min = 1, max = 4, message = "Limit the number of achievements to 4"))]
+    #[validate(length(min = 1, max = 4, message = "Provide between 1 and 4 achievements"), each(nonempty))]
     pub achievement: Option<Vec<String>>,
     /// Expertise as applied to technology in a given mission space
     /// ### Examples
@@ -612,7 +616,11 @@ pub struct Sections {
     /// - "Nuclear reactor development, which paved the way for nuclear power"
     /// - "Radiochemistry for nuclear detonation analysis and advanced medical research with radioisotopes"
     /// - "Large-scale multidisciplinary scientific collaboration"
-    #[validate(length(min = 1, max = "MAX_COUNT_CAPABILITIES"), custom(function = "is_attribute_capabilities"))]
+    #[validate(
+        length(min = 1, max = "MAX_COUNT_CAPABILITIES"),
+        each(nonempty),
+        custom(function = "is_attribute_capabilities")
+    )]
     pub capabilities: Option<Vec<String>>,
     /// Overview of research focus and areas
     /// ### Example Focus
@@ -627,19 +635,16 @@ pub struct Sections {
     #[builder(default = Research::init().build())]
     pub research: Research,
 }
-
 impl From<String> for ActivityContributor {
     fn from(value: String) -> Self {
         Self::init().name(value.trim().to_string()).build()
     }
 }
-
 impl From<String> for ActivityOrganization {
     fn from(value: String) -> Self {
         Self::init().name(value.trim().to_string()).build()
     }
 }
-
 impl From<&ResearchActivity> for Cff {
     fn from(rad: &ResearchActivity) -> Self {
         let sections = rad.sections.clone();
@@ -719,31 +724,26 @@ impl From<&ResearchActivity> for Cff {
         }
     }
 }
-
 impl From<ResearchActivity> for Cff {
     fn from(rad: ResearchActivity) -> Self {
         Cff::from(&rad)
     }
 }
-
 impl From<String> for ControlledSubject {
     fn from(value: String) -> Self {
         Self::init().subject(value.trim().to_string()).build()
     }
 }
-
 impl From<String> for Funding {
     fn from(value: String) -> Self {
         Self::init().name(value.trim().to_string()).build()
     }
 }
-
 impl From<String> for Language {
     fn from(value: String) -> Self {
         Self::init().id(value.trim().to_string()).build()
     }
 }
-
 impl MarkdownSupport for Research {
     fn to_markdown(&self) -> String {
         let Research { focus, areas } = self;
@@ -759,19 +759,16 @@ impl MarkdownSupport for Research {
         )
     }
 }
-
 impl Default for ResearchActivity {
     fn default() -> Self {
         ResearchActivity::init().build()
     }
 }
-
 impl Hash for ResearchActivity {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.meta.identifier.hash(state);
     }
 }
-
 impl LinkedData for ResearchActivity {
     fn with_context(&self) -> Self {
         Self {
@@ -783,19 +780,16 @@ impl LinkedData for ResearchActivity {
         }
     }
 }
-
 impl MarkdownDecode for ResearchActivity {
     fn from_markdown(content: &str) -> Result<Self, String> {
         Document::try_from(content).and_then(Self::try_from).map_err(|why| why.to_string())
     }
 }
-
 impl MarkdownSupport for ResearchActivity {
     fn to_markdown(&self) -> String {
         Document::from(self).to_markdown()
     }
 }
-
 impl ResearchActivity {
     /// Return the first non-empty authored image URL.
     pub fn authored_image_url(&self) -> Option<String> {
@@ -846,7 +840,33 @@ impl ResearchActivity {
                 Err(report)
             }
         };
-        let mut report = base.err().unwrap_or_default();
+        let mut report = base
+            .err()
+            .unwrap_or_default()
+            .unique_identifiers(
+                "meta.infrastructure",
+                self.meta
+                    .infrastructure
+                    .iter()
+                    .flat_map(OneOrMany::iter)
+                    .map(|environment| environment.identifier.as_str()),
+            )
+            .unique_identifiers(
+                "aspect.computation",
+                self.aspect
+                    .iter()
+                    .flat_map(|aspect| aspect.computation.iter())
+                    .flat_map(OneOrMany::iter)
+                    .map(|computation| computation.identifier.as_str()),
+            );
+        for (index, entry) in self.logbook.iter().flat_map(|logbook| &logbook.entries).enumerate() {
+            if entry.project_id() != self.meta.identifier {
+                report.add(
+                    format!("logbook.entries[{index}].projectId"),
+                    ValidationError::new("reference").with_message("Logbook entry must name the containing research activity"),
+                );
+            }
+        }
         let computations = self
             .aspect
             .as_ref()
@@ -908,9 +928,7 @@ impl ResearchActivity {
                 serde_json::to_string_pretty(self).map_err(|why| schema_error!("Failed to serialize JSON RAD — {why}"))
             }
             | MimeType::Markdown => Ok(self.to_markdown()),
-            | MimeType::Yaml => serde_json::to_value(self)
-                .map_err(|why| schema_error!("Failed to convert RAD to value for YAML serialization — {why}"))
-                .and_then(|value| serde_norway::to_string(&value).map_err(|why| schema_error!("Failed to serialize YAML RAD — {why}"))),
+            | MimeType::Yaml => <Self as DocumentCodec>::encode(self, mime).map_err(|why| schema_error!("Failed to serialize YAML RAD — {why}")),
             | MimeType::Zon => zon::encode(self).map_err(|why| schema_error!("Failed to serialize ZON RAD — {why}")),
             | _ => Err(schema_error!("Unsupported mime type for research activity serialization: {mime:?}")),
         }
@@ -1027,7 +1045,6 @@ impl ResearchActivity {
         })
     }
 }
-
 impl ToProse for ResearchActivity {
     fn to_prose(&self) -> String {
         let websites = self
@@ -1057,7 +1074,6 @@ impl ToProse for ResearchActivity {
         }
     }
 }
-
 impl Default for ResearchActivityContext {
     fn default() -> Self {
         ResearchActivityContext::init()
@@ -1071,13 +1087,11 @@ impl Default for ResearchActivityContext {
             .build()
     }
 }
-
 impl Default for ResearchActivityMetadata {
     fn default() -> Self {
         ResearchActivityMetadata::init().build()
     }
 }
-
 impl LinkedData for ResearchActivityMetadata {
     fn with_context(&self) -> Self {
         Self {
@@ -1087,7 +1101,6 @@ impl LinkedData for ResearchActivityMetadata {
         }
     }
 }
-
 impl ResearchActivityMetadata {
     pub(crate) fn first_image(self) -> Option<MediaObject> {
         match self.media {
@@ -1170,7 +1183,6 @@ impl ResearchActivityMetadata {
         })
     }
 }
-
 impl Default for ResearchActivityMetadataContext {
     fn default() -> Self {
         ResearchActivityMetadataContext::init()
@@ -1206,13 +1218,11 @@ impl Default for ResearchActivityMetadataContext {
             .build()
     }
 }
-
 impl Default for Sections {
     fn default() -> Self {
         Sections::init().build()
     }
 }
-
 impl MarkdownSupport for Sections {
     fn to_markdown(&self) -> String {
         let Sections {
@@ -1260,7 +1270,6 @@ impl MarkdownSupport for Sections {
         )
     }
 }
-
 impl From<String> for SpatialCoverage {
     fn from(value: String) -> Self {
         Self {
@@ -1270,7 +1279,6 @@ impl From<String> for SpatialCoverage {
         }
     }
 }
-
 impl From<String> for StructuredRights {
     fn from(value: String) -> Self {
         match value.trim() {
@@ -1280,7 +1288,6 @@ impl From<String> for StructuredRights {
         }
     }
 }
-
 impl From<String> for TypedRelatedResource {
     fn from(value: String) -> Self {
         Self::init()
@@ -1290,7 +1297,6 @@ impl From<String> for TypedRelatedResource {
             .build()
     }
 }
-
 #[cfg(feature = "alloc")]
 impl Vocabulary {
     fn field(self) -> &'static str {
@@ -1309,7 +1315,6 @@ impl Vocabulary {
             .and_then(|resolver| resolver.resolve_located(located, VocabularyOptions { fuzzy, ..Default::default() }))
     }
 }
-
 #[cfg(feature = "alloc")]
 impl From<Vocabulary> for VocabularyKind {
     fn from(value: Vocabulary) -> Self {
@@ -1321,71 +1326,54 @@ impl From<Vocabulary> for VocabularyKind {
         }
     }
 }
-
 fn default_access_context() -> String {
     dcterms("accessRights")
 }
-
 fn default_contributors_context() -> String {
     schema_org("contributor")
 }
-
 fn default_draft() -> bool {
     true
 }
-
 fn default_funders_context() -> String {
     codemeta("sponsor")
 }
-
 fn default_handle_context() -> String {
     codemeta("identifier")
 }
-
 fn default_infrastructure_context() -> String {
     dcterms("relation")
 }
-
 fn default_languages_context() -> String {
     dcterms("language")
 }
-
 fn default_logbook_context() -> String {
     activity_streams("OrderedCollection")
 }
-
 fn default_organizations_context() -> String {
     schema_org("Organization")
 }
-
 fn default_outputs_context() -> String {
     schema_org("CreativeWork")
 }
-
 fn default_related_resources_context() -> String {
     dcterms("relation")
 }
-
 fn default_rights_context() -> String {
     dcterms("rights")
 }
-
 fn default_spatial_coverage_context() -> String {
     dcterms("spatial")
 }
-
 fn default_subjects_context() -> String {
     dcterms("subject")
 }
-
 fn default_swhid_context() -> String {
     codemeta("identifier")
 }
-
 fn default_typed_dates_context() -> String {
     dcterms("date")
 }
-
 fn deserialize_string_or_structured<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
@@ -1398,7 +1386,6 @@ where
         })
     })
 }
-
 fn deserialize_string_or_structured_vec<'de, D, T>(deserializer: D) -> Result<Option<OneOrMany<T>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -1413,7 +1400,6 @@ where
         })
     })
 }
-
 /// Custom validator function for [approach](Sections::approach)
 pub(crate) fn is_attribute_approach(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.approach";
@@ -1421,19 +1407,18 @@ pub(crate) fn is_attribute_approach(value: &[String]) -> ValidationResult {
     value
         .iter()
         .enumerate()
-        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .find(|(_, x)| x.chars().count() > MAX_LENGTH)
         .map(|(index, x)| {
-            let length = x.len();
+            let length = x.chars().count();
             validation_error_with_index_and_length(
                 CODE,
-                format!("Each approach statement should be less than {MAX_LENGTH} characters"),
+                format!("Each approach statement must contain at most {MAX_LENGTH} characters"),
                 index,
                 length,
             )
         })
         .map_or(Ok(()), Err)
 }
-
 /// Custom validator function for [research areas](Research::areas)
 pub(crate) fn is_attribute_areas(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.areas";
@@ -1441,14 +1426,13 @@ pub(crate) fn is_attribute_areas(value: &[String]) -> ValidationResult {
     value
         .iter()
         .enumerate()
-        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .find(|(_, x)| x.chars().count() > MAX_LENGTH)
         .map(|(index, x)| {
-            let length = x.len();
-            validation_error_with_index_and_length(CODE, format!("Each area should be less than {MAX_LENGTH} characters"), index, length)
+            let length = x.chars().count();
+            validation_error_with_index_and_length(CODE, format!("Each area must contain at most {MAX_LENGTH} characters"), index, length)
         })
         .map_or(Ok(()), Err)
 }
-
 /// Custom validator function for [`ResearchActivity`] [books](ResearchActivityMetadata::books)
 pub(crate) fn is_attribute_books(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.books";
@@ -1458,7 +1442,6 @@ pub(crate) fn is_attribute_books(value: &[String]) -> ValidationResult {
         .map(|index| validation_error_with_index(CODE, "Every book should be a valid ISBN".to_string(), index))
         .map_or(Ok(()), Err)
 }
-
 /// Custom validator function for [`ResearchActivity`] [capabilities](Sections::capabilities)
 pub(crate) fn is_attribute_capabilities(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.capabilities";
@@ -1466,19 +1449,18 @@ pub(crate) fn is_attribute_capabilities(value: &[String]) -> ValidationResult {
     value
         .iter()
         .enumerate()
-        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .find(|(_, x)| x.chars().count() > MAX_LENGTH)
         .map(|(index, x)| {
-            let length = x.len();
+            let length = x.chars().count();
             validation_error_with_index_and_length(
                 CODE,
-                format!("Each capability should be less than {MAX_LENGTH} characters"),
+                format!("Each capability must contain at most {MAX_LENGTH} characters"),
                 index,
                 length,
             )
         })
         .map_or(Ok(()), Err)
 }
-
 /// Custom validator for [`ResearchActivity`] Handle identifiers.
 pub(crate) fn is_attribute_handle_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.handle";
@@ -1488,7 +1470,6 @@ pub(crate) fn is_attribute_handle_list(value: &[String]) -> ValidationResult {
         .map(|index| validation_error_with_index(CODE, "Every Handle should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
-
 /// Custom validator function for [`ResearchActivity`] [impact](Sections::impact)
 pub(crate) fn is_attribute_impact(value: &[String]) -> ValidationResult {
     const CODE: &str = "sections.impact";
@@ -1496,12 +1477,12 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> ValidationResult {
     value
         .iter()
         .enumerate()
-        .find(|(_, x)| x.len() > MAX_LENGTH)
+        .find(|(_, x)| x.chars().count() > MAX_LENGTH)
         .map(|(index, x)| {
-            let length = x.len();
+            let length = x.chars().count();
             validation_error_with_index_and_length(
                 CODE,
-                format!("Each impact statement should be less than {MAX_LENGTH} characters"),
+                format!("Each impact statement must contain at most {MAX_LENGTH} characters"),
                 index,
                 length,
             )
@@ -1534,7 +1515,6 @@ pub(crate) fn is_attribute_impact(value: &[String]) -> ValidationResult {
         })
         .map_or(Ok(()), Err)
 }
-
 /// Custom validator for [`ResearchActivity`] publication identifiers in [`ResearchActivityMetadata::doi`]
 pub(crate) fn is_attribute_publication_identifier_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.doi";
@@ -1550,7 +1530,6 @@ pub(crate) fn is_attribute_publication_identifier_list(value: &[String]) -> Vali
         })
         .map_or(Ok(()), Err)
 }
-
 /// Custom validator for [`ResearchActivity`] software hash identifiers
 pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
     const CODE: &str = "meta.swhid";
@@ -1560,13 +1539,11 @@ pub(crate) fn is_attribute_swhid_list(value: &[String]) -> ValidationResult {
         .map(|index| validation_error_with_index(CODE, "Every SWHID should be valid".to_string(), index))
         .map_or(Ok(()), Err)
 }
-
 fn validation_error_with_index(code: &'static str, message: String, index: usize) -> ValidationError {
     let mut err = ValidationError::new(code).with_message(message);
     err.add_param("index".into(), &index);
     err
 }
-
 fn validation_error_with_index_and_length(code: &'static str, message: String, index: usize, length: usize) -> ValidationError {
     let mut err = validation_error_with_index(code, message, index);
     err.add_param("length".into(), &length);

@@ -5,7 +5,7 @@ export function validateState(state: State): State {
     if (!state || !Array.isArray(state.markers) || state.markers.length > 1000 || !["dark", "light"].includes(state.theme)) throw new Error("Invalid map state");
     const ids = new Set();
     for (const marker of state.markers) {
-        if (!/^https:\/\/ror.org\/0[a-z0-9]{8}$/.test(marker.id) || ids.has(marker.id) || typeof marker.name !== "string" || marker.name.length > 1000 || !Number.isSafeInteger(marker.references) || marker.references < 1) throw new Error("Invalid map marker");
+        if (!/^https:\/\/ror.org\/0[a-z0-9]{8}$/.test(marker.id) || ids.has(marker.id) || typeof marker.name !== "string" || marker.name.length > 1000 || !Number.isSafeInteger(marker.references) || marker.references < 0) throw new Error("Invalid map marker");
         ids.add(marker.id);
         if (marker.location && (!Number.isFinite(marker.location.latitude) || !Number.isFinite(marker.location.longitude) || Math.abs(marker.location.latitude) > 90 || Math.abs(marker.location.longitude) > 180)) throw new Error("Invalid map coordinates");
     }

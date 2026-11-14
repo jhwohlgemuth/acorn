@@ -7,6 +7,16 @@ use serde_json::Value;
 
 /// Maximum organizations sent to the map and displayed in its equivalent table.
 pub const MARKER_LIMIT: usize = 1000;
+/// Geographic coordinates from the ROR dump.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Location {
+    /// Country display name.
+    pub country: String,
+    /// Latitude in degrees.
+    pub latitude: f64,
+    /// Longitude in degrees.
+    pub longitude: f64,
+}
 /// Pinned, generated location index, loaded only on the map route.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -24,24 +34,6 @@ pub struct LocationIndex {
     /// Canonical ROR URL to display name and locations.
     pub organizations: BTreeMap<String, Organization>,
 }
-/// Geographic coordinates from the ROR dump.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Location {
-    /// Country display name.
-    pub country: String,
-    /// Latitude in degrees.
-    pub latitude: f64,
-    /// Longitude in degrees.
-    pub longitude: f64,
-}
-/// Minimal ROR display record, including locationless organizations.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
-pub struct Organization {
-    /// ROR display name.
-    pub name: String,
-    /// Locations in deterministic country/coordinate order.
-    pub locations: Vec<Location>,
-}
 /// Immutable map/table projection; source references remain visible without WebGL.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Marker {
@@ -58,35 +50,17 @@ pub struct Marker {
     /// Whether the ROR was present in the pinned index.
     pub resolved: bool,
 }
-/// Join all validated session records to the local index, without resolving identifiers.
-pub fn markers(workspace: &Workspace, index: &LocationIndex) -> Vec<Marker> {
-    let mut references = BTreeMap::<String, (usize, BTreeSet<String>)>::new();
-    for (file, value) in workspace.activities() {
-        collect(value, "", file, &mut references);
-    }
-    references
-        .into_iter()
-        .map(|(id, (count, activities))| {
-            let organization = index.organizations.get(&id);
-            Marker {
-                name: organization.map(|org| org.name.clone()).unwrap_or_else(|| id.clone()),
-                references: count,
-                activities,
-                location: organization
-                    .and_then(|org| {
-                        org.locations.iter().find(|location| {
-                            location.latitude.is_finite()
-                                && location.longitude.is_finite()
-                                && location.latitude.abs() <= 90.0
-                                && location.longitude.abs() <= 180.0
-                        })
-                    })
-                    .cloned(),
-                resolved: organization.is_some(),
-                id,
-            }
-        })
-        .collect()
+/// Minimal ROR display record, including locationless organizations.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct Organization {
+    /// ROR display name.
+    pub name: String,
+    /// Locations in deterministic country/coordinate order.
+    pub locations: Vec<Location>,
+}
+/// Canonicalize a syntactically valid ROR identifier without a network lookup.
+pub fn canonical_ror(value: &str) -> Option<String> {
+    ROR::is_valid(value.trim()).then(|| format!("https://ror.org/{}", ROR::from_string(value.trim()).identifier()))
 }
 fn collect(value: &Value, field: &str, file: &SuppliedFile, references: &mut BTreeMap<String, (usize, BTreeSet<String>)>) {
     match value {
@@ -115,12 +89,50 @@ fn collect(value: &Value, field: &str, file: &SuppliedFile, references: &mut BTr
         | _ => {}
     }
 }
+/// Join all validated session records to the local index, without resolving identifiers.
+pub fn markers(workspace: &Workspace, index: &LocationIndex) -> Vec<Marker> {
+    markers_with_identifiers(workspace, index, &BTreeSet::new())
+}
+/// Include explicitly selected RORs without inventing activity references or changing RAD.
+pub fn markers_with_identifiers(workspace: &Workspace, index: &LocationIndex, identifiers: &BTreeSet<String>) -> Vec<Marker> {
+    let mut references = BTreeMap::<String, (usize, BTreeSet<String>)>::new();
+    for (file, value) in workspace.activities() {
+        collect(value, "", file, &mut references);
+    }
+    for id in identifiers.iter().filter_map(|id| canonical_ror(id)) {
+        references.entry(id).or_default();
+    }
+    references
+        .into_iter()
+        .map(|(id, (count, activities))| {
+            let organization = index.organizations.get(&id);
+            Marker {
+                name: organization.map(|org| org.name.clone()).unwrap_or_else(|| id.clone()),
+                references: count,
+                activities,
+                location: organization
+                    .and_then(|org| {
+                        org.locations.iter().find(|location| {
+                            location.latitude.is_finite()
+                                && location.longitude.is_finite()
+                                && location.latitude.abs() <= 90.0
+                                && location.longitude.abs() <= 180.0
+                        })
+                    })
+                    .cloned(),
+                resolved: organization.is_some(),
+                id,
+            }
+        })
+        .collect()
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::session::Selection;
     use serde_json::json;
+
     #[test]
     fn test_local_join_deduplicates_and_preserves_unresolved_locationless_records() {
         let mut workspace = Workspace::default().replace(Selection {
@@ -146,5 +158,22 @@ mod tests {
         assert!(rows.iter().any(|marker| marker.resolved && marker.location.is_none()));
         assert!(rows.iter().any(|marker| !marker.resolved));
         assert!(markers(&Workspace::default(), &index).is_empty());
+        let pins = BTreeSet::from([
+            "01qz5mb56".into(),
+            "http://ror.org/01qz5mb56".into(),
+            "https://ror.org/04aj4c181".into(),
+            "https://ror.org/05bnh6r87".into(),
+            "https://ror.org/01qz5mb56xxx".into(),
+            "not-a-ror".into(),
+        ]);
+        let standalone = markers_with_identifiers(&Workspace::default(), &index, &pins);
+        assert_eq!(standalone.len(), 3);
+        assert!(standalone.iter().all(|marker| marker.references == 0 && marker.activities.is_empty()));
+        assert_eq!(standalone.iter().filter(|marker| marker.location.is_some()).count(), 1);
+        assert!(standalone.iter().any(|marker| marker.resolved && marker.location.is_none()));
+        assert!(standalone.iter().any(|marker| !marker.resolved && marker.location.is_none()));
+        assert_eq!(markers_with_identifiers(&workspace, &index, &pins), rows);
+        assert_eq!(canonical_ror(" 01qz5mb56 "), Some("https://ror.org/01qz5mb56".into()));
+        assert_eq!(canonical_ror("https://ror.org/01qz5mb56xxx"), None);
     }
 }

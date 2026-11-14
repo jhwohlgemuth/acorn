@@ -2,7 +2,7 @@
 use crate::pid::raid::CreditRole;
 use crate::research_activity::common::{ControlledSubject, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource};
 use crate::standard::datacite::{self, Description, GeoLocation, Publisher, ResourceTypeGeneral};
-use crate::validation::{is_iso_639_1_language_code, rules::nonempty, Property, PropertySet, Validate};
+use crate::validation::{is_iso_639_1_language_code, rules::nonempty, validate_output_funding_identifier, Property, PropertySet, Validate};
 use crate::{Keyword, Website};
 use acorn_core::prelude::alloc::{String, Vec};
 use bon::Builder;
@@ -23,7 +23,7 @@ pub struct Access {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub status: Option<String>,
     /// Best known open-access URL.
-    #[validate(url)]
+    #[validate(uri)]
     pub url: Option<String>,
     /// License identifier or URI asserted for the selected location.
     #[serde(default)]
@@ -51,6 +51,7 @@ pub struct Affiliation {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Award {
     /// Provider or funder identifier for the award.
+    #[validate(nonempty)]
     #[serde(deserialize_with = "string_trim")]
     pub identifier: String,
     /// Award title when supplied by the source.
@@ -61,7 +62,7 @@ pub struct Award {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub doi: Option<String>,
     /// Resolvable award URL.
-    #[validate(url)]
+    #[validate(uri)]
     pub url: Option<String>,
 }
 /// A person or organization credited on a research output.
@@ -103,6 +104,7 @@ pub struct Contributor {
 /// Funding organization and awards associated with a research output.
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
+#[validate(schema(function = "validate_output_funding_identifier", skip_on_field_errors = false))]
 #[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Funding {
@@ -110,7 +112,8 @@ pub struct Funding {
     #[validate(length(min = 1))]
     #[serde(deserialize_with = "string_trim")]
     pub name: String,
-    /// Funder identifier for registries other than ROR.
+    /// Funder identifier in the declared registry.
+    #[validate(length(min = 1))]
     #[serde(default, deserialize_with = "option_string_trim")]
     pub identifier: Option<String>,
     /// Registry type for `identifier`.

@@ -1,0 +1,630 @@
+{
+  "review_date": "2026-11-12",
+  "acorn_head": "6c2a51b8",
+  "worktree": "Existing uncommitted browser and Power Platform/wiki changes present; not a clean commit snapshot.",
+  "blaze_source_commit": "39452df1ec738b68fbec6ff6e0d8919839d45355",
+  "blaze_source_commit_time": "2026-11-12T19:22:12Z",
+  "blaze_execution": "Not installed or executed; source review only.",
+  "workspace_members": [
+    {
+      "package": "acorn-analysis",
+      "manifest": "crates/acorn-analysis/Cargo.toml",
+      "rust_source_files": 13,
+      "features": {
+        "alloc": [
+          "acorn-core/alloc",
+          "acorn-schema/alloc",
+          "serde/alloc"
+        ],
+        "analysis": [
+          "std"
+        ],
+        "core": [
+          "acorn-core/core",
+          "acorn-schema/core"
+        ],
+        "default": [
+          "analysis"
+        ],
+        "exec": [
+          "analysis"
+        ],
+        "std": [
+          "alloc",
+          "acorn-core/std",
+          "acorn-schema/std",
+          "schemars/std"
+        ]
+      },
+      "workspace_dependencies": [
+        "acorn-core",
+        "acorn-macros",
+        "acorn-schema"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-cli",
+      "manifest": "crates/acorn-cli/Cargo.toml",
+      "rust_source_files": 132,
+      "features": {
+        "default": [
+          "pdf",
+          "tui"
+        ],
+        "auth": [
+          "acorn-lib/auth",
+          "acorn-host/auth"
+        ],
+        "chart": [
+          "acorn-lib/chart"
+        ],
+        "duckdb": [
+          "acorn-lib/duckdb"
+        ],
+        "pdf": [
+          "acorn-lib/pdf",
+          "dep:chromiumoxide",
+          "dep:percy-dom",
+          "dep:fast_qr",
+          "chart"
+        ],
+        "slm": [
+          "acorn-lib/slm"
+        ],
+        "tui": [
+          "dep:acorn-tui"
+        ],
+        "exec": [
+          "acorn-lib/exec",
+          "dep:rhai"
+        ]
+      },
+      "workspace_dependencies": [
+        "acorn-analysis",
+        "acorn-cmd",
+        "acorn-core",
+        "acorn-diff",
+        "acorn-host",
+        "acorn-lib",
+        "acorn-schema",
+        "acorn-server",
+        "acorn-service",
+        "acorn-tui"
+      ],
+      "build_script": true
+    },
+    {
+      "package": "acorn-cmd",
+      "manifest": "crates/acorn-cmd/Cargo.toml",
+      "rust_source_files": 8,
+      "features": {
+        "default": [],
+        "shell-lint": [
+          "dep:shuck-linter",
+          "dep:shuck-parser"
+        ]
+      },
+      "workspace_dependencies": [
+        "acorn-macros"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-core",
+      "manifest": "crates/acorn-core/Cargo.toml",
+      "rust_source_files": 43,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "core": [],
+        "alloc": [
+          "core",
+          "serde/alloc",
+          "jiff/alloc"
+        ],
+        "digest": [
+          "alloc",
+          "dep:ring"
+        ],
+        "std": [
+          "alloc",
+          "digest",
+          "jiff/std",
+          "dep:anydoc",
+          "dep:infer"
+        ]
+      },
+      "workspace_dependencies": [],
+      "build_script": false
+    },
+    {
+      "package": "acorn-daemon",
+      "manifest": "crates/acorn-daemon/Cargo.toml",
+      "rust_source_files": 6,
+      "features": {},
+      "workspace_dependencies": [
+        "acorn-core",
+        "acorn-host",
+        "acorn-lib",
+        "acorn-schema",
+        "acorn-service"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-diff",
+      "manifest": "crates/acorn-diff/Cargo.toml",
+      "rust_source_files": 5,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "alloc": [
+          "serde/alloc",
+          "serde_json/alloc"
+        ],
+        "std": [
+          "alloc",
+          "serde/std",
+          "serde_json/std",
+          "similar/std"
+        ]
+      },
+      "workspace_dependencies": [],
+      "build_script": false
+    },
+    {
+      "package": "acorn-host",
+      "manifest": "crates/acorn-host/Cargo.toml",
+      "rust_source_files": 26,
+      "features": {
+        "default": [],
+        "auth": [
+          "http",
+          "dep:async-trait",
+          "dep:chrono",
+          "dep:oauth2",
+          "dep:openidconnect",
+          "dep:secrecy",
+          "dep:serde",
+          "dep:serde_json",
+          "dep:tokio",
+          "tokio/macros",
+          "tokio/net",
+          "tokio/rt",
+          "tokio/sync"
+        ],
+        "config": [
+          "dep:jsonc-parser",
+          "dep:serde",
+          "dep:serde_json",
+          "dep:serde_norway"
+        ],
+        "download": [
+          "fs",
+          "http",
+          "dep:futures",
+          "dep:tokio"
+        ],
+        "fs": [
+          "acorn-core/digest",
+          "dep:data-encoding",
+          "dep:directories",
+          "dep:nanoid",
+          "dep:ring",
+          "dep:url"
+        ],
+        "http": [
+          "dep:futures",
+          "dep:reqwest",
+          "dep:url"
+        ],
+        "source": [
+          "fs",
+          "http",
+          "dep:acorn-cmd",
+          "dep:tokio"
+        ],
+        "terminal": [
+          "dep:owo-colors"
+        ]
+      },
+      "workspace_dependencies": [
+        "acorn-cmd",
+        "acorn-core"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-lib",
+      "manifest": "crates/acorn-lib/Cargo.toml",
+      "rust_source_files": 340,
+      "features": {
+        "acp": [
+          "std",
+          "dep:acorn-cmd",
+          "dep:agent-client-protocol",
+          "dep:thiserror",
+          "dep:tokio",
+          "tokio/rt",
+          "tokio/time"
+        ],
+        "auth": [
+          "analysis",
+          "acorn-host/auth"
+        ],
+        "core": [
+          "acorn-core/core",
+          "acorn-schema/core"
+        ],
+        "alloc": [
+          "core",
+          "acorn-core/alloc",
+          "acorn-schema/alloc",
+          "serde/alloc",
+          "jiff/alloc"
+        ],
+        "wasm": [
+          "alloc",
+          "acorn-schema/alloc"
+        ],
+        "std": [
+          "alloc",
+          "acorn-schema/alloc",
+          "jiff/std",
+          "schemars/std",
+          "dep:color-eyre"
+        ],
+        "net": [
+          "std",
+          "dep:reqwest",
+          "dep:http",
+          "dep:httpdate",
+          "dep:jsonschema",
+          "dep:lychee-lib",
+          "dep:thiserror",
+          "dep:tokio",
+          "tokio/io-std",
+          "tokio/io-util",
+          "tokio/net",
+          "tokio/rt",
+          "tokio/signal",
+          "tokio/time",
+          "dep:futures",
+          "dep:async-trait",
+          "dep:nanoid",
+          "dep:rand",
+          "dep:ring",
+          "dep:rsa",
+          "dep:glob",
+          "dep:tower"
+        ],
+        "archive": [
+          "std",
+          "dep:flate2",
+          "dep:zip",
+          "dep:tar",
+          "dep:zstd",
+          "dep:sevenz-rust2"
+        ],
+        "template": [
+          "std",
+          "acorn-schema/std",
+          "dep:tera",
+          "dep:anydoc",
+          "dep:pdf-inspector"
+        ],
+        "progress": [
+          "std",
+          "dep:indicatif",
+          "dep:console",
+          "dep:owo-colors",
+          "dep:comfy-table",
+          "dep:similar"
+        ],
+        "cli": [
+          "std",
+          "dep:directories",
+          "dep:dotenvy",
+          "dep:which",
+          "dep:is_executable",
+          "dep:glob",
+          "dep:arboard"
+        ],
+        "db": [
+          "std",
+          "dep:rusqlite"
+        ],
+        "unicode": [
+          "std",
+          "console/std"
+        ],
+        "agentic": [
+          "analysis",
+          "dep:axum",
+          "dep:dprint-core",
+          "dep:dprint-plugin-json",
+          "dep:pretty_yaml",
+          "dep:rmcp",
+          "dep:tempfile",
+          "dep:tower",
+          "rmcp/server",
+          "rmcp/transport-io"
+        ],
+        "analysis": [
+          "dep:acorn-analysis",
+          "dep:acorn-service",
+          "acorn-analysis/analysis",
+          "acorn-core/std",
+          "acorn-diff/std",
+          "acorn-host/config",
+          "acorn-host/fs",
+          "acorn-host/http",
+          "acorn-host/source",
+          "acorn-host/terminal",
+          "dep:acorn-cmd",
+          "dep:acorn-diff",
+          "archive",
+          "cli",
+          "db",
+          "net",
+          "progress",
+          "template",
+          "unicode",
+          "dep:ariadne",
+          "dep:bat",
+          "dep:indexmap",
+          "dep:polars-error",
+          "dep:rayon",
+          "dep:ron",
+          "dep:rust-ini",
+          "dep:same-file"
+        ],
+        "chart": [
+          "analysis",
+          "dep:resvg"
+        ],
+        "dataframe": [
+          "analysis",
+          "dep:polars"
+        ],
+        "default": [
+          "std"
+        ],
+        "diagnostics": [
+          "analysis",
+          "dep:sysinfo"
+        ],
+        "duckdb": [
+          "analysis",
+          "dep:duckdb"
+        ],
+        "powerpoint": [
+          "analysis"
+        ],
+        "pdf": [
+          "analysis",
+          "dep:chromiumoxide"
+        ],
+        "mcp-client": [
+          "std",
+          "dep:acorn-service",
+          "acorn-service/alloc",
+          "dep:http",
+          "dep:rmcp",
+          "dep:reqwest",
+          "dep:tokio",
+          "dep:which",
+          "rmcp/client",
+          "rmcp/reqwest",
+          "rmcp/transport-child-process",
+          "rmcp/transport-streamable-http-client-reqwest",
+          "tokio/process",
+          "tokio/rt",
+          "tokio/rt-multi-thread",
+          "tokio/time"
+        ],
+        "needle": [
+          "agentic",
+          "dep:acorn-cmd"
+        ],
+        "exec": [
+          "analysis",
+          "acorn-analysis/exec",
+          "dep:cap-std",
+          "dep:rhai"
+        ],
+        "shell-lint": [
+          "analysis",
+          "acorn-cmd/shell-lint"
+        ],
+        "slm": [
+          "analysis"
+        ],
+        "swhid-compute": [
+          "analysis",
+          "dep:acorn-cmd",
+          "dep:swhid"
+        ]
+      },
+      "workspace_dependencies": [
+        "acorn-analysis",
+        "acorn-cmd",
+        "acorn-core",
+        "acorn-diff",
+        "acorn-host",
+        "acorn-macros",
+        "acorn-schema",
+        "acorn-service"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-macros",
+      "manifest": "crates/acorn-macros/Cargo.toml",
+      "rust_source_files": 42,
+      "features": {
+        "default": [
+          "bigo"
+        ],
+        "bigo": [
+          "dep:acorn-core"
+        ]
+      },
+      "workspace_dependencies": [
+        "acorn-core"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-schema",
+      "manifest": "crates/acorn-schema/Cargo.toml",
+      "rust_source_files": 127,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "core": [
+          "acorn-core/core"
+        ],
+        "alloc": [
+          "core",
+          "acorn-core/alloc",
+          "serde/alloc",
+          "jiff/alloc"
+        ],
+        "std": [
+          "alloc",
+          "acorn-core/std",
+          "jiff/std",
+          "dep:ammonia",
+          "dep:handlebars",
+          "dep:percy-dom",
+          "dep:rust-embed",
+          "dep:tracing",
+          "dep:swhid",
+          "ring"
+        ],
+        "wasm": [
+          "alloc"
+        ],
+        "swhid-compute": [
+          "std",
+          "dep:swhid"
+        ],
+        "analysis": []
+      },
+      "workspace_dependencies": [
+        "acorn-core",
+        "acorn-macros"
+      ],
+      "build_script": true
+    },
+    {
+      "package": "acorn-server",
+      "manifest": "crates/acorn-server/Cargo.toml",
+      "rust_source_files": 19,
+      "features": {},
+      "workspace_dependencies": [
+        "acorn-analysis",
+        "acorn-core",
+        "acorn-service"
+      ],
+      "build_script": true
+    },
+    {
+      "package": "acorn-service",
+      "manifest": "crates/acorn-service/Cargo.toml",
+      "rust_source_files": 11,
+      "features": {
+        "alloc": [
+          "acorn-analysis/alloc",
+          "acorn-core/alloc",
+          "acorn-schema/alloc",
+          "serde/alloc"
+        ],
+        "default": [
+          "std"
+        ],
+        "std": [
+          "alloc",
+          "acorn-analysis/std",
+          "acorn-core/std",
+          "acorn-schema/std",
+          "schemars/std"
+        ]
+      },
+      "workspace_dependencies": [
+        "acorn-analysis",
+        "acorn-core",
+        "acorn-schema"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-tui",
+      "manifest": "crates/acorn-tui/Cargo.toml",
+      "rust_source_files": 24,
+      "features": {},
+      "workspace_dependencies": [
+        "acorn-analysis",
+        "acorn-host",
+        "acorn-lib",
+        "acorn-schema"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-wasm",
+      "manifest": "crates/acorn-wasm/Cargo.toml",
+      "rust_source_files": 2,
+      "features": {},
+      "workspace_dependencies": [
+        "acorn-analysis",
+        "acorn-core",
+        "acorn-diff",
+        "acorn-schema",
+        "acorn-service"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "acorn-web",
+      "manifest": "crates/acorn-web/Cargo.toml",
+      "rust_source_files": 12,
+      "features": {},
+      "workspace_dependencies": [
+        "acorn-schema",
+        "acorn-wasm"
+      ],
+      "build_script": true
+    },
+    {
+      "package": "acorn-downstream-host-fixture",
+      "manifest": "tests/downstream-host/Cargo.toml",
+      "rust_source_files": 5,
+      "features": {},
+      "workspace_dependencies": [
+        "acorn-core",
+        "acorn-host",
+        "renamed-command"
+      ],
+      "build_script": false
+    },
+    {
+      "package": "xtask",
+      "manifest": "xtask/Cargo.toml",
+      "rust_source_files": 4,
+      "features": {},
+      "workspace_dependencies": [],
+      "build_script": false
+    }
+  ],
+  "separate_workspace": "fuzz/Cargo.toml",
+  "validation": "Manifest parsing and source inspection; not compiler, test, benchmark or runtime acceptance.",
+  "upstream_archive_sha256": "c56936b3e6a7fdb5a31b191957dc1ec66f62eb2b663a58e1d06e38a0485cc21e",
+  "acorn_manifest_sha256": "8502bb4347932ca233b71633492bb00598d2606de367425f60392899b9ecd570",
+  "acorn_lock_sha256": "9a4869d49784e077e6e4fbbd6ec39b1f99b5be34b5dd4abbd395a7e23e256fc7"
+}

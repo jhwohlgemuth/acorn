@@ -117,7 +117,6 @@
 //! ```
 #[cfg(test)]
 extern crate alloc;
-
 use acorn_analysis::readability::ReadabilityType;
 use acorn_analysis::{CheckCategory, CheckSeverity, FairDetails, FairEvidence, FairProfile};
 use acorn_core::big_o::{compare_notation, ComparisonInput, ComparisonOutput, Expression};
@@ -136,7 +135,6 @@ use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
 
 const BIG_O_LIST_LIMIT: usize = 64;
-
 #[wasm_bindgen(typescript_custom_section)]
 const TYPESCRIPT_DEFINITIONS: &str = r#"
 export type DiagnosticKind = "parse" | "validation";
@@ -176,11 +174,13 @@ export interface CrosswalkWarning {
   to: string;
 }
 export interface Diagnostic {
+  category: "schema" | "link" | "prose" | "quality" | "compute" | "fair" | "readability" | "crosswalk";
   code: string | null;
   kind: DiagnosticKind;
   message: string;
   params: Record<string, unknown>;
   path: string | null;
+  severity: "error" | "info" | "suggestion" | "warning";
 }
 export interface FairAssessmentResult {
   findings: Array<Record<string, unknown>>;
@@ -323,11 +323,13 @@ struct CrosswalkWarning {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Diagnostic {
+    category: CheckCategory,
     code: Option<String>,
     kind: DiagnosticKind,
     message: String,
     params: Map<String, Value>,
     path: Option<String>,
+    severity: CheckSeverity,
 }
 #[derive(Serialize)]
 struct DiscoveredIdentifier {
@@ -393,17 +395,20 @@ impl From<ConversionWarning> for CrosswalkWarning {
 impl Diagnostic {
     fn parse(path: Option<String>, message: String) -> Self {
         Self {
+            category: CheckCategory::Schema,
             code: None,
             kind: DiagnosticKind::Parse,
             message,
             params: Map::new(),
             path,
+            severity: CheckSeverity::Error,
         }
     }
 }
 impl From<acorn_service::Diagnostic> for Diagnostic {
     fn from(issue: acorn_service::Diagnostic) -> Self {
         Self {
+            category: issue.category,
             code: Some(issue.code),
             kind: match issue.path.is_some() {
                 | true => DiagnosticKind::Validation,
@@ -412,6 +417,7 @@ impl From<acorn_service::Diagnostic> for Diagnostic {
             message: issue.message,
             params: Map::new(),
             path: issue.path,
+            severity: issue.severity,
         }
     }
 }
@@ -508,6 +514,41 @@ pub fn check_readability(text: &str, metric: &str, uri: Option<String>) -> Resul
     analyze_readability(text, metric, uri)
         .map_err(|why| JsValue::from_str(&why))
         .and_then(|result| serialize(&result))
+        .map(JsValue::unchecked_into)
+}
+/// Compare two Big-O expressions with optional explicit symbol-growth assumptions.
+///
+/// The input and output use the shared portable comparison contract. Analytical outcomes such
+/// as `incomparable` and `undetermined` are successful results; malformed requests are returned
+/// as JavaScript errors.
+#[wasm_bindgen(js_name = compareBigO)]
+pub fn compare_big_o(input: JsBigOComparisonInput) -> Result<JsBigOComparisonOutput, JsValue> {
+    serde_wasm_bindgen::from_value(input.into())
+        .map_err(|why| JsValue::from_str(&why.to_string()))
+        .and_then(|input| compare_big_o_input(input).map_err(|why| JsValue::from_str(&why)))
+        .and_then(|output| serialize_json_compatible(&output))
+        .map(JsValue::unchecked_into)
+}
+fn compare_big_o_input(input: ComparisonInput) -> Result<ComparisonOutput, String> {
+    compare_notation(input).map_err(|why| why.to_string())
+}
+/// Compare a bounded list of Big-O expression pairs.
+///
+/// Each item uses the same contract as [`compare_big_o`]. Results preserve input order. The
+/// operation rejects lists longer than 64 items and reports the index of the first malformed
+/// comparison request.
+#[wasm_bindgen(js_name = compareBigOList)]
+pub fn compare_big_o_list(input: JsBigOComparisonInputList) -> Result<JsBigOComparisonOutputList, JsValue> {
+    ensure_big_o_list_input(input.into())
+        .and_then(|input| serde_wasm_bindgen::from_value::<Vec<ComparisonInput>>(input).map_err(|why| JsValue::from_str(&why.to_string())))
+        .and_then(|inputs| {
+            inputs
+                .into_iter()
+                .enumerate()
+                .map(|(index, input)| compare_big_o_input(input).map_err(|why| JsValue::from_str(&format!("comparison at index {index}: {why}"))))
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .and_then(|outputs| serialize_json_compatible(&outputs))
         .map(JsValue::unchecked_into)
 }
 fn crosswalk(
@@ -725,6 +766,18 @@ fn discover_identifiers(text: &str) -> IdentifierDiscoveryResult {
 pub fn discover_persistent_identifiers(text: &str) -> Result<JsIdentifierDiscoveryResult, JsValue> {
     serialize_json_compatible(&discover_identifiers(text)).map(JsValue::unchecked_into)
 }
+fn ensure_big_o_list_input(input: JsValue) -> Result<JsValue, JsValue> {
+    is_js_array(&input)
+        .then(|| input.unchecked_ref::<JsArray>().length() as usize)
+        .ok_or_else(|| JsValue::from_str("Big-O list input must be an array"))
+        .and_then(ensure_big_o_list_limit)
+        .map(|()| input)
+}
+fn ensure_big_o_list_limit(length: usize) -> Result<(), JsValue> {
+    (length <= BIG_O_LIST_LIMIT)
+        .then_some(())
+        .ok_or_else(|| JsValue::from_str(&format!("Big-O lists may contain at most {BIG_O_LIST_LIMIT} items")))
+}
 fn inspect_identifier(value: &str, kind: Option<&str>) -> Result<IdentifierInspectionResult, String> {
     match kind.map(parse_identifier_kind).transpose() {
         | Err(why) => Err(why),
@@ -847,20 +900,34 @@ fn serialize_json_compatible<T: Serialize>(value: &T) -> Result<JsValue, JsValue
         .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
         .map_err(|why| JsValue::from_str(&why.to_string()))
 }
-fn compare_big_o_input(input: ComparisonInput) -> Result<ComparisonOutput, String> {
-    compare_notation(input).map_err(|why| why.to_string())
-}
-fn ensure_big_o_list_input(input: JsValue) -> Result<JsValue, JsValue> {
-    is_js_array(&input)
-        .then(|| input.unchecked_ref::<JsArray>().length() as usize)
-        .ok_or_else(|| JsValue::from_str("Big-O list input must be an array"))
-        .and_then(ensure_big_o_list_limit)
-        .map(|()| input)
-}
-fn ensure_big_o_list_limit(length: usize) -> Result<(), JsValue> {
-    (length <= BIG_O_LIST_LIMIT)
-        .then_some(())
-        .ok_or_else(|| JsValue::from_str(&format!("Big-O lists may contain at most {BIG_O_LIST_LIMIT} items")))
+/// Validate a bounded list of Big-O expressions without comparing them.
+///
+/// Results preserve input order and collect one validation outcome per expression. Invalid
+/// notation is returned as data so callers can repair every list item in one pass. Lists longer
+/// than 64 items are rejected.
+#[wasm_bindgen(js_name = validateBigOList)]
+pub fn validate_big_o_list(input: JsBigOExpressionList) -> Result<JsBigOValidationOutputList, JsValue> {
+    ensure_big_o_list_input(input.into())
+        .and_then(|input| serde_wasm_bindgen::from_value::<Vec<String>>(input).map_err(|why| JsValue::from_str(&why.to_string())))
+        .and_then(|expressions| {
+            let outputs = expressions
+                .into_iter()
+                .map(|expression| match Expression::parse(&expression) {
+                    | Ok(_) => BigOValidationOutput {
+                        error: None,
+                        expression,
+                        valid: true,
+                    },
+                    | Err(why) => BigOValidationOutput {
+                        error: Some(why.to_string()),
+                        expression,
+                        valid: false,
+                    },
+                })
+                .collect::<Vec<_>>();
+            serialize_json_compatible(&outputs)
+        })
+        .map(JsValue::unchecked_into)
 }
 #[cfg(test)]
 fn validate_json(json: &str) -> ValidationResult {
@@ -935,77 +1002,14 @@ pub fn validate_research_activity(json: &str, fuzzy: Option<String>) -> Result<J
         .and_then(|mode| serialize(&validate_json_with_fuzzy(json, mode)))
         .map(JsValue::unchecked_into)
 }
-/// Compare two Big-O expressions with optional explicit symbol-growth assumptions.
-///
-/// The input and output use the shared portable comparison contract. Analytical outcomes such
-/// as `incomparable` and `undetermined` are successful results; malformed requests are returned
-/// as JavaScript errors.
-#[wasm_bindgen(js_name = compareBigO)]
-pub fn compare_big_o(input: JsBigOComparisonInput) -> Result<JsBigOComparisonOutput, JsValue> {
-    serde_wasm_bindgen::from_value(input.into())
-        .map_err(|why| JsValue::from_str(&why.to_string()))
-        .and_then(|input| compare_big_o_input(input).map_err(|why| JsValue::from_str(&why)))
-        .and_then(|output| serialize_json_compatible(&output))
-        .map(JsValue::unchecked_into)
-}
-/// Compare a bounded list of Big-O expression pairs.
-///
-/// Each item uses the same contract as [`compare_big_o`]. Results preserve input order. The
-/// operation rejects lists longer than 64 items and reports the index of the first malformed
-/// comparison request.
-#[wasm_bindgen(js_name = compareBigOList)]
-pub fn compare_big_o_list(input: JsBigOComparisonInputList) -> Result<JsBigOComparisonOutputList, JsValue> {
-    ensure_big_o_list_input(input.into())
-        .and_then(|input| serde_wasm_bindgen::from_value::<Vec<ComparisonInput>>(input).map_err(|why| JsValue::from_str(&why.to_string())))
-        .and_then(|inputs| {
-            inputs
-                .into_iter()
-                .enumerate()
-                .map(|(index, input)| compare_big_o_input(input).map_err(|why| JsValue::from_str(&format!("comparison at index {index}: {why}"))))
-                .collect::<Result<Vec<_>, _>>()
-        })
-        .and_then(|outputs| serialize_json_compatible(&outputs))
-        .map(JsValue::unchecked_into)
-}
-/// Validate a bounded list of Big-O expressions without comparing them.
-///
-/// Results preserve input order and collect one validation outcome per expression. Invalid
-/// notation is returned as data so callers can repair every list item in one pass. Lists longer
-/// than 64 items are rejected.
-#[wasm_bindgen(js_name = validateBigOList)]
-pub fn validate_big_o_list(input: JsBigOExpressionList) -> Result<JsBigOValidationOutputList, JsValue> {
-    ensure_big_o_list_input(input.into())
-        .and_then(|input| serde_wasm_bindgen::from_value::<Vec<String>>(input).map_err(|why| JsValue::from_str(&why.to_string())))
-        .and_then(|expressions| {
-            let outputs = expressions
-                .into_iter()
-                .map(|expression| match Expression::parse(&expression) {
-                    | Ok(_) => BigOValidationOutput {
-                        error: None,
-                        expression,
-                        valid: true,
-                    },
-                    | Err(why) => BigOValidationOutput {
-                        error: Some(why.to_string()),
-                        expression,
-                        valid: false,
-                    },
-                })
-                .collect::<Vec<_>>();
-            serialize_json_compatible(&outputs)
-        })
-        .map(JsValue::unchecked_into)
-}
 
+#[cfg(test)]
+mod tests;
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
-    #[wasm_bindgen_test]
-    fn test_javascript_crosswalk_binding_propagates_invalid_metadata() {
-        assert!(crosswalk_metadata("{}", "json", "research-activity-data", "datacite", None, None).is_err());
-    }
     #[wasm_bindgen_test]
     fn test_javascript_big_o_binding_accepts_objects_and_rejects_invalid_requests() {
         let input = ComparisonInput {
@@ -1105,6 +1109,10 @@ mod wasm_tests {
         assert_eq!(error.as_string().as_deref(), Some("Big-O lists may contain at most 64 items"));
     }
     #[wasm_bindgen_test]
+    fn test_javascript_crosswalk_binding_propagates_invalid_metadata() {
+        assert!(crosswalk_metadata("{}", "json", "research-activity-data", "datacite", None, None).is_err());
+    }
+    #[wasm_bindgen_test]
     fn test_javascript_diff_binding_returns_a_value() {
         assert!(diff_content("before", "after", "unified").is_ok());
     }
@@ -1129,10 +1137,6 @@ mod wasm_tests {
         assert!(validate_metadata_standard("Plain text.", "text", "text").is_ok());
     }
     #[wasm_bindgen_test]
-    fn test_javascript_validation_binding_returns_a_value() {
-        assert!(validate_research_activity(r#"{"title": 1}"#, None).is_ok());
-    }
-    #[wasm_bindgen_test]
     fn test_javascript_validation_binding_preserves_big_o_diagnostics() {
         let validate = |json| {
             let result = validate_research_activity(json, None).expect("validate complete RAD fixture");
@@ -1140,7 +1144,7 @@ mod wasm_tests {
         };
         let valid = validate(include_str!("../../../tests/fixtures/data/big_o/valid/index.json"));
         assert_eq!(valid["valid"], true);
-        assert_eq!(valid["diagnostics"].as_array().map(Vec::len), Some(0));
+        assert!(valid["diagnostics"].as_array().unwrap().iter().all(|item| item["category"] != "schema"));
 
         for (json, code, message) in [
             (
@@ -1161,7 +1165,8 @@ mod wasm_tests {
             assert_eq!(invalid["diagnostics"][0]["path"], "aspect.computation[0].stages[0].complexity.bounds[0]");
         }
     }
+    #[wasm_bindgen_test]
+    fn test_javascript_validation_binding_returns_a_value() {
+        assert!(validate_research_activity(r#"{"title": 1}"#, None).is_ok());
+    }
 }
-
-#[cfg(test)]
-mod tests;

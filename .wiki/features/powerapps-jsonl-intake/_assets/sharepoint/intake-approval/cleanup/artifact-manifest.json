@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-12",
+  "artifacts": [
+    {
+      "file": "fixture-materializer-before.zip",
+      "resourceId": "ec17c0f4-f486-489b-b9b2-908e16e9b882",
+      "bytes": 7269,
+      "sha256": "88069c5e8f7734d5f198c6884bf007a6db0c8531c774127f5965db26c9796616",
+      "zipIntegrity": "passed"
+    },
+    {
+      "file": "seed-fixtures-before.zip",
+      "resourceId": "b83ff8ad-2ecf-44f1-9e4b-2d612bc76f78",
+      "bytes": 4305,
+      "sha256": "1d7a5e8905a3515cf2c7144d84322661c71ae32309198a59a4f0cde407d79fa1",
+      "zipIntegrity": "passed"
+    },
+    {
+      "file": "premium-intake-before.msapp",
+      "resourceId": "15ae605b-585b-49f5-a413-2b091f919a35",
+      "bytes": 88379,
+      "sha256": "6c186784e3486925622e2847b3972ae2ae1703eecb70dee39867165f8795ad24",
+      "zipIntegrity": "passed"
+    }
+  ],
+  "premiumFlowRecovery": "../../../solution-export/SponsorHighlightsNativeBackup20261025_20261025185256.zip",
+  "premiumFlowRecoveryDate": "2026-10-25",
+  "freshPremiumPackageExport": "Chrome ERR_BLOCKED_BY_CLIENT; fresh app copied separately from Studio"
+}

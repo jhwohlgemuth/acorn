@@ -177,24 +177,23 @@ use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
 use acorn_core::util::Checksum;
 use acorn_core::validation::ValidationError;
 pub use acorn_macros::Validate;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use core::fmt;
 use core::future;
 use core::slice::Iter;
-use serde::{Deserialize, Serialize};
-
-mod custom;
-
 pub use custom::{
     format_phone_number, format_timestamp, has_at_least_one_truthy, has_image_extension, is_gnd, is_identifier, is_iso_639_1_language_code,
-    is_iso_639_language_code, is_iso_date_or_rfc3339_timestamp, is_license, is_partial_date, is_polygon, is_programming_language, IntegerOrString,
-    MonthValue, NumberOrString, PostalCode, YearValue,
+    is_iso_639_3_language_code, is_iso_639_language_code, is_iso_date_or_rfc3339_timestamp, is_license, is_partial_date, is_polygon,
+    is_programming_language, IntegerOrString, MonthValue, NumberOrString, PostalCode, YearValue,
 };
 pub(crate) use custom::{
     validate_affiliation_identifier, validate_agent_identifier, validate_funder_identifier, validate_funding_reference_identifier, validate_license,
-    validate_name_identifier, validate_person_or_org_identifier, validate_publisher_identifier,
+    validate_name_identifier, validate_output_funding_identifier, validate_person_or_org_identifier, validate_publisher_identifier,
+    validate_related_identifier, validate_related_item_identifier,
 };
+use serde::{Deserialize, Serialize};
 
+mod custom;
 /// Built-in scalar validation rules used by the derive macro.
 pub mod rules {
     use super::ValidationError;
@@ -530,13 +529,16 @@ pub mod rules {
     /// assert!(rules::uri("urn:example:research").is_err());
     /// ```
     pub fn uri(value: &str) -> Result<(), ValidationError> {
-        let authority = value
-            .split_once(':')
-            .filter(|(scheme, rest)| (scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https")) && rest.starts_with("//"))
-            .and_then(|(_, rest)| rest.strip_prefix("//"))
-            .and_then(|rest| rest.split(['/', '?', '#']).next());
-        (authority.is_some_and(|authority| !authority.is_empty()) && url(value).is_ok())
-            .then_some(())
+        UriRef::parse(value)
+            .ok()
+            .filter(|uri| {
+                let is_http = uri
+                    .scheme()
+                    .is_some_and(|scheme| scheme.as_str().eq_ignore_ascii_case("http") || scheme.as_str().eq_ignore_ascii_case("https"));
+                let has_host = uri.authority().is_some_and(|authority| !authority.host().is_empty());
+                is_http && has_host
+            })
+            .map(|_| ())
             .ok_or_else(|| ValidationError::new("uri").with_message("Provide an absolute HTTP or HTTPS URI"))
     }
     /// Validate an absolute URL
@@ -665,17 +667,20 @@ pub struct ValidationIssue {
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct ValidationReport(Vec<ValidationIssue>);
-impl<T, const N: usize> Each for [T; N] {
-    type Item = T;
+impl<C> Each for &C
+where
+    C: Each + ?Sized,
+{
+    type Item = C::Item;
     type Iter<'a>
-        = Iter<'a, T>
+        = C::Iter<'a>
     where
-        T: 'a;
+        Self: 'a;
     fn each_iter(&self) -> Self::Iter<'_> {
-        self.iter()
+        (*self).each_iter()
     }
 }
-impl<T> Each for [T] {
+impl<T, const N: usize> Each for [T; N] {
     type Item = T;
     type Iter<'a>
         = Iter<'a, T>
@@ -691,6 +696,16 @@ impl<T: Validate, const N: usize> Validate for [T; N] {
     }
     fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
         validate_sequence_async(self.iter())
+    }
+}
+impl<T> Each for [T] {
+    type Item = T;
+    type Iter<'a>
+        = Iter<'a, T>
+    where
+        T: 'a;
+    fn each_iter(&self) -> Self::Iter<'_> {
+        self.iter()
     }
 }
 impl<T: Validate + ?Sized> Validate for Box<T> {
@@ -710,19 +725,6 @@ impl<K, V> Each for BTreeMap<K, V> {
         V: 'a;
     fn each_iter(&self) -> Self::Iter<'_> {
         self.values()
-    }
-}
-impl<C> Each for &C
-where
-    C: Each + ?Sized,
-{
-    type Item = C::Item;
-    type Iter<'a>
-        = C::Iter<'a>
-    where
-        Self: 'a;
-    fn each_iter(&self) -> Self::Iter<'_> {
-        (*self).each_iter()
     }
 }
 impl Validate for Checksum {
@@ -804,18 +806,27 @@ impl IntoValidationReport for ValidationError {
         ValidationReport::from_error(path, self)
     }
 }
-impl ValidationIssue {
-    /// Create an issue at a structured path.
-    pub fn new(path: impl Into<String>, error: ValidationError) -> Self {
-        Self { path: path.into(), error }
-    }
-}
 impl fmt::Display for ValidationIssue {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.path.is_empty() {
             | true => write!(formatter, "{}", self.error),
             | false => write!(formatter, "{}: {}", self.path, self.error),
         }
+    }
+}
+impl ValidationIssue {
+    /// Create an issue at a structured path.
+    pub fn new(path: impl Into<String>, error: ValidationError) -> Self {
+        Self { path: path.into(), error }
+    }
+}
+impl core::error::Error for ValidationReport {}
+impl fmt::Display for ValidationReport {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.iter().enumerate().try_for_each(|(index, issue)| match index {
+            | 0 => write!(formatter, "{issue}"),
+            | _ => write!(formatter, "\n{issue}"),
+        })
     }
 }
 impl ValidationReport {
@@ -829,6 +840,21 @@ impl ValidationReport {
     /// Create an empty report.
     pub const fn new() -> Self {
         Self(Vec::new())
+    }
+    pub(crate) fn unique_identifiers<'a>(self, path: &str, identifiers: impl IntoIterator<Item = &'a str>) -> Self {
+        identifiers
+            .into_iter()
+            .enumerate()
+            .fold((BTreeSet::new(), self), |(mut seen, mut report), (index, identifier)| {
+                if !seen.insert(identifier) {
+                    report.add(
+                        format!("{path}[{index}].identifier"),
+                        ValidationError::new("duplicate").with_message("Identifiers must be unique within this collection"),
+                    );
+                }
+                (seen, report)
+            })
+            .1
     }
     /// Create a report containing one scalar failure at `path`.
     pub fn from_error(path: impl Into<String>, error: ValidationError) -> Self {
@@ -881,13 +907,12 @@ impl ValidationReport {
         }
     }
 }
-impl core::error::Error for ValidationReport {}
-impl fmt::Display for ValidationReport {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.iter().enumerate().try_for_each(|(index, issue)| match index {
-            | 0 => write!(formatter, "{issue}"),
-            | _ => write!(formatter, "\n{issue}"),
-        })
+impl<T: Validate> Validate for Vec<T> {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        validate_sequence(self.iter())
+    }
+    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
+        validate_sequence_async(self.iter())
     }
 }
 impl<T> Each for Vec<T> {
@@ -898,14 +923,6 @@ impl<T> Each for Vec<T> {
         T: 'a;
     fn each_iter(&self) -> Self::Iter<'_> {
         self.iter()
-    }
-}
-impl<T: Validate> Validate for Vec<T> {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        validate_sequence(self.iter())
-    }
-    fn validate_async(&self) -> impl future::Future<Output = Result<(), ValidationReport>> + '_ {
-        validate_sequence_async(self.iter())
     }
 }
 /// Append all indexed failures produced by an `each` rule.

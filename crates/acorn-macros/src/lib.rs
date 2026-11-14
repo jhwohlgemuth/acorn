@@ -1,4 +1,7 @@
 //! Procedural macros for ACORN
+#[cfg(feature = "bigo")]
+use big_o::expand_bigo;
+use command::expand_cmd_sh_words;
 use proc_macro::TokenStream;
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
@@ -10,28 +13,6 @@ use syn::{
 #[cfg(feature = "bigo")]
 mod big_o;
 mod command;
-
-#[cfg(feature = "bigo")]
-use big_o::expand_bigo;
-use command::expand_cmd_sh_words;
-/// Validate a Big-O string literal at compile time and return it unchanged.
-///
-/// The notation is checked by the same parser used for computation schema bounds.
-/// This checks syntax, not whether an algorithm has the stated complexity.
-/// Canonical notation also accepts division, rational powers, `polylog(x)`, `W_out(x)`, and logarithms with a named base such as `log_a(x)`.
-///
-/// ```
-/// use acorn_macros::bigo;
-///
-/// const TIME: &str = bigo!("O(n log n)");
-/// assert_eq!(TIME, "O(n log n)");
-/// ```
-#[cfg(feature = "bigo")]
-#[proc_macro]
-pub fn bigo(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as LitStr);
-    expand_bigo(&input).unwrap_or_else(|why| why.to_compile_error()).into()
-}
 #[derive(Clone)]
 enum ValidationRule {
     Required(RuleOptions),
@@ -133,6 +114,24 @@ fn acorn_path() -> proc_macro2::TokenStream {
     }
     quote! { ::acorn }
 }
+/// Validate a Big-O string literal at compile time and return it unchanged.
+///
+/// The notation is checked by the same parser used for computation schema bounds.
+/// This checks syntax, not whether an algorithm has the stated complexity.
+/// Canonical notation also accepts division, rational powers, `polylog(x)`, `W_out(x)`, and logarithms with a named base such as `log_a(x)`.
+///
+/// ```
+/// use acorn_macros::bigo;
+///
+/// const TIME: &str = bigo!("O(n log n)");
+/// assert_eq!(TIME, "O(n log n)");
+/// ```
+#[cfg(feature = "bigo")]
+#[proc_macro]
+pub fn bigo(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as LitStr);
+    expand_bigo(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
 /// Parses a literal `cmd!("...")` command into shell words with `{var}` and `{args...}` interpolation.
 #[proc_macro]
 pub fn cmd_sh_words(input: TokenStream) -> TokenStream {
@@ -181,7 +180,7 @@ pub fn derive_database_row(input: TokenStream) -> TokenStream {
 ///
 /// Asynchronous custom rules use `#[validate(async(function = "path"))]` on fields or structs,
 /// and `#[validate(each(async(function = "path")))]` on supported collections.
-#[proc_macro_derive(Validate, attributes(validate))]
+#[proc_macro_derive(Validate, attributes(validate, serde))]
 pub fn derive_validate(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_validate(&input).unwrap_or_else(|why| why.to_compile_error()).into()
@@ -539,7 +538,7 @@ fn expand_validate(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream>
                 .ident
                 .as_ref()
                 .ok_or_else(|| syn::Error::new_spanned(field, "Validate requires named fields"))?;
-            let path = ident.to_string().trim_start_matches("r#").to_string();
+            let path = validation_field_name(field, &input.attrs)?;
             let rules = field
                 .attrs
                 .iter()
@@ -1499,6 +1498,34 @@ fn scalar_expression(
         | _ => Err(syn::Error::new(proc_macro2::Span::call_site(), "rule is not scalar")),
     }
 }
+fn serde_serialized_name(attributes: &[syn::Attribute], key: &str) -> syn::Result<Option<String>> {
+    attributes
+        .iter()
+        .filter(|attribute| attribute.path().is_ident("serde"))
+        .map(|attribute| attribute.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated))
+        .collect::<syn::Result<Vec<_>>>()
+        .and_then(|groups| {
+            groups
+                .into_iter()
+                .flatten()
+                .filter(|meta| meta.path().is_ident(key))
+                .try_fold(None, |found, meta| {
+                    let names = match meta {
+                        | Meta::List(list) => list
+                            .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+                            .map(|items| items.into_iter().find(|item| item.path().is_ident("serialize"))),
+                        | value => Ok(Some(value)),
+                    };
+                    names.map(|name| match name {
+                        | Some(Meta::NameValue(value)) => match value.value {
+                            | Expr::Lit(ExprLit { lit: Lit::Str(value), .. }) => Some(value.value()),
+                            | _ => found,
+                        },
+                        | _ => found,
+                    })
+                })
+        })
+}
 fn type_argument<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
     match ty {
         | Type::Path(value) => value
@@ -1515,6 +1542,37 @@ fn type_argument<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
             }),
         | _ => None,
     }
+}
+fn validation_field_name(field: &syn::Field, container: &[syn::Attribute]) -> syn::Result<String> {
+    let name = field.ident.as_ref().map(ToString::to_string).unwrap_or_default();
+    let name = name.trim_start_matches("r#").to_string();
+    serde_serialized_name(&field.attrs, "rename").and_then(|explicit| match explicit {
+        | Some(name) => Ok(name),
+        | None => serde_serialized_name(container, "rename_all").map(|case| {
+            let pascal = || {
+                name.split('_')
+                    .map(|part| {
+                        part.chars()
+                            .enumerate()
+                            .map(|(index, character)| if index == 0 { character.to_ascii_uppercase() } else { character })
+                            .collect::<String>()
+                    })
+                    .collect::<String>()
+            };
+            match case.as_deref() {
+                | Some("UPPERCASE" | "SCREAMING_SNAKE_CASE") => name.to_ascii_uppercase(),
+                | Some("PascalCase") => pascal(),
+                | Some("camelCase") => pascal()
+                    .chars()
+                    .enumerate()
+                    .map(|(index, character)| if index == 0 { character.to_ascii_lowercase() } else { character })
+                    .collect(),
+                | Some("kebab-case") => name.replace('_', "-"),
+                | Some("SCREAMING-KEBAB-CASE") => name.to_ascii_uppercase().replace('_', "-"),
+                | _ => name,
+            }
+        }),
+    })
 }
 
 #[cfg(test)]

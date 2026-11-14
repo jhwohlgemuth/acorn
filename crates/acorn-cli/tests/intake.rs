@@ -8,6 +8,14 @@ use std::path::Path;
 use std::process::Output;
 use tempfile::tempdir;
 
+/// Build the canonical absolute file URI for one local path on every platform.
+fn file_uri(path: &Path) -> String {
+    let text = path.display().to_string();
+    match cfg!(windows) {
+        | true => format!("file:///{}", text.replace('\\', "/")),
+        | false => format!("file://{text}"),
+    }
+}
 fn intake(root: &Path, arguments: &[&str]) -> Output {
     Command::cargo_bin("acorn")
         .unwrap()
@@ -17,16 +25,10 @@ fn intake(root: &Path, arguments: &[&str]) -> Output {
         .output()
         .unwrap()
 }
-/// Build the canonical absolute file URI for one local path on every platform.
-fn file_uri(path: &Path) -> String {
-    let text = path.display().to_string();
-    match cfg!(windows) {
-        | true => format!("file:///{}", text.replace('\\', "/")),
-        | false => format!("file://{text}"),
-    }
-}
 fn stage(root: &Path, batch: bool) -> String {
-    write(root.join("index.json"), serde_json::to_vec(&ResearchActivity::default()).unwrap()).unwrap();
+    let mut activity = ResearchActivity::default();
+    activity.meta.identifier = "acorn".to_string();
+    write(root.join("index.json"), serde_json::to_vec(&activity).unwrap()).unwrap();
     write(
         root.join("config.json"),
         json!({"schemaVersion":"2.0.0", "folders":[{
@@ -61,6 +63,7 @@ fn stage(root: &Path, batch: bool) -> String {
         submission["submissionId"].as_str().unwrap().to_string()
     }
 }
+
 #[test]
 fn test_apply_requires_explicit_approval_when_redirected() {
     for batch in [false, true] {

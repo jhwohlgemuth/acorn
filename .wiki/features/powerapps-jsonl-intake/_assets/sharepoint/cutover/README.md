@@ -1,18 +1,18 @@
 ---
 type: Note
-title: "SharePoint default and reversible GitLab pause"
-description: "PA-25 deployment, verification and component-only rollback, October 27, 2026."
+title: "SharePoint default and retired GitLab route"
+description: "PA-25 deployment evidence and recovery guidance, updated after November 12 retirement."
 ---
 
 > **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../../../../../privacy.md).
 
 # Current route
 
-**SharePoint is the default for new highlights. Both GitLab connector flows are Off.** The owner authorized this cutover October 27. The app link, pilot environment and approved owner/participant audience are unchanged. No credentials, permissions, connector definitions or GitLab data were changed or removed.
+**SharePoint is the default for new highlights.** The retired premium GitLab app and its two flows were deleted with owner confirmation on November 12. At the owner's subsequent request, a replacement `[PREMIUM] Highlights Intake` app (`90dabac0-caf3-4f80-9ba6-6fae22e5408c`) was imported from the fresh canvas backup and published as version 6. Both supporting flows were recovered with explicit owner approval, but recovery is not operational: the final published app still calls the original catalog trigger, which returns `WorkflowTriggerIsNotEnabled`. No post-recovery submission was sent. See the [cleanup and recovery evidence](../intake-approval/cleanup/README.md). The October 27 deployment evidence below describes the earlier reversible pause; it is not the current state of the recovered components. Credentials, permissions, connector definitions and GitLab data were not removed by the cleanup.
 
 [Open the published SharePoint form](https://apps.gov.powerapps.us/play/e/221f44a6-1468-ea4e-b93d-cd52f1723079/a/163f110f-7f8a-401c-894e-0786b2c018a4). Environment: **Wohlgemuth, Jason**, `221f44a6-1468-ea4e-b93d-cd52f1723079`.
 
-| Component | ID | Final state |
+| Component | ID | October 27 checkpoint |
 | --- | --- | --- |
 | SharePoint canvas | `163f110f-7f8a-401c-894e-0786b2c018a4` | Saved and published with accepted PA28 feedback |
 | SharePoint catalog | `6f8a4ab5-dd66-4904-9f5d-f307519ab4d5` | On; safe response handles all four Select outcomes |
@@ -39,14 +39,9 @@ The owner-triggered milestone receiver remains separate and unchanged. It contin
 
 # Restore the GitLab route
 
-This is a reversible flow pause, not connector deletion. Keep the original app, custom connectors, protected connections/token references, project `22464` / `main` / `.acorn/intake/logbook.jsonl`, native packages and browser recovery slot.
+The replacement canvas and both supporting flows have been recovered, but the catalog runtime and app binding still need repair. App checker reported no formula errors; the final published player nevertheless failed because original catalog runtime `cd27888f-dd74-4675-9dd1-abc246ba56d5` reported its trigger Disabled. A brief successful load through another catalog runtime did not persist after publication. The replacement uses a new app ID and does not restore the original app's version history or sharing. Verify stable project loading before submission and intended-user access testing. Microsoft documents [deleted-flow recovery within 21 days](https://learn.microsoft.com/en-us/power-automate/how-tos-restore-deleted-flow), using Restore Deleted Flow as Admin; restored flows are disabled initially. The [cleanup record](../intake-approval/cleanup/README.md) records the recovery run, runtime IDs, app bindings, blocker, and fresh native canvas copy. The dated October 25 flow package was not used for this recovery.
 
-1. In the same environment, open **[PREMIUM] Highlights Intake - Project Catalog** (`cd27888f-dd74-4675-9dd1-abc246ba56d5`) and choose **Turn on**. Open **[PREMIUM] Highlights Intake - GitLab Intake** (`ff4a134b-5fd3-4465-ab19-0325c2f2bf1b`) and choose **Turn on**. No rebuild, package import, rebind or new token is needed while the retained credentials/connections remain valid.
-2. Verify both show On and that their existing connections are healthy. Verify the intended users have premium use rights and that GitLab calls succeed; retained credentials can still expire and known network-range 403/504 failures remain possible. PA15/16/17 unfinished GitLab acceptance is not closed by this pause or restoration.
-3. Open the retained original app and confirm catalog loading. Reconcile any existing pending UUID against its original payload and immutable GitLab history before allowing a new submission. Use same-ID retry only; uncertain proof stays unresolved. No auto-migration or dual submission across routes.
-4. Choose and communicate the default link explicitly if changing it again. SharePoint can remain available; do not delete its data or overwrite its recovery slot merely to restore GitLab.
-
-No in-flight GitLab run appeared in either history before disablement. Other users' browser-local slots cannot be globally inventoried. The old form may open, but project loading/submission cannot succeed while its flows are Off; use the SharePoint link for new entries and contact the owner for unresolved old receipts.
+Before choosing a different default link, validate fresh submission, immutable readback, same-ID replay, and conflict behavior, and confirm intended-user sharing and premium rights. Preserve project `22464` / `main` / `.acorn/intake/logbook.jsonl`, existing receipts and browser recovery data. An uncertain old UUID must be reconciled against its original payload and immutable GitLab history; restoration does not authorize duplicate submission or data rollback. Existing GitLab acceptance limits remain open.
 
 # Roll back only the SharePoint deployment changes
 

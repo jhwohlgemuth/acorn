@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-lib, acorn-cli, acorn-schema]
 tags: [feature, inference, routing, tools, parity]
-status: planned
+status: waiting-on-validation
 execution: phased
 phase_budget_hours: 5
 ---

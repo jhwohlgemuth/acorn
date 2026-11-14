@@ -482,21 +482,25 @@ test-webmcp-package: ## Verify the staged WebMCP package contents.
 version: ## Print the project version string.
 	@echo $(VERSION)
 
-web-build: web-map web-prepare ## Build the release browser and verify its single WASM payload.
+web-build: web-cli web-map web-prepare ## Build the release browser and verify its single WASM payload.
 	@python3 crates/acorn-web/scripts/clean-output.py
-	@$(DIOXUS) build --package acorn-web --platform web --release --profile web-release --debug-symbols false --base-path "$(WEB_BASE_PATH)" --locked
+	@python3 crates/acorn-web/scripts/rust.py "$(DIOXUS)" build --package acorn-web --platform web --release --profile web-release --debug-symbols false --base-path "$(WEB_BASE_PATH)" --locked
 	@python3 scripts/package-acorn-skill.py --output $(WEB_PUBLIC)/acorn-skill
 	@python3 scripts/package-acorn-skill.py --output $(WEB_PUBLIC)/acorn-skill --check
 	@node crates/acorn-web/scripts/check-package.mjs $(WEB_PUBLIC)
 
 web-check: web-prepare ## Check browser Rust, WASM portability, formatting and lint.
-	@cargo fmt -p acorn-web -- --check
-	@cargo check -p acorn-web --target wasm32-unknown-unknown
-	@cargo clippy -p acorn-web --all-targets -- -D warnings
-	@cargo clippy -p acorn-web --target wasm32-unknown-unknown -- -D warnings
+	@python3 crates/acorn-web/scripts/rust.py cargo fmt -p acorn-web -- --check
+	@python3 crates/acorn-web/scripts/rust.py cargo check -p acorn-web --target wasm32-unknown-unknown
+	@python3 crates/acorn-web/scripts/rust.py cargo clippy -p acorn-web --all-targets -- -D warnings
+	@python3 crates/acorn-web/scripts/rust.py cargo clippy -p acorn-web --target wasm32-unknown-unknown -- -D warnings
 
-web-dev: web-map web-prepare ## Run coordinated Dioxus and map Fast Refresh servers on loopback.
-	@python3 crates/acorn-web/scripts/dev.py $(DIOXUS) serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false
+web-cli: ## Ensure the local Dioxus CLI exists, or validate an explicit override.
+	@if [ "$(DIOXUS)" = "$(CURDIR)/target/tools/dioxus/bin/dx" ] && [ ! -x "$(DIOXUS)" ]; then $(MAKE) web-setup; fi
+	@command -v "$(DIOXUS)" >/dev/null 2>&1 || { echo "Dioxus CLI not executable: $(DIOXUS). Check DIOXUS or run make web-setup." >&2; exit 1; }
+
+web-dev: web-cli web-map web-prepare ## Run coordinated Dioxus and map Fast Refresh servers on loopback.
+	@python3 crates/acorn-web/scripts/dev.py "$(DIOXUS)" serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false --interactive false
 
 web-map: ## Build and stage the pinned offline organization map.
 	@npm --prefix crates/acorn-web/geospatial ci --ignore-scripts
@@ -510,7 +514,11 @@ web-pages: web-build ## Build static Pages assets, including the SPA route fallb
 	@cp $(WEB_PUBLIC)/index.html $(WEB_PUBLIC)/404.html
 	@touch $(WEB_PUBLIC)/.nojekyll
 
-web-prepare: ## Stage canonical documentation artwork and the WebMCP adapter.
+web-editor-bundle: ## Bundle the local CodeMirror editor and dependency license notices.
+	@npm --prefix crates/acorn-web ci --ignore-scripts
+	@npm --prefix crates/acorn-web run build:editor
+
+web-prepare: web-editor-bundle ## Stage canonical documentation artwork and the WebMCP adapter.
 	@mkdir -p crates/acorn-web/assets/generated
 	@cp docs/src/_assets/acorn.svg crates/acorn-web/assets/generated/acorn.svg
 	@cp crates/acorn-wasm/web/webmcp.js crates/acorn-web/assets/generated/webmcp.js
@@ -523,7 +531,7 @@ web-publish: check-release-apps ## Upload the existing browser archive to the Gi
 
 web-setup: ## Install the pinned Dioxus CLI locally and the WASM target.
 	@rustup target add wasm32-unknown-unknown
-	@cargo install dioxus-cli --version 0.7.3 --locked --root target/tools/dioxus
+	@python3 crates/acorn-web/scripts/rust.py cargo install dioxus-cli --version 0.7.3 --locked --root target/tools/dioxus
 
 web-skill: ## Stage and verify the canonical release-matched skill bundle.
 	@python3 scripts/package-acorn-skill.py
@@ -531,17 +539,21 @@ web-skill: ## Stage and verify the canonical release-matched skill bundle.
 
 web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebMCP.
 	@python3 -m unittest discover -s scripts/tests -p 'test_package_acorn_skill.py'
-	@cargo test -p acorn-web
+	@python3 -m unittest discover -s scripts/tests -p 'test_web_dev.py'
+	@python3 crates/acorn-web/scripts/rust.py cargo test -p acorn-web
 	@$(MAKE) test-webmcp
-	@node --test crates/acorn-web/scripts/acceptance.test.mjs
-	@node --experimental-strip-types --test crates/acorn-web/geospatial/tests/*.test.mjs
+	@node --test crates/acorn-web/scripts/acceptance.test.mjs crates/acorn-web/assets/remote.test.mjs crates/acorn-web/assets/syntax.test.mjs
+	@npm --prefix crates/acorn-web/geospatial ci --ignore-scripts
+	@npm --prefix crates/acorn-web/geospatial test
 	@$(MAKE) web-test-wasm
 
 web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and playwright install first).
 	@node crates/acorn-web/scripts/pages-smoke.mjs "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
+	@node crates/acorn-web/scripts/syntax-smoke.mjs
+	@node crates/acorn-web/scripts/editor-smoke.mjs
 
 web-test-wasm: web-prepare ## Run all nine browser operations in the real WASM runtime.
-	@wasm-pack test --node crates/acorn-web --lib
+	@python3 crates/acorn-web/scripts/rust.py wasm-pack test --node crates/acorn-web --lib
 
 .DEFAULT_GOAL := setup
 ACORN_DOCKER_AMD64 = jhwohlgemuth/acorn:$(VERSION)-amd64
@@ -693,7 +705,9 @@ TASKS = \
 	version \
 	web-build \
 	web-check \
+	web-cli \
 	web-dev \
+	web-editor-bundle \
 	web-package \
 	web-pages \
 	web-prepare \

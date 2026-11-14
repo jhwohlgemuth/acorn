@@ -2,13 +2,10 @@
 
 > **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../privacy.md).
 
-## In progress
-
-- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Browser parity items 1–5 are implemented, including tool-specific results, folders/Portfolio/local map, Settings and browser Skill/Install; ABW-10 is accepted and pruned. Remaining phases cover focused and cross-engine acceptance, native integration and verified publication. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
-- [Needle routing and native capability parity](needle-router-native-parity.md) - Native routes cover 46/46 bounded rows; PAR-34's synthetic safety matrix is accepted and PAR-16 is ready to release explicit dispatch. Automatic Needle selection remains preview-only after failed calibration.
-
 ## Planned
 
+- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Browser parity items 1–5 are implemented, including tool-specific results, folders/Portfolio/local map, Settings and browser Skill/Install; ABW-10 is accepted and pruned. ABW-35 local reload acceptance is ready; ABW-36 hosted Pages acceptance awaits mirror/certificate evidence. Remaining phases cover focused and cross-engine acceptance, native integration and verified publication. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
+- [Conversational RAD assistance and reviewed fixes](assisted-rad-workspace.md) - After ABW-11 creates the desktop shell, add an opt-in Ask ACORN panel to the shared UI, grounded read-only tools, ACORN-backed fix previews, per-fix review, and explicit browser download or native save.
 - [Opt-in netrc authentication](netrc-support.md) - Add explicit native credential loading, origin-scoped HTTPS Basic authentication and remote BagIt download flags; preserve provider/OAuth precedence and anonymous defaults. Earthdata compatibility is unproven and outside the initial release claim.
 - [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam, multi-select control, and release validation remain.
 - [SharePoint JSONL download for ACORN intake](sharepoint-jsonl-download/index.md) - Complete reusable OAuth 2.0/Entra browser/device authorization with ACRE auth profiles, verified account identity, scoped cache inspection/reset, cross-platform protected caching, existing Confirm controls and Graph file capture, consumed by SharePoint direct-URL intake and offline review; approved CLI tenant access is unverified, and it requires no operational app/flow changes.
@@ -21,7 +18,7 @@
 
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.
 
-- [Installable acornd background service](acornd-service.md) - Build on the landed portable job and strict daemon configuration contracts to serve existing APIs and configured check/gather jobs from a persistent local or SSH-managed service; SQLite history and composable server lifecycle are ready, and release requires signed paired binaries plus live host acceptance.
+- [Installable acornd background service](acornd-service.md) - Build on the landed portable job and strict daemon configuration contracts to serve existing APIs and configured check/gather jobs from a persistent local or SSH-managed service; SQLite history and composable server lifecycle are ready, and ACD-08A owns atomic job-config reload, coordinated with the incremental development loop; release requires signed paired binaries plus live host acceptance.
 - [Automated JSONL management with the Vergil GitLab bot](vergil-gitlab-jsonl-automation/index.md) - PA-05/06/07/09 and BOT-02 are Waiting on validation, subject to their prerequisites. Service deployment, callback integration, reporting setup and authority decisions remain planned/blocked. This GitLab-only track is independent of SharePoint manual reporting and adds no bridge or list cleanup. Implemented runtime contracts await live deployment and end-to-end acceptance: protected runtime, callbacks, durable admission/cleanup, human review/merge and scheduled reporting.
 
 - [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation across schema, local CLI and other adapters, accessibility checks, and an approved distribution pilot.
@@ -38,11 +35,9 @@
 
 ## Waiting on validation
 
+- [Needle routing and native capability parity](needle-router-native-parity.md) - Native routes cover 46/46 bounded rows; PAR-34's synthetic safety matrix is accepted and PAR-16 is ready for final explicit-dispatch release checks and documentation. Automatic Needle selection remains preview-only after failed calibration.
+- [Generic ask executor adapters](ask-executor-adapters.md) - Reusable local sidecar registration and configured CLI composition are landed with MCP, ACP, and endpoint bindings; remaining heterogeneous matrix and release evidence wait for PAR-16 native parity acceptance.
 - [Retained GitLab intake fallback hardening](powerapps-jsonl-intake/gitlab-fallback-hardening/index.md) - Complete isolated byte-boundary, concurrent-write and native-restore acceptance for the retained Off GitLab route; every remaining phase is blocked on authorized disposable systems or connector access, and passing evidence does not authorize restoration.
-
-## Planned with no ready phase
-
-- [Generic ask executor adapters](ask-executor-adapters.md) - Reusable local sidecar registration and configured CLI composition are landed with MCP, ACP, and endpoint bindings; all remaining phases wait for PAR-16 native parity acceptance.
 
 ## Epics
 

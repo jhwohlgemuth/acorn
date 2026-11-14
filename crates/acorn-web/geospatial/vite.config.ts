@@ -18,6 +18,7 @@ for (const folder of ["Assets", "ThirdParty", "Widgets", "Workers"]) {
         for (const decoder of ["basis_transcoder.wasm", "draco_decoder.wasm", "zip-module.wasm", "wasm_splats_bg.wasm"]) rmSync(resolve(target, decoder), { force: true });
     }
 }
+cpSync(resolve("imagery/BlackMarble"), resolve("public/cesium/Assets/Textures/BlackMarble"), { recursive: true });
 export default defineConfig(({ command }) => ({
     base: "./",
     define: { "process.env.NODE_ENV": JSON.stringify(command === "serve" ? "development" : "production") },

@@ -205,6 +205,7 @@ pub struct DataPort {
     #[validate(uuid)]
     pub name: String,
     /// Origin and characteristics of the data.
+    #[validate(nested)]
     pub data: Data,
     /// Wire or storage representation relevant to transfer costs.
     pub representation: Option<String>,

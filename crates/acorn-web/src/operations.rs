@@ -29,74 +29,6 @@ pub enum Tool {
     /// Big-O comparison.
     BigO,
 }
-impl fmt::Display for Tool {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            | Self::Activity => "Research Activity",
-            | Self::Standard => "Metadata standard",
-            | Self::Crosswalk => "Crosswalk",
-            | Self::Fair => "FAIR assessment",
-            | Self::Readability => "Readability",
-            | Self::Diff => "Content diff",
-            | Self::Discover => "Discover identifiers",
-            | Self::Inspect => "Inspect identifier",
-            | Self::BigO => "Big-O comparison",
-        })
-    }
-}
-impl Tool {
-    /// Stable route segment.
-    pub fn slug(self) -> &'static str {
-        match self {
-            | Self::Activity => "research-activity",
-            | Self::Standard => "metadata-standard",
-            | Self::Crosswalk => "crosswalk",
-            | Self::Fair => "fair",
-            | Self::Readability => "readability",
-            | Self::Diff => "diff",
-            | Self::Discover => "discover",
-            | Self::Inspect => "inspect",
-            | Self::BigO => "big-o",
-        }
-    }
-    /// Short description of the local computation.
-    pub fn description(self) -> &'static str {
-        match self {
-            | Self::Activity => "Validate Research Activity Data and review every diagnostic.",
-            | Self::Standard => "Check a document against its metadata standard.",
-            | Self::Crosswalk => "Convert metadata and review any information lost in translation.",
-            | Self::Fair => "Assess supplied metadata against FAIR principles. Identifiers are not resolved.",
-            | Self::Readability => "Measure how easy your research text is to read.",
-            | Self::Diff => "Compare two documents as a unified diff or JSON Patch.",
-            | Self::Discover => "Find and normalize persistent identifiers in supplied text.",
-            | Self::Inspect => "Inspect an identifier locally, without resolving it on the network.",
-            | Self::BigO => "Compare asymptotic growth with explicit symbol assumptions.",
-        }
-    }
-    /// Decorative icon from the shared navigation artwork.
-    pub fn icon(self) -> &'static str {
-        match self {
-            | Self::Activity | Self::Standard => "filecheck",
-            | Self::Crosswalk => "shuffle",
-            | Self::Fair => "shield",
-            | Self::Readability => "book",
-            | Self::Diff => "diff",
-            | Self::Discover => "search",
-            | Self::Inspect => "compass",
-            | Self::BigO => "chart",
-        }
-    }
-    /// Maximum UTF-8 bytes for the primary editor.
-    pub fn limit(self) -> usize {
-        match self {
-            | Self::BigO => 256,
-            | Self::Inspect => 2048,
-            | Self::Readability | Self::Discover => 16384,
-            | Self::Diff => 131072,
-            | _ => 262144,
-        }
-    }
-}
 /// User-owned form state; no operation runs while editing.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Request {
@@ -160,6 +92,104 @@ impl Request {
         }
     }
 }
+impl fmt::Display for Tool {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            | Self::Activity => "Research Activity",
+            | Self::Standard => "Metadata standard",
+            | Self::Crosswalk => "Crosswalk",
+            | Self::Fair => "FAIR assessment",
+            | Self::Readability => "Readability",
+            | Self::Diff => "Content diff",
+            | Self::Discover => "Discover identifiers",
+            | Self::Inspect => "Inspect identifier",
+            | Self::BigO => "Big-O comparison",
+        })
+    }
+}
+impl Tool {
+    /// Purpose-specific label for the tool's primary action.
+    pub fn action_label(self) -> &'static str {
+        match self {
+            | Self::Activity | Self::Standard => "Validate",
+            | Self::Crosswalk => "Convert",
+            | Self::Fair => "Assess FAIR",
+            | Self::Readability => "Analyze readability",
+            | Self::Diff | Self::BigO => "Compare",
+            | Self::Discover => "Discover identifiers",
+            | Self::Inspect => "Inspect identifier",
+        }
+    }
+    /// Stable route segment.
+    pub fn slug(self) -> &'static str {
+        match self {
+            | Self::Activity => "research-activity",
+            | Self::Standard => "metadata-standard",
+            | Self::Crosswalk => "crosswalk",
+            | Self::Fair => "fair",
+            | Self::Readability => "readability",
+            | Self::Diff => "diff",
+            | Self::Discover => "discover",
+            | Self::Inspect => "inspect",
+            | Self::BigO => "big-o",
+        }
+    }
+    /// Short description of the local computation.
+    pub fn description(self) -> &'static str {
+        match self {
+            | Self::Activity => "Validate Research Activity Data and review every diagnostic.",
+            | Self::Standard => "Check a document against its metadata standard.",
+            | Self::Crosswalk => "Convert metadata and review any information lost in translation.",
+            | Self::Fair => "Assess supplied metadata against FAIR principles. Identifiers are not resolved.",
+            | Self::Readability => "Measure how easy your research text is to read.",
+            | Self::Diff => "Compare two documents as a unified diff or JSON Patch.",
+            | Self::Discover => "Find and normalize persistent identifiers in supplied text.",
+            | Self::Inspect => "Inspect an identifier locally, without resolving it on the network.",
+            | Self::BigO => "Compare asymptotic growth with explicit symbol assumptions.",
+        }
+    }
+    /// Decorative icon from the shared navigation artwork.
+    pub fn icon(self) -> &'static str {
+        match self {
+            | Self::Activity | Self::Standard => "filecheck",
+            | Self::Crosswalk => "shuffle",
+            | Self::Fair => "shield",
+            | Self::Readability => "book",
+            | Self::Diff => "diff",
+            | Self::Discover => "search",
+            | Self::Inspect => "compass",
+            | Self::BigO => "chart",
+        }
+    }
+    /// Maximum UTF-8 bytes for the primary editor.
+    pub fn limit(self) -> usize {
+        match self {
+            | Self::BigO => 256,
+            | Self::Inspect => 2048,
+            | Self::Readability | Self::Discover => 16384,
+            | Self::Diff => 131072,
+            | _ => 262144,
+        }
+    }
+}
+/// Load a substantive, illustrative request for a browser tool.
+pub fn example_request(tool: Tool) -> Request {
+    let (input, after) = match tool {
+        | Tool::Activity | Tool::Standard => (include_str!("../assets/examples/validation-review.json"), ""),
+        | Tool::BigO => ("O(n log n + n)", "O(n^2 + n log n)"),
+        | Tool::Crosswalk | Tool::Fair => (include_str!("../assets/examples/publications.json"), ""),
+        | Tool::Diff => (include_str!("../assets/examples/diff-before.json"), include_str!("../assets/examples/diff-after.json")),
+        | Tool::Discover => (include_str!("../assets/examples/discovery.txt"), ""),
+        | Tool::Inspect => ("swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b;origin=https://example.org/repository;anchor=swh:1:rev:2db189928c94d62a3b4757b3eec68f0a4d4113f0;path=/src/analysis.py;lines=12-48", ""),
+        | Tool::Readability => (include_str!("../assets/examples/readability.txt"), ""),
+    };
+    Request {
+        input: input.into(),
+        after: after.into(),
+        mode: if tool == Tool::Diff { "json-patch" } else { "unified" }.into(),
+        ..Request::default()
+    }
+}
 /// Execute against the same portable bindings exported for WebMCP.
 #[cfg(target_arch = "wasm32")]
 pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
@@ -213,6 +243,7 @@ pub fn run(_tool: Tool, _request: &Request) -> Result<Value, String> {
 mod tests {
     use super::*;
     use strum::IntoEnumIterator;
+
     #[test]
     fn test_all_routes_unique() {
         let mut routes = Tool::iter().map(Tool::slug).collect::<Vec<_>>();
@@ -231,6 +262,12 @@ mod tests {
             ..Request::default()
         };
         assert!(request.validate(Tool::Discover).is_ok());
+    }
+    #[test]
+    fn test_examples_fit_editor_limits() {
+        for tool in Tool::iter() {
+            assert!(example_request(tool).validate(tool).is_ok(), "{tool}");
+        }
     }
     #[test]
     fn test_json_patch_and_other_tools_require_content() {
@@ -284,11 +321,11 @@ mod tests {
         assert!(Request::default().validate(Tool::Diff).is_ok());
     }
 }
-
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
+
     #[wasm_bindgen_test]
     fn test_bundled_research_activity_examples_validate() {
         for (name, content) in [
@@ -303,6 +340,63 @@ mod wasm_tests {
             let result = run(Tool::Activity, &request).expect("example validation");
             assert_eq!(result["valid"], true, "{name}: {result}");
         }
+    }
+    #[wasm_bindgen_test]
+    fn test_complex_examples_execute_all_browser_operations() {
+        for tool in [
+            Tool::Activity,
+            Tool::Standard,
+            Tool::Crosswalk,
+            Tool::Fair,
+            Tool::Readability,
+            Tool::Diff,
+            Tool::Discover,
+            Tool::Inspect,
+            Tool::BigO,
+        ] {
+            let request = example_request(tool);
+            let result = run(tool, &request).unwrap_or_else(|error| panic!("{tool}: {error}"));
+            match tool {
+                | Tool::Activity | Tool::Standard => assert_eq!(result["valid"], false, "{tool}: {result}"),
+                | Tool::Crosswalk => assert_eq!(result["target"], "datacite"),
+                | Tool::Fair => assert_eq!(result["findings"].as_array().unwrap().len(), 41),
+                | Tool::Readability => assert!(!result["checks"].as_array().unwrap().is_empty()),
+                | Tool::Diff => {
+                    assert_eq!(result["changed"], true);
+                    let patch = run(
+                        tool,
+                        &Request {
+                            mode: "json-patch".into(),
+                            ..request
+                        },
+                    )
+                    .unwrap();
+                    assert!(patch["operations"].as_array().unwrap().len() >= 10, "{patch}");
+                }
+                | Tool::Discover => assert!(result["count"].as_u64().unwrap() >= 24, "{result}"),
+                | Tool::Inspect => assert_eq!(result["status"], "valid", "{result}"),
+                | Tool::BigO => assert!(result.get("dominance").is_some()),
+            }
+        }
+    }
+    #[wasm_bindgen_test]
+    fn test_discovery_example_covers_every_supported_pid_kind() {
+        let result = run(Tool::Discover, &example_request(Tool::Discover)).unwrap();
+        let identifiers = result["identifiers"].as_array().unwrap();
+        for kind in [
+            "ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "rrid", "swhid",
+        ] {
+            assert!(
+                identifiers.iter().filter(|identifier| identifier["kind"] == kind).count() >= 2,
+                "{kind}: {result}"
+            );
+        }
+        let unique = identifiers
+            .iter()
+            .map(|identifier| identifier.to_string())
+            .collect::<alloc::collections::BTreeSet<_>>();
+        assert_eq!(unique.len(), identifiers.len(), "aliases should deduplicate");
+        assert_eq!(result["truncated"], false);
     }
     #[wasm_bindgen_test]
     fn test_invalid_activity_retains_diagnostics() {
@@ -350,6 +444,35 @@ mod wasm_tests {
         assert!(run(Tool::BigO, &request).unwrap().get("dominance").is_some());
     }
     #[wasm_bindgen_test]
+    fn test_semantic_diff_example_ignores_formatting_and_reports_structured_changes() {
+        let request = example_request(Tool::Diff);
+        assert_eq!(request.mode, "json-patch");
+        let result = run(Tool::Diff, &request).unwrap();
+        let operations = result["operations"].as_array().unwrap();
+        for kind in ["add", "remove", "replace"] {
+            assert!(operations.iter().any(|operation| operation["op"] == kind), "{kind}: {result}");
+        }
+        for prefix in ["/contact/", "/datasets/", "/methods/", "/software/"] {
+            assert!(
+                operations
+                    .iter()
+                    .any(|operation| operation["path"].as_str().is_some_and(|path| path.starts_with(prefix))),
+                "{prefix}: {result}"
+            );
+        }
+        let reformatted = serde_json::from_str::<Value>(&request.input).unwrap().to_string();
+        let unchanged = run(
+            Tool::Diff,
+            &Request {
+                after: reformatted,
+                ..request
+            },
+        )
+        .unwrap();
+        assert_eq!(unchanged["changed"], false);
+        assert!(unchanged["operations"].as_array().unwrap().is_empty());
+    }
+    #[wasm_bindgen_test]
     fn test_unified_diff_runs_with_empty_and_whitespace_documents() {
         for (before, after, changed) in [("", "added\n", true), (" \n", "", true), ("", "", false)] {
             let request = Request {
@@ -363,5 +486,48 @@ mod wasm_tests {
                 assert!(!result["diff"].as_str().unwrap().is_empty());
             }
         }
+    }
+    #[wasm_bindgen_test]
+    fn test_validation_example_keeps_a_focused_mix_of_issues() {
+        let result = run(Tool::Activity, &example_request(Tool::Activity)).unwrap();
+        let diagnostics = result["diagnostics"].as_array().unwrap();
+        assert!(
+            diagnostics.iter().all(|diagnostic| diagnostic["kind"] == "validation"),
+            "example must deserialize: {result}"
+        );
+        for severity in ["error", "info", "suggestion"] {
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic["severity"] == severity),
+                "missing {severity}"
+            );
+        }
+        for prefix in [
+            "aspect.data",
+            "contact.",
+            "logbook.",
+            "meta.contributors",
+            "meta.funders",
+            "meta.infrastructure",
+            "meta.languages",
+            "meta.organizations",
+            "meta.outputs",
+            "meta.resources",
+            "meta.rights",
+            "meta.typedDates",
+            "meta.websites",
+            "sections.",
+        ] {
+            assert!(
+                diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic["path"].as_str().is_some_and(|path| path.starts_with(prefix)))
+                    .count()
+                    >= 1,
+                "{prefix}: {result}"
+            );
+        }
+        let errors = diagnostics.iter().filter(|diagnostic| diagnostic["severity"] == "error").count();
+        assert!((15..=25).contains(&errors), "Keep the workshop focused: {errors} errors");
+        assert!(diagnostics.len() <= 100, "example diagnostics should fit in the result list");
     }
 }

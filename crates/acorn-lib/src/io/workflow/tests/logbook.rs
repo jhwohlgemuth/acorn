@@ -12,7 +12,6 @@ fn entry(identifier: &str, summary: &str) -> LogbookEntry {
         .build()
         .into()
 }
-
 fn proposal(content: String, entry: LogbookEntry) -> LogbookProposal {
     LogbookProposal {
         replaces: None,
@@ -25,7 +24,9 @@ fn proposal(content: String, entry: LogbookEntry) -> LogbookProposal {
 
 #[test]
 fn test_logbook_proposal_appends_replays_and_rejects_conflicts() {
-    let content = serde_json::to_string_pretty(&ResearchActivity::default()).expect("serialize fixture");
+    let mut activity = ResearchActivity::default();
+    activity.meta.identifier = "pilot".to_string();
+    let content = serde_json::to_string_pretty(&activity).expect("serialize fixture");
     let first = ProcessRepositoryResponse::try_from(proposal(content, entry("form-123", "Submitted"))).expect("append entry");
     assert_eq!(first.files.len(), 1);
     let updated = first.files.first().expect("updated file").content.clone();

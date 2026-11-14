@@ -35,7 +35,7 @@ Durable evidence remains in the [SharePoint pilot](sharepoint-pilot.md), [native
 
 | Order | Plan | Stable phases | Remaining outcome |
 |---:|---|---|---|
-| 1 | [Approval pilot acceptance and cutover](approval-release/index.md) | PA-40B, PA-40C, PA-40D, PA-40A, PA-41, PA-41A | Accept the end-to-end report-authoring workflow, then deploy both consistent apps and the approval gate with rollback. |
+| 1 | [Approval pilot acceptance and cutover](approval-release/index.md) | PA-40B, PA-40C, PA-40A, PA-41, PA-41A | Accept the end-to-end report-authoring workflow, then deploy both consistent apps and the approval gate with rollback. |
 | 2 | [Retained GitLab fallback hardening](gitlab-fallback-hardening/index.md) | PA-15, PA-16, PA-17 | Finish bounded-write, concurrency, and native-restore acceptance only in recreated isolated systems. |
 | 3 | [Shared Power Platform deployment](shared-deployment/index.md) | PA-12 and PA-12A | Move the accepted SharePoint solution to a named shared environment and audience after the pilot release. |
 
@@ -92,3 +92,5 @@ The coordinated work is accepted only when:
 - source receipts, contributor identity, review history, decisions, mappings, frozen bytes, and publication evidence remain auditable;
 - the operational cutover has fresh backups, named owners/audiences, exact before/after bytes, a tested freeze rollback, and explicit approval;
 - the former unfiltered exporter cannot resume accidentally after cutover.
+
+The November 12 [beta repair checkpoint](_assets/sharepoint/intake-approval/beta-repair/verification.md) records published forms, corrected intake validation and immutable status corrections, index-title project labels, Standard reviewer designation with SharePoint-only app-facing flows, background AI, and the refreshed guide. PA-40B/C wait for participant-context correction and review retests. Missing app sharing was repaired by adding Niki as User, and the owner confirmed on November 12 that the form opens. Participant batch read/save and summary checks remain unverified. Obsolete-reader removal is verified and its recovery package is retained. PA-40A and operational cutover remain gated.

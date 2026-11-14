@@ -15,7 +15,7 @@ public abstract class ScriptBase {
 }
 public class FakeContext {
  public string OperationId {get;set;} = "GetProjectCatalog";
- public HttpRequestMessage Request {get;} = new HttpRequestMessage(HttpMethod.Get,"https://code.ornl.gov/api/v4/projects/22464/repository/tree");
+ public HttpRequestMessage Request {get;set;} = new HttpRequestMessage(HttpMethod.Get,"https://code.ornl.gov/api/v4/projects/22464/repository/tree");
  public Queue<HttpResponseMessage> Responses {get;} = new Queue<HttpResponseMessage>();
  public List<string> Paths {get;} = new List<string>();
  public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct) {Paths.Add(request.RequestUri.AbsoluteUri);return Task.FromResult(Responses.Dequeue());}
@@ -38,5 +38,9 @@ public class Program {
  var f=await Run("{}",Response("[]"));Check(f.Item1.IsSuccessStatusCode&&f.Item2.Paths.Count==3,"missing folders uses discovery");
  var ctx=new FakeContext();ctx.Responses.Enqueue(Response("{\"commit\":{\"id\":\"a\"}}"));ctx.Responses.Enqueue(Response("denied",HttpStatusCode.Forbidden));var g=await new Script{Context=ctx}.ExecuteAsync();Check(g.StatusCode==HttpStatusCode.Forbidden&&ctx.Paths.Count==2,"403 does not trigger discovery or retry");
  var pass=new FakeContext{OperationId="ReadLogbook"};pass.Responses.Enqueue(Response("original"));var h=await new Script{Context=pass}.ExecuteAsync();Check(await h.Content.ReadAsStringAsync()=="original"&&pass.Paths.Count==1,"existing operations pass through unchanged");
+ var configured=new FakeContext{OperationId="GetProjectCatalogForRepository",Request=new HttpRequestMessage(HttpMethod.Get,"https://code.ornl.gov/api/v4/projects/123/repository/branches/feature%2Fsync")};configured.Responses.Enqueue(Response("{\"commit\":{\"id\":\"abcdef\"}}"));configured.Responses.Enqueue(Response(File("{\"folders\":[\"other\"]}")));var configuredResult=await new Script{Context=configured}.ExecuteAsync();Check(configuredResult.IsSuccessStatusCode&&configured.Paths.Count==2&&configured.Paths[0].Contains("/projects/123/repository/branches/feature%2Fsync")&&configured.Paths[1].Contains("/projects/123/repository/files/.acorn.jsonc?ref=abcdef"),"configured repository and branch are used for every read");
+ var invalidProject=new FakeContext{OperationId="GetProjectCatalogForRepository",Request=new HttpRequestMessage(HttpMethod.Get,"https://code.ornl.gov/api/v4/projects/0/repository/branches/main")};var invalidResult=await new Script{Context=invalidProject}.ExecuteAsync();Check(invalidResult.StatusCode==HttpStatusCode.BadRequest&&invalidProject.Paths.Count==0,"invalid project fails before any read");
+ var queryCatalog=new FakeContext{Request=new HttpRequestMessage(HttpMethod.Get,"https://code.ornl.gov/api/v4/projects/22464/repository/tree?projectId=123&branch=feature%2Fsync")};queryCatalog.Responses.Enqueue(Response("{\"commit\":{\"id\":\"abcdef\"}}"));queryCatalog.Responses.Enqueue(Response(File("{\"folders\":[\"other\"]}")));var queryResult=await new Script{Context=queryCatalog}.ExecuteAsync();Check(queryResult.IsSuccessStatusCode&&queryCatalog.Paths[0].Contains("/projects/123/repository/branches/feature%2Fsync"),"existing action accepts configurable repository and branch");
+ var incompleteQuery=new FakeContext{Request=new HttpRequestMessage(HttpMethod.Get,"https://code.ornl.gov/api/v4/projects/22464/repository/tree?projectId=123")};var incompleteResult=await new Script{Context=incompleteQuery}.ExecuteAsync();Check(incompleteResult.StatusCode==HttpStatusCode.BadRequest&&incompleteQuery.Paths.Count==0,"incomplete repository override fails before read");
  }
 }

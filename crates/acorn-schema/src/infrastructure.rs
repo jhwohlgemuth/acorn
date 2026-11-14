@@ -138,6 +138,7 @@ pub struct ComputePlatform {
 impl ComputeEnvironment {
     fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
         ValidationReport::empty("platforms", self.platforms.is_empty())
+            .unique_identifiers("platforms", self.platforms.iter().map(|platform| platform.identifier.as_str()))
             .invalid_recognition_scopes(&self.recognitions, RecognitionProgram::is_environment_recognition)
             .finish()
     }
@@ -177,7 +178,7 @@ impl ValidationReport {
                             );
                             if !identities.insert(identity) {
                                 report.add(
-                                    format!("standards_claims[{index}]"),
+                                    format!("standardsClaims[{index}]"),
                                     ValidationError::new("duplicate_standard_claim").with_message("Duplicate standards claim"),
                                 );
                             }

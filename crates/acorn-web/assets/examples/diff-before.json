@@ -1,0 +1,33 @@
+{
+  "project": "Watershed reproducibility",
+  "release": "0.9.0",
+  "status": "draft",
+  "contact": {
+    "name": "Example team",
+    "email": "old-contact@example.org"
+  },
+  "methods": [
+    "manual calibration",
+    "hourly sampling",
+    "single-run analysis"
+  ],
+  "datasets": [
+    {
+      "id": "upstream",
+      "records": 1200,
+      "quality": "unchecked"
+    },
+    {
+      "id": "downstream",
+      "records": 980,
+      "quality": "unchecked"
+    }
+  ],
+  "software": {
+    "language": "Python",
+    "license": "proprietary",
+    "version": "0.9.0"
+  },
+  "outputs": [],
+  "notes": "Pre-review draft; calibration uncertainty is not yet reported."
+}

@@ -1,8 +1,9 @@
 #![allow(clippy::indexing_slicing)]
 use super::*;
-use acorn_analysis::{readability::ReadabilityType, CheckCategory};
+use acorn_analysis::{readability::ReadabilityType, CheckCategory, CheckSeverity, FairEvidence};
 use acorn_core::prelude::{vec, ToString, Vec};
 use acorn_core::util::{MarkdownSupport, MimeType};
+use acorn_schema::codec::DocumentCodec;
 use acorn_schema::hardware::Memory;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::Standard;
@@ -194,6 +195,154 @@ fn test_repository_output_is_sorted_by_portable_path() {
     );
 }
 #[test]
+fn test_research_activity_rejects_invalid_identifiers_at_every_typed_location() {
+    let identifier = serde_json::json!({"value":"https://ror.org/01qz5mb56", "scheme":"ROR", "schemeUri":"https://ror.org"});
+    let mut document: serde_json::Value = serde_json::from_str(VALID_RESEARCH_ACTIVITY).expect("fixture");
+    document["meta"]["organizations"] = serde_json::json!([{
+        "name":"Example organization", "identifiers":[identifier.clone()],
+        "roles":[{"organization":identifier.clone(), "role":"Publisher"}]
+    }]);
+    document["meta"]["contributors"] = serde_json::json!([{
+        "name":"Example contributor", "identifiers":[identifier.clone()], "affiliations":[identifier.clone()], "roles":[]
+    }]);
+    document["meta"]["relatedResources"] = serde_json::json!([{"identifier":identifier.clone(), "relationType":"References"}]);
+    document["meta"]["outputs"] = serde_json::json!([{
+        "title":"Example output", "type":"dataset", "keywords":[], "alternateIdentifiers":[identifier.clone()],
+        "relatedIdentifiers":[{"identifier":identifier, "relationType":"References"}]
+    }]);
+    document["meta"]["ror"] = serde_json::json!(["https://ror.org/01qz5mb56"]);
+    let validate = |document: &serde_json::Value| {
+        AcornService
+            .validate_research_activity(ValidateResearchActivityRequest {
+                content: document.to_string(),
+                format: MimeType::Json,
+                source_uri: None,
+                vocabulary_fuzzy: VocabularyFuzzyMode::Off,
+            })
+            .expect("validation response")
+    };
+    let valid = validate(&document);
+    assert!(valid.valid, "{:?}", valid.diagnostics);
+    for (pointer, path) in [
+        ("/meta/contributors/0/affiliations/0/value", "meta.contributors[0].affiliations[0].value"),
+        ("/meta/contributors/0/identifiers/0/value", "meta.contributors[0].identifiers[0].value"),
+        ("/meta/organizations/0/identifiers/0/value", "meta.organizations[0].identifiers[0].value"),
+        (
+            "/meta/organizations/0/roles/0/organization/value",
+            "meta.organizations[0].roles[0].organization.value",
+        ),
+        (
+            "/meta/outputs/0/alternateIdentifiers/0/value",
+            "meta.outputs[0].alternateIdentifiers[0].value",
+        ),
+        (
+            "/meta/outputs/0/relatedIdentifiers/0/identifier/value",
+            "meta.outputs[0].relatedIdentifiers[0].identifier.value",
+        ),
+        ("/meta/relatedResources/0/identifier/value", "meta.relatedResources[0].identifier.value"),
+        ("/meta/ror/0", "meta.ror[0]"),
+    ] {
+        let mut invalid = document.clone();
+        *invalid.pointer_mut(pointer).expect("identifier location") = serde_json::json!("https://ror.org/01qz5mb56xxx");
+        let response = validate(&invalid);
+        assert!(!response.valid, "malformed identifier accepted at {path}");
+        assert!(
+            response
+                .diagnostics
+                .iter()
+                .any(|issue| issue.path.as_deref() == Some(path) && issue.code == "ROR"),
+            "{path}: {:?}",
+            response.diagnostics
+        );
+    }
+}
+#[test]
+fn test_research_activity_rejects_invalid_typed_identifier_in_every_format() {
+    let mut document: serde_json::Value = serde_json::from_str(VALID_RESEARCH_ACTIVITY).expect("fixture");
+    document["meta"]["organizations"] = serde_json::json!([{
+        "name":"Organization", "roles":[], "identifiers":[{
+            "value":"https://ror.org/01qz5mb56xxx", "scheme":"ROR"
+        }]
+    }]);
+    let activity: ResearchActivity = serde_json::from_value(document).expect("typed activity");
+    for format in [MimeType::Json, MimeType::Jsonc, MimeType::Markdown, MimeType::Yaml, MimeType::Zon] {
+        let content = activity.encode(&format).expect("encode activity");
+        let response = AcornService
+            .validate_research_activity(ValidateResearchActivityRequest {
+                content,
+                format: format.clone(),
+                source_uri: None,
+                vocabulary_fuzzy: VocabularyFuzzyMode::Off,
+            })
+            .expect("response");
+        assert!(!response.valid, "malformed ROR accepted in {format:?}");
+        assert!(
+            response.diagnostics.iter().any(|issue| issue.code == "ROR"),
+            "{format:?}: {:?}",
+            response.diagnostics
+        );
+    }
+}
+#[test]
+fn test_research_activity_validation_includes_every_fair_rule_description() {
+    let result = AcornService
+        .validate_research_activity(ValidateResearchActivityRequest {
+            content: VALID_RESEARCH_ACTIVITY.to_string(),
+            format: MimeType::Json,
+            source_uri: None,
+            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+        })
+        .unwrap();
+    let findings = FairEvidence::default().assess();
+    assert_eq!(findings.len(), 41);
+    for finding in findings {
+        let code = finding.indicator.id.to_string();
+        let diagnostic = result.diagnostics.iter().find(|item| item.code == code).expect("FAIR diagnostic");
+        assert_eq!(diagnostic.category, CheckCategory::Fair);
+        assert_eq!(
+            diagnostic.message.matches(&finding.indicator.description).count(),
+            1,
+            "{code}: {}",
+            diagnostic.message
+        );
+    }
+}
+#[test]
+fn test_research_activity_validation_keeps_advisories_with_schema_errors() {
+    let content = VALID_RESEARCH_ACTIVITY.replace(r#""title": "Valid Project""#, r#""title": "x""#);
+    let result = AcornService
+        .validate_research_activity(ValidateResearchActivityRequest {
+            content,
+            format: MimeType::Json,
+            source_uri: Some("example.json".to_string()),
+            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+        })
+        .unwrap();
+    assert!(!result.valid);
+    assert_eq!(result.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Relaxed));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|item| item.category == CheckCategory::Schema && item.severity == CheckSeverity::Error));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|item| item.category == CheckCategory::Prose && item.code.starts_with("vocabulary.")));
+    for severity in [CheckSeverity::Suggestion, CheckSeverity::Info] {
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|item| item.category == CheckCategory::Fair && item.severity == severity),
+            "missing {severity}"
+        );
+    }
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|item| item.path.as_deref().is_some_and(|path| path.starts_with("example.json:"))));
+}
+#[test]
 fn test_research_activity_validation_reports_effective_vocabulary_policy() {
     let relaxed = AcornService
         .validate_research_activity(ValidateResearchActivityRequest {
@@ -206,6 +355,11 @@ fn test_research_activity_validation_reports_effective_vocabulary_policy() {
     assert!(relaxed.valid);
     assert_eq!(relaxed.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Relaxed));
     assert!(relaxed.diagnostics.iter().any(|diagnostic| diagnostic.code.starts_with("vocabulary.")));
+    assert!(relaxed
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code.starts_with("vocabulary."))
+        .all(|diagnostic| diagnostic.category == CheckCategory::Prose));
     let off = AcornService
         .validate_research_activity(ValidateResearchActivityRequest {
             content: VALID_RESEARCH_ACTIVITY.to_string(),
@@ -214,8 +368,26 @@ fn test_research_activity_validation_reports_effective_vocabulary_policy() {
             vocabulary_fuzzy: VocabularyFuzzyMode::Off,
         })
         .expect("research activity response");
-    assert!(off.diagnostics.is_empty());
+    assert!(!off.diagnostics.is_empty());
+    assert!(off.diagnostics.iter().all(|diagnostic| diagnostic.category == CheckCategory::Fair));
     assert_eq!(off.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Off));
+}
+#[test]
+fn test_research_activity_validation_skips_advisories_when_parsing_fails() {
+    let result = AcornService
+        .validate_research_activity(ValidateResearchActivityRequest {
+            content: r#"{"title":1}"#.to_string(),
+            format: MimeType::Json,
+            source_uri: None,
+            vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+        })
+        .unwrap();
+    assert!(!result.valid);
+    assert!(!result.diagnostics.is_empty());
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|item| item.category == CheckCategory::Schema && item.severity == CheckSeverity::Error));
 }
 #[test]
 fn test_research_activity_vocabulary_request_defaults_and_rejects_unknown_modes() {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import { setTimeout } from "node:timers/promises";
 import { chromium } from "playwright";
 
 const root = resolve(process.argv[2]);
@@ -16,6 +17,8 @@ const server = createServer(async (request, response) => {
         assert.ok(file === root || file.startsWith(`${root}${sep}`));
         const candidate = await stat(file).then((info) => info.isDirectory() ? `${file}/index.html` : file).catch(() => file);
         const bytes = await readFile(candidate).catch(() => null);
+        // Expose navigation races with the asynchronously imported WebMCP adapter.
+        if (/\/webmcp-[^/]+\.js$/.test(candidate)) await setTimeout(750);
         response.writeHead(bytes ? 200 : 404, { "Content-Type": types[extname(candidate)] ?? (bytes ? "application/octet-stream" : "text/html") });
         response.end(bytes ?? await readFile(`${root}/404.html`));
     } catch {
@@ -26,6 +29,15 @@ const server = createServer(async (request, response) => {
 await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const failures = [];
+async function waitForServices(page) {
+    // A visible heading does not mean deferred module imports have finished.
+    await page.waitForFunction(() => {
+        const status = document.getElementById("webmcp-status")?.textContent;
+        const editors = !document.querySelector(".code-editor") || document.querySelector(".cm-content");
+        return window.acornSyntax && editors && status && status !== "WebMCP: initializing";
+    });
+    assert.match(await page.locator("#webmcp-status").textContent(), /^WebMCP: (installed|unsupported)$/);
+}
 const browser = await chromium.launch().catch((error) => { server.close(); throw error; });
 try {
     const page = await browser.newPage();
@@ -39,23 +51,27 @@ try {
         if (request.url().startsWith("http") && !request.url().startsWith(`${origin}${prefix}/`)) failures.push(`Unexpected request: ${request.url()}`);
     });
     await page.goto(`${origin}${prefix}/`);
-    await page.getByRole("heading", { name: "ACORN Browser" }).waitFor();
+    await waitForServices(page);
+    await page.getByRole("heading", { name: "RAD Workspace" }).waitFor();
     await page.waitForFunction(() => { const image = document.querySelector(".home-banner img"); return image?.complete && image.naturalWidth > 0; });
     await page.waitForFunction(() => getComputedStyle(document.querySelector(".sidebar")).position !== "static");
-    await page.getByRole("button", { name: "Try sample data" }).click();
+    await page.getByRole("button", { name: "Try Sample Data" }).click();
     await page.getByRole("heading", { name: "Portfolio", exact: true }).waitFor();
     await page.getByRole("button", { name: "Open selected activity", exact: true }).click();
     await page.getByRole("heading", { name: "Research Activity", exact: true }).waitFor();
+    await waitForServices(page);
     assert.equal(new URL(page.url()).pathname, `${prefix}/research-activity`);
-    await page.getByRole("button", { name: "Run Research Activity", exact: true }).click();
+    await page.getByRole("button", { name: "Validate", exact: true }).click();
     await page.getByRole("button", { name: "Copy result", exact: true }).waitFor();
     const direct = await page.goto(`${origin}${prefix}/readability`);
     assert.equal(direct.status(), 404, "Exercise GitHub Pages' custom 404 response");
+    await waitForServices(page);
     await page.getByRole("heading", { name: "Readability", exact: true }).waitFor();
     await page.reload();
+    await waitForServices(page);
     await page.getByRole("heading", { name: "Readability", exact: true }).waitFor();
     await page.locator('nav a[title="Home"]').click();
-    await page.getByRole("heading", { name: "ACORN Browser" }).waitFor();
+    await page.getByRole("heading", { name: "RAD Workspace" }).waitFor();
     assert.equal(new URL(page.url()).pathname, `${prefix}/`);
     assert.deepEqual(failures, []);
     console.log(`Pages browser smoke passed at ${prefix || "/"}: assets, WASM operation, navigation and direct-route refresh.`);

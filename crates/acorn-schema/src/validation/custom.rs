@@ -6,13 +6,18 @@ use super::{report_of, rules, IntoValidationReport, Validate, ValidationReport};
 use crate::geonames::{CodeFormat, GeonamesParser};
 use crate::namespaces::{DEFAULT_ISNI_SCHEMA_URI, DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::regex_validator;
+use crate::research_activity::output::Funding;
 use crate::research_activity::AgentIdentifier;
-use crate::standard::datacite::{Affiliation, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier, Publisher};
+use crate::standard::datacite::{
+    Affiliation, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier, Publisher, RelatedIdentifier,
+    RelatedIdentifierType, RelatedItemIdentifier,
+};
 use crate::standard::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
 use crate::util::constants::{RE_GND, RE_IMAGE_EXTENSION, RE_PARTIAL_DATE, RE_PHONE};
 use crate::util::Constant;
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
+use acorn_core::util::assets::EmbeddedAssets;
 use acorn_core::validation::ValidationError;
 use alloc::collections::BTreeMap;
 use core::iter::once;
@@ -26,11 +31,6 @@ enum IdentifierScheme {
     Orcid,
     Other,
     Ror,
-}
-#[derive(Clone, Copy)]
-struct SchemeIdentifier<'a> {
-    identifier: &'a str,
-    scheme: IdentifierScheme,
 }
 /// Integer-or-string value used by selected schema fields.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -68,6 +68,20 @@ pub enum PostalCode {
     /// String postal code.
     Text(String),
 }
+/// Year value represented as text or integer.
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum YearValue {
+    /// Numeric year representation.
+    Number(i64),
+    /// String year representation.
+    Text(String),
+}
+#[derive(Clone, Copy)]
+struct SchemeIdentifier<'a> {
+    identifier: &'a str,
+    scheme: IdentifierScheme,
+}
 impl From<FunderIdentifierType> for IdentifierScheme {
     fn from(value: FunderIdentifierType) -> Self {
         match value {
@@ -104,26 +118,6 @@ impl IdentifierScheme {
             | Self::Ror => "ROR",
         }
     }
-}
-impl Validate for SchemeIdentifier<'_> {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        match self.scheme {
-            | IdentifierScheme::Isni => rules::isni(self.identifier),
-            | IdentifierScheme::Orcid => rules::orcid(self.identifier),
-            | IdentifierScheme::Other => Ok(()),
-            | IdentifierScheme::Ror => rules::ror(self.identifier),
-        }
-        .map_err(|error| error.into_report(""))
-    }
-}
-/// Year value represented as text or integer.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(untagged)]
-pub enum YearValue {
-    /// Numeric year representation.
-    Number(i64),
-    /// String year representation.
-    Text(String),
 }
 impl Validate for IntegerOrString {
     fn validate(&self) -> Result<(), ValidationReport> {
@@ -208,6 +202,17 @@ impl Validate for PostalCode {
                 "Postal code should be a non-negative integer or a non-empty string up to 20 characters using letters, digits, spaces, or hyphens",
             ))),
         }
+    }
+}
+impl Validate for SchemeIdentifier<'_> {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        match self.scheme {
+            | IdentifierScheme::Isni => rules::isni(self.identifier),
+            | IdentifierScheme::Orcid => rules::orcid(self.identifier),
+            | IdentifierScheme::Other => Ok(()),
+            | IdentifierScheme::Ror => rules::ror(self.identifier),
+        }
+        .map_err(|error| error.into_report(""))
     }
 }
 impl Validate for YearValue {
@@ -338,6 +343,38 @@ regex_validator!(
     "image",
     "Provide path with a PNG, JPEG, GIF, WEBP, TIFF or SVG extension"
 );
+fn identifier_coherence_error(
+    code: &'static str,
+    identifier: &str,
+    message: &'static str,
+    scheme: Option<&str>,
+    scheme_uri: Option<&str>,
+) -> ValidationError {
+    ValidationError {
+        code: code.to_string(),
+        message: Some(message.to_string()),
+        params: BTreeMap::from([
+            ("identifier".to_string(), serde_json::json!(identifier)),
+            ("scheme".to_string(), serde_json::json!(scheme)),
+            ("scheme_uri".to_string(), serde_json::json!(scheme_uri)),
+        ]),
+    }
+}
+fn identifier_rule_error(error: ValidationError, identifier: &str, scheme: Option<&str>, scheme_uri: Option<&str>) -> ValidationError {
+    ValidationError {
+        code: error.code,
+        message: error.message,
+        params: error
+            .params
+            .into_iter()
+            .chain([
+                ("identifier".to_string(), serde_json::json!(identifier)),
+                ("scheme".to_string(), serde_json::json!(scheme)),
+                ("scheme_uri".to_string(), serde_json::json!(scheme_uri)),
+            ])
+            .collect(),
+    }
+}
 fn identifier_validation_error(code: &'static str, message: impl Into<String>) -> ValidationError {
     ValidationError::new(code).with_message(message)
 }
@@ -363,6 +400,15 @@ pub fn is_iso_639_1_language_code(value: &str) -> Result<(), ValidationError> {
         | true => Ok(()),
         | false => Err(ValidationError::new(CODE).with_message(MESSAGE)),
     }
+}
+/// Check membership in the embedded ISO 639-3 language-code registry.
+///
+/// Codes are compared without ASCII case sensitivity. This check performs no network I/O.
+pub fn is_iso_639_3_language_code(value: &str) -> Result<(), ValidationError> {
+    Constant::from_asset("iso-639-3.txt")
+        .is_some_and(|codes| codes.lines().any(|code| code.eq_ignore_ascii_case(value)))
+        .then_some(())
+        .ok_or_else(|| ValidationError::new("language").with_message("Provide a registered three-letter ISO 639-3 language code"))
 }
 /// Check if value is a valid ISO 639 language code (two-letter code with optional region subtag, e.g., "en" or "en-US")
 ///
@@ -433,6 +479,11 @@ pub fn is_programming_language(value: &str) -> Result<(), ValidationError> {
         | false => Ok(()),
     }
 }
+fn map_validation_errors(report: ValidationReport, map_error: impl Fn(ValidationError) -> ValidationError) -> ValidationReport {
+    report.into_issues().into_iter().fold(ValidationReport::new(), |report, issue| {
+        report.merge("", ValidationReport::from_error(issue.path, map_error(issue.error)))
+    })
+}
 fn parse_rfc3339(value: &str) -> Option<(Timestamp, Offset)> {
     let pieces = Pieces::parse(value).ok();
     pieces
@@ -440,9 +491,13 @@ fn parse_rfc3339(value: &str) -> Option<(Timestamp, Offset)> {
         .and_then(|parts| parts.offset().map(|offset| (parts, offset.to_numeric_offset())))
         .and_then(|(_, offset)| value.parse::<Timestamp>().ok().map(|timestamp| (timestamp, offset)))
 }
+// Custom-rule paths use serialized field names, matching serde-aware derived validation paths.
+fn prefix_validation(path: &str, result: Result<(), ValidationReport>) -> Result<(), ValidationReport> {
+    ValidationReport::new().merge(path, report_of(result)).finish()
+}
 pub(crate) fn validate_affiliation_identifier(value: &Affiliation, _context: &()) -> Result<(), ValidationReport> {
     prefix_validation(
-        "affiliation_identifier",
+        "affiliationIdentifier",
         validate_optional_named_identifier(
             "affiliation_identifier",
             value.affiliation_identifier.as_ref(),
@@ -475,7 +530,7 @@ pub(crate) fn validate_funding_reference_identifier(value: &FundingReference, _c
         | Some(identifier) => {
             let scheme = value.funder_identifier_type.clone().map(IdentifierScheme::from);
             prefix_validation(
-                "funder_identifier",
+                "funderIdentifier",
                 validate_identifier_scheme(
                     identifier,
                     true,
@@ -488,38 +543,6 @@ pub(crate) fn validate_funding_reference_identifier(value: &FundingReference, _c
         }
         | None => Ok(()),
     }
-}
-pub(crate) fn validate_license(value: &OneOrMany<String>) -> Result<(), ValidationError> {
-    value.iter().find_map(|value| is_license(value).err()).map_or(Ok(()), Err)
-}
-pub(crate) fn validate_name_identifier(value: &NameIdentifier, _context: &()) -> Result<(), ValidationReport> {
-    prefix_validation(
-        "name_identifier",
-        validate_named_identifier(
-            &value.name_identifier,
-            true,
-            "name_identifier",
-            value.name_identifier_scheme.as_deref(),
-            value.scheme_uri.as_deref(),
-        ),
-    )
-}
-fn validate_named_identifier(
-    identifier: &str,
-    require_scheme: bool,
-    code: &'static str,
-    scheme: Option<&str>,
-    scheme_uri: Option<&str>,
-) -> Result<(), ValidationReport> {
-    let scheme = scheme.map(str::trim).filter(|value| !value.is_empty());
-    validate_identifier_scheme(
-        identifier,
-        require_scheme,
-        code,
-        scheme,
-        scheme.map(IdentifierScheme::from_name),
-        scheme_uri,
-    )
 }
 fn validate_identifier_scheme(
     identifier: &str,
@@ -573,6 +596,38 @@ fn validate_identifier_scheme(
             .map_err(|report| map_validation_errors(report, |error| identifier_rule_error(error, identifier, scheme_name, scheme_uri))),
     }
 }
+pub(crate) fn validate_license(value: &OneOrMany<String>) -> Result<(), ValidationError> {
+    value.iter().find_map(|value| is_license(value).err()).map_or(Ok(()), Err)
+}
+pub(crate) fn validate_name_identifier(value: &NameIdentifier, _context: &()) -> Result<(), ValidationReport> {
+    prefix_validation(
+        "nameIdentifier",
+        validate_named_identifier(
+            &value.name_identifier,
+            true,
+            "name_identifier",
+            value.name_identifier_scheme.as_deref(),
+            value.scheme_uri.as_deref(),
+        ),
+    )
+}
+fn validate_named_identifier(
+    identifier: &str,
+    require_scheme: bool,
+    code: &'static str,
+    scheme: Option<&str>,
+    scheme_uri: Option<&str>,
+) -> Result<(), ValidationReport> {
+    let scheme = scheme.map(str::trim).filter(|value| !value.is_empty());
+    validate_identifier_scheme(
+        identifier,
+        require_scheme,
+        code,
+        scheme,
+        scheme.map(IdentifierScheme::from_name),
+        scheme_uri,
+    )
+}
 fn validate_optional_named_identifier(
     code: &'static str,
     identifier: Option<&String>,
@@ -581,6 +636,25 @@ fn validate_optional_named_identifier(
 ) -> Result<(), ValidationReport> {
     match identifier {
         | Some(value) => validate_named_identifier(value, true, code, scheme.map(String::as_str), scheme_uri),
+        | None => Ok(()),
+    }
+}
+pub(crate) fn validate_output_funding_identifier(value: &Funding, _context: &()) -> Result<(), ValidationReport> {
+    match value.identifier.as_deref() {
+        | Some(identifier) => {
+            let scheme = value.identifier_type.clone().map(IdentifierScheme::from);
+            prefix_validation(
+                "identifier",
+                validate_identifier_scheme(
+                    identifier,
+                    true,
+                    "funder_identifier",
+                    scheme.map(IdentifierScheme::name),
+                    scheme,
+                    value.scheme_uri.as_deref(),
+                ),
+            )
+        }
         | None => Ok(()),
     }
 }
@@ -609,7 +683,7 @@ pub(crate) fn validate_person_or_org_identifier(value: &PersonOrOrgIdentifier, _
 }
 pub(crate) fn validate_publisher_identifier(value: &Publisher, _context: &()) -> Result<(), ValidationReport> {
     prefix_validation(
-        "publisher_identifier",
+        "publisherIdentifier",
         validate_optional_named_identifier(
             "publisher_identifier",
             value.publisher_identifier.as_ref(),
@@ -618,43 +692,25 @@ pub(crate) fn validate_publisher_identifier(value: &Publisher, _context: &()) ->
         ),
     )
 }
-fn map_validation_errors(report: ValidationReport, map_error: impl Fn(ValidationError) -> ValidationError) -> ValidationReport {
-    report.into_issues().into_iter().fold(ValidationReport::new(), |report, issue| {
-        report.merge("", ValidationReport::from_error(issue.path, map_error(issue.error)))
-    })
+pub(crate) fn validate_related_identifier(value: &RelatedIdentifier, _context: &()) -> Result<(), ValidationReport> {
+    validate_related_identifier_value(&value.related_identifier, value.related_identifier_type.as_ref())
+        .map_err(|error| error.into_report("relatedIdentifier"))
 }
-fn prefix_validation(path: &str, result: Result<(), ValidationReport>) -> Result<(), ValidationReport> {
-    ValidationReport::new().merge(path, report_of(result)).finish()
-}
-fn identifier_coherence_error(
-    code: &'static str,
-    identifier: &str,
-    message: &'static str,
-    scheme: Option<&str>,
-    scheme_uri: Option<&str>,
-) -> ValidationError {
-    ValidationError {
-        code: code.to_string(),
-        message: Some(message.to_string()),
-        params: BTreeMap::from([
-            ("identifier".to_string(), serde_json::json!(identifier)),
-            ("scheme".to_string(), serde_json::json!(scheme)),
-            ("scheme_uri".to_string(), serde_json::json!(scheme_uri)),
-        ]),
+fn validate_related_identifier_value(value: &str, kind: Option<&RelatedIdentifierType>) -> Result<(), ValidationError> {
+    match kind {
+        | Some(RelatedIdentifierType::Ark) => rules::ark(value),
+        | Some(RelatedIdentifierType::Arxiv) => rules::arxiv(value),
+        | Some(RelatedIdentifierType::Doi) => rules::doi(value),
+        | Some(RelatedIdentifierType::Handle) => rules::handle(value),
+        | Some(RelatedIdentifierType::Isbn) => rules::isbn(value),
+        | Some(RelatedIdentifierType::Raid) => rules::raid(value),
+        | Some(RelatedIdentifierType::Rrid) => rules::rrid(value),
+        | Some(RelatedIdentifierType::Swhid) => rules::swhid(value),
+        | Some(RelatedIdentifierType::Purl | RelatedIdentifierType::Url | RelatedIdentifierType::W3id) => rules::uri(value),
+        | _ => rules::nonempty(value),
     }
 }
-fn identifier_rule_error(error: ValidationError, identifier: &str, scheme: Option<&str>, scheme_uri: Option<&str>) -> ValidationError {
-    ValidationError {
-        code: error.code,
-        message: error.message,
-        params: error
-            .params
-            .into_iter()
-            .chain([
-                ("identifier".to_string(), serde_json::json!(identifier)),
-                ("scheme".to_string(), serde_json::json!(scheme)),
-                ("scheme_uri".to_string(), serde_json::json!(scheme_uri)),
-            ])
-            .collect(),
-    }
+pub(crate) fn validate_related_item_identifier(value: &RelatedItemIdentifier, _context: &()) -> Result<(), ValidationReport> {
+    validate_related_identifier_value(&value.related_item_identifier, value.related_item_identifier_type.as_ref())
+        .map_err(|error| error.into_report("relatedItemIdentifier"))
 }

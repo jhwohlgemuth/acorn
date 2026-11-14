@@ -3,26 +3,413 @@
     "archive": false,
     "draft": true,
     "identifier": "watershed-observations",
-    "keywords": [],
-    "technology": []
+    "keywords": [
+      "research data",
+      "metadata",
+      "automation"
+    ],
+    "technology": [
+      "Python",
+      "Rust",
+      "Git"
+    ],
+    "doi": "10.5072/acorn-watershed-methods",
+    "dates": [
+      {
+        "dateType": "StartDate",
+        "date": "2024-01-15T10:00:00Z",
+        "information": "Illustrative project start"
+      },
+      {
+        "dateType": "Created",
+        "date": "2024-02-01T12:00:00Z",
+        "information": "Initial observation protocol"
+      },
+      {
+        "dateType": "Issued",
+        "date": "2026-09-17T12:30:00-04:00",
+        "information": "Dataset and methods release"
+      },
+      {
+        "dateType": "Updated",
+        "date": "2026-11-01T09:00:00Z",
+        "information": "Metadata quality review"
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Oak Ridge National Laboratory",
+        "identifiers": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "organization": {
+              "value": "https://ror.org/01qz5mb56",
+              "scheme": "ROR"
+            },
+            "role": "Publisher",
+            "startDate": "2024-01-15T10:00:00Z"
+          }
+        ]
+      },
+      {
+        "name": "Massachusetts Institute of Technology",
+        "identifiers": [
+          {
+            "value": "https://ror.org/042nb2s44",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "organization": {
+              "value": "https://ror.org/042nb2s44",
+              "scheme": "ROR"
+            },
+            "role": "PartnerOrganization",
+            "startDate": "2024-01-15T10:00:00Z"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "identifier": "https://example.org/watershed/outputs/1",
+        "doi": "10.5072/acorn-output-1",
+        "title": "Seasonal watershed observations",
+        "type": "dataset",
+        "publicationYear": 2026,
+        "contributors": [
+          {
+            "name": "Illustrative Researcher",
+            "orcid": "0000-0002-1825-0097",
+            "corresponding": true,
+            "position": "first",
+            "affiliations": [
+              {
+                "name": "Oak Ridge National Laboratory",
+                "ror": "https://ror.org/01qz5mb56"
+              }
+            ]
+          }
+        ],
+        "funding": [
+          {
+            "name": "Example Funder",
+            "awards": [
+              {
+                "identifier": "AWARD-1",
+                "url": "https://example.org/awards/AWARD-1"
+              }
+            ]
+          }
+        ],
+        "keywords": [
+          "research data",
+          "workflow automation"
+        ],
+        "access": {
+          "open": true,
+          "status": "gold",
+          "url": "https://example.org/watershed/outputs/1",
+          "license": "CC-BY-4.0"
+        },
+        "geoLocations": [
+          {
+            "geoLocationBox": {
+              "westBoundLongitude": -85,
+              "eastBoundLongitude": -83,
+              "southBoundLatitude": 35,
+              "northBoundLatitude": 37
+            }
+          }
+        ]
+      },
+      {
+        "identifier": "https://example.org/watershed/outputs/2",
+        "doi": "10.5072/acorn-output-2",
+        "title": "Calibration and uncertainty methods",
+        "type": "article",
+        "publicationYear": 2026,
+        "contributors": [
+          {
+            "name": "Illustrative Researcher",
+            "orcid": "0000-0002-1825-0097",
+            "corresponding": true,
+            "position": "first",
+            "affiliations": [
+              {
+                "name": "Oak Ridge National Laboratory",
+                "ror": "https://ror.org/01qz5mb56"
+              }
+            ]
+          }
+        ],
+        "funding": [
+          {
+            "name": "Example Funder",
+            "awards": [
+              {
+                "identifier": "AWARD-1",
+                "url": "https://example.org/awards/AWARD-1"
+              }
+            ]
+          }
+        ],
+        "keywords": [
+          "research data",
+          "workflow automation"
+        ],
+        "access": {
+          "open": true,
+          "status": "gold",
+          "url": "https://example.org/watershed/outputs/2",
+          "license": "CC-BY-4.0"
+        },
+        "geoLocations": [
+          {
+            "geoLocationBox": {
+              "westBoundLongitude": -85,
+              "eastBoundLongitude": -83,
+              "southBoundLatitude": 35,
+              "northBoundLatitude": 37
+            }
+          }
+        ]
+      }
+    ],
+    "languages": [
+      {
+        "id": "eng"
+      },
+      {
+        "id": "fra"
+      },
+      {
+        "id": "spa"
+      }
+    ],
+    "publications": [
+      "https://example.org/publications/watershed"
+    ],
+    "funders": [
+      "U.S. Department of Energy",
+      {
+        "name": "Example Funder",
+        "ror": "https://ror.org/01qz5mb56",
+        "awards": [
+          {
+            "identifier": "AWARD-1",
+            "title": "Example award",
+            "doi": "10.5072/example-award",
+            "url": "https://example.org/awards/AWARD-1"
+          }
+        ]
+      }
+    ],
+    "subjects": [
+      "artificial intelligence",
+      {
+        "subject": "machine learning",
+        "subjectScheme": "ACORN",
+        "schemeUri": "https://example.org/subjects",
+        "valueUri": "https://example.org/subjects/machine-learning"
+      }
+    ],
+    "rights": [
+      "Copyright Example Organization",
+      {
+        "rights": "Creative Commons Attribution 4.0 International",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/",
+        "rightsIdentifier": "CC-BY-4.0",
+        "rightsIdentifierScheme": "SPDX",
+        "schemeUri": "https://spdx.org/licenses/",
+        "access": "open"
+      }
+    ],
+    "access": {
+      "rights": "Open access",
+      "access": "open"
+    },
+    "spatialCoverage": [
+      "US-TN",
+      {
+        "id": "US-CA",
+        "schemaUri": "https://www.geonames.org/",
+        "place": [
+          {
+            "text": "California",
+            "language": {
+              "id": "eng",
+              "schemaUri": null
+            }
+          }
+        ]
+      }
+    ],
+    "handle": [
+      "https://hdl.handle.net/10013/epic.10033",
+      "https://hdl.handle.net/20.500.12345/watershed-demo"
+    ],
+    "books": [
+      "978-0-306-40627-0",
+      "978-3-16-148410-0"
+    ],
+    "raid": [
+      "https://raid.org/10.83962/fb5be317",
+      "https://raid.org/10.26259/0e59e9a5"
+    ],
+    "contributors": [
+      {
+        "name": "Example investigator",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0002-1825-0097",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "agent": {
+              "value": "https://orcid.org/0000-0002-1825-0097",
+              "scheme": "ORCID"
+            },
+            "role": "Conceptualization",
+            "roleSchemeUri": "https://credit.niso.org/",
+            "startDate": "2024-01-15T10:00:00Z"
+          }
+        ]
+      },
+      {
+        "name": "Example data curator",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0002-2057-9115",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [
+          {
+            "value": "https://ror.org/042nb2s44",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "agent": {
+              "value": "https://orcid.org/0000-0002-2057-9115",
+              "scheme": "ORCID"
+            },
+            "role": "DataCuration",
+            "roleSchemeUri": "https://credit.niso.org/",
+            "startDate": "2024-01-15T10:00:00Z"
+          }
+        ]
+      },
+      {
+        "name": "Example software author",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0001-5109-3700",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [
+          {
+            "value": "https://ror.org/03vek6s52",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "agent": {
+              "value": "https://orcid.org/0000-0001-5109-3700",
+              "scheme": "ORCID"
+            },
+            "role": "Software",
+            "roleSchemeUri": "https://credit.niso.org/",
+            "startDate": "2024-01-15T10:00:00Z"
+          }
+        ]
+      }
+    ],
+    "websites": [
+      {
+        "title": "Example project portal",
+        "url": "https://example.org/watershed"
+      },
+      {
+        "title": "Example reproducibility guide",
+        "url": "https://example.org/watershed/reproduce"
+      }
+    ],
+    "relatedResources": [
+      {
+        "identifier": {
+          "value": "10.5072/acorn-calibration",
+          "scheme": "DOI"
+        },
+        "relationType": "References",
+        "category": "related"
+      },
+      {
+        "identifier": {
+          "value": "https://n2t.net/ark:/13030/xf93gt2q",
+          "scheme": "ARK"
+        },
+        "relationType": "References",
+        "category": "related"
+      },
+      {
+        "identifier": {
+          "value": "https://hdl.handle.net/10013/epic.10033",
+          "scheme": "Handle"
+        },
+        "relationType": "References",
+        "category": "related"
+      }
+    ]
   },
   "title": "Mapping Seasonal Watershed Changes",
   "sections": {
-    "mission": "Measure how seasonal rainfall changes water availability.",
-    "challenge": "Sparse observations make it difficult to compare stream conditions between seasons.",
+    "mission": "Explain how seasonal rainfall and land use shape water availability across connected watersheds.",
+    "challenge": "Field teams collect different measurements on different schedules, making regional comparisons difficult.",
     "approach": [
-      "Collect field observations at fixed locations.",
-      "Compare observations using a consistent measurement protocol."
+      "Collect hourly observations at paired upstream and downstream stations.",
+      "Calibrate instruments against reference measurements before each field campaign.",
+      "Publish versioned data, uncertainty estimates and executable processing workflows.",
+      "Compare seasonal patterns with an independently collected validation dataset."
     ],
     "impact": [
-      "Provide a repeatable method for describing local water conditions."
+      "Make water-quality trends comparable across instruments and locations.",
+      "Help researchers reproduce analyses using documented data and software versions.",
+      "Provide reusable teaching materials with transparent measurement uncertainty."
     ],
     "research": {
-      "focus": "Seasonal changes in stream conditions",
+      "focus": "Reproducible watershed observation and analysis",
       "areas": [
-        "Environmental observations"
+        "Environmental observations",
+        "Uncertainty quantification",
+        "Research data management"
       ]
-    }
+    },
+    "achievement": [
+      "Released three quality-controlled seasonal observation datasets.",
+      "Reproduced the processing workflow on CPU and GPU environments."
+    ],
+    "capabilities": [
+      "Field calibration, automated quality control, uncertainty propagation and geospatial visualization."
+    ]
   },
   "contact": {
     "jobTitle": "Researcher",
@@ -33,5 +420,33 @@
     "url": "https://example.com",
     "organization": "Example Organization"
   },
-  "subtitle": "An introductory research summary"
+  "subtitle": "Illustrative observations, provenance and environmental research",
+  "logbook": {
+    "entries": [
+      {
+        "identifier": "watershed-milestone-1",
+        "projectId": "watershed-observations",
+        "timestamp": "2024-02-01T12:00:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Published the illustrative observation protocol."
+      },
+      {
+        "identifier": "watershed-milestone-2",
+        "projectId": "watershed-observations",
+        "timestamp": "2025-09-01T12:00:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Completed instrument calibration and field sampling."
+      },
+      {
+        "identifier": "watershed-milestone-3",
+        "projectId": "watershed-observations",
+        "timestamp": "2026-09-17T16:30:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Released versioned datasets and reproducible analyses."
+      }
+    ]
+  }
 }

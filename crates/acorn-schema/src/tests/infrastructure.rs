@@ -36,6 +36,7 @@ fn standard_claim() -> StandardsClaim {
         .assessment(ClaimAssessment::Declared)
         .build()
 }
+
 #[test]
 fn test_infrastructure_fixture_round_trips_and_validates() {
     let content = include_str!("../../../../tests/fixtures/schema/ocp/infrastructure.json");
@@ -82,7 +83,7 @@ fn test_infrastructure_rejects_duplicate_claims() {
     let report = platform.validate().expect_err("duplicate claims should fail");
     assert!(report
         .iter()
-        .any(|issue| issue.path == "standards_claims[1]" && issue.error.code == "duplicate_standard_claim"));
+        .any(|issue| issue.path == "standardsClaims[1]" && issue.error.code == "duplicate_standard_claim"));
 }
 #[test]
 fn test_infrastructure_rejects_empty_required_collections() {

@@ -2,6 +2,7 @@
 use crate::agent::Model;
 use crate::impl_to_markdown;
 use crate::namespaces::{codemeta, schema_org};
+use crate::validation::{is_license, Validate, ValidationReport};
 #[cfg(feature = "std")]
 use acorn_core::prelude::alloc::Box;
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
@@ -178,8 +179,9 @@ pub enum Quality {
     Platinum = 4,
 }
 /// Common attributes of data
-#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema)]
+#[derive(Builder, Clone, Debug, Deserialize, Serialize, JsonSchema, Validate)]
 #[builder(start_fn = init)]
+#[serde(deny_unknown_fields)]
 pub struct DataDescription {
     /// Linked data (e.g., JSON-LD) context for data description
     #[serde(rename = "@context")]
@@ -190,7 +192,7 @@ pub struct DataDescription {
     /// Replaces ADEPT concept of "openness"
     pub availability: Option<Availability>,
     /// License that governs use of data
-    // TODO: validate with is_license
+    #[validate(custom(function = "is_license"))]
     pub license: Option<String>,
     /// Modality of data
     pub modality: Option<Modality>,
@@ -206,21 +208,7 @@ pub struct DataDescriptionContext {
     pub(crate) modality: String,
     pub(crate) quality: String,
 }
-impl Default for DataDescription {
-    fn default() -> Self {
-        DataDescription::init().build()
-    }
-}
-impl Default for DataDescriptionContext {
-    fn default() -> Self {
-        DataDescriptionContext::init()
-            .availability(schema_org("DefinedTerm"))
-            .license(codemeta("softwareVersion"))
-            .modality(schema_org("DefinedTerm"))
-            .quality(schema_org("DefinedTerm"))
-            .build()
-    }
-}
+impl_to_markdown!(Availability, DataReadinessLevel, GeospatialDataProcessingLevel, Modality, Quality);
 impl MarkdownSupport for Data {
     fn to_markdown(&self) -> String {
         match self {
@@ -231,6 +219,34 @@ impl MarkdownSupport for Data {
                 | Model::SLM(details) => format!("- Model\n  - Kind: SLM\n{}", details.to_markdown().with_indent(2)),
                 | Model::LLM(details) => format!("- Model\n  - Kind: LLM\n{}", details.to_markdown().with_indent(2)),
             },
+        }
+    }
+}
+impl Validate for Data {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        let (path, result) = match self {
+            | Self::Real(description) => ("Real", description.validate()),
+            | Self::Synthetic(description) => ("Synthetic", description.validate()),
+            #[cfg(feature = "std")]
+            | Self::Model(model) => match model.as_ref() {
+                | Model::SLM(details) => ("Model.SLM", details.validate()),
+                | Model::LLM(details) => ("Model.LLM", details.validate()),
+            },
+        };
+        result.map_err(|report| ValidationReport::new().merge(path, report))
+    }
+}
+impl Default for DataDescription {
+    fn default() -> Self {
+        DataDescription::init().build()
+    }
+}
+impl LinkedData for DataDescription {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(DataDescriptionContext::default()),
+            description_type: None,
+            ..self.clone()
         }
     }
 }
@@ -252,7 +268,16 @@ impl MarkdownSupport for DataDescription {
         }
     }
 }
-impl_to_markdown!(Availability, DataReadinessLevel, GeospatialDataProcessingLevel, Modality, Quality);
+impl Default for DataDescriptionContext {
+    fn default() -> Self {
+        DataDescriptionContext::init()
+            .availability(schema_org("DefinedTerm"))
+            .license(codemeta("softwareVersion"))
+            .modality(schema_org("DefinedTerm"))
+            .quality(schema_org("DefinedTerm"))
+            .build()
+    }
+}
 impl MarkdownSupport for DataDescriptionContext {
     fn to_markdown(&self) -> String {
         [
@@ -262,15 +287,6 @@ impl MarkdownSupport for DataDescriptionContext {
             format!("- Quality: {}", self.quality),
         ]
         .join("\n")
-    }
-}
-impl LinkedData for DataDescription {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(DataDescriptionContext::default()),
-            description_type: None,
-            ..self.clone()
-        }
     }
 }
 impl FromStr for GeospatialDataProcessingLevel {

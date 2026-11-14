@@ -1,0 +1,48 @@
+{
+  "project": "Watershed reproducibility",
+  "release": "1.0.0",
+  "status": "reviewed",
+  "contact": {
+    "name": "Example data stewardship team",
+    "email": "data@example.org"
+  },
+  "methods": [
+    "reference calibration",
+    "hourly sampling",
+    "replicated uncertainty analysis"
+  ],
+  "datasets": [
+    {
+      "id": "upstream",
+      "records": 1187,
+      "quality": "verified",
+      "excluded": 13
+    },
+    {
+      "id": "downstream",
+      "records": 972,
+      "quality": "verified",
+      "excluded": 8
+    },
+    {
+      "id": "reference",
+      "records": 240,
+      "quality": "independent"
+    }
+  ],
+  "software": {
+    "language": "Python",
+    "license": "MIT",
+    "version": "1.0.0"
+  },
+  "outputs": [
+    {
+      "type": "dataset",
+      "doi": "10.5072/acorn-observations"
+    },
+    {
+      "type": "software",
+      "swhid": "swh:1:rev:2db189928c94d62a3b4757b3eec68f0a4d4113f0"
+    }
+  ]
+}

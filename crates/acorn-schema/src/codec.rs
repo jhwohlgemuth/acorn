@@ -14,6 +14,19 @@ use core::fmt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+macro_rules! single_document_codec {
+    ($($kind:ty => $label:literal),+ $(,)?) => {
+        $(impl DocumentCodec for $kind {
+            const NAME: &'static str = $label;
+            fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
+                decode_single(content, format)
+            }
+            fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
+                encode_structured(self, format)
+            }
+        })+
+    };
+}
 /// Decode and encode a schema document without performing host I/O.
 pub trait DocumentCodec: Sized {
     /// Human-readable document name used in codec diagnostics.
@@ -102,6 +115,9 @@ impl fmt::Display for CodecDiagnostic {
         }
     }
 }
+single_document_codec!(datacite::Record => "DataCite record", invenio::Record => "Invenio record");
+#[cfg(feature = "std")]
+single_document_codec!(dcat::Dataset => "DCAT dataset", huwise::Dataset => "HuWise dataset");
 impl DocumentCodec for Kitfile {
     const NAME: &'static str = "Kitfile";
     fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
@@ -161,7 +177,10 @@ impl DocumentCodec for ResearchActivity {
         match format {
             | MimeType::Json | MimeType::Jsonc => serde_json::to_string_pretty(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
             | MimeType::Markdown => Ok(self.to_markdown()),
-            | MimeType::Yaml => serde_norway::to_string(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
+            | MimeType::Yaml => serde_json::to_string(self)
+                .map_err(|error| CodecDiagnostic::serialize(error.to_string()))
+                .and_then(|json| serde_norway::from_str::<serde_norway::Value>(&json).map_err(|error| CodecDiagnostic::serialize(error.to_string())))
+                .and_then(|value| serde_norway::to_string(&value).map_err(|error| CodecDiagnostic::serialize(error.to_string()))),
             | MimeType::Zon => zon::encode_with_last_key(self, "logbook").map_err(|error| CodecDiagnostic::serialize(error.to_string())),
             | _ => Err(CodecDiagnostic::unsupported(format, Self::NAME)),
         }
@@ -182,30 +201,18 @@ impl DocumentCodec for text::Text {
         }
     }
 }
-macro_rules! single_document_codec {
-    ($($kind:ty => $label:literal),+ $(,)?) => {
-        $(impl DocumentCodec for $kind {
-            const NAME: &'static str = $label;
-            fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
-                decode_single(content, format)
-            }
-            fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
-                encode_structured(self, format)
-            }
-        })+
-    };
-}
-single_document_codec!(datacite::Record => "DataCite record", invenio::Record => "Invenio record");
-#[cfg(feature = "std")]
-single_document_codec!(dcat::Dataset => "DCAT dataset", huwise::Dataset => "HuWise dataset");
-
 fn decode_research_activity_json(content: &str) -> Result<ResearchActivity, Vec<CodecDiagnostic>> {
-    eserde::json::from_str::<ResearchActivity>(content).map_err(|errors| {
-        errors
-            .iter()
-            .map(|error| CodecDiagnostic::deserialize(error.message()).with_path(error.path().map(ToString::to_string)))
-            .collect()
-    })
+    // Check the complete input: eserde's streaming reader does not reject trailing JSON.
+    serde_json::from_str::<serde::de::IgnoredAny>(content)
+        .map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())])
+        .and_then(|_| {
+            eserde::json::from_str::<ResearchActivity>(content).map_err(|errors| {
+                errors
+                    .iter()
+                    .map(|error| CodecDiagnostic::deserialize(error.message()).with_path(error.path().map(ToString::to_string)))
+                    .collect()
+            })
+        })
 }
 fn decode_single<T: DeserializeOwned + DocumentCodec>(content: &str, format: &MimeType) -> Result<T, Vec<CodecDiagnostic>> {
     let decoded = match format {

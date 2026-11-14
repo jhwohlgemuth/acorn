@@ -7,15 +7,6 @@ use alloc::vec;
 use core::future;
 use serde::Serialize;
 
-mod custom;
-
-#[derive(Serialize, Validate)]
-struct BigORules {
-    #[validate(bigo)]
-    bound: String,
-    #[validate(each(bigo(code = "complexity", message = "invalid bound")))]
-    bounds: Vec<String>,
-}
 #[derive(Serialize, Validate)]
 struct AlternativeRules {
     #[validate(or(url, email))]
@@ -53,6 +44,13 @@ struct AsyncParent {
     array: [AsyncChild; 1],
     #[validate(nested)]
     boxed: Box<AsyncChild>,
+}
+#[derive(Serialize, Validate)]
+struct BigORules {
+    #[validate(bigo)]
+    bound: String,
+    #[validate(each(bigo(code = "complexity", message = "invalid bound")))]
+    bounds: Vec<String>,
 }
 #[derive(Serialize, Validate)]
 struct Child {
@@ -218,6 +216,26 @@ struct Qualified {
     minimum: u32,
     #[validate(range(min = 1))]
     score: u8,
+}
+#[derive(Serialize, Validate)]
+#[serde(rename_all = "camelCase")]
+struct RenamedFields {
+    #[validate(nonempty)]
+    first_name: String,
+    #[serde(rename = "@type")]
+    #[validate(nonempty)]
+    r#type: String,
+    #[serde(rename(serialize = "outputName", deserialize = "inputName"))]
+    #[validate(nonempty)]
+    explicit_name: String,
+    #[validate(nested)]
+    nested_fields: RenamedNestedFields,
+}
+#[derive(Serialize, Validate)]
+#[serde(rename_all(serialize = "kebab-case", deserialize = "SCREAMING_SNAKE_CASE"))]
+struct RenamedNestedFields {
+    #[validate(nonempty)]
+    final_name: String,
 }
 #[derive(Serialize, Validate)]
 #[validate(async(function = "skipped_schema_async"))]
@@ -972,3 +990,17 @@ fn test_uri_rule_requires_http_or_https_authority() {
     );
     assert!(report.iter().all(|issue| issue.error.code == "uri"));
 }
+#[tokio::test]
+async fn test_validation_paths_use_serialized_names_in_sync_and_async_reports() {
+    let value = RenamedFields {
+        first_name: "".into(),
+        r#type: "".into(),
+        explicit_name: "".into(),
+        nested_fields: RenamedNestedFields { final_name: "".into() },
+    };
+    for report in [value.validate().unwrap_err(), value.validate_async().await.unwrap_err()] {
+        let paths = report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>();
+        assert_eq!(paths, ["firstName", "@type", "outputName", "nestedFields.final-name"]);
+    }
+}
+mod custom;

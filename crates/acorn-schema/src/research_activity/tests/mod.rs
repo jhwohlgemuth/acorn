@@ -5,8 +5,6 @@
     clippy::panic,
     clippy::unwrap_used
 )]
-mod laws;
-
 use crate::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weights};
 use crate::codec::DocumentCodec;
 use crate::enrichment::Provider;
@@ -24,7 +22,6 @@ use std::path::PathBuf;
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
-
 fn logbook_entry(identifier: &str, timestamp: &str) -> LogbookEntry {
     ActivityEntry::init()
         .identifier(identifier)
@@ -665,28 +662,28 @@ fn test_invalid_datacite_aligned_metadata_fixture_reports_nested_errors() {
         .expect_err("invalid DataCite-aligned RAD fixture should fail validation");
     let paths = report.iter().map(|issue| issue.path.as_str()).collect::<Vec<_>>();
     [
-        "meta.typed_dates[0].date",
+        "meta.typedDates[0].date",
         "meta.contributors[0].name",
-        "meta.contributors[1].identifiers[0].scheme_uri",
+        "meta.contributors[1].identifiers[0].schemeUri",
         "meta.organizations[0].name",
-        "meta.organizations[1].identifiers[0].scheme_uri",
+        "meta.organizations[1].identifiers[0].schemeUri",
         "meta.funders[0].name",
         "meta.funders[1].ror",
         "meta.funders[1].awards[0].doi",
         "meta.funders[1].awards[0].url",
-        "meta.related_resources[0].identifier.value",
-        "meta.related_resources[1].identifier.value",
-        "meta.related_resources[1].relation_type",
+        "meta.relatedResources[0].identifier.value",
+        "meta.relatedResources[1].identifier.value",
+        "meta.relatedResources[1].relationType",
         "meta.languages[0].id",
         "meta.languages[1].id",
-        "meta.languages[1].schema_uri",
+        "meta.languages[1].schemaUri",
         "meta.subjects[0].subject",
-        "meta.subjects[1].scheme_uri",
-        "meta.subjects[1].value_uri",
-        "meta.spatial_coverage[1].schema_uri",
-        "meta.rights[1].rights_uri",
-        "meta.rights[1].scheme_uri",
-        "meta.access.rights_uri",
+        "meta.subjects[1].schemeUri",
+        "meta.subjects[1].valueUri",
+        "meta.spatialCoverage[1].schemaUri",
+        "meta.rights[1].rightsUri",
+        "meta.rights[1].schemeUri",
+        "meta.access.rightsUri",
     ]
     .into_iter()
     .for_each(|expected| assert!(paths.contains(&expected), "missing validation path {expected}: {paths:?}"));
@@ -776,6 +773,7 @@ fn test_logbook_classification_is_constrained_and_graduates_to_activity_metadata
         .into();
     let activity = ResearchActivity {
         meta: ResearchActivityMetadata {
+            identifier: "example-project".to_string(),
             classification: Some(ClassificationLevel::Confidential),
             ..ResearchActivityMetadata::default()
         },
@@ -878,7 +876,7 @@ fn test_logbook_entry_project_id_requires_kebab_case() {
     entry.activity_mut().expect("activity").project_id = "Example Project".to_string();
     let report = entry.validate().expect_err("project identifier should require kebab-case");
     let issues = report.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n");
-    assert!(issues.contains("project_id: Provide ID in kebab-case format"), "{issues}");
+    assert!(issues.contains("projectId: Provide ID in kebab-case format"), "{issues}");
 }
 #[test]
 fn test_logbook_global_entry_defaults_and_roundtrips() {
@@ -1397,6 +1395,20 @@ fn test_metadata_optional_vectors_preserve_absent_null_and_empty_states() {
     );
 }
 #[test]
+fn test_metadata_patent_and_raid_validation() {
+    for (field, valid, invalid) in [
+        ("patents", "US1234567B2", "not-a-patent"),
+        ("raid", "https://raid.org/10.83962/fb5be317", "not-a-raid"),
+    ] {
+        for (value, expected) in [(valid, true), (invalid, false)] {
+            let mut metadata = serde_json::json!({"identifier":"identifier-validation"});
+            metadata[field] = serde_json::json!([value]);
+            let metadata: ResearchActivityMetadata = serde_json::from_value(metadata).unwrap();
+            assert_eq!(metadata.validate().is_ok(), expected, "{field}: {value}");
+        }
+    }
+}
+#[test]
 fn test_metadata_resources_roundtrip() {
     let meta = ResearchActivityMetadata::init()
         .identifier("roundtrip-test".to_string())
@@ -1556,6 +1568,57 @@ fn test_one_or_many_license_preserves_wire_shape() {
         serde_json::from_str::<OneOrMany<String>>(r#""MIT""#).unwrap(),
         OneOrMany::One("MIT".to_string())
     );
+}
+#[test]
+fn test_output_funding_identifier_validation() {
+    for (identifier, scheme, uri, expected) in [
+        ("https://ror.org/01qz5mb56", Some("ROR"), Some("https://ror.org"), true),
+        ("https://ror.org/01qz5mb56xxx", Some("ROR"), Some("https://ror.org"), false),
+        ("0000000492299539", Some("ISNI"), None, true),
+        ("0000000492299538", Some("ISNI"), None, false),
+        ("https://ror.org/01qz5mb56", Some("ROR"), Some("https://isni.org"), false),
+        ("local-funder", Some("Other"), None, true),
+        ("", Some("Other"), None, true),
+        ("local-funder", None, None, false),
+    ] {
+        let funding: Funding = serde_json::from_value(serde_json::json!({
+            "name":"Funder", "identifier":identifier, "identifierType":scheme, "schemeUri":uri, "awards":[]
+        }))
+        .unwrap();
+        assert_eq!(funding.validate().is_ok(), expected, "{identifier}, {scheme:?}, {uri:?}");
+    }
+    assert!(Funding::init().name("Funder without an identifier").build().validate().is_ok());
+    assert!(Funding::init().name("Funder").identifier("").build().validate().is_err());
+}
+#[test]
+fn test_output_related_item_identifier_validation() {
+    for (scheme, valid, invalid) in [
+        ("ARK", "https://n2t.net/ark:/13030/xf93gt2q", "not-an-ark"),
+        ("arXiv", "arXiv:2106.09685", "arXiv:2100.00000"),
+        ("DOI", "10.5072/example", "not-a-doi"),
+        ("Handle", "10013/epic.10033", "not-a-handle"),
+        ("ISBN", "9780306406270", "9780306406271"),
+        ("RAiD", "https://raid.org/10.83962/fb5be317", "not-a-raid"),
+        ("RRID", "RRID:SCR_003512", "SCR_003512"),
+        ("SWHID", "swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b", "swh:2:cnt:invalid"),
+        ("URL", "https://example.org/record", "https:"),
+    ] {
+        for (value, expected) in [(valid, true), (invalid, false)] {
+            let output: ResearchOutput = serde_json::from_value(serde_json::json!({
+                "title":"Output", "keywords":[], "relatedItems":[{
+                    "relatedItemType":"Dataset", "relationType":"References",
+                    "relatedItemIdentifier":{"relatedItemIdentifier":value, "relatedItemIdentifierType":scheme}
+                }]
+            }))
+            .unwrap();
+            assert_eq!(output.validate().is_ok(), expected, "{scheme}: {value}");
+            let related: crate::standard::datacite::RelatedIdentifier = serde_json::from_value(serde_json::json!({
+                "relatedIdentifier":value, "relatedIdentifierType":scheme, "relationType":"References"
+            }))
+            .unwrap();
+            assert_eq!(related.validate().is_ok(), expected, "{scheme}: {value}");
+        }
+    }
 }
 #[test]
 fn test_research_activity_default() {
@@ -1775,6 +1838,10 @@ fn test_status_update_uses_logbook_range_when_submitted_after_period() {
         }),
     };
     let activity = ResearchActivity {
+        meta: ResearchActivityMetadata {
+            identifier: "example-project".to_string(),
+            ..ResearchActivityMetadata::default()
+        },
         logbook: Some(
             Logbook::init()
                 .range(window.clone())
@@ -1856,6 +1923,41 @@ fn test_typed_activity_date_requires_timestamp() {
     assert!(serde_json::from_str::<TypedActivityDate>(r#"{"dateType":"Unexpected","date":"2024-01-15T10:00:00Z"}"#).is_err());
 }
 #[test]
+fn test_typed_identifier_rejects_malformed_ror() {
+    for value in ["https://ror.org/01qz5mb56xxx", "01qz5mb55", "https://ror.org/01qz5mb56/extra"] {
+        let identifier = TypedIdentifier::init().value(value).scheme("ROR").build();
+        let report = identifier.validate().expect_err("malformed ROR must fail");
+        assert!(report.iter().any(|issue| issue.path == "value" && issue.error.code == "ROR"));
+    }
+}
+#[test]
+fn test_typed_identifier_scheme_uri_coherence() {
+    let valid = TypedIdentifier::init().value("01qz5mb56").scheme_uri("https://ror.org/").build();
+    assert!(valid.validate().is_ok());
+    for identifier in [
+        TypedIdentifier::init().value("01qz5mb56xxx").scheme_uri("https://ror.org").build(),
+        TypedIdentifier::init()
+            .value("01qz5mb56")
+            .scheme("ROR")
+            .scheme_uri("https://doi.org")
+            .build(),
+        TypedIdentifier::init()
+            .value("custom-value")
+            .scheme("custom")
+            .scheme_uri("https://ror.org")
+            .build(),
+    ] {
+        assert!(identifier.validate().is_err(), "{identifier:?}");
+    }
+    let custom = TypedIdentifier::init()
+        .value("local-record-42")
+        .scheme("custom")
+        .scheme_uri("https://example.org/ids")
+        .build();
+    assert!(custom.validate().is_ok());
+    assert!(TypedIdentifier::init().value("local-record-42").build().validate().is_ok());
+}
+#[test]
 fn test_typed_identifier_serializes_and_validates() {
     let id = TypedIdentifier::init()
         .value("10.5072/example")
@@ -1871,6 +1973,36 @@ fn test_typed_identifier_serializes_and_validates() {
     assert!(invalid.validate().is_err());
     let bad = TypedIdentifier::init().value("10.5072/x").scheme_uri("not a url").build();
     assert!(bad.validate().is_err());
+}
+#[test]
+fn test_typed_identifier_validates_all_supported_schemes() {
+    for (scheme, valid, invalid) in [
+        ("ARK", "https://n2t.net/ark:/13030/xf93gt2q", "invalid ARK value"),
+        ("arXiv", "arXiv:2106.09685", "arXiv:2100.00000"),
+        ("DOI", "10.5072/example", "11.5072/example"),
+        ("Handle", "10013/epic.10033", "not-a-handle"),
+        ("ISBN", "9780306406270", "9780306406271"),
+        ("ISNI", "0000000492299539", "0000000492299538"),
+        ("ORCID", "0000-0002-2057-9115", "0000-0002-2057-9114"),
+        ("Patent", "US1234567B2", "US ABC123 B2"),
+        ("RAiD", "https://raid.org/10.83962/fb5be317", "11.83962/fb5be317"),
+        ("ROR", "https://ror.org/01qz5mb56", "https://ror.org/01qz5mb56xxx"),
+        ("RRID", "RRID:SCR_003512", "SCR_003512"),
+        (
+            "SWHID",
+            "swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b",
+            "swh:2:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b",
+        ),
+        ("URL", "https://example.org/record", "not-a-url"),
+    ] {
+        for name in [scheme.to_string(), scheme.to_lowercase(), scheme.to_uppercase()] {
+            let valid = TypedIdentifier::init().value(valid).scheme(name.clone()).build();
+            assert!(valid.validate().is_ok(), "{valid:?}");
+            let invalid = TypedIdentifier::init().value(invalid).scheme(name).build();
+            let report = invalid.validate().expect_err("invalid typed identifier must fail");
+            assert!(report.iter().any(|issue| issue.path == "value"), "{report}");
+        }
+    }
 }
 #[test]
 fn test_typed_identifier_validates_rrid_scheme() {
@@ -1939,3 +2071,5 @@ fn test_with_derive_updates_research_and_sections_immutably() {
     assert_eq!(updated_sections.mission, "Updated research mission");
     assert_eq!(updated_sections.research.focus, "Updated research focus");
 }
+mod laws;
+mod validation_regressions;

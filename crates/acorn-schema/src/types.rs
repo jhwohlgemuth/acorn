@@ -13,6 +13,13 @@ use crate::vocabulary;
 use crate::vocabulary::{VocabularyError, VocabularyFormat, VocabularyFuzzyMode, VocabularyKind, VocabularyOptions, VocabularyResolver};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::{LinkedData, MarkdownSupport, MimeType};
+/// Generic wrapper for a single value or multiple values.
+///
+/// Supports schema fields and metadata entry points that accept either one item
+/// or a batch of items.
+pub use acorn_core::OneOrMany;
+/// A pair of values identified by their left and right positions.
+pub use acorn_core::ThisOrThat;
 use bon::Builder;
 use core::hash::Hash;
 use core::iter::{once, FromIterator};
@@ -49,6 +56,27 @@ use serde_with::skip_serializing_none;
 ///
 /// <div class="warning"><a href="https://code.ornl.gov/research-enablement/acorn/-/blob/main/crates/acorn-schema/assets/constants/keywords.csv">Full list of keywords</a></div>
 pub type Keyword = String;
+/// Schema-side document codecs for [`OneOrMany`].
+///
+/// These stay in `acorn-schema` because they depend on crosswalk errors and the schema's format handling. The shared container itself lives in `acorn-core`.
+pub trait OneOrManyCodec<T> {
+    /// Transform each item while preserving shape and labeling failures in batches.
+    fn try_map_with_label<U, F, L>(self, convert: F, label: L) -> Result<OneOrMany<U>, standard::crosswalk::CrosswalkError>
+    where
+        Self: Sized,
+        F: Fn(T) -> Result<U, standard::crosswalk::CrosswalkError>,
+        L: Fn(usize) -> String;
+    /// Parse a JSON, JSON Lines, YAML, or ZON string into one or many items.
+    fn parse(content: &str, mime: MimeType) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
+    where
+        T: DeserializeOwned;
+    /// Encode one or many items to a JSON, JSON Lines, YAML, or ZON string.
+    ///
+    /// Named `encode` rather than `serialize` so it does not collide with [`serde::Serialize::serialize`].
+    fn encode(&self, mime: MimeType) -> Result<String, standard::crosswalk::CrosswalkError>
+    where
+        T: Serialize;
+}
 /// U.S. Classified National Security Information Level
 ///
 /// See [President Executive Order 13526](https://www.archives.gov/isoo/policy-documents/cnsi-eo.html)
@@ -88,13 +116,6 @@ pub enum MediaObject {
     /// Video format media
     Video(VideoObject),
 }
-/// Generic wrapper for a single value or multiple values.
-///
-/// Supports schema fields and metadata entry points that accept either one item
-/// or a batch of items.
-pub use acorn_core::OneOrMany;
-/// A pair of values identified by their left and right positions.
-pub use acorn_core::ThisOrThat;
 /// Organization sub type
 #[derive(Clone, Debug, Serialize, Deserialize, Display, Hash, PartialEq, PartialOrd, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -299,18 +320,21 @@ pub struct ContactPoint {
     ///
     /// See <https://schema.org/jobTitle> for more information
     #[builder(default = "Researcher".to_string())]
+    #[validate(nonempty)]
     #[serde(alias = "title", deserialize_with = "string_trim")]
     pub job_title: String,
     /// First (given) name of contact point
     ///
     /// See <https://schema.org/givenName> for more information
     #[builder(default = "First".to_string())]
+    #[validate(nonempty)]
     #[serde(alias = "first", deserialize_with = "string_trim")]
     pub given_name: String,
     /// Last (family) name of contact point
     ///
     /// See <https://schema.org/familyName> for more information
     #[builder(default = "Last".to_string())]
+    #[validate(nonempty)]
     #[serde(alias = "last", deserialize_with = "string_trim")]
     pub family_name: String,
     /// ORCiD of contact point
@@ -336,7 +360,7 @@ pub struct ContactPoint {
     /// Profile URL of contact point
     /// ### Example
     /// > Profile URL for "Jason Wohlgemuth" could be <https://impact.ornl.gov/en/persons/jason-wohlgemuth>
-    #[validate(url(message = "Profile URL must be in the format https://example.com"))]
+    #[validate(uri(message = "Profile URL must be an absolute HTTP or HTTPS address"))]
     #[builder(default = "https://example.com".to_string())]
     #[serde(alias = "profile", deserialize_with = "string_trim")]
     pub url: String,
@@ -344,6 +368,7 @@ pub struct ContactPoint {
     ///
     /// See [Organization]
     #[builder(default = "Some Organization".to_string())]
+    #[validate(nonempty)]
     #[serde(deserialize_with = "string_trim")]
     pub organization: String,
     /// Affiliation of associated research activity data
@@ -539,7 +564,7 @@ pub struct VideoObject {
 pub struct Website {
     /// Associated website URL
     #[builder(start_fn)]
-    #[validate(url(message = "Provide valid URL"))]
+    #[validate(uri(message = "Provide an absolute HTTP or HTTPS address"))]
     #[serde(deserialize_with = "string_trim")]
     pub url: String,
     /// Brief description of webpage content
@@ -777,27 +802,6 @@ impl<T> Each for OneOrMany<T> {
         self.iter()
     }
 }
-/// Schema-side document codecs for [`OneOrMany`].
-///
-/// These stay in `acorn-schema` because they depend on crosswalk errors and the schema's format handling. The shared container itself lives in `acorn-core`.
-pub trait OneOrManyCodec<T> {
-    /// Transform each item while preserving shape and labeling failures in batches.
-    fn try_map_with_label<U, F, L>(self, convert: F, label: L) -> Result<OneOrMany<U>, standard::crosswalk::CrosswalkError>
-    where
-        Self: Sized,
-        F: Fn(T) -> Result<U, standard::crosswalk::CrosswalkError>,
-        L: Fn(usize) -> String;
-    /// Parse a JSON, JSON Lines, YAML, or ZON string into one or many items.
-    fn parse(content: &str, mime: MimeType) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
-    where
-        T: DeserializeOwned;
-    /// Encode one or many items to a JSON, JSON Lines, YAML, or ZON string.
-    ///
-    /// Named `encode` rather than `serialize` so it does not collide with [`serde::Serialize::serialize`].
-    fn encode(&self, mime: MimeType) -> Result<String, standard::crosswalk::CrosswalkError>
-    where
-        T: Serialize;
-}
 impl<T> OneOrManyCodec<T> for OneOrMany<T> {
     fn try_map_with_label<U, F, L>(self, convert: F, label: L) -> Result<OneOrMany<U>, standard::crosswalk::CrosswalkError>
     where
@@ -847,60 +851,6 @@ impl<T> OneOrManyCodec<T> for OneOrMany<T> {
             )),
         }
     }
-}
-/// Parse JSON Lines content into the multiple-values representation.
-fn parse_json_lines<T>(content: &str) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
-where
-    T: DeserializeOwned,
-{
-    match content.is_empty() {
-        | true => Err(standard::crosswalk::CrosswalkError::ParseFailed(
-            "JSON Lines input cannot be empty".to_string(),
-        )),
-        | false => content
-            .lines()
-            .enumerate()
-            .map(|(index, line)| {
-                let line_number = index.saturating_add(1);
-                match (line.trim().is_empty(), line.contains('\r')) {
-                    | (true, _) => Err(standard::crosswalk::CrosswalkError::ParseFailed(format!(
-                        "JSON Lines record at line {line_number} cannot be blank"
-                    ))),
-                    | (_, true) => Err(standard::crosswalk::CrosswalkError::ParseFailed(format!(
-                        "JSON Lines record at line {line_number} contains an unsupported carriage return"
-                    ))),
-                    | _ => serde_json::from_str(line).map_err(|error| {
-                        standard::crosswalk::CrosswalkError::ParseFailed(format!("Failed to parse JSON Lines record at line {line_number} — {error}"))
-                    }),
-                }
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map(OneOrMany::Many),
-    }
-}
-/// Serialize items as one JSON Lines record per line.
-fn serialize_json_lines<T>(values: &OneOrMany<T>) -> Result<String, standard::crosswalk::CrosswalkError>
-where
-    T: Serialize,
-{
-    values
-        .iter()
-        .enumerate()
-        .map(|(index, value)| {
-            serde_json::to_string(value).map_err(|error| {
-                standard::crosswalk::CrosswalkError::SerializeFailed(format!(
-                    "Failed to serialize JSON Lines record at line {} — {error}",
-                    index.saturating_add(1)
-                ))
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .and_then(|records| match records.is_empty() {
-            | true => Err(standard::crosswalk::CrosswalkError::SerializeFailed(
-                "JSON Lines output cannot be empty".to_string(),
-            )),
-            | false => Ok(format!("{}\n", records.join("\n"))),
-        })
 }
 impl<T> Validate for OneOrMany<T>
 where
@@ -1067,4 +1017,58 @@ where
                 .into()
         })
     })
+}
+/// Parse JSON Lines content into the multiple-values representation.
+fn parse_json_lines<T>(content: &str) -> Result<OneOrMany<T>, standard::crosswalk::CrosswalkError>
+where
+    T: DeserializeOwned,
+{
+    match content.is_empty() {
+        | true => Err(standard::crosswalk::CrosswalkError::ParseFailed(
+            "JSON Lines input cannot be empty".to_string(),
+        )),
+        | false => content
+            .lines()
+            .enumerate()
+            .map(|(index, line)| {
+                let line_number = index.saturating_add(1);
+                match (line.trim().is_empty(), line.contains('\r')) {
+                    | (true, _) => Err(standard::crosswalk::CrosswalkError::ParseFailed(format!(
+                        "JSON Lines record at line {line_number} cannot be blank"
+                    ))),
+                    | (_, true) => Err(standard::crosswalk::CrosswalkError::ParseFailed(format!(
+                        "JSON Lines record at line {line_number} contains an unsupported carriage return"
+                    ))),
+                    | _ => serde_json::from_str(line).map_err(|error| {
+                        standard::crosswalk::CrosswalkError::ParseFailed(format!("Failed to parse JSON Lines record at line {line_number} — {error}"))
+                    }),
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(OneOrMany::Many),
+    }
+}
+/// Serialize items as one JSON Lines record per line.
+fn serialize_json_lines<T>(values: &OneOrMany<T>) -> Result<String, standard::crosswalk::CrosswalkError>
+where
+    T: Serialize,
+{
+    values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            serde_json::to_string(value).map_err(|error| {
+                standard::crosswalk::CrosswalkError::SerializeFailed(format!(
+                    "Failed to serialize JSON Lines record at line {} — {error}",
+                    index.saturating_add(1)
+                ))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .and_then(|records| match records.is_empty() {
+            | true => Err(standard::crosswalk::CrosswalkError::SerializeFailed(
+                "JSON Lines output cannot be empty".to_string(),
+            )),
+            | false => Ok(format!("{}\n", records.join("\n"))),
+        })
 }

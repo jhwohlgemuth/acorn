@@ -6,7 +6,7 @@ difficulty: high
 impact: critical
 package: [power-platform, sharepoint, workspace]
 tags: [powerapps, powerautomate, acceptance, deployment, rollback, pdf]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---
@@ -92,51 +92,42 @@ Rollback disables approval finalization/publication triggers and preserves the l
 
 The [November 10 end-to-end acceptance](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md) verifies contributor project, General, same-batch correction, prior-batch correction, unchanged approval/exclusion, and live project status through the isolated PA31 source, materializer, connected review, approved freeze/export, and local combined PDF. Corrections name newly approved root IDs; local reports show only effective revised wording. Unchanged project bytes and UUID survived freeze, while an excluded General item remained only in the audit manifest. The TEST ONLY preparation/finalizer definitions trust PA31; the finalizer includes the LF-aware 10 MiB condition. An ETag-stale reviewer save was rejected, then recovered by reload and exact reread. The published TEST ONLY contributor version 17 and saved unpublished reviewer app carried status item 18 through a four-page PDF; durable desktop/375-pixel captures preserve the live reviewer state. A controlled source-interval change was rejected before writes; the owner accepted that service result with the full-window/high-water guard as the PA-40 late-source substitute. A TEST ONLY exporter run passed the post-write failure proxy: exact reread and receipt succeeded, and collected bytes remained unchanged. The original exporter was restored by native package import; a fresh export matches the pre-fault action graph, trigger, and connection reference exactly. The final [accepted JSONL](../_assets/sharepoint/intake-approval/acceptance/accepted.jsonl) has 11 lines and 5,434 bytes, and the [accepted PDF](../_assets/sharepoint/intake-approval/acceptance/accepted.pdf) has four pages. Materializer, preparation, finalizer, and exporter remain Off. A true unchanged-window late arrival, connector-level lost response, and denied-role checks remain PA-41 gates. The first project/General batch retained a stale high-water field after zero-row recovery and must not be finalized.
 
+The [November 12 beta repairs](../_assets/sharepoint/intake-approval/beta-repair/verification.md) supersede the earlier UI restrictions and Premium app designation. Both forms are published; participant correction and standard-license review workflow validation remain external prerequisites. The owner approved obsolete-reader deletion; the flow is absent from the inventory and its details page reports it could not be found. The owner initially deferred participant retesting, then reported a new launch error and clarified it may be a permission message. Niki was missing from app sharing; after User access was saved, the owner confirmed on November 12 that the form opens. Participant batch read/save and AI use still require confirmation.
+
 # Dependencies and boundaries
 
 PA-40 technical acceptance used accepted PA-37B, PA-40S, [PA-38B TEST ONLY export acceptance](../_assets/sharepoint/intake-approval/exporter/failure-acceptance.md), and the [accepted cross-app experience](../_assets/sharepoint/intake-approval/acceptance/cross-app-ui.md). Its one-account and fault-substitution exceptions do not carry into PA-41 operational cutover. PA-41 requires PA-40A plus explicit operational authorization, denied-role evidence, and the true late-arrival and connector-level lost-response checks. This plan does not authorize wider shared-environment migration; PA-12 remains separate. Direct OAuth/CI download and Vergil automation are not release prerequisites.
 
 # Execution phases
 
-## PA-40B — Repair participant intake and correction failures
+## PA-40B — Validate participant intake and correction repairs
 
-- Status: in-progress
+- Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: November 12 owner-reported participant findings; four preserved PA31 receipts and Ready batch `ed4821fc-8097-416e-aee1-dd7f795d2e17`.
-- Exact write set: contributor app `427852d5-c8a6-4218-ab2d-7db34e1106cc`, shared UI library `28fa2ddc-dbd3-47c6-aaae-150478b05419`, their bound intake/catalog flows in the Jason environment; this plan; acceptance/usability.md, participant guide, UI contract, and beta repair artifacts under `../_assets/sharepoint/intake-approval/`; affected plan indexes.
+- Prerequisites: c5c available to retry a correction in the published beta; participant retesting is deferred until the owner is ready. Owner-context BDI creation/correction and desktop/375-pixel UI checks passed; see [beta evidence](../_assets/sharepoint/intake-approval/beta-repair/verification.md).
+- Exact write set: contributor app `427852d5-c8a6-4218-ab2d-7db34e1106cc` and bound intake/catalog flows only if the participant retest exposes a defect; acceptance/usability.md and beta-repair/verification.md under `../_assets/sharepoint/intake-approval/`; this plan and affected indexes.
 - Primary integration lock: Power Platform user acceptance
-- Outcome: Strong validation admonition within the bottom preview; no clipped input borders; compact submit spacing; Title Case actions using Submit/Edit/Save/Cancel; both toggle states visible; project title display with stable project IDs; successful immutable participant correction; remove fixture-only project/prefix restrictions while preserving real validation and isolated storage.
-- Focused validation: Desktop and 375-pixel checks for all intake modes, invalid/valid submit and recovery, same-account correction and stale correction rejection, catalog title/ID mapping, App Checker.
-- Handoff: Published beta contributor, current guide, and exact repair evidence; participant-context retest remains explicit.
+- Outcome: Verify the participant can edit her submission, receive a new correction receipt, and recover from a validation/conflict response without changing the original record.
+- Focused validation: Participant-account edit/save/reopen and receipt ancestry; preserve exact failure text if any. Existing owner-context and structural guard evidence does not stand in for this retest.
+- Handoff: Record participant result and remove this phase after acceptance, or isolate any new defect into a bounded repair.
 
-## PA-40C — Make the reviewer usable without premium user licensing
+## PA-40C — Validate standard-license reviewer access
 
-- Status: ready
+- Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: Owner requires non-premium reviewer workflow; current app is confirmed Premium with Dataverse and AI Builder dependencies. AI disposition is being clarified; core review repairs can proceed independently.
-- Exact write set: reviewer app `ef761a81-bd35-4854-8de0-f91a452ba73f`, bound read/save/summary flows and their solutions in the Jason environment; this plan and acceptance/guide/contracts under `../_assets/sharepoint/intake-approval/`; affected plan indexes.
+- Prerequisites: Niki available to test her four-item Ready batch; the owner confirmed that the reviewer form opens on November 12. Published maker designation is Standard; owner-context read/save and automatic/contextual generation passed. App sharing now includes Niki as User after the owner clarified the latest launch failure may be permission-related. Power Apps confirmed the permission save and the owner confirmed successful launch. Batch read/save and automatic/contextual summary results remain pending.
+- Exact write set: reviewer app `ef761a81-bd35-4854-8de0-f91a452ba73f` and its five SharePoint-facing flows only for a demonstrated access defect; current participant evidence and AI contract under `../_assets/sharepoint/intake-approval/`; this plan and affected indexes.
 - Primary integration lock: Power Platform user acceptance
-- Outcome: All review operations available to standard-license participants, no direct premium app dependencies, no fixture navigation or test-only controls, consistent action/toggle text, working original-source display. Preserve AI only with a supported licensing architecture explicitly chosen by the owner; otherwise explain the constraint and remove the premium feature.
-- Focused validation: Published app license designation, complete connector/flow dependency audit, standard-license participant launch/read/edit/save, approval/exclusion/manual summary behavior, any retained AI path licensing and runtime checks.
-- Handoff: Beta reviewer with verified standard path and clear remaining participant evidence; no premium workaround or trial requirement disguised as completion.
-
-## PA-40D — Consolidate beta resources and participant documentation
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: PA-40B and PA-40C stable; exact dependency inventory and retained recovery evidence.
-- Exact write set: related unused apps/flows/solutions and browser tabs in the Jason environment; active form/flow display names; `../test-artifact-cleanup.md`, beta inventory and participant guide under `../_assets/sharepoint/intake-approval/`; this plan and affected indexes.
-- Primary integration lock: Power Platform user acceptance
-- Outcome: Active form/flow names use `[BETA]`; obsolete fixtures and unused dependencies are pruned with recoverability or action-time permanent-deletion approval; unrelated tabs/resources and receipt/audit data remain intact; guide matches the final UI.
-- Focused validation: Refreshed inventories, retained app bindings, source/receipt and Ready batch integrity, PDF render check, wiki validation.
-- Handoff: Exact retained/removed resource manifest, published beta forms, current participant PDF, and remaining acceptance actions.
+- Outcome: Establish participant launch/read/edit/save and retained AI use without a premium user license or trial. Resolve any remaining tenant-specific licensing or policy requirement explicitly.
+- Focused validation: Intended-user four-item batch read, decision save, automatic summary and contextual regeneration; successful launch is already owner-confirmed. Preserve any exact licensing/policy error. Historical maker connection listings are not the current execution-path audit.
+- Handoff: Record intended-user acceptance; no inference from the owner’s successful runs or the Standard designation alone.
 
 ## PA-40A — Accept usability and WYSIWYG fidelity
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: PA-40B/C/D participant repairs; [accepted isolated technical chain](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md); approved non-builder contributor/reviewer walkthroughs; and a read-only path to the accepted Approved batch for exact canvas-to-PDF comparison. The [acceptance record](../_assets/sharepoint/intake-approval/acceptance/usability.md) preserves the November 12 participant receipts, Ready batch, and premium-license blocker. The participant guide uses labeled redrawings and must be refreshed after these repairs.
-- Exact write set: TEST ONLY apps `[PROTOTYPE] Intake Approval` and `Sponsor Highlights Intake UI TEST ONLY`; TEST ONLY component library `Sponsor Highlights UI TEST ONLY` used by the contributor app; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md` and its participant guide and rollback copies; `.wiki/features/powerapps-jsonl-intake/pilot-runbook.md`
+- Prerequisites: PA-40B/C participant validation; [accepted isolated technical chain](../_assets/sharepoint/intake-approval/acceptance/end-to-end.md); approved non-builder contributor/reviewer walkthroughs; and a read-only path to the accepted Approved batch for exact canvas-to-PDF comparison. The [acceptance record](../_assets/sharepoint/intake-approval/acceptance/usability.md) preserves the four participant receipts and Ready batch. The published reviewer is now Standard; intended-user access remains to be retested. The refreshed participant guide uses current labeled redrawings.
+- Exact write set: beta apps `[BETA] Sponsor Highlights Review` and `[BETA] Sponsor Highlights Intake`; shared component library `[BETA] Sponsor Highlights UI`; `.wiki/features/powerapps-jsonl-intake/_assets/sharepoint/intake-approval/acceptance/usability.md` and its participant guide and rollback copies; `.wiki/features/powerapps-jsonl-intake/pilot-runbook.md`
 - Primary integration lock: Power Platform user acceptance
 - Outcome: Accept both primary user journeys, cross-app consistency, and preview-to-PDF expectations with no material coaching or semantic discrepancy. Further accessibility features and checks remain deferred by user direction.
 - Focused validation: Two uncoached walkthroughs and task/error observations; post-repair App Checker and desktop/tablet/375-pixel visual checks; live review-save behavior; and page-by-page Approved-batch PDF comparison. Fresh durable player captures remain unavailable through the browser; the guide uses owner-approved labeled references.

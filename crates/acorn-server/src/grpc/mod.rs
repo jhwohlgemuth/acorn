@@ -1,7 +1,7 @@
 //! Authenticated typed gRPC adapter for the canonical application service.
 use crate::proto;
 use acorn_analysis::readability::ReadabilityType;
-use acorn_analysis::CheckSeverity;
+use acorn_analysis::{CheckCategory, CheckSeverity};
 use acorn_core::util::{constant_time_eq, MimeType};
 use acorn_service::{
     AcornService, CheckReadabilityRequest, CheckReadabilityResponse, Diagnostic, FileChange, FileChangeKind, ProcessRepositoryRequest,
@@ -95,6 +95,7 @@ impl GrpcClient {
                     .into_iter()
                     .map(|diagnostic| {
                         check_severity(diagnostic.severity).map(|severity| Diagnostic {
+                            category: CheckCategory::from(diagnostic.category.as_str()),
                             code: diagnostic.code,
                             message: diagnostic.message,
                             path: diagnostic.path,
@@ -237,6 +238,7 @@ impl proto::acorn_service_server::AcornService for GrpcService {
                                     .diagnostics
                                     .into_iter()
                                     .map(|diagnostic| proto::Diagnostic {
+                                        category: diagnostic.category.to_string(),
                                         code: diagnostic.code,
                                         message: diagnostic.message,
                                         path: diagnostic.path,

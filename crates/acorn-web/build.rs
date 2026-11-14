@@ -11,6 +11,7 @@ fn main() -> io::Result<()> {
     println!("cargo:rerun-if-changed=../../scripts/package-acorn-skill.py");
     println!("cargo:rerun-if-changed=../acorn-cli/assets/skills/acorn");
     println!("cargo:rerun-if-changed=../../Cargo.toml");
+    println!("cargo:rerun-if-changed=assets/generated/editor");
     for name in ["HEAD", "refs", "packed-refs", "index"] {
         if let Ok(output) = Command::new("git").args(["rev-parse", "--git-path", name]).output() {
             if output.status.success() {
@@ -23,12 +24,16 @@ fn main() -> io::Result<()> {
         return Err(io::Error::other("could not prepare the bundled ACORN skill"));
     }
     let assets = [
+        ("../../docs/src/_assets/acorn-app-icon-brown.svg", "assets/generated/acorn-app-icon.svg"),
         ("../../docs/src/_assets/acorn.svg", "assets/generated/acorn.svg"),
         ("../../docs/src/_assets/banner_dark_mode.png", "assets/generated/banner_dark_mode.png"),
         ("../../docs/src/_assets/banner_light_mode.png", "assets/generated/banner_light_mode.png"),
+        ("../../docs/src/_assets/schema-logos/github.svg", "assets/generated/github.svg"),
+        ("../../docs/src/_assets/schema-logos/gitlab.svg", "assets/generated/gitlab.svg"),
         ("../acorn-wasm/web/webmcp.js", "assets/generated/webmcp.js"),
     ];
     fs::create_dir_all("assets/generated/geospatial")
+        .and_then(|()| fs::create_dir_all("assets/generated/editor"))
         .and_then(|()| fs::create_dir_all("assets/generated/skill"))
         .and_then(|()| {
             ["manifest.json", "SKILL.md", "acorn-skill.zip"].into_iter().try_for_each(|file| {

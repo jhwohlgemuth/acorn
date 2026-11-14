@@ -6,6 +6,7 @@
 
 ## Planned groups and independent work
 
+- [Incremental builds and reload development](blaze-development-pilot/index.md) - Connect all-crate compiler qualification with daemon config reload, paired-binary restart and isolated function hot reload; preserve Cargo verification and browser/release ownership.
 - [Shared API client contract](api/shared-client-contract.md) - Finish the reusable API boundary before provider extraction.
 - [Portable diff resource and API hardening](acorn-diff-resource-and-api-hardening.md) - Bound diff work and output, complete the patch API, and add configurable unified and sequence-aware array behavior.
 - [ZON codec hardening](zon-codec-hardening.md) - Review the pinned encoder and decoder, consolidate duplicated grammar logic, and strengthen conformance evidence.

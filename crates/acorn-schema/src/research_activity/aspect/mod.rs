@@ -23,6 +23,7 @@ use crate::TechnologyReadinessLevel;
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
 use acorn_core::util::{LinkedData, MarkdownSupport};
 use bon::Builder;
+pub use data::{Availability, Data, DataDescription, DataDescriptionContext, DataReadinessLevel, GeospatialDataProcessingLevel, Modality, Quality};
 use derive_more::Display;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -30,8 +31,6 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 /// Data-related ASPECT types and utilities.
 pub mod data;
-pub use data::{Availability, Data, DataDescription, DataDescriptionContext, DataReadinessLevel, GeospatialDataProcessingLevel, Modality, Quality};
-
 /// Adaptive bi-directional team interaction among humans and machines that augments human capabilities for improved outcomes
 /// ### Notes
 /// - In general, represents the integration of human interaction with machine intelligence capabilities (see ISO 22989)
@@ -202,6 +201,7 @@ pub struct AspectFramework {
     #[serde(rename = "@type")]
     pub aspect_type: Option<String>,
     /// Data associated with technology (e.g., training data, input data, etc.)
+    #[validate(nested)]
     pub data: Option<Vec<Data>>,
     /// Computations performed by the technology, including execution profiles.
     #[builder(into)]
@@ -232,16 +232,13 @@ impl Default for AspectFramework {
         AspectFramework::init().build()
     }
 }
-impl Default for AspectFrameworkContext {
-    fn default() -> Self {
-        AspectFrameworkContext::init()
-            .computation(schema_org("Action"))
-            .data(schema_org("DefinedTerm"))
-            .portability(schema_org("DefinedTerm"))
-            .motivity(schema_org("DefinedTerm"))
-            .autonomy(schema_org("DefinedTerm"))
-            .maturity(schema_org("DefinedTerm"))
-            .build()
+impl LinkedData for AspectFramework {
+    fn with_context(&self) -> Self {
+        Self {
+            context: Some(AspectFrameworkContext::default()),
+            aspect_type: None,
+            ..self.clone()
+        }
     }
 }
 impl MarkdownSupport for AspectFramework {
@@ -285,7 +282,18 @@ impl MarkdownSupport for AspectFramework {
         }
     }
 }
-impl_to_markdown!(Autonomy, Maturity, Motivity, SoftwarePortability, VisidataMachineAssistanceLevel);
+impl Default for AspectFrameworkContext {
+    fn default() -> Self {
+        AspectFrameworkContext::init()
+            .computation(schema_org("Action"))
+            .data(schema_org("DefinedTerm"))
+            .portability(schema_org("DefinedTerm"))
+            .motivity(schema_org("DefinedTerm"))
+            .autonomy(schema_org("DefinedTerm"))
+            .maturity(schema_org("DefinedTerm"))
+            .build()
+    }
+}
 impl MarkdownSupport for AspectFrameworkContext {
     fn to_markdown(&self) -> String {
         [
@@ -317,15 +325,7 @@ impl From<VisidataMachineAssistanceLevel> for Autonomy {
         }
     }
 }
-impl LinkedData for AspectFramework {
-    fn with_context(&self) -> Self {
-        Self {
-            context: Some(AspectFrameworkContext::default()),
-            aspect_type: None,
-            ..self.clone()
-        }
-    }
-}
+impl_to_markdown!(Autonomy, Maturity, Motivity, SoftwarePortability, VisidataMachineAssistanceLevel);
 impl From<TechnologyReadinessLevel> for Maturity {
     fn from(value: TechnologyReadinessLevel) -> Self {
         match value {

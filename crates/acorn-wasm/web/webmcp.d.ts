@@ -92,11 +92,13 @@ export interface CrosswalkWarning {
 }
 
 export interface Diagnostic {
+    category: "schema" | "link" | "prose" | "quality" | "compute" | "fair" | "readability" | "crosswalk";
     code: string | null;
     kind: "parse" | "validation";
     message: string;
     params: Record<string, unknown>;
     path: string | null;
+    severity: "error" | "info" | "suggestion" | "warning";
 }
 
 export interface DiscoveredIdentifier {

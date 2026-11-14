@@ -6,6 +6,7 @@ use acorn_core::util::assets::EmbeddedAssets;
 fn test_schema_asset_inventory_is_embedded_and_nonempty() {
     for name in [
         "geonames.tsv",
+        "iso-639-3.txt",
         "keywords.csv",
         "organization.json",
         "partners.csv",
@@ -19,7 +20,6 @@ fn test_schema_asset_inventory_is_embedded_and_nonempty() {
     }
     assert!(Constant::from_asset("unknown.csv").is_none());
 }
-
 #[test]
 fn test_schema_assets_have_singular_filesystem_ownership() {
     let schema_assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/constants");
@@ -28,6 +28,7 @@ fn test_schema_assets_have_singular_filesystem_ownership() {
     assert!(schema_assets.is_dir());
     for name in [
         "geonames.tsv",
+        "iso-639-3.txt",
         "keywords.csv",
         "organization.json",
         "partners.csv",
@@ -47,7 +48,6 @@ fn test_schema_assets_have_singular_filesystem_ownership() {
         assert!(!lib_prompts.join(name).exists(), "schema prompt is duplicated by acorn-lib: {name}");
     }
 }
-
 #[test]
 fn test_schema_vocabulary_assets_supply_csv_columns() {
     let technologies = Constant::nth_values("technology", 0).collect::<Vec<String>>();

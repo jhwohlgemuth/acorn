@@ -1,0 +1,498 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "identifier": "validation-workshop",
+    "keywords": [
+      "not-a-real-keyword-a",
+      "not-a-real-keyword-b"
+    ],
+    "technology": [
+      "unlisted-tool-alpha",
+      "unlisted-tool-beta"
+    ],
+    "doi": [
+      "not-a-doi",
+      "10.5072/acorn-watershed-methods"
+    ],
+    "dates": [
+      {
+        "dateType": "StartDate",
+        "date": "2026-01-15T00:00:00Z"
+      },
+      {
+        "dateType": "Updated",
+        "date": "2026-99-99T25:00:00Z"
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Oak Ridge National Laboratory",
+        "identifiers": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "organization": {
+              "value": "https://ror.org/01qz5mb56",
+              "scheme": "ROR"
+            },
+            "role": "PartnerOrganization",
+            "startDate": "2026-10-01T00:00:00Z",
+            "endDate": "2026-01-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "name": "Massachusetts Institute of Technology",
+        "identifiers": [
+          {
+            "value": "https://ror.org/042nb2s44",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "organization": {
+              "value": "https://ror.org/042nb2s44",
+              "scheme": "ROR"
+            },
+            "role": "PartnerOrganization",
+            "startDate": "2025-10-01T00:00:00Z",
+            "endDate": "2026-01-01T00:00:00Z"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "identifier": "https://example.org/watershed/outputs/1",
+        "doi": "10.5072/acorn-output-1",
+        "title": "Seasonal watershed observations",
+        "type": "dataset",
+        "publicationYear": 2026,
+        "contributors": [
+          {
+            "name": "Illustrative Researcher",
+            "orcid": "0000-0002-1825-0097",
+            "corresponding": true,
+            "position": "first",
+            "affiliations": [
+              {
+                "name": "Oak Ridge National Laboratory",
+                "ror": "https://ror.org/01qz5mb56"
+              }
+            ]
+          }
+        ],
+        "funding": [
+          {
+            "name": "Example Funder",
+            "awards": [
+              {
+                "identifier": "AWARD-1",
+                "url": "https://example.org/awards/AWARD-1"
+              }
+            ]
+          }
+        ],
+        "keywords": [
+          "research data",
+          "workflow automation"
+        ],
+        "access": {
+          "open": true,
+          "status": "gold",
+          "url": "https://example.org/watershed/outputs/1",
+          "license": "CC-BY-4.0"
+        },
+        "geoLocations": [
+          {
+            "geoLocationBox": {
+              "westBoundLongitude": -85,
+              "eastBoundLongitude": -83,
+              "southBoundLatitude": 50,
+              "northBoundLatitude": 20
+            }
+          }
+        ]
+      },
+      {
+        "identifier": "https://example.org/watershed/outputs/2",
+        "doi": "10.5072/acorn-output-2",
+        "title": "Calibration and uncertainty methods",
+        "type": "article",
+        "publicationYear": 2026,
+        "contributors": [
+          {
+            "name": "Illustrative Researcher",
+            "orcid": "0000-0002-1825-0097",
+            "corresponding": true,
+            "position": "first",
+            "affiliations": [
+              {
+                "name": "Oak Ridge National Laboratory",
+                "ror": "https://ror.org/01qz5mb56"
+              }
+            ]
+          }
+        ],
+        "funding": [
+          {
+            "name": "Example Funder",
+            "awards": [
+              {
+                "identifier": "AWARD-1",
+                "url": "https://example.org/awards/AWARD-1"
+              }
+            ]
+          }
+        ],
+        "keywords": [
+          "research data",
+          "workflow automation"
+        ],
+        "access": {
+          "open": true,
+          "status": "gold",
+          "url": "https://example.org/watershed/outputs/2",
+          "license": "CC-BY-4.0"
+        },
+        "geoLocations": [
+          {
+            "geoLocationBox": {
+              "westBoundLongitude": -85,
+              "eastBoundLongitude": -83,
+              "southBoundLatitude": 35,
+              "northBoundLatitude": 37
+            }
+          }
+        ]
+      }
+    ],
+    "languages": [
+      {
+        "id": "eng"
+      },
+      {
+        "id": "zzz"
+      }
+    ],
+    "publications": [
+      "https://example.org/publications/watershed"
+    ],
+    "funders": [
+      {
+        "name": "Example Funder A",
+        "awards": [
+          {
+            "identifier": "AWARD-1",
+            "doi": "not-a-doi",
+            "url": "https://example.org/awards/AWARD-1"
+          }
+        ]
+      },
+      {
+        "name": "Example Funder B",
+        "awards": [
+          {
+            "identifier": "AWARD-2",
+            "doi": "10.5072/example-award",
+            "url": "https://example.org/awards/AWARD-2"
+          }
+        ]
+      }
+    ],
+    "subjects": [
+      "artificial intelligence",
+      {
+        "subject": "machine learning",
+        "subjectScheme": "ACORN",
+        "schemeUri": "https://example.org/subjects",
+        "valueUri": "https://example.org/subjects/machine-learning"
+      }
+    ],
+    "rights": [
+      {
+        "rightsIdentifier": "CC-BY-4.0",
+        "rightsUri": "not-a-license-url"
+      },
+      {
+        "rights": "Creative Commons Attribution 4.0 International",
+        "rightsUri": "https://creativecommons.org/licenses/by/4.0/",
+        "rightsIdentifier": "CC-BY-4.0",
+        "rightsIdentifierScheme": "SPDX",
+        "schemeUri": "https://spdx.org/licenses/",
+        "access": "open"
+      }
+    ],
+    "access": {
+      "rights": "Open access",
+      "access": "open"
+    },
+    "spatialCoverage": [
+      "US-TN",
+      {
+        "id": "US-CA",
+        "schemaUri": "https://www.geonames.org/",
+        "place": [
+          {
+            "text": "California",
+            "language": {
+              "id": "eng",
+              "schemaUri": null
+            }
+          }
+        ]
+      }
+    ],
+    "handle": [
+      "https://hdl.handle.net/10013/epic.10033",
+      "https://hdl.handle.net/20.500.12345/watershed-demo"
+    ],
+    "books": [
+      "978-0-306-40627-0",
+      "978-3-16-148410-0"
+    ],
+    "raid": [
+      "https://raid.org/10.83962/fb5be317",
+      "https://raid.org/10.26259/0e59e9a5"
+    ],
+    "contributors": [
+      {
+        "name": "Example investigator",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0002-1825-0098",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [
+          {
+            "value": "https://ror.org/01qz5mb56",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "agent": {
+              "value": "https://orcid.org/0000-0002-1825-0097",
+              "scheme": "ORCID"
+            },
+            "role": "Conceptualization",
+            "roleSchemeUri": "https://credit.niso.org/",
+            "startDate": "2026-10-01T00:00:00Z",
+            "endDate": "2026-01-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "name": "Example data curator",
+        "identifiers": [
+          {
+            "value": "https://isni.org/isni/0000000492299539",
+            "scheme": "ISNI"
+          }
+        ],
+        "affiliations": [
+          {
+            "value": "https://ror.org/042nb2s44",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": [
+          {
+            "agent": {
+              "value": "https://orcid.org/0000-0002-2057-9115",
+              "scheme": "ORCID"
+            },
+            "role": "DataCuration",
+            "roleSchemeUri": "https://credit.niso.org/",
+            "startDate": "2025-10-01T00:00:00Z",
+            "endDate": "2026-01-01T00:00:00Z"
+          }
+        ]
+      }
+    ],
+    "websites": [
+      {
+        "title": "Example portal",
+        "url": "https:"
+      },
+      {
+        "title": "Example repository",
+        "url": "https://example.org/repository"
+      }
+    ],
+    "relatedResources": [
+      {
+        "identifier": {
+          "value": "10.5072/acorn-calibration",
+          "scheme": "DOI"
+        },
+        "relationType": "References",
+        "category": "related"
+      },
+      {
+        "identifier": {
+          "value": "https://n2t.net/ark:/13030/xf93gt2q",
+          "scheme": "ARK"
+        },
+        "relationType": "References",
+        "category": "related"
+      },
+      {
+        "identifier": {
+          "value": "https://hdl.handle.net/10013/epic.10033",
+          "scheme": "Handle"
+        },
+        "relationType": "References",
+        "category": "related"
+      }
+    ],
+    "patents": [
+      "US20250123456A2",
+      "US7654321B2"
+    ],
+    "swhid": [
+      "swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b",
+      "swh:1:rev:2db189928c94d62a3b4757b3eec68f0a4d4113f0"
+    ],
+    "ror": [
+      "https://ror.org/01qz5mb56xxx",
+      "https://ror.org/042nb2s44"
+    ],
+    "resources": [
+      {
+        "GPU": {
+          "architecture": "Hopper",
+          "vendor": "AMD",
+          "count": 4
+        }
+      },
+      {
+        "GPU": {
+          "architecture": "Ampere",
+          "vendor": "NVIDIA",
+          "count": 8
+        }
+      }
+    ],
+    "infrastructure": [
+      {
+        "identifier": "duplicate-environment",
+        "name": "Example environment",
+        "platforms": [
+          {
+            "identifier": "duplicate-platform",
+            "name": "Example platform",
+            "resources": [
+              "CPU"
+            ]
+          },
+          {
+            "identifier": "duplicate-platform",
+            "name": "Example platform copy",
+            "resources": [
+              "GPU"
+            ]
+          }
+        ]
+      },
+      {
+        "identifier": "secondary-environment",
+        "name": "Example environment",
+        "platforms": [
+          {
+            "identifier": "duplicate-platform",
+            "name": "Example platform",
+            "resources": [
+              "CPU"
+            ]
+          },
+          {
+            "identifier": "secondary-gpu-platform",
+            "name": "Example platform copy",
+            "resources": [
+              "GPU"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "title": "RAD validation workshop: intentionally flawed metadata",
+  "sections": {
+    "mission": "Explain how seasonal rainfall and land use shape water availability across connected watersheds.",
+    "challenge": "Field teams collect different measurements on different schedules, making regional comparisons difficult.",
+    "approach": [
+      " ",
+      "Combine field observations with reproducible watershed simulations."
+    ],
+    "impact": [
+      "Help field teams compare seasonal water availability across connected watersheds."
+    ],
+    "research": {
+      "focus": "Reproducible watershed observation and analysis",
+      "areas": [
+        "Environmental observations",
+        "Uncertainty quantification",
+        "Research data management"
+      ]
+    },
+    "achievement": [
+      "Released three quality-controlled seasonal observation datasets.",
+      "Reproduced the processing workflow on CPU and GPU environments."
+    ],
+    "capabilities": [
+      "Field calibration, automated quality control, uncertainty propagation and geospatial visualization."
+    ]
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Alex",
+    "familyName": "Rivera",
+    "email": "researcher-at-example.org",
+    "telephone": "123-456-7890",
+    "url": "https://example.com",
+    "organization": "Example Organization"
+  },
+  "subtitle": "Review a focused selection of identifier, metadata and consistency issues",
+  "logbook": {
+    "entries": [
+      {
+        "identifier": "watershed-milestone-1",
+        "projectId": "wrong-project-1",
+        "timestamp": "2024-02-01T12:00:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Published the illustrative observation protocol."
+      },
+      {
+        "identifier": "watershed-milestone-2",
+        "projectId": "validation-workshop",
+        "timestamp": "2025-09-01T12:00:00Z",
+        "category": "research",
+        "state": "completed",
+        "summary": "Completed instrument calibration and field sampling."
+      }
+    ]
+  },
+  "aspect": {
+    "data": [
+      {
+        "Real": {
+          "license": " "
+        }
+      },
+      {
+        "Synthetic": {
+          "license": "CC-BY-4.0"
+        }
+      }
+    ]
+  }
+}

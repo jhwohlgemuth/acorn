@@ -13,11 +13,13 @@ use crate::standard::invenio;
 use crate::standard::{dcat, huwise};
 use crate::validation::{
     is_iso_639_1_language_code, is_polygon, validate_affiliation_identifier, validate_funder_identifier, validate_funding_reference_identifier,
-    validate_license, validate_name_identifier, validate_publisher_identifier, Property, PropertySet, Validate,
+    validate_license, validate_name_identifier, validate_publisher_identifier, validate_related_identifier, validate_related_item_identifier,
+    Property, PropertySet, Validate, ValidationReport,
 };
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::ToProse;
+use acorn_core::validation::ValidationError;
 use bon::Builder;
 use core::{fmt, str::FromStr};
 use schemars::JsonSchema;
@@ -801,6 +803,7 @@ pub struct GeoLocation {
 }
 /// Geographic bounding box per DataCite 4.7 property 18.2
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[validate(schema(function = "GeoLocationBox::is_valid", skip_on_field_errors = false))]
 pub struct GeoLocationBox {
     /// Western longitude
     #[validate(longitude)]
@@ -946,6 +949,7 @@ pub struct Record {
 #[skip_serializing_none]
 #[derive(Builder, Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
 #[builder(start_fn = init, on(String, into))]
+#[validate(schema(function = "validate_related_identifier", skip_on_field_errors = false))]
 pub struct RelatedIdentifier {
     /// Related identifier value
     #[serde(rename = "relatedIdentifier", alias = "$text")]
@@ -999,6 +1003,7 @@ pub struct RelatedItem {
     #[serde(rename = "relationTypeInformation")]
     pub relation_type_information: Option<String>,
     /// Related item identifier (property 20.1)
+    #[validate(nested)]
     #[serde(rename = "relatedItemIdentifier")]
     pub related_item_identifier: Option<RelatedItemIdentifier>,
     /// Creators (property 20.2)
@@ -1072,6 +1077,7 @@ pub struct RelatedItemCreator {
 /// Related item identifier per DataCite 4.7 property 20.1
 #[skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, Validate)]
+#[validate(schema(function = "validate_related_item_identifier", skip_on_field_errors = false))]
 pub struct RelatedItemIdentifier {
     /// Related item identifier value
     #[serde(rename = "relatedItemIdentifier", alias = "$text")]
@@ -1313,6 +1319,18 @@ impl TryFrom<&str> for ContributorType {
                 field: "contributorType".to_string(),
                 reason: format!("unsupported contributor type '{value}'"),
             }),
+        }
+    }
+}
+impl GeoLocationBox {
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        if self.south_bound_latitude > self.north_bound_latitude {
+            Err(ValidationReport::from_error(
+                "northBoundLatitude",
+                ValidationError::new("bounds_order").with_message("Northern latitude must be at or above southern latitude"),
+            ))
+        } else {
+            Ok(())
         }
     }
 }

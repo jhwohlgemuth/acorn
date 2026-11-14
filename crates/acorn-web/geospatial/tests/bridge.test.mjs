@@ -14,9 +14,14 @@ test("map bridge bounds its DTO and copies caller-owned state", () => {
         { ...state, selected: "unknown" },
         { ...state, theme: "unknown" },
         { ...state, markers: [marker, marker] },
+        { ...state, markers: [{ ...marker, references: -1 }] },
         { ...state, markers: [{ ...marker, location: { latitude: 91, longitude: 0 } }] },
         { ...state, markers: [{ ...marker, location: { latitude: NaN, longitude: 0 } }] },
     ]) assert.throws(() => validateState(bad));
+});
+test("standalone ROR pins have no activity references and remain selectable", () => {
+    const standalone = { ...state, markers: [{ ...marker, references: 0 }], selected: marker.id };
+    assert.deepEqual(validateState(standalone), standalone);
 });
 test("mount updates, selection, error and disposal keep table ownership outside the map", () => {
     const renders = [], events = [];

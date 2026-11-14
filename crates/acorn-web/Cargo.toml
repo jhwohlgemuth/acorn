@@ -7,11 +7,13 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "Local-first ACORN browser workspace"
+description = "Local-first RAD Workspace"
 
 [dependencies]
+acorn-analysis = { workspace = true, default-features = false, features = ["alloc"] }
 acorn-schema.workspace = true
 acorn-wasm = { path = "../acorn-wasm" }
+case = "1.0.0"
 dioxus = { version = "=0.7.3", features = ["web", "router"] }
 serde.workspace = true
 serde-wasm-bindgen = "0.6.5"

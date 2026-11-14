@@ -6,6 +6,9 @@ use acorn_schema::research_activity::{
 use acorn_schema::OneOrMany;
 use alloc::collections::BTreeMap;
 
+const BIG_O_INVALID_REFERENCE: &str = include_str!("../../../tests/fixtures/data/big_o/invalid-reference/index.json");
+const BIG_O_INVALID_SYNTAX: &str = include_str!("../../../tests/fixtures/data/big_o/invalid-syntax/index.json");
+const BIG_O_VALID: &str = include_str!("../../../tests/fixtures/data/big_o/valid/index.json");
 const VALID_IDENTIFIERS: [(&str, &str); 12] = [
     ("ark", "https://n2t.net/ark:/13030/xf93gt2q"),
     ("arxiv", "https://arxiv.org/abs/2106.09685"),
@@ -21,10 +24,6 @@ const VALID_IDENTIFIERS: [(&str, &str); 12] = [
     ("swhid", "swh:1:cnt:4d99d2d18326621ccdd70f5ea66c2e2ac236ad8b"),
 ];
 const VALID_RESEARCH_ACTIVITY: &str = include_str!("../../../tests/fixtures/data/valid_project/index.json");
-const BIG_O_INVALID_REFERENCE: &str = include_str!("../../../tests/fixtures/data/big_o/invalid-reference/index.json");
-const BIG_O_INVALID_SYNTAX: &str = include_str!("../../../tests/fixtures/data/big_o/invalid-syntax/index.json");
-const BIG_O_VALID: &str = include_str!("../../../tests/fixtures/data/big_o/valid/index.json");
-
 fn datacite_project_json() -> String {
     let publisher_identifier = TypedIdentifier::init()
         .value("https://ror.org/01qz5mb56".to_string())
@@ -58,71 +57,7 @@ fn datacite_project_json() -> String {
     };
     serde_json::to_string(&activity).unwrap()
 }
-#[test]
-fn test_compare_big_o_matches_portable_contract() {
-    let canonical = compare_big_o_input(ComparisonInput {
-        left: "O(n^2)".to_string(),
-        right: "O(n log n)".to_string(),
-        assumptions: BTreeMap::new(),
-    })
-    .expect("canonical Big-O comparison");
-    assert_eq!(canonical.dominance, Dominance::Left);
-    assert_eq!(canonical.assumptions, BTreeMap::from([("n".to_string(), SymbolGrowth::Growing)]));
 
-    let explicit = compare_big_o_input(ComparisonInput {
-        left: "O(n)".to_string(),
-        right: "O(1)".to_string(),
-        assumptions: BTreeMap::from([("n".to_string(), SymbolGrowth::FixedPositive)]),
-    })
-    .expect("explicit growth assumption");
-    assert_eq!(explicit.dominance, Dominance::Equivalent);
-    assert_eq!(explicit.assumptions.get("n"), Some(&SymbolGrowth::FixedPositive));
-}
-#[test]
-fn test_compare_big_o_rejects_invalid_expressions_and_unknown_assumptions() {
-    for (left, right, expected) in [
-        ("O(n - m)", "O(n)", "invalid left Big-O expression"),
-        ("O(n)", "O(n - m)", "invalid right Big-O expression"),
-    ] {
-        let error = compare_big_o_input(ComparisonInput {
-            left: left.to_string(),
-            right: right.to_string(),
-            assumptions: BTreeMap::new(),
-        })
-        .expect_err("invalid expression");
-        assert!(error.contains(expected));
-    }
-    let error = compare_big_o_input(ComparisonInput {
-        left: "O(n)".to_string(),
-        right: "O(n^2)".to_string(),
-        assumptions: BTreeMap::from([("unknown".to_string(), SymbolGrowth::Growing)]),
-    })
-    .expect_err("unknown assumption");
-    assert_eq!(error, "growth assumption `unknown` does not reference either expression");
-}
-#[test]
-fn test_validate_research_activity_preserves_big_o_diagnostics() {
-    let valid = validate_json(BIG_O_VALID);
-    assert!(valid.valid);
-    assert!(valid.diagnostics.is_empty());
-
-    for (json, code, message) in [
-        (
-            BIG_O_INVALID_SYNTAX,
-            "syntax",
-            "Invalid complexity expression: unexpected token in Big-O expression at byte 4",
-        ),
-        (BIG_O_INVALID_REFERENCE, "reference", "Complexity variable `n` is not defined"),
-    ] {
-        let invalid = validate_json(json);
-        assert!(!invalid.valid);
-        assert_eq!(invalid.diagnostics.len(), 1);
-        let diagnostic = invalid.diagnostics.first().expect("Big-O diagnostic");
-        assert_eq!(diagnostic.code.as_deref(), Some(code));
-        assert_eq!(diagnostic.message, message);
-        assert_eq!(diagnostic.path.as_deref(), Some("aspect.computation[0].stages[0].complexity.bounds[0]"));
-    }
-}
 #[test]
 fn test_assess_fair_metadata_rejects_invalid_json_and_unknown_standards() {
     assert!(assess_fair("not-json", "datacite", None).is_err());
@@ -171,6 +106,48 @@ fn test_check_readability_returns_checks_and_summary() {
             vec!["Crosswalk items found", "0"],
         ]
     );
+}
+#[test]
+fn test_compare_big_o_matches_portable_contract() {
+    let canonical = compare_big_o_input(ComparisonInput {
+        left: "O(n^2)".to_string(),
+        right: "O(n log n)".to_string(),
+        assumptions: BTreeMap::new(),
+    })
+    .expect("canonical Big-O comparison");
+    assert_eq!(canonical.dominance, Dominance::Left);
+    assert_eq!(canonical.assumptions, BTreeMap::from([("n".to_string(), SymbolGrowth::Growing)]));
+
+    let explicit = compare_big_o_input(ComparisonInput {
+        left: "O(n)".to_string(),
+        right: "O(1)".to_string(),
+        assumptions: BTreeMap::from([("n".to_string(), SymbolGrowth::FixedPositive)]),
+    })
+    .expect("explicit growth assumption");
+    assert_eq!(explicit.dominance, Dominance::Equivalent);
+    assert_eq!(explicit.assumptions.get("n"), Some(&SymbolGrowth::FixedPositive));
+}
+#[test]
+fn test_compare_big_o_rejects_invalid_expressions_and_unknown_assumptions() {
+    for (left, right, expected) in [
+        ("O(n - m)", "O(n)", "invalid left Big-O expression"),
+        ("O(n)", "O(n - m)", "invalid right Big-O expression"),
+    ] {
+        let error = compare_big_o_input(ComparisonInput {
+            left: left.to_string(),
+            right: right.to_string(),
+            assumptions: BTreeMap::new(),
+        })
+        .expect_err("invalid expression");
+        assert!(error.contains(expected));
+    }
+    let error = compare_big_o_input(ComparisonInput {
+        left: "O(n)".to_string(),
+        right: "O(n^2)".to_string(),
+        assumptions: BTreeMap::from([("unknown".to_string(), SymbolGrowth::Growing)]),
+    })
+    .expect_err("unknown assumption");
+    assert_eq!(error, "growth assumption `unknown` does not reference either expression");
 }
 #[test]
 fn test_crosswalk_rejects_unknown_pairs_and_requires_raid_contact() {
@@ -307,7 +284,37 @@ fn test_validate_research_activity_collects_parse_diagnostics() {
     let result = validate_json(r#"{"title": 1, "unknown": true}"#);
     assert!(!result.valid);
     assert!(!result.diagnostics.is_empty());
+    assert!(result
+        .diagnostics
+        .iter()
+        .all(|diagnostic| diagnostic.category == CheckCategory::Schema && diagnostic.severity == CheckSeverity::Error));
     assert!(result.value.is_none());
+}
+#[test]
+fn test_validate_research_activity_preserves_big_o_diagnostics() {
+    let valid = validate_json(BIG_O_VALID);
+    assert!(valid.valid);
+    assert!(valid.diagnostics.iter().all(|item| item.category != CheckCategory::Schema));
+
+    for (json, code, message) in [
+        (
+            BIG_O_INVALID_SYNTAX,
+            "syntax",
+            "Invalid complexity expression: unexpected token in Big-O expression at byte 4",
+        ),
+        (BIG_O_INVALID_REFERENCE, "reference", "Complexity variable `n` is not defined"),
+    ] {
+        let invalid = validate_json(json);
+        assert!(!invalid.valid);
+        assert_eq!(
+            invalid.diagnostics.iter().filter(|item| item.category == CheckCategory::Schema).count(),
+            1
+        );
+        let diagnostic = invalid.diagnostics.first().expect("Big-O diagnostic");
+        assert_eq!(diagnostic.code.as_deref(), Some(code));
+        assert_eq!(diagnostic.message, message);
+        assert_eq!(diagnostic.path.as_deref(), Some("aspect.computation[0].stages[0].complexity.bounds[0]"));
+    }
 }
 #[test]
 fn test_validate_research_activity_preserves_validation_order() {
@@ -321,6 +328,11 @@ fn test_validate_research_activity_preserves_validation_order() {
         .filter_map(|diagnostic| diagnostic.path.as_deref())
         .collect::<Vec<_>>();
     assert!(!result.valid);
+    assert!(result
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.category == CheckCategory::Schema)
+        .all(|diagnostic| diagnostic.severity == CheckSeverity::Error));
     assert_eq!(paths.first().copied(), Some("title"));
     assert!(paths.contains(&"contact.email"));
 }
@@ -329,12 +341,51 @@ fn test_validate_research_activity_returns_valid_value() {
     let result = validate_json(VALID_RESEARCH_ACTIVITY);
     assert!(result.valid);
     assert!(result.value.is_some());
+    assert!(!result.diagnostics.is_empty());
+    for severity in [CheckSeverity::Info, CheckSeverity::Suggestion] {
+        assert!(result.diagnostics.iter().any(|item| item.severity == severity));
+    }
     assert_eq!(result.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Relaxed));
     let off = validate_json_with_fuzzy(VALID_RESEARCH_ACTIVITY, VocabularyFuzzyMode::Off);
-    assert!(off.diagnostics.is_empty());
+    assert!(!off.diagnostics.is_empty());
+    assert!(off.diagnostics.iter().all(|item| item.category == CheckCategory::Fair));
     assert_eq!(off.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Off));
 }
 #[test]
 fn test_validate_research_activity_unknown_vocabulary_mode_is_rejected() {
     assert!(parse_vocabulary_fuzzy(Some("unknown")).is_err());
+}
+#[test]
+fn test_validation_adapter_preserves_category_and_severity() {
+    for category in [
+        CheckCategory::Schema,
+        CheckCategory::Link,
+        CheckCategory::Prose,
+        CheckCategory::Quality,
+        CheckCategory::Compute,
+        CheckCategory::Fair,
+        CheckCategory::Readability,
+        CheckCategory::Crosswalk,
+    ] {
+        for severity in [
+            CheckSeverity::Error,
+            CheckSeverity::Info,
+            CheckSeverity::Suggestion,
+            CheckSeverity::Warning,
+        ] {
+            let source = acorn_service::Diagnostic {
+                category: category.clone(),
+                code: "test.rule".into(),
+                message: "Details".into(),
+                path: Some("title".into()),
+                severity: severity.clone(),
+            };
+            let diagnostic = Diagnostic::from(source);
+            let value = serde_json::to_value(&diagnostic).unwrap();
+            assert_eq!(value.get("category").and_then(Value::as_str).unwrap(), category.to_string());
+            assert_eq!(value.get("severity").and_then(Value::as_str).unwrap(), severity.to_string());
+            assert_eq!(value.get("message").unwrap(), "Details");
+            assert_eq!(value.get("path").unwrap(), "title");
+        }
+    }
 }

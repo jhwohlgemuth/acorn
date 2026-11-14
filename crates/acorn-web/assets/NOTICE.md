@@ -1,6 +1,6 @@
 # Browser artwork notices
 
-Retrieved November 11, 2026. `technology.svg` embeds the following source bytes unchanged as separate SVG images; SVG view fragments select each mark. No brand endorsement is implied. ACORN banners and navigation geometry come from the repository's documentation assets and design specification under its MIT license.
+Retrieved November 11, 2026. `technology.svg` embeds the following source bytes unchanged as separate SVG images; SVG view fragments select each mark. No brand endorsement is implied. ACORN banners and navigation geometry come from the repository's documentation assets and design specification under its MIT license. The app favicon is staged unchanged from `docs/src/_assets/acorn-app-icon-brown.svg`.
 
 | Mark | Source | SHA-256 |
 |---|---|---|
@@ -10,6 +10,10 @@ Retrieved November 11, 2026. `technology.svg` embeds the following source bytes 
 | tauri | [abw-tauri.svg](https://github.com/tauri-apps/create-tauri-app/blob/dev/templates/_assets_/tauri.svg) | `e5d2738bbaa5543c4684001a558dc53165da9b636144827b28db1dcfacf81aa8` |
 
 Rust and WebAssembly: repository-held SVG Logos artwork, CC0-1.0, as recorded in `docs/src/_assets/schema-logos/README.md`. Marks remain the property of their respective owners.
+
+The remote loader uses unchanged GitHub and GitLab SVG Logos artwork from `docs/src/_assets/schema-logos/`, also CC0-1.0. GitHub SHA-256: `e17ceb5b00e9224388100dc9a6771ee639d45ece7e7953e891a971c3f3c549eb`; GitLab SHA-256: `4955556a4d42c2da82c51ebbdd5b11e8155ebfe635fb5bb9bcc4722020d2f239`.
+
+The Home loader uses Lucide 0.562.0 `folder-open` and `upload` icon paths, matching the [OKF Home page](https://www.jasonwohlgemuth.com/okf-plan-browser/home). Paths are reproduced unchanged with 20 px sizing, 2 px strokes, and theme-aware blue/green colors. The upstream ISC/MIT notice is preserved in [`vendor/lucide.LICENSE`](vendor/lucide.LICENSE); [upstream license](https://github.com/lucide-icons/lucide/blob/0.562.0/LICENSE).
 
 ## Dioxus upstream notice
 
@@ -333,3 +337,34 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+## Prism syntax highlighting
+
+Prism 1.30.0 from https://registry.npmjs.org/prismjs/-/prismjs-1.30.0.tgz, retrieved November 12, 2026. The local bundle concatenates unchanged minified core, markup, css, clike, javascript, json, yaml, markdown, diff, bash, rust, python, toml, turtle, zig components after disabling automatic DOM highlighting and worker handlers. SHA-256: `4437f8d17d64977f4ec497a221dccd7bf6b876dac58a947812cf20d1f807beae`. MIT license follows and is also in `vendor/prism.LICENSE`.
+
+MIT LICENSE
+
+Copyright (c) 2012 Lea Verou
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+
+## CodeMirror editable code
+
+CodeMirror 6, Lezer parsers and their dependencies are bundled locally from the exact versions in `crates/acorn-web/package-lock.json`. `scripts/build-editor.mjs` includes each bundled package's version and complete license in `assets/generated/editor/LICENSES.txt`, shipped as a separate license asset linked by the editor. All bundled editor dependencies use the MIT license.

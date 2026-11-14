@@ -2,11 +2,18 @@
 //!
 //! Portable, validated types reused across `ResearchActivity`, `ResearchOutput`, RAiD, DataCite, DCAT and discovery adapters.
 //! All types are `alloc`-compatible and perform no I/O. Matrix: `.wiki/_assets/standards-field-matrix.md`.
+use crate::namespaces::{
+    DEFAULT_ARXIV_SCHEMA_URI, DEFAULT_DOI_SCHEMA_URI, DEFAULT_ISNI_SCHEMA_URI, DEFAULT_ORCID_SCHEMA_URI, DEFAULT_RAID_SCHEMA_URI,
+    DEFAULT_ROR_SCHEMA_URI,
+};
 use crate::pid::PID;
-use crate::validation::{is_license, rules, validate_agent_identifier, IntoValidationReport, Validate, ValidationReport};
+use crate::util::constants::app::{HANDLE_RESOLVER_URI, RRID_SCHEMA_URI, SWHID_SCHEMA_URI};
+use crate::validation::{is_license, report_of, rules, validate_agent_identifier, IntoValidationReport, Validate, ValidationReport};
 use acorn_core::prelude::alloc::{String, Vec};
+use acorn_core::validation::ValidationError;
 use bon::Builder;
 use core::fmt;
+use jiff::Timestamp;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_trim::{option_string_trim, string_trim};
@@ -159,6 +166,7 @@ pub struct ControlledSubject {
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "DatedAgentRole::is_valid", skip_on_field_errors = false))]
 pub struct DatedAgentRole {
     /// Agent identifier (ORCID/ISNI or name-based)
     #[validate(nested)]
@@ -188,6 +196,7 @@ pub struct DatedAgentRole {
 #[derive(Builder, Clone, Debug, Deserialize, JsonSchema, Serialize, Validate)]
 #[builder(start_fn = init, on(String, into))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+#[validate(schema(function = "DatedOrganizationRole::is_valid", skip_on_field_errors = false))]
 pub struct DatedOrganizationRole {
     /// Organization identifier (typically ROR)
     #[validate(nested)]
@@ -314,11 +323,75 @@ impl fmt::Display for ActivityDateType {
         formatter.write_str(value)
     }
 }
+impl DatedAgentRole {
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        validate_role_dates(self.start_date.as_deref(), self.end_date.as_deref())
+    }
+}
+impl DatedOrganizationRole {
+    fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
+        validate_role_dates(self.start_date.as_deref(), self.end_date.as_deref())
+    }
+}
 impl TypedIdentifier {
     pub(crate) fn is_valid(&self, _context: &()) -> Result<(), ValidationReport> {
-        match self.scheme.as_deref().map(PID::from) {
-            | Some(PID::RRID) => rules::rrid(&self.value).map_err(|error| error.into_report("value")),
-            | _ => Ok(()),
-        }
+        let named = self.scheme.as_deref().map(PID::from);
+        let uri = self.scheme_uri.as_deref().and_then(Self::scheme_from_uri);
+        let coherence = match (&named, &uri) {
+            | (Some(named), Some(uri)) if named != uri => ValidationReport::from_error(
+                "schemeUri",
+                ValidationError::new("identifier_scheme").with_message("Identifier scheme and scheme URI do not agree"),
+            ),
+            | _ => ValidationReport::new(),
+        };
+        let validation = match named.or(uri) {
+            | Some(PID::ARK) => rules::ark(&self.value),
+            | Some(PID::Arxiv) => rules::arxiv(&self.value),
+            | Some(PID::DOI) => rules::doi(&self.value),
+            | Some(PID::Handle) => rules::handle(&self.value),
+            | Some(PID::ISBN) => rules::isbn(&self.value),
+            | Some(PID::ISNI) => rules::isni(&self.value),
+            | Some(PID::ORCID) => rules::orcid(&self.value),
+            | Some(PID::Patent) => rules::patent(&self.value),
+            | Some(PID::RAID) => rules::raid(&self.value),
+            | Some(PID::ROR) => rules::ror(&self.value),
+            | Some(PID::RRID) => rules::rrid(&self.value),
+            | Some(PID::SWHID) => rules::swhid(&self.value),
+            | Some(PID::URL) => rules::uri(&self.value),
+            | Some(PID::PIDINST | PID::Unknown) | None => Ok(()),
+        };
+        coherence
+            .merge("", report_of(validation.map_err(|error| error.into_report("value"))))
+            .finish()
+    }
+    fn scheme_from_uri(value: &str) -> Option<PID> {
+        let value = value.trim().trim_end_matches('/');
+        [
+            (DEFAULT_ARXIV_SCHEMA_URI, PID::Arxiv),
+            (DEFAULT_DOI_SCHEMA_URI, PID::DOI),
+            (HANDLE_RESOLVER_URI, PID::Handle),
+            (DEFAULT_ISNI_SCHEMA_URI, PID::ISNI),
+            (DEFAULT_ISNI_SCHEMA_URI.trim_end_matches("/isni"), PID::ISNI),
+            (DEFAULT_ORCID_SCHEMA_URI, PID::ORCID),
+            (DEFAULT_RAID_SCHEMA_URI, PID::RAID),
+            (DEFAULT_ROR_SCHEMA_URI, PID::ROR),
+            (RRID_SCHEMA_URI, PID::RRID),
+            (SWHID_SCHEMA_URI, PID::SWHID),
+        ]
+        .into_iter()
+        .find_map(|(uri, kind)| (value == uri.trim_end_matches('/')).then_some(kind))
+    }
+}
+fn validate_role_dates(start: Option<&str>, end: Option<&str>) -> Result<(), ValidationReport> {
+    let dates = start
+        .and_then(|value| value.parse::<Timestamp>().ok())
+        .zip(end.and_then(|value| value.parse::<Timestamp>().ok()));
+    if dates.is_some_and(|(start, end)| end < start) {
+        Err(ValidationReport::from_error(
+            "endDate",
+            ValidationError::new("date_order").with_message("Role end must be at or after its start"),
+        ))
+    } else {
+        Ok(())
     }
 }

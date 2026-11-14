@@ -87,16 +87,23 @@
 
 {\color{Green}\large\bfseries 01 // Highlight details}\par
 \begin{tikzpicture}[x=1in,y=1in]
-  \foreach \y/\heading/\value in {0/{Submission Type}/{$\circ$ Activity  $\checkmark$ Project Status},-.68/{Report Placement}/{$\checkmark$ Project  $\circ$ General}}{
+  \foreach \y/\heading in {0/{Submission Type},-.68/{Report Placement}}{
     \node[anchor=west,text=Ink,font=\bfseries] at (0,\y) {\heading};
-    \ifdim\y pt=0pt\def\togglecolor{Energy}\def\thumbx{.34}\def\valuecolor{Ink}\else\def\togglecolor{Disabled}\def\thumbx{.13}\def\valuecolor{Disabled}\fi
-    \draw[fill=\togglecolor,draw=\togglecolor,rounded corners=9pt] (0,\y-.43) rectangle ++(.47,.25);
+    \ifdim\y pt=0pt
+      \def\togglecolor{Energy}\def\thumbx{1.24}
+      \node[anchor=east,text=Muted,font=\small] at (.82,\y-.305) {Activity};
+      \node[anchor=west,text=Green,font=\small\bfseries] at (1.45,\y-.305) {$\checkmark$ Project Status};
+    \else
+      \def\togglecolor{Disabled}\def\thumbx{1.03}
+      \node[anchor=east,text=Disabled,font=\small\bfseries] at (.82,\y-.305) {Project $\checkmark$};
+      \node[anchor=west,text=Disabled,font=\small] at (1.45,\y-.305) {General};
+    \fi
+    \draw[fill=\togglecolor,draw=\togglecolor,rounded corners=9pt] (.90,\y-.43) rectangle ++(.47,.25);
     \fill[white] (\thumbx,\y-.305) circle (.095);
-    \node[anchor=west,text=\valuecolor,font=\small] at (.54,\y-.305) {\value};
   }
 \end{tikzpicture}\par
-{\color{Muted}\scriptsize Current control reference (redrawn): both states are labeled; a check marks the selected state.}\par
-Click the switch or its adjacent labels. Submission Type switches between Activity and Project Status; Report Placement switches between Project and General. Project Status locks placement to Project. The enabled on state is bright green.\par
+{\color{Muted}\scriptsize Current control reference (redrawn): the switch sits between its states; the selected side is emphasized.}\par
+Click the switch. The selected state sits beside the thumb and uses green, bold text and a checkmark; both state labels stay visible. Submission Type switches between Activity and Project Status; Report Placement switches between Project and General. Project Status locks placement to Project. The enabled on state is bright green.\par
 \begin{tabularx}{\linewidth}{@{}X X@{}}
 \textbf{Project} & \textbf{Date}\\[4pt]
 Choose its index title (for example, LandScan) & Choose the activity date\\[12pt]
@@ -133,12 +140,19 @@ If Submit is unavailable, read the red message in Report Preview and correct the
 \end{tcolorbox}
 {\color{Green}\large\bfseries 01 // Highlight details}\par
 \begin{tikzpicture}[x=1in,y=1in]
-  \foreach \y/\heading/\value in {0/{Submission Type}/{$\circ$ Activity  $\checkmark$ Project Status},-.68/{Report Placement}/{$\checkmark$ Project  $\circ$ General}}{
+  \foreach \y/\heading in {0/{Submission Type},-.68/{Report Placement}}{
     \node[anchor=west,text=Ink,font=\bfseries] at (0,\y) {\heading};
-    \ifdim\y pt=0pt\def\togglecolor{Energy}\def\thumbx{.34}\def\valuecolor{Ink}\else\def\togglecolor{Disabled}\def\thumbx{.13}\def\valuecolor{Disabled}\fi
-    \draw[fill=\togglecolor,draw=\togglecolor,rounded corners=9pt] (0,\y-.43) rectangle ++(.47,.25);
+    \ifdim\y pt=0pt
+      \def\togglecolor{Energy}\def\thumbx{1.24}
+      \node[anchor=east,text=Muted,font=\small] at (.82,\y-.305) {Activity};
+      \node[anchor=west,text=Green,font=\small\bfseries] at (1.45,\y-.305) {$\checkmark$ Project Status};
+    \else
+      \def\togglecolor{Disabled}\def\thumbx{1.03}
+      \node[anchor=east,text=Disabled,font=\small\bfseries] at (.82,\y-.305) {Project $\checkmark$};
+      \node[anchor=west,text=Disabled,font=\small] at (1.45,\y-.305) {General};
+    \fi
+    \draw[fill=\togglecolor,draw=\togglecolor,rounded corners=9pt] (.90,\y-.43) rectangle ++(.47,.25);
     \fill[white] (\thumbx,\y-.305) circle (.095);
-    \node[anchor=west,text=\valuecolor,font=\small] at (.54,\y-.305) {\value};
   }
 \end{tikzpicture}\par
 {\color{Muted}\scriptsize Project Status is selected; report placement is locked to Project.}\par
@@ -230,11 +244,12 @@ If a Ready batch or item is missing, record that state. Do not save a substitute
 {\color{Muted}\scriptsize Current AI panel after generation (redrawn); suggestion text is explanatory.}\par
 \vspace{8pt}
 {\color{Forest}\bfseries Validation in Report Preview (redrawn reference)}\par
+{\color{Green}\bfseries 03 // Report Preview}\par
 \begin{tcolorbox}[colback=red!4,colframe=Danger,arc=6pt,left=12pt,right=12pt,top=10pt,bottom=10pt]
-{\color{Danger}\bfseries 03 // Report Preview}\par
-{\color{Danger}$\triangle$ Choose a project.}\par
-{\color{Ink}\small The warning appears with the preview at the bottom of the intake form. Complete the required fields above; Submit becomes available when the form is valid.}
+{\color{Danger}\bfseries $\triangle$ Action Required}\par\smallskip
+{\color{Danger}\small Choose a project.}
 \end{tcolorbox}
+{\color{Ink}\small Read the corrective message below Action Required. Complete the indicated field above; the panel turns green and says Ready to Submit when the form is valid. The preview and Submit button remain together without a large blank gap.}\par
 \textbf{Report View:} opens the selected batch as a report-oriented workspace. Select a project or General Updates from its picker. After Use Suggestion in this view, select Approve again when the wording is ready, then Save. Saving does not publish a report.
 
 \begin{note}

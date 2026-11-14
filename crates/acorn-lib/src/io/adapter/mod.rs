@@ -2,7 +2,6 @@
 //!
 //! Hosts std-only path/file behavior for schema types so that [`acorn_schema`]
 //! modules stay portable. This module later moves into `acorn-host`.
-pub mod migrate;
 use self::migrate::Migration;
 use crate::{
     error::ApiResult,
@@ -39,6 +38,73 @@ use owo_colors::OwoColorize;
 use std::path::{Path, PathBuf};
 use tracing::debug;
 
+pub mod migrate;
+macro_rules! impl_logbook_input_output {
+    ($type:ty, $label:literal) => {
+        impl InputOutput for $type {
+            fn parse(content: &str) -> Option<Self> {
+                serde_json::from_str(content)
+                    .ok()
+                    .or_else(|| serde_norway::from_str(content).ok())
+                    .or_else(|| Self::from_markdown(content).ok())
+            }
+            fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+                let source = path.into();
+                match MimeType::from_path(&source) {
+                    | MimeType::Json | MimeType::Jsonc => Self::read_json(source),
+                    | MimeType::Markdown => Self::read_markdown(source),
+                    | MimeType::Yaml => Self::read_yaml(source),
+                    | _ => Err(eyre!("Unsupported {} file extension", $label)),
+                }
+            }
+            fn read_json(path: PathBuf) -> ApiResult<Self> {
+                read_file(path).and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to parse JSON {} — {why}", $label)))
+            }
+            fn read_markdown(path: PathBuf) -> ApiResult<Self> {
+                read_file(path).and_then(|content| Self::from_markdown(&content).map_err(|why| eyre!("Failed to parse Markdown {} — {why}", $label)))
+            }
+            fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+                read_file(path).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML {} — {why}", $label)))
+            }
+            fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+                match mime {
+                    | MimeType::Json | MimeType::Jsonc => {
+                        serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON {} — {why}", $label))
+                    }
+                    | MimeType::Markdown => self
+                        .to_front_matter()
+                        .map(|frontmatter| format!("---\n{frontmatter}---\n{}", self.to_markdown()))
+                        .map_err(|why| eyre!("Failed to serialize Markdown {} — {why}", $label)),
+                    | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML {} — {why}", $label)),
+                    | _ => Err(eyre!("Unsupported {} serialization mime type: {mime:?}", $label)),
+                }
+            }
+            fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+                let output = path.into();
+                match MimeType::from_path(&output) {
+                    | MimeType::Json | MimeType::Jsonc => self.write_json(output),
+                    | MimeType::Markdown => self.write_markdown(output),
+                    | MimeType::Yaml => self.write_yaml(output),
+                    | _ => Err(eyre!("Unsupported {} file extension for writing", $label)),
+                }
+            }
+            fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+                serde_json::to_string_pretty(self)
+                    .map_err(|why| eyre!("Failed to serialize JSON {} — {why}", $label))
+                    .and_then(|content| write_file(path.into(), content))
+            }
+            fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+                self.serialize_as(&MimeType::Markdown)
+                    .and_then(|content| write_file(path.into(), content))
+            }
+            fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+                serde_norway::to_string(self)
+                    .map_err(|why| eyre!("Failed to serialize YAML {} — {why}", $label))
+                    .and_then(|content| write_file(path.into(), content))
+            }
+        }
+    };
+}
 /// Host-side batch input and output operations for schema types.
 pub trait Batch {
     /// Read one or many research activity records from a supported path.
@@ -135,72 +201,6 @@ impl InputOutput for ckan::Package {
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         Codec::write(MimeType::Yaml, self, path.into().with_extension("yaml"))
     }
-}
-macro_rules! impl_logbook_input_output {
-    ($type:ty, $label:literal) => {
-        impl InputOutput for $type {
-            fn parse(content: &str) -> Option<Self> {
-                serde_json::from_str(content)
-                    .ok()
-                    .or_else(|| serde_norway::from_str(content).ok())
-                    .or_else(|| Self::from_markdown(content).ok())
-            }
-            fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-                let source = path.into();
-                match MimeType::from_path(&source) {
-                    | MimeType::Json | MimeType::Jsonc => Self::read_json(source),
-                    | MimeType::Markdown => Self::read_markdown(source),
-                    | MimeType::Yaml => Self::read_yaml(source),
-                    | _ => Err(eyre!("Unsupported {} file extension", $label)),
-                }
-            }
-            fn read_json(path: PathBuf) -> ApiResult<Self> {
-                read_file(path).and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to parse JSON {} — {why}", $label)))
-            }
-            fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-                read_file(path).and_then(|content| Self::from_markdown(&content).map_err(|why| eyre!("Failed to parse Markdown {} — {why}", $label)))
-            }
-            fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-                read_file(path).and_then(|content| serde_norway::from_str(&content).map_err(|why| eyre!("Failed to parse YAML {} — {why}", $label)))
-            }
-            fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
-                match mime {
-                    | MimeType::Json | MimeType::Jsonc => {
-                        serde_json::to_string_pretty(self).map_err(|why| eyre!("Failed to serialize JSON {} — {why}", $label))
-                    }
-                    | MimeType::Markdown => self
-                        .to_front_matter()
-                        .map(|frontmatter| format!("---\n{frontmatter}---\n{}", self.to_markdown()))
-                        .map_err(|why| eyre!("Failed to serialize Markdown {} — {why}", $label)),
-                    | MimeType::Yaml => serde_norway::to_string(self).map_err(|why| eyre!("Failed to serialize YAML {} — {why}", $label)),
-                    | _ => Err(eyre!("Unsupported {} serialization mime type: {mime:?}", $label)),
-                }
-            }
-            fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-                let output = path.into();
-                match MimeType::from_path(&output) {
-                    | MimeType::Json | MimeType::Jsonc => self.write_json(output),
-                    | MimeType::Markdown => self.write_markdown(output),
-                    | MimeType::Yaml => self.write_yaml(output),
-                    | _ => Err(eyre!("Unsupported {} file extension for writing", $label)),
-                }
-            }
-            fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-                serde_json::to_string_pretty(self)
-                    .map_err(|why| eyre!("Failed to serialize JSON {} — {why}", $label))
-                    .and_then(|content| write_file(path.into(), content))
-            }
-            fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-                self.serialize_as(&MimeType::Markdown)
-                    .and_then(|content| write_file(path.into(), content))
-            }
-            fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-                serde_norway::to_string(self)
-                    .map_err(|why| eyre!("Failed to serialize YAML {} — {why}", $label))
-                    .and_then(|content| write_file(path.into(), content))
-            }
-        }
-    };
 }
 impl Codec {
     fn errors(errors: Vec<CodecDiagnostic>) -> color_eyre::Report {
@@ -483,8 +483,16 @@ impl InputOutput for Metadata {
 impl Batch for OneOrMany<ResearchActivity> {
     fn batch_write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into();
-        self.encode(MimeType::from_path(&output))
+        let format = MimeType::from_path(&output);
+        // YAML batches use the same JSON-compatible enum mappings as individual RAD records.
+        self.encode(if format == MimeType::Yaml { MimeType::Json } else { format.clone() })
             .map_err(|why| eyre!("Serialize research activity data — {why}"))
+            .and_then(|content| match format {
+                | MimeType::Yaml => serde_norway::from_str::<serde_norway::Value>(&content)
+                    .and_then(|value| serde_norway::to_string(&value))
+                    .map_err(|why| eyre!("Serialize research activity YAML — {why}")),
+                | _ => Ok(content),
+            })
             .and_then(|content| write_file(output, content))
     }
 }

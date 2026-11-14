@@ -18,14 +18,16 @@ Make the local verification loop fast enough to run after every change. Coverage
 
 # Current evidence
 
+November 12 targeted currency check at `6c2a51b8`: the forced-clean recipes and missing nextest configuration remain; the workspace now has 17 members and GitLab CI runs coverage. Historical suite/package counts below have been removed where not remeasured. The separate [Blaze pilot](../refactors/blaze-development-pilot/index.md) evaluates native incremental builds and does not replace this plan's tarpaulin or slow-test work.
+
 - `Makefile` `cover`, `cover-cli`, and `cover-lib` all pass `--force-clean` to `cargo tarpaulin`. `cargo tarpaulin --help` describes that flag as "adds a clean stage", so every run discards instrumented artifacts and recompiles the workspace from scratch.
-- The workspace has 15 members and about 1,097 packages in `Cargo.lock`, including heavy optional dependencies (`duckdb`, `chromiumoxide`, `tonic`, `lychee-lib`) owned by `acorn-cli`, `acorn-lib`, `acorn-schema`, and `acorn-server`.
-- The suite holds roughly 2,174 `#[test]` functions. Unscoped `make cover` instruments every workspace member, including the fixture-only `tests/downstream-host` crate and `xtask`, which carry no product coverage value.
+- The workspace has 17 members, including heavy optional dependencies (`duckdb`, `chromiumoxide`, `tonic`, `lychee-lib`) owned by `acorn-cli`, `acorn-lib`, `acorn-schema`, and `acorn-server`.
+- Unscoped `make cover` includes workspace test targets, including the fixture-only `tests/downstream-host` crate and `xtask`. Measure actual instrumented files before changing coverage scope; maintenance-tool tests still provide release-tool correctness value.
 - Wall-clock-bound tests exist in several places and are the most likely test-time cost once rebuilds are removed: `crates/acorn-cmd/tests/execution.rs` sleeps 700ms and 75ms, `crates/acorn-lib/src/io/mcp/tests/client.rs` has 30-second retry sleeps, `crates/acorn-cli/src/commands/download/tests/mod.rs` polls with 150ms sleeps, and `crates/acorn-lib/src/io/api/webhooks/mod.rs` polls at 10ms.
 - No `[profile.coverage]` tuning exists beyond `inherits = "test"` plus `debug = 1`. `[profile.test]` sets `"*".opt-level = 2`, so a coverage build pays optimized codegen for all dependencies even though coverage does not need it.
 - There is no `.config/nextest.toml`. `make test` runs `cargo nextest run` with library defaults: no per-test timeout, so a hung sleep- or network-bound test can stall a run with no diagnostic.
-- `make cover` is not referenced anywhere in `.gitlab-ci.yml`. Coverage is a purely local cost today, so this plan changes developer workflow and must not be read as a CI coverage gate.
-- `cargo tarpaulin --help` reports `-j, --jobs <N>` already defaults to the CPU count, so explicit job pinning is not an available win. Tarpaulin also does not run doctests unless `--doc` is passed, so the 292 doctests are not part of `make cover`; `make doctest` is already separate.
+- `.gitlab-ci.yml` has a `coverage` job calling `make cover` for merge requests and the default branch. Changes to this shared target therefore affect both local and CI coverage; preserve its reporting contract and inspect resulting lcov file totals.
+- Earlier `cargo tarpaulin --help` inspection reports `-j, --jobs <N>` defaults to the CPU count; concurrency tuning still requires measurement. Tarpaulin does not run doctests unless `--doc` is passed, so doctests are not part of `make cover`; `make doctest` is already separate.
 - Tarpaulin supplies its own `--test-threads` unless `--implicit-test-threads` is passed. Whether that helps is an empirical question, not an assumption.
 
 # Project code boundaries
@@ -63,7 +65,7 @@ Independent of every feature and refactor plan; it owns only developer-workflow 
 
 # Out of scope
 
-Splitting `acorn-lib` would reduce rebuild cost further, but it is a package-ownership decision owned by the [crate boundary architecture](../refactors/crate-boundary-architecture.md) coordination record, not a test-throughput change. Adding coverage gating or thresholds to CI is also out of scope while no CI job runs coverage.
+Splitting `acorn-lib` is a package-ownership decision owned by the [crate boundary architecture](../refactors/crate-boundary-architecture.md) coordination record, not a test-throughput change; its performance effect needs measurement. Adding new CI coverage thresholds is outside this plan. Preserve the existing CI coverage job and reporting when changing shared Make targets.
 
 # Execution phases
 

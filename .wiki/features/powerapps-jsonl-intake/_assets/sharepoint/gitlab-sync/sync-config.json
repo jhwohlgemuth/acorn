@@ -1,0 +1,11 @@
+{
+  "sharePointSiteUrl": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+  "projectListId": "88dfa78d-a62f-4e0f-aae5-0d5ea52758ed",
+  "approvedExportLibrary": "Sponsor Highlights Collected Export TEST ONLY",
+  "catalogSyncReady": false,
+  "approvedSourceReady": false,
+  "gitLabWriteReady": false,
+  "gitLabProjectId": 22464,
+  "gitLabBranch": "main",
+  "approvedGitLabPath": ".acorn/approved/logbook.jsonl"
+}
