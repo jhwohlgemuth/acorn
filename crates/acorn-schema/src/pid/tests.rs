@@ -105,6 +105,30 @@ fn test_betanumeric() {
 }
 
 #[test]
+fn test_identifier_find_all_handles_escaped_slashes_for_supported_kinds() {
+    let escaped = ALL_SUPPORTED_PID_FIXTURE.replace('/', r"\/");
+    assert_eq!(Identifier::find_all(&escaped), Identifier::find_all(ALL_SUPPORTED_PID_FIXTURE));
+}
+#[test]
+fn test_identifier_find_all_normalizes_and_deduplicates_escaped_doi() {
+    [
+        r#""https:\/\/doi.org\/10.15760\/etd.6294""#,
+        r"10.15760\/etd.6294",
+        r#"{"escaped":"https:\/\/doi.org\/10.15760\/etd.6294","plain":"https://doi.org/10.15760/etd.6294"}"#,
+    ]
+    .into_iter()
+    .for_each(|content| {
+        assert_eq!(
+            Identifier::find_all(content),
+            vec![Identifier {
+                kind: PID::DOI,
+                value: "10.15760/etd.6294".to_string(),
+            }],
+            "input: {content}"
+        );
+    });
+}
+#[test]
 fn test_identifier_normalize_uses_declared_kind() {
     let doi = Identifier {
         kind: PID::DOI,

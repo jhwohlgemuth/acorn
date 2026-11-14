@@ -174,6 +174,19 @@ fn test_diff_content_supports_unified_and_json_patch_modes() {
     assert!(diff("{}", "{}", "unknown").is_err());
 }
 #[test]
+fn test_discover_identifiers_accepts_escaped_slashes() {
+    let result = discover_identifiers(r#""https:\/\/doi.org\/10.15760\/etd.6294""#);
+    assert_eq!(result.count, 1);
+    assert!(!result.truncated);
+    assert_eq!(
+        result
+            .identifiers
+            .first()
+            .map(|identifier| (&identifier.kind, identifier.normalized.as_str())),
+        Some((&PID::DOI, "10.15760/etd.6294"))
+    );
+}
+#[test]
 fn test_discover_identifiers_filters_urls_and_normalizes_supported_pids() {
     let result = discover_identifiers("See https://example.org and DOI https://doi.org/10.1000/182 plus RRID:SCR_003512.");
     assert_eq!(result.count, 2);

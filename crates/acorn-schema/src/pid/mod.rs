@@ -284,8 +284,10 @@ pub struct PersistentIdentifierInternal {
     pid_type: PID,
 }
 impl Identifier {
-    /// Discover every supported persistent identifier in text.
+    /// Discover every supported persistent identifier in text, including JSON-escaped forward slashes.
     pub fn find_all(content: &str) -> Vec<Self> {
+        let unescaped = content.contains(r"\/").then(|| content.replace(r"\/", "/"));
+        let content = unescaped.as_deref().unwrap_or(content);
         let raid = content
             .split_whitespace()
             .filter(|value| value.to_ascii_lowercase().contains("raid"))

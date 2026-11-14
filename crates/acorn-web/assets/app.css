@@ -548,7 +548,11 @@ abbr[title]{text-decoration:underline dotted;text-underline-offset:3px;cursor:he
 .theme-sun{display:none}
 [data-theme=light] .theme-moon{display:none}
 [data-theme=light] .theme-sun{display:inline}
+/* One Dark Pro syntax with readable light variants and ORNL text selections. */
+.workspace{--code-selection:#00b38f59;--syntax-call:#61afef;--syntax-deleted:#e06c75;--syntax-keyword:#c678dd;--syntax-name:#e5c07b;--syntax-number:#d19a66;--syntax-operator:#56b6c2;--syntax-property:#e06c75;--syntax-string:#98c379;--syntax-type:#e5c07b}
+.workspace[data-theme=light]{--code-selection:#00662c33;--syntax-call:#825000;--syntax-deleted:#a12622;--syntax-keyword:#005a9c;--syntax-name:#7141a0;--syntax-number:#825000;--syntax-operator:#7141a0;--syntax-property:#005a9c;--syntax-string:#00662c;--syntax-type:#005a9c}
 .syntax{font:inherit;color:var(--text)}
+.syntax::selection,.syntax ::selection,.code-editor textarea::selection{background:var(--code-selection)}
 .inline-code{display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;overflow-wrap:anywhere}
 .code-block{border:1px solid var(--border);border-radius:6px;background:var(--code);margin:12px 0;overflow:hidden}
 .code-toolbar{display:flex;justify-content:flex-end;padding:4px 6px 8px;border-bottom:1px solid var(--border)}
@@ -561,23 +565,19 @@ abbr[title]{text-decoration:underline dotted;text-underline-offset:3px;cursor:he
 .line-numbers>span::before{content:attr(data-line)}
 .copy-code,.result-actions button,.identifier-row>button{display:inline-flex;align-items:center;gap:4px;font:11px/1.4 system-ui,sans-serif;padding:3px 6px;min-height:24px}
 .copy-code .icon,.result-actions .icon{width:12px;height:12px}
-.syntax .token.comment,.syntax .token.prolog{color:var(--muted)}
-.syntax .token.property,.syntax .token.tag{color:#e06c75}
-.syntax .token.keyword{color:#c678dd}
-.syntax .token.string,.syntax .token.inserted{color:#98c379}
-.syntax .token.number,.syntax .token.boolean{color:#d19a66}
-.syntax .token.function{color:#61afef}
-.syntax .token.operator{color:#56b6c2}
-.syntax .token.variable,.syntax .token.attr-name{color:#e5c07b}
-.syntax .token.deleted{color:#e06c75}
-.syntax .token.punctuation{color:var(--text)}
-.syntax .token.bold{font-weight:700}
-.syntax .token.italic{font-style:italic}
-[data-theme=light] .syntax .token.property,[data-theme=light] .syntax .token.tag,[data-theme=light] .syntax .token.keyword{color:#005a9c}
-[data-theme=light] .syntax .token.string,[data-theme=light] .syntax .token.inserted{color:#00662c}
-[data-theme=light] .syntax .token.number,[data-theme=light] .syntax .token.boolean,[data-theme=light] .syntax .token.function{color:#825000}
-[data-theme=light] .syntax .token.operator,[data-theme=light] .syntax .token.variable,[data-theme=light] .syntax .token.attr-name{color:#7141a0}
-[data-theme=light] .syntax .token.deleted{color:#a12622}
+.syntax .token.comment,.syntax .token.prolog,.syntax .token.doctype,.syntax .token.cdata,.code-editor .tok-comment,.code-editor .tok-meta{color:var(--muted)}
+.syntax .token.property,.syntax .token.tag,.code-editor .tok-propertyName{color:var(--syntax-property)}
+.syntax .token.keyword,.code-editor .tok-keyword{color:var(--syntax-keyword)}
+.syntax .token.string,.syntax .token.attr-value,.syntax .token.inserted,.code-editor .tok-string,.code-editor .tok-inserted{color:var(--syntax-string)}
+.syntax .token.number,.syntax .token.boolean,.syntax .token.constant,.code-editor .tok-number,.code-editor .tok-bool,.code-editor .tok-atom,.code-editor .tok-literal{color:var(--syntax-number)}
+.syntax .token.function,.syntax .token.url,.syntax .token.title,.code-editor .tok-heading,.code-editor .tok-link,.code-editor .tok-url{color:var(--syntax-call)}
+.syntax .token.operator,.code-editor .tok-operator{color:var(--syntax-operator)}
+.syntax .token.variable,.syntax .token.attr-name,.code-editor .tok-variableName,.code-editor .tok-variableName2,.code-editor .tok-labelName{color:var(--syntax-name)}
+.syntax .token.class-name,.syntax .token.builtin,.syntax .token.regex,.code-editor .tok-typeName,.code-editor .tok-className,.code-editor .tok-namespace,.code-editor .tok-macroName,.code-editor .tok-string2{color:var(--syntax-type)}
+.syntax .token.deleted,.code-editor .tok-deleted,.code-editor .tok-invalid{color:var(--syntax-deleted)}
+.syntax .token.punctuation,.code-editor .tok-punctuation{color:var(--text)}
+.syntax .token.bold,.code-editor .tok-strong{font-weight:700}
+.syntax .token.italic,.code-editor .tok-emphasis{font-style:italic}
 .diff-output .token.inserted{background:var(--active)}
 .diff-output .token.deleted{background:#9b554733}
 .code-editor{min-width:0;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;border:1px solid var(--border);border-radius:6px;background:var(--code);overflow:hidden}
@@ -599,27 +599,13 @@ abbr[title]{text-decoration:underline dotted;text-underline-offset:3px;cursor:he
 .code-editor .cm-line{padding:0 10px}
 .code-editor .cm-gutters{background:var(--code);color:var(--muted);border-right:1px solid var(--border)}
 .code-editor .cm-foldGutter .cm-gutterElement{cursor:pointer;padding:0 5px;color:var(--focus)}
-.code-editor .cm-activeLine,.code-editor .cm-activeLineGutter{background:var(--active)}
-.code-editor .cm-selectionBackground,.code-editor .cm-focused .cm-selectionBackground{background:color-mix(in srgb,var(--focus) 25%,transparent)!important}
+/* Selection layers sit below the content, so the active line must remain translucent. */
+.code-editor .cm-activeLine{background:color-mix(in srgb,var(--text) 6%,transparent)}
+.code-editor .cm-activeLineGutter{background:var(--active)}
+.code-editor .cm-selectionBackground,.code-editor .cm-focused .cm-selectionBackground{background:var(--code-selection)!important}
 .code-editor .cm-cursor{border-left-color:var(--text)}
 .code-editor .cm-foldPlaceholder{background:var(--active);color:var(--focus);border:0;border-radius:4px;padding:0 6px}
 .code-editor .cm-matchingBracket{background:var(--active);outline:1px solid var(--focus)}
-.code-editor .tok-comment,.code-editor .tok-meta{color:var(--muted)}
-.code-editor .tok-propertyName,.code-editor .tok-typeName{color:#e06c75}
-.code-editor .tok-keyword{color:#c678dd}
-.code-editor .tok-string,.code-editor .tok-inserted{color:#98c379}
-.code-editor .tok-number,.code-editor .tok-bool{color:#d19a66}
-.code-editor .tok-variableName{color:#e5c07b}
-.code-editor .tok-operator{color:#56b6c2}
-.code-editor .tok-heading,.code-editor .tok-link{color:#61afef}
-.code-editor .tok-deleted{color:#e06c75}
-.code-editor .tok-strong{font-weight:700}
-.code-editor .tok-emphasis{font-style:italic}
-[data-theme=light] .code-editor .tok-propertyName,[data-theme=light] .code-editor .tok-typeName,[data-theme=light] .code-editor .tok-keyword,[data-theme=light] .code-editor .tok-heading,[data-theme=light] .code-editor .tok-link{color:#005a9c}
-[data-theme=light] .code-editor .tok-string,[data-theme=light] .code-editor .tok-inserted{color:#00662c}
-[data-theme=light] .code-editor .tok-number,[data-theme=light] .code-editor .tok-bool{color:#825000}
-[data-theme=light] .code-editor .tok-variableName,[data-theme=light] .code-editor .tok-operator{color:#7141a0}
-[data-theme=light] .code-editor .tok-deleted{color:#a12622}
 
 .remote-loader{margin-top:20px;text-align:left;border-top:1px solid var(--border);padding-top:20px}
 .remote-actions{display:flex;align-items:end;gap:8px;flex-wrap:wrap}

@@ -145,6 +145,27 @@ try {
             await page.getByRole("button", { name: "Fold all", exact: true }).click();
             assert.ok(await page.locator(".cm-foldPlaceholder").count() > 0);
             await page.getByRole("button", { name: "Expand all", exact: true }).click();
+            await editor.locator(".tok-propertyName").filter({ hasText: '"title"' }).dblclick();
+            assert.equal(await page.evaluate(() => window.getSelection().toString()), "title", "double-click selects a single word");
+            const selection = page.locator(".cm-selectionBackground").first();
+            await selection.waitFor();
+            const bounds = await selection.boundingBox();
+            const clip = { x: Math.ceil(bounds.x + 2), y: Math.floor(bounds.y + bounds.height - 2), width: Math.ceil(bounds.width + 8), height: 1 };
+            const screenshot = await page.screenshot({ clip });
+            const pixels = await page.evaluate(async (image) => {
+                const bitmap = new Image();
+                bitmap.src = `data:image/png;base64,${image}`;
+                await bitmap.decode();
+                const canvas = document.createElement("canvas");
+                canvas.width = bitmap.width;
+                canvas.height = 1;
+                const context = canvas.getContext("2d");
+                context.drawImage(bitmap, 0, 0);
+                return [0, bitmap.width - 1].map(x => Array.from(context.getImageData(x, 0, 1, 1).data));
+            }, screenshot.toString("base64"));
+            const [selected, unselected] = pixels;
+            assert.ok(selected[1] - selected[0] > unselected[1] - unselected[0] + 15, `${theme}: single-word selection visibly paints green over the active line`);
+            await editor.press("ArrowRight");
         }
     }
     await editor.press("ControlOrMeta+z");
