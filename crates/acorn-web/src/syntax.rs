@@ -1,6 +1,7 @@
 use crate::ui::Icon;
 use dioxus::prelude::*;
 
+const EDITOR_ASSETS: Asset = asset!("/assets/generated/editor");
 #[component]
 pub(crate) fn Code(text: String, language: String, #[props(default)] copyable: bool) -> Element {
     let rendered = use_resource(use_reactive((&text, &language), |(text, language)| async move {
@@ -55,8 +56,8 @@ pub(crate) fn CodeEditor(
         document::eval(&format!("window.acornEditors?.sync(...{args});"));
     }));
     rsx! {
-        document::Link { rel: "license", title: "CodeMirror dependency licenses", href: asset!("/assets/generated/editor/LICENSES.txt") }
-        document::Script { src: asset!("/assets/generated/editor/editor.js") }
+        document::Link { rel: "license", title: "CodeMirror dependency licenses", href: "{EDITOR_ASSETS}/LICENSES.txt" }
+        document::Script { src: "{EDITOR_ASSETS}/editor.js" }
         div { class: "code-editor", "data-language": language, style: "--editor-height:calc({rows} * 1.6em + 20px)",
             div { class: "editor-toolbar", role: "group", "aria-label": "{label} editor controls",
                 button { r#type: "button", class: "copy-code", title: "Fold all regions (Ctrl+Alt+[)", onclick: move |_| { document::eval(&format!("window.acornEditors?.fold('{id}')")); }, Icon { name: "fold" } "Fold all" }
