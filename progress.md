@@ -142,3 +142,14 @@
 
 - Added `check-release-apps` as a prerequisite of `make release-version`, so lifecycle/manifest policy and the application regression tests run before any version mutation. The browser already inherits the workspace version, and the GitLab main Cargo.toml trigger builds/publishes its ZIP/checksum and exposes release links. Desktop remains planned with no crate or native artifact; future native integration is still required.
 - Validation: In a shared-object temporary checkout, `make release-version VERSION=0.6.4` passed all 11 application tests, updated the workspace/lockfile/citation and internal pins, and passed the 14-crate release-list and version checks. Cargo metadata reported acorn-web 0.6.4 with crates.io publication disabled. Packaging a minimal browser fixture produced the 0.6.4 archive/checksum and matching embedded browser/desktop lifecycle metadata; xtask verification passed. Adding a deliberately unintegrated desktop manifest then blocked a 0.6.5 bump before Cargo.toml changed. The real workspace version remains 0.6.3; no build or publication was triggered by this verification.
+
+## Implementation — Browser operation worker (BWP-01/02)
+
+- Plan: `.wiki/refactors/browser-performance.md`; BWP-01/02 complete and pruned; active phase: none; state: complete.
+- Authorized scope and decisions: Operations run in a module worker over the single shared release WASM; in-thread fallback when the worker cannot load; WebMCP unchanged on the main thread.
+- Baseline and local work: `dc5d79c7`; changed `crates/acorn-web/{Cargo.toml,README.md,src/main.rs,src/operations.rs,src/ui.rs,src/workspace.rs,assets/effects.js,assets/effects.test.mjs,assets/worker.js,scripts/pages-smoke.mjs}`, `Cargo.lock`, and the plan/index/network/lane wiki files.
+- Verified state (uncommitted tree): clippy native+wasm clean; `cargo test -p acorn-web` 22 passed; `node --test crates/acorn-web/assets/effects.test.mjs` 17 passed; `make web-pages`, `make web-test-pages` (5 worker operations, 16 KiB discovery 63 ms, longest frame gap 17 ms) and `make web-test-wasm` (8 passed) at `/acorn`; wiki validator passed.
+- Remaining work: BWP-03 and BWP-06 are ready; see the plan.
+- Budget: about 2.5 active hours across BWP-01/02 (estimate).
+- Blockers / failed approaches: none. Known trade-off: first operation waits for the worker's WASM instance (about 90 ms) and each operation adds about 20 ms of message overhead.
+- Next action: BWP-03 — expose Rust-returning acorn-wasm functions so the worker skips the JsValue round trip.

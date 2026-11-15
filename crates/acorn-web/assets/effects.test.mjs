@@ -275,3 +275,46 @@ test("a tour import finishing after navigation cannot reopen the tour", async ()
     await pending;
     assert.equal(opened, false);
 });
+
+function fakeWorker(respond) {
+    const worker = { posted: [], terminated: false, terminate() { this.terminated = true; } };
+    worker.postMessage = (data) => {
+        worker.posted.push(data);
+        queueMicrotask(() => worker.onmessage({ data: { id: data.id, ...respond(data) } }));
+    };
+    return worker;
+}
+test("operations fall back in-thread when no worker can be created", async () => {
+    const context = await effectContext();
+    assert.deepEqual({ ...await context.window.acornOperations.run("{}") }, { unavailable: "The operation worker is unavailable." });
+    let spawned = 0;
+    const throwing = context.createOperations(() => { spawned += 1; throw new Error("blocked"); });
+    assert.ok((await throwing.run("{}")).unavailable);
+    assert.ok((await throwing.run("{}")).unavailable);
+    assert.equal(spawned, 1, "an unavailable worker is not retried for every operation");
+});
+test("operations return worker replies and count only served operations", async () => {
+    const context = await effectContext();
+    const worker = fakeWorker(({ message }) => ({ reply: message === null ? null : `reply:${message}` }));
+    const operations = context.createOperations(() => worker);
+    operations.warm();
+    const [first, second] = await Promise.all([operations.run("a"), operations.run("b")]);
+    assert.equal(first.reply, "reply:a");
+    assert.equal(second.reply, "reply:b");
+    assert.equal(operations.status.served, 2);
+    assert.deepEqual(worker.posted.map(({ message }) => message), [null, "a", "b"]);
+});
+test("a payload that cannot load disables the worker and a trapped run restarts it", async () => {
+    const context = await effectContext();
+    const broken = fakeWorker(() => ({ stage: "load", failed: "no WASM" }));
+    let spawned = 0;
+    const unavailable = context.createOperations(() => { spawned += 1; return broken; });
+    assert.equal((await unavailable.run("a")).unavailable, "no WASM");
+    assert.ok((await unavailable.run("b")).unavailable);
+    assert.equal(spawned, 1);
+    assert.equal(broken.terminated, true);
+    const workers = [fakeWorker(() => ({ stage: "run", failed: "unreachable" })), fakeWorker(() => ({ reply: "ok" }))];
+    const restarting = context.createOperations(() => workers.shift());
+    assert.match((await restarting.run("a")).error, /stopped unexpectedly/);
+    assert.equal((await restarting.run("b")).reply, "ok");
+});

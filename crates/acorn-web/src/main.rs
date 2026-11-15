@@ -19,7 +19,7 @@ fn app() -> Element {
         document::Link { rel: "icon", r#type: "image/svg+xml", href: asset!("/assets/generated/acorn-app-icon.svg") }
         document::Link { rel: "license", title: "Lucide icon license", href: asset!("/assets/vendor/lucide.LICENSE") }
         document::Link { rel: "stylesheet", href: asset!("/assets/app.css") }
-        document::Script { src: asset!("/assets/effects.js") }
+        document::Script { src: asset!("/assets/effects.js"), "data-worker": asset!("/assets/worker.js") }
         document::Script { src: asset!("/assets/details.js") }
         document::Script { src: asset!("/assets/remote.js") }
         document::Script { src: asset!("/assets/syntax.js"), "data-prism": asset!("/assets/vendor/prism.js") }
@@ -27,5 +27,8 @@ fn app() -> Element {
     }
 }
 fn main() {
-    dioxus::launch(app);
+    // The operation worker loads this same payload; only a document hosts the interface.
+    if js_sys::Reflect::has(&js_sys::global(), &"document".into()).unwrap_or(false) {
+        dioxus::launch(app);
+    }
 }

@@ -1,7 +1,6 @@
 use crate::details::{self, Detail};
-use crate::ui::{Icon, Route, UrlFileInput};
+use crate::ui::{validate_files, Icon, Route, UrlFileInput};
 use acorn_web::{
-    operations::{self, Request, Tool},
     presentation::text,
     session::{self, Selection, SuppliedFile, Workspace},
 };
@@ -162,6 +161,7 @@ pub(crate) fn Portfolio() -> Element {
     let mut sort = use_signal(|| "title");
     let mut descending = use_signal(|| false);
     let mut selected = use_signal(|| None::<String>);
+    let mut validating = use_signal(|| false);
     let snapshot = workspace();
     let activities = snapshot.activities();
     let types = session::distribution(&activities, session::activity_type);
@@ -201,14 +201,16 @@ pub(crate) fn Portfolio() -> Element {
             div { class: "card empty", Icon { name: "portfolio" } h2 { "No research activities loaded" } p { "Open local content or try the bundled sample from Home." } Link { to: Route::Home {}, "Open Home →" } }
         } else {
             details { summary { "{snapshot.files.len()} loaded files · {snapshot.bytes()} UTF-8 bytes" } FileTree { paths: snapshot.files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } }
-            div { class: "actions", button { class: "primary", onclick: move |_| {
-                let mut next = workspace();
-                next.validations = next.files.iter().filter(|file| file.path.to_lowercase().ends_with(".json")).map(|file| {
-                    let result = operations::run(Tool::Activity, &Request { input: file.content.clone(), ..Request::default() }).unwrap_or_else(|message| json!({"valid":false,"error":message}));
-                    (file.path.clone(), result)
-                }).collect();
-                workspace.set(next);
-            }, "Validate loaded activities" } }
+            div { class: "actions", button { class: "primary", disabled: validating(), "aria-busy": validating(), onclick: move |_| async move {
+                validating.set(true);
+                let files = workspace.peek().files.clone();
+                let validations = validate_files(files.iter().filter(|file| file.path.to_lowercase().ends_with(".json")).cloned().collect()).await;
+                validating.set(false);
+                // A newer selection replaces the session while validation runs; its files are not these results' source.
+                if workspace.peek().files == files {
+                    workspace.write().validations = validations.into_iter().map(|(path, result)| (path, result.unwrap_or_else(|message| json!({"valid":false,"error":message})))).collect();
+                }
+            }, if validating() { "Validating…" } else { "Validate loaded activities" } } }
             p { class: "small muted", "Validation reads JSON files only and runs when requested. Other files remain available in the loaded tree. {invalid} invalid or unreadable activities." }
             if activities.is_empty() { p { class: "status invalid", "No validated activities yet. Validate the loaded JSON files, or inspect a file in Research Activity." } }
             label { class: "field", "Search activities" input { r#type: "search", value: search(), oninput: move |event| search.set(event.value()), placeholder: "Search title or source file…" } }

@@ -60,7 +60,7 @@ async function installWebMcp() {
         });
     } catch (error) {
         status.textContent = "WebMCP: failed (manual tools available)";
-        console.error("WebMCP installation failed", error);
+        console.error(`WebMCP installation failed: ${error?.stack ?? error}`);
     }
 }
 installWebMcp();
@@ -368,12 +368,69 @@ window.acornMap = (() => {
                 const workspace = document.querySelector(".workspace");
                 if (workspace) observer.observe(workspace, { attributes: true, attributeFilter: ["data-theme"] });
             } catch (error) {
-                console.error("Local map initialization failed", error);
+                // The Dioxus development log bridge accepts only string arguments; an Error object arrives as {}.
+                console.error(`Local map initialization failed: ${error?.stack ?? error}`);
                 if (request === generation) notify({ type: "error", message: "Map unavailable. Organization data remains available in the table." });
             }
         },
         disconnect() { generation += 1; observer?.disconnect(); bridge?.dispose(); bridge = undefined; observer = undefined; state = { markers: [], selected: null, theme: "dark" }; },
     };
 })();
+
+// Operations run in one module worker over the shared release payload; an unavailable worker means callers run in-thread.
+function createOperations(spawn) {
+    let worker;
+    let disabled = false;
+    let next = 0;
+    const pending = new Map();
+    const status = { served: 0 };
+    function stop(reply) {
+        worker?.terminate();
+        worker = undefined;
+        pending.forEach((settle) => settle(reply));
+        pending.clear();
+    }
+    function receive({ data }) {
+        const settle = pending.get(data.id);
+        pending.delete(data.id);
+        if (data.stage === "load") {
+            disabled = true;
+            settle?.({ unavailable: data.failed });
+            stop({ unavailable: data.failed });
+        } else if (data.stage === "run") {
+            // A trapped WASM instance cannot be reused; the next request starts a fresh worker.
+            const error = { error: "The operation stopped unexpectedly. Try a smaller input or reload the app." };
+            settle?.(error);
+            stop(error);
+        } else {
+            if (data.reply !== null) status.served += 1;
+            settle?.({ reply: data.reply });
+        }
+    }
+    function start() {
+        try { worker = spawn(); } catch { worker = undefined; }
+        if (worker) {
+            worker.onmessage = receive;
+            worker.onerror = (event) => { event.preventDefault?.(); disabled = true; stop({ unavailable: event.message || "The operation worker failed to start." }); };
+        } else disabled = true;
+        return worker;
+    }
+    function post(message) {
+        const target = disabled ? undefined : worker ?? start();
+        next += 1;
+        const id = next;
+        return target
+            ? new Promise((settle) => { pending.set(id, settle); target.postMessage({ id, message }); })
+            : Promise.resolve({ unavailable: "The operation worker is unavailable." });
+    }
+    return { run: (message) => post(message), warm: () => { void post(null); }, status };
+}
+function spawnOperationWorker(url, loader) {
+    const worker = typeof Worker === "function" && url && loader ? new Worker(url, { type: "module" }) : undefined;
+    worker?.postMessage({ loader });
+    return worker;
+}
+const operationWorker = typeof document !== "undefined" ? document.currentScript?.dataset?.worker : undefined;
+window.acornOperations = createOperations(() => spawnOperationWorker(operationWorker, document.querySelector('script[src*="acorn-web"]')?.src));
 
 if (window.dispatchEvent) window.dispatchEvent(new Event("acorn-effects-ready"));

@@ -116,6 +116,7 @@ fn Home() -> Element {
     let mut session = use_context::<Signal<String>>();
     let nav = use_navigator();
     let mut workspace = use_context::<Signal<Workspace>>();
+    let mut loading = use_signal(|| false);
     rsx! {
         document::Title { "{APP_NAME}" }
         section { class: "home",
@@ -126,12 +127,14 @@ fn Home() -> Element {
             }
             div { id: "home-actions", class: "actions centered",
                 button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { document::eval("window.acornChrome?.tour.start()"); }, Icon { name: "compass" } "Take a tour" }
-                button { id: "sample-data", class: "sample-action", onclick: move |_| {
+                button { id: "sample-data", class: "sample-action", disabled: loading(), "aria-busy": loading(), onclick: move |_| async move {
+                    loading.set(true);
                     let mut loaded = Workspace::default().replace(Selection { files: RAD_EXAMPLES.iter().enumerate().map(|(index, (_, content))| SuppliedFile { path: format!("sample-{index}.json"), content: (*content).into() }).collect(), skipped: 0 });
-                    loaded.validations = loaded.files.iter().filter_map(|file| operations::run(Tool::Activity, &Request { input: file.content.clone(), ..Request::default() }).ok().map(|value| (file.path.clone(), value))).collect();
+                    loaded.validations = validate_files(loaded.files.clone()).await.into_iter().filter_map(|(path, result)| result.ok().map(|value| (path, value))).collect();
+                    loading.set(false);
                     session.set(loaded.content()); workspace.set(loaded); nav.push(Route::Page { page: "portfolio".into() });
                     document::eval("window.acornChrome?.notifications.notify('Bundled sample activities loaded.')");
-                }, span { "aria-hidden": "true", "✨" } "Try Sample Data" }
+                }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } }
             }
             Link { id: "skill-entry", to: Route::Page { page: "skill".into() }, class: "skill-card", span { "The home of the ACORN Skill" } p { "Validate metadata, convert formats and inspect identifiers, then use ACORN in your agent environment." } span { class: "muted", "Explore the skill guide →" } }
             Loader {}
@@ -280,11 +283,39 @@ fn Page(page: String) -> Element {
         rsx! { InfoPage { page } }
     }
 }
-/// The single dispatch seam for browser operations; a worker can replace the in-thread call here.
+/// The single dispatch seam for browser operations: the operation worker when available, otherwise in-thread.
 pub(crate) async fn execute(tool: Tool, request: Request) -> Result<Value, String> {
-    // Let the busy state paint before the synchronous computation holds the main thread.
-    let _ = document::eval("await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve)))").await;
-    operations::run(tool, &request)
+    let message = serde_json::to_string(&(tool, &request)).unwrap_or_default();
+    let channel = document::eval("const message = await dioxus.recv(); return await (window.acornOperations?.run(message) ?? { unavailable: 'The operation client is unavailable.' });");
+    let reply = match channel.send(message) {
+        | Ok(()) => channel.join::<Value>().await.unwrap_or(Value::Null),
+        | Err(_) => Value::Null,
+    };
+    match (reply.get("reply").and_then(Value::as_str), reply.get("error").and_then(Value::as_str)) {
+        | (Some(text), _) => operations::decode(text),
+        | (None, Some(message)) => Err(message.to_owned()),
+        | (None, None) => {
+            // Let the busy state paint before the synchronous computation holds the main thread.
+            let _ = document::eval("await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve)))").await;
+            operations::run(tool, &request)
+        }
+    }
+}
+/// Validate Research Activity files one at a time through [`execute`].
+pub(crate) async fn validate_files(files: Vec<SuppliedFile>) -> Vec<(String, Result<Value, String>)> {
+    let mut results = Vec::with_capacity(files.len());
+    for file in files {
+        let result = execute(
+            Tool::Activity,
+            Request {
+                input: file.content,
+                ..Request::default()
+            },
+        )
+        .await;
+        results.push((file.path, result));
+    }
+    results
 }
 async fn read_local_file(file: FileData, limit: usize) -> Result<String, String> {
     if file.size() > limit as u64 {
@@ -430,6 +461,9 @@ fn ToolWorkspace(tool: Tool) -> Element {
     });
     let mut result = use_signal(|| None::<Result<Value, String>>);
     let mut running = use_signal(|| false);
+    use_hook(|| {
+        document::eval("window.acornOperations?.warm()");
+    });
     use_effect(use_reactive((&tool,), move |(_tool,)| {
         request.set(Request {
             input: session.peek().clone(),

@@ -28,5 +28,8 @@ export default defineConfig(({ command }) => ({
         sourcemap: false,
         assetsInlineLimit: 0,
     },
-    server: { cors: { origin: frontendOrigins } },
+    // Library mode has no index.html for Vite's dependency scanner. Without an explicit entry, a cold cache
+    // discovers Cesium/React on the first cross-origin import and reloads mid-load, failing that import.
+    optimizeDeps: { entries: ["src/main.tsx"] },
+    server: { cors: { origin: frontendOrigins }, warmup: { clientFiles: ["./src/main.tsx"] } },
 }));

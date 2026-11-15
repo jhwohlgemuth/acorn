@@ -76,13 +76,24 @@ try {
     await page.locator('nav a[title="Discover identifiers"]').click();
     await waitForServices(page);
     await page.locator("#content-editor").fill(discovery.repeat(Math.floor(16384 / Buffer.byteLength(discovery))));
+    await page.evaluate(() => {
+        // Record main-thread frame gaps while the operation runs in the worker.
+        const gaps = [];
+        let last = performance.now();
+        window.__acornFrames = { gaps, active: true };
+        const tick = (now) => { gaps.push(now - last); last = now; if (window.__acornFrames.active) requestAnimationFrame(tick); };
+        requestAnimationFrame(tick);
+    });
     const started = Date.now();
     await page.getByRole("button", { name: "Discover identifiers", exact: true }).click();
     await page.getByText(/unique identifiers · normalized and deduplicated/).waitFor();
     const elapsed = Date.now() - started;
+    const frames = await page.evaluate(() => { window.__acornFrames.active = false; return { longest: Math.max(...window.__acornFrames.gaps), served: window.acornOperations.status.served }; });
+    assert.ok(frames.served >= 2, `Operations must run in the worker; it served ${frames.served}`);
+    assert.ok(frames.longest < 250, `The main thread stalled for ${Math.round(frames.longest)} ms during discovery`);
     // Regex recompilation once made a full editor take seconds; keep generous headroom for CI hosts.
     assert.ok(elapsed < 3000, `Discovery at the editor limit took ${elapsed} ms`);
-    console.log(`Discovery at the 16 KiB editor limit rendered in ${elapsed} ms.`);
+    console.log(`Discovery at the 16 KiB editor limit rendered in ${elapsed} ms in the worker; longest main-thread frame gap ${Math.round(frames.longest)} ms; ${frames.served} worker operations.`);
     const direct = await page.goto(`${origin}${prefix}/readability`);
     assert.equal(direct.status(), 404, "Exercise GitHub Pages' custom 404 response");
     await waitForServices(page);

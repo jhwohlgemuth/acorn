@@ -450,6 +450,7 @@ dependencies = [
  "acorn-wasm",
  "case",
  "dioxus",
+ "js-sys",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",

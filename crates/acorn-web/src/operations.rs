@@ -264,6 +264,38 @@ impl std::io::Write for Budget {
 pub fn fits(value: &Value, limit: usize) -> bool {
     serde_json::to_writer(Budget(limit), value).is_ok()
 }
+/// Outcome of one operation as it crosses the worker message boundary.
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Reply {
+    /// Operation result.
+    Ok(Value),
+    /// User-facing failure message.
+    Error(String),
+}
+/// Run one serialized `(Tool, Request)` message and serialize its [`Reply`].
+pub fn handle(message: &str) -> String {
+    let reply = match serde_json::from_str::<(Tool, Request)>(message) {
+        | Ok((tool, request)) => run(tool, &request).map_or_else(Reply::Error, Reply::Ok),
+        | Err(_) => Reply::Error("The operation request was malformed.".into()),
+    };
+    serde_json::to_string(&reply).unwrap_or_default()
+}
+/// Decode a serialized [`Reply`] into the result shown by the workspace.
+pub fn decode(reply: &str) -> Result<Value, String> {
+    serde_json::from_str::<Reply>(reply)
+        .map_err(|_| "The operation returned an unreadable result.".to_owned())
+        .and_then(|reply| match reply {
+            | Reply::Ok(value) => Ok(value),
+            | Reply::Error(message) => Err(message),
+        })
+}
+/// Worker entry point over the same validation, dispatch and display limits as [`run`].
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen(js_name = runOperation)]
+pub fn run_operation(message: &str) -> String {
+    handle(message)
+}
 /// Native builds test presentation contracts; computation runs in the browser.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(_tool: Tool, _request: &Request) -> Result<Value, String> {
@@ -290,6 +322,15 @@ mod tests {
             let message = serde_json::to_string(&(tool, &request)).unwrap();
             assert_eq!(serde_json::from_str::<(Tool, Request)>(&message).unwrap(), (tool, request));
         }
+    }
+    #[test]
+    fn test_worker_replies_round_trip_results_and_failures() {
+        assert_eq!(decode(&handle("not json")), Err("The operation request was malformed.".into()));
+        let message = serde_json::to_string(&(Tool::Discover, example_request(Tool::Discover))).unwrap();
+        assert_eq!(decode(&handle(&message)), run(Tool::Discover, &example_request(Tool::Discover)));
+        let ok = serde_json::to_string(&Reply::Ok(serde_json::json!({"count": 1}))).unwrap();
+        assert_eq!(decode(&ok), Ok(serde_json::json!({"count": 1})));
+        assert!(decode("{}").is_err());
     }
     #[test]
     fn test_result_budget_matches_compact_json_length() {

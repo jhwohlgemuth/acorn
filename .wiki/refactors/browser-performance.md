@@ -2,7 +2,7 @@
 okf_version: "0.1"
 type: Plan
 title: Browser workspace runtime performance
-description: Move browser operations off the UI thread, shrink the ROR and WASM payloads, and measure build, observer and caching changes for the deployed acorn-web app.
+description: Shrink the ROR and WASM payloads, and measure build, observer and caching changes for the deployed acorn-web app.
 difficulty: high
 impact: high
 package: [acorn-web, acorn-wasm, acorn-schema]
@@ -22,9 +22,8 @@ Targeted review on November 14, 2026 at HEAD `1fe6df4d` plus the uncommitted per
 
 - **Landed in the same pass, not remaining work:** PID parsers use precompiled anchored regexes (`RE_*_EXACT` in [constants](../../crates/acorn-schema/src/util/constants/mod.rs), `regex_captures` in [acorn-core](../../crates/acorn-core/src/util/alloc/mod.rs)). On the bundled discovery example, native `find_all` fell from 84 ms to 10 ms; at the 16 KiB editor limit it fell from 556 ms to 11 ms. Discovery de-duplicates with sets, Discover rows no longer run one highlight `eval` each, diagnostic rows share `Rc` source/result values, raw JSON renders only when opened, the ROR index lives in app context and is read without cloning, `ToolWorkspace` reads signals instead of cloning `Request`/`Workspace`, the result-size guard is allocation-free, `index.html` shows a loading shell, the release build preloads the WASM, and the Pages smoke enforces a 3 s Discover budget at the editor limit; release builds measured 67 ms, and 77 ms with the busy-state frame yield, in Chromium.
 - **Measured against the deployed site:** on November 14, 2026, Chromium ran the same Discover input five times, each on a fresh page, against `www.jasonwohlgemuth.com/acorn/` (old build) and the local release build. Both returned 36 identifiers. Medians: bundled example 258 → 117 ms (2.2×); 16 KiB editor limit 780 → 71 ms (11×). The example run is the first operation after load and includes one-time regex compilation. Load times (2.75 s live versus 76 ms on loopback) mix network, CDN and Cloudflare Rocket Loader effects, so they are not a code speedup. The live site's CodeMirror editor sometimes failed to mount after navigation, and one asset returned 404.
-- **Worker preparation landed:** every operation runs through one async `execute` seam in [ui.rs](../../crates/acorn-web/src/ui.rs) that yields a frame so a busy state paints. The run button shows "Running…" and is disabled until completion. `Tool` and `Request` in [operations.rs](../../crates/acorn-web/src/operations.rs) serialize as the future worker message contract, with round-trip tests. Computation still runs on the main thread after the yield.
-- [operations.rs](../../crates/acorn-web/src/operations.rs) calls the `#[wasm_bindgen]` exports in [acorn-wasm](../../crates/acorn-wasm/src/lib.rs), which serialize to `JsValue` before `serde_wasm_bindgen` converts back to `serde_json::Value`. Home "Try Sample Data" validates three files synchronously in its click handler.
-- [check-package.mjs](../../crates/acorn-web/scripts/check-package.mjs) requires exactly one `.wasm` in the release. The Dioxus loader auto-runs `__wbg_init` and `__wbindgen_start` on import, so the release module cannot be imported in a worker without the start function launching the DOM application. **Unresolved:** whether a window guard in `main` is enough for the shared payload to initialize in a `DedicatedWorkerGlobalScope`.
+- **Operation worker landed (BWP-01/02):** a module worker ([worker.js](../../crates/acorn-web/assets/worker.js)) imports the same release loader and WASM; [main.rs](../../crates/acorn-web/src/main.rs) launches Dioxus only when `document` exists, so the release still ships one payload. The `runOperation` export wraps `operations::handle`. `execute` in [ui.rs](../../crates/acorn-web/src/ui.rs) sends each request through `window.acornOperations` in [effects.js](../../crates/acorn-web/assets/effects.js) and falls back in-thread when the worker cannot load. Home sample loading and Portfolio validation use the same path. WebMCP still calls the page's bindings. The release Pages smoke at `/acorn` recorded 5 worker-served operations, 63 ms for 16 KiB discovery and a longest main-thread frame gap of 17 ms; node tests cover fallback, load failure and trap restart. Against the deployed in-thread build (`dc5d79c7`), five fresh-page runs gave a first operation of 122 → 212 ms (the worker's WASM instance is still starting) and 71 → 89 ms at 16 KiB (median message overhead). The worker's second WASM instance roughly doubles memory while it runs.
+- [operations.rs](../../crates/acorn-web/src/operations.rs) calls the `#[wasm_bindgen]` exports in [acorn-wasm](../../crates/acorn-wasm/src/lib.rs), which serialize to `JsValue` before `serde_wasm_bindgen` converts back to `serde_json::Value`; this now happens inside the worker.
 - Release payloads at `75cc88ec` (raw / gzip -9 / brotli): WASM 6,786,150 / 2,300,331 / 1,592,431; `ror-locations.json` 22,282,929 / 4,880,305 / 2,624,487; `map.js` 4,998,435 / 1,325,894 / 1,027,597; `editor.js` 572,076 / 198,279 / 167,353. The shared release profile uses `opt-level = "z"`, `overflow-checks = true`, LTO and one codegen unit; `web-release` inherits it. [Dioxus.toml](../../crates/acorn-web/Dioxus.toml) sets no `wasm_opt` level.
 - [geospatial_page.rs](../../crates/acorn-web/src/geospatial_page.rs) fetches the full registry, `JSON.parse`s it in JS, and returns it through `document::eval(...).join::<LocationIndex>()`, which serializes it again for Rust deserialization. Only referenced RORs are used.
 - [syntax.js](../../crates/acorn-web/assets/syntax.js) observes `document.documentElement` with `subtree: true` and calls `querySelectorAll(".code-viewport")` on every DOM mutation outside line-number gutters.
@@ -32,52 +31,26 @@ Targeted review on November 14, 2026 at HEAD `1fe6df4d` plus the uncommitted per
 
 # Decisions
 
-- **Worker payload.** Prefer instantiating the single shared payload in a dedicated worker with a no-window start guard, preserving the one-WASM release policy. If BWP-01 shows that the Dioxus loader or start function cannot be isolated, the fallback is a second `acorn-wasm` package for the worker. That fallback changes `check-package.mjs` policy and needs explicit owner approval in the BWP-01 handoff; it is not assumed.
-- **Message contract.** The worker accepts a serialized `(Tool, Request)` and returns the JSON result or an error string, matching `operations::run`. WebMCP keeps calling bindings on the main thread until a separate decision moves it.
 - **Measurement first.** Build-profile and WASM size work records raw, gzip and brotli bytes plus Discover/Validate timings before changing defaults. Readability or correctness regressions reject a faster setting.
 - **Hosting.** Brotli and cache headers need a host other than GitHub Pages; that is an external decision, not a phase. BWP-08 provides repeat-visit caching that works on Pages.
 
 # Dependencies and boundaries
 
-BWP-01 → BWP-02. BWP-03 is independent and shrinks the in-thread fallback. BWP-04 replaces the ROR dataset format and serializes with [ABW-18](../features/acorn-browser-workspace/index.md#abw-18--accept-map-resource-and-performance-budgets), which owns the ROR dataset and map budgets; BWP-04 lands first or as an ABW-18 input, not concurrently. BWP-05 and BWP-07 change build configuration and serialize with [frontend build quality](../testing/frontend-build-quality.md) FBQ-04/05 and other CI/build owners. BWP-06 owns only `syntax.js` and its tests. BWP-08 adds a service worker and serializes static-asset assembly with ABW-18/35 and FBQ-04.
+BWP-03 is independent and reduces per-operation work in the worker and fallback. BWP-04 replaces the ROR dataset format and serializes with [ABW-18](../features/acorn-browser-workspace/index.md#abw-18--accept-map-resource-and-performance-budgets), which owns the ROR dataset and map budgets; BWP-04 lands first or as an ABW-18 input, not concurrently. BWP-05 and BWP-07 change build configuration and serialize with [frontend build quality](../testing/frontend-build-quality.md) FBQ-04/05 and other CI/build owners. BWP-06 owns only `syntax.js` and its tests. BWP-08 adds a service worker and serializes static-asset assembly with ABW-18/35 and FBQ-04.
 
 WebMCP adapter behavior and its nine-tool contract are unchanged; coordinate any loader change with [WebMCP evaluations](../testing/webmcp-evaluations.md). Preserve unrelated working-tree changes.
 
 # Acceptance criteria
 
-- During any operation the page paints, scrolls and accepts input; the Pages smoke proves a busy indicator and a responsive control while a deliberately large validation runs.
-- The release still passes `check-package.mjs`, or its policy change is explicitly approved and documented.
 - The map page transfers a recorded fraction of today's ROR bytes, opens in a measured time on the Pages smoke, and keeps the offline, no-network and accessible-table behavior.
 - Every build or payload change records raw/gzip/brotli sizes and Discover/Validate timings before and after in `crates/acorn-web/README.md`.
 - Durable measurements and decisions live in the browser README or tests before this plan is retired.
 
 # Execution phases
 
-## BWP-01 — Prove worker initialization of the shared payload
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: landed `execute` seam and serializable `Tool`/`Request`
-- Exact write set: `crates/acorn-web/src/main.rs`, `crates/acorn-web/assets/worker.js` (new), `crates/acorn-web/scripts/worker-smoke.mjs` (new), `crates/acorn-web/README.md`
-- Primary integration lock: browser WASM loader
-- Outcome: A dedicated worker imports the release loader, initializes the shared payload without launching the UI, and runs `discoverPersistentIdentifiers` on the bundled example. The handoff states whether the single-payload approach works or why the second-package fallback is needed.
-- Focused validation: `make web-pages` then `node crates/acorn-web/scripts/worker-smoke.mjs`; the main page still passes `make web-test-pages`.
-- Handoff: Record the loader constraints and chosen approach; BWP-02 becomes ready.
-
-## BWP-02 — Dispatch operations through the worker
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: BWP-01
-- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/worker.js`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/scripts/pages-smoke.mjs`, `crates/acorn-web/README.md`
-- Primary integration lock: browser operation dispatch
-- Outcome: `execute` posts `(Tool, Request)` to one long-lived worker and awaits the result, falling back to in-thread `operations::run` when workers are unavailable. Home sample validation uses the same path. Stale results from an abandoned route are dropped.
-- Focused validation: `cargo test -p acorn-web`, `make web-test-wasm`, and `make web-test-pages` with a check that a control responds during a large validation.
-- Handoff: Record the fallback rule and timings; remove BWP-02.
-
 ## BWP-03 — Return results without the JsValue round trip
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none; serialize `crates/acorn-wasm/src/lib.rs` with WME owners
 - Exact write set: `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-web/src/operations.rs`
@@ -110,7 +83,7 @@ WebMCP adapter behavior and its nine-tool contract are unchanged; coordinate any
 
 ## BWP-06 — Scope the line-number observer
 
-- Status: planned
+- Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none; serialize `syntax.js` with FBQ-02
 - Exact write set: `crates/acorn-web/assets/syntax.js`, `crates/acorn-web/assets/syntax.test.mjs`, `crates/acorn-web/src/syntax.rs`
