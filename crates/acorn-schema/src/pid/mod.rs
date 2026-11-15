@@ -11,6 +11,7 @@
 use crate::util::constants::{HTTP_URL, RE_ARXIV, RE_URL};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::{base32_crockford_decode, trim_unmatched_trailing_parentheses};
+use alloc::collections::BTreeSet;
 use bon::Builder;
 use core::fmt;
 #[cfg(feature = "std")]
@@ -307,10 +308,13 @@ impl Identifier {
         raid.iter()
             .cloned()
             .chain(parsed)
-            .fold(Vec::new(), |identifiers, identifier| match identifiers.contains(&identifier) {
-                | true => identifiers,
-                | false => identifiers.into_iter().chain([identifier]).collect(),
+            .fold((Vec::new(), BTreeSet::new()), |(mut identifiers, mut seen), identifier| {
+                if seen.insert(identifier.clone()) {
+                    identifiers.push(identifier);
+                }
+                (identifiers, seen)
             })
+            .0
     }
     /// Create an identifier with an unknown type.
     pub fn new(value: impl Into<String>) -> Self {
@@ -576,6 +580,10 @@ impl PID {
             || self.is_rrid()
             || self.is_swhid()
             || self.is_url()
+    }
+    /// Whether text discovery reports this PID type as a persistent identifier (artifact URLs excluded)
+    pub fn supports_discovery(&self) -> bool {
+        self.is_discoverable() && !self.is_url()
     }
     /// Return the stable lowercase path component
     pub fn as_str(&self) -> &'static str {

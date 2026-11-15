@@ -1,8 +1,8 @@
 //! International Standard Book Number parsing and formatting
 use crate::pid::{mod_10_or_11_check_digit, PersistentIdentifier, PersistentIdentifierParse, DOI};
-use crate::util::constants::{RE_ISBN, RE_ISBN_10_COMPACT_TEXT, RE_ISBN_10_TEXT, RE_ISBN_13_TEXT};
+use crate::util::constants::{RE_ISBN, RE_ISBN_10_COMPACT_EXACT, RE_ISBN_10_EXACT, RE_ISBN_13_EXACT};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
-use acorn_core::util::regex_capture_lookup;
+use acorn_core::util::regex_captures;
 use bon::Builder;
 use core::fmt;
 use schemars::JsonSchema;
@@ -128,12 +128,12 @@ impl PersistentIdentifierParse for ISBN {
         let text = value.to_string();
         let text = text.strip_prefix("urn:isbn:").unwrap_or(&text).replace("- ", "-");
         let compact = text.chars().filter(is_not_isbn_separator).collect::<String>();
-        let (pattern, candidate) = match (compact.len(), compact.len() == text.len()) {
-            | (10, true) => (format!("^{RE_ISBN_10_COMPACT_TEXT}$"), compact.as_str()),
-            | (10, false) => (format!("^{RE_ISBN_10_TEXT}$"), text.as_str()),
-            | _ => (format!("^{RE_ISBN_13_TEXT}$"), text.as_str()),
+        let (re, candidate) = match (compact.len(), compact.len() == text.len()) {
+            | (10, true) => (&*RE_ISBN_10_COMPACT_EXACT, compact.as_str()),
+            | (10, false) => (&*RE_ISBN_10_EXACT, text.as_str()),
+            | _ => (&*RE_ISBN_13_EXACT, text.as_str()),
         };
-        let lookup = regex_capture_lookup(pattern.as_ref(), candidate, groups.to_vec());
+        let lookup = regex_captures(re, candidate, groups.to_vec());
         ISBN::init()
             .maybe_prefix_element(lookup.get("prefix_element").cloned())
             .maybe_registration_group(lookup.get("registration_group").cloned())

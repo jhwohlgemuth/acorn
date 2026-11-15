@@ -1,9 +1,9 @@
 //! International Standard Name Identifier parsing and formatting.
 use crate::namespaces::DEFAULT_ISNI_SCHEMA_URI;
 use crate::pid::{mod_11_2_check_digit, PersistentIdentifier, PersistentIdentifierParse};
-use crate::util::constants::{RE_ISNI, RE_ISNI_TEXT};
+use crate::util::constants::{RE_ISNI, RE_ISNI_EXACT};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
-use acorn_core::util::regex_capture_lookup;
+use acorn_core::util::regex_captures;
 use bon::Builder;
 use core::fmt;
 
@@ -79,9 +79,8 @@ impl PersistentIdentifierParse for ISNI {
     /// Create an [`ISNI`] by parsing a resolver URL or bare identifier
     fn from_string(value: impl ToString) -> Self {
         let groups = ["schema_uri", "identifier", "check_digit"];
-        let pattern = format!("^{RE_ISNI_TEXT}$");
         let text = value.to_string();
-        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let lookup = regex_captures(&RE_ISNI_EXACT, &text, groups.to_vec());
         ISNI::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
             .maybe_identifier(lookup.get("identifier").cloned())

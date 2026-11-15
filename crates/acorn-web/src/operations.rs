@@ -1,36 +1,47 @@
 //! Bounded presentation requests dispatched to the existing WASM bindings.
 use core::fmt;
-#[cfg(target_arch = "wasm32")]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strum::EnumIter;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{JsCast, JsValue};
 
 /// Browser tool selection and presentation metadata, declared in navigation order.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, EnumIter)]
+///
+/// Serialized names equal [`Tool::slug`] so an operation can cross a worker message boundary.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, EnumIter, Serialize)]
 pub enum Tool {
     /// Research Activity validation.
+    #[serde(rename = "research-activity")]
     Activity,
     /// Metadata-standard validation.
+    #[serde(rename = "metadata-standard")]
     Standard,
     /// Metadata conversion.
+    #[serde(rename = "crosswalk")]
     Crosswalk,
     /// FAIR assessment.
+    #[serde(rename = "fair")]
     Fair,
     /// Readability analysis.
+    #[serde(rename = "readability")]
     Readability,
     /// Content difference.
+    #[serde(rename = "diff")]
     Diff,
     /// Identifier discovery.
+    #[serde(rename = "discover")]
     Discover,
     /// Identifier inspection.
+    #[serde(rename = "inspect")]
     Inspect,
     /// Big-O comparison.
+    #[serde(rename = "big-o")]
     BigO,
 }
 /// User-owned form state; no operation runs while editing.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct Request {
     /// Primary supplied content.
     pub input: String,
@@ -225,13 +236,33 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
             .map_err(|e| e.as_string().unwrap_or_else(|| "The operation could not process this input.".into()))
             .and_then(|v| serde_wasm_bindgen::from_value::<Value>(v).map_err(|e| e.to_string()))
             .and_then(|v| {
-                if v.to_string().len() > 262144 {
-                    Err("Result exceeds the 256 KiB display limit. Use a smaller input.".into())
-                } else {
+                if fits(&v, RESULT_LIMIT) {
                     Ok(v)
+                } else {
+                    Err("Result exceeds the 256 KiB display limit. Use a smaller input.".into())
                 }
             })
     })
+}
+/// Largest serialized result, in bytes, the browser renders.
+pub const RESULT_LIMIT: usize = 262144;
+/// Byte budget that fails as soon as serialization exceeds it.
+struct Budget(usize);
+impl std::io::Write for Budget {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 = self
+            .0
+            .checked_sub(bytes.len())
+            .ok_or_else(|| std::io::Error::other("result exceeds limit"))?;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+/// Whether the compact JSON form of `value` fits in `limit` bytes, without allocating it.
+pub fn fits(value: &Value, limit: usize) -> bool {
+    serde_json::to_writer(Budget(limit), value).is_ok()
 }
 /// Native builds test presentation contracts; computation runs in the browser.
 #[cfg(not(target_arch = "wasm32"))]
@@ -250,6 +281,22 @@ mod tests {
         routes.sort();
         routes.dedup();
         assert_eq!(routes.len(), 9);
+    }
+    #[test]
+    fn test_operation_messages_round_trip_with_route_names() {
+        for tool in Tool::iter() {
+            assert_eq!(serde_json::to_value(tool).unwrap(), tool.slug());
+            let request = example_request(tool);
+            let message = serde_json::to_string(&(tool, &request)).unwrap();
+            assert_eq!(serde_json::from_str::<(Tool, Request)>(&message).unwrap(), (tool, request));
+        }
+    }
+    #[test]
+    fn test_result_budget_matches_compact_json_length() {
+        let value = serde_json::json!({"text": "a".repeat(100)});
+        let length = value.to_string().len();
+        assert!(fits(&value, length));
+        assert!(!fits(&value, length - 1));
     }
     #[test]
     fn test_empty_input_is_rejected() {

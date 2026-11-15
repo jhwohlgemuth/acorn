@@ -1,9 +1,9 @@
 //! arXiv identifier parsing and formatting
 use crate::namespaces::{ARXIV_DATACITE_REGISTRANT_CODE, DATACITE_DOI_DIRECTORY_INDICATOR, DEFAULT_ARXIV_SCHEMA_URI};
 use crate::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
-use crate::util::constants::{RE_ARXIV, RE_ARXIV_TEXT, RE_ARXIV_VALIDATION};
+use crate::util::constants::{RE_ARXIV, RE_ARXIV_EXACT, RE_ARXIV_VALIDATION};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
-use acorn_core::util::regex_capture_lookup;
+use acorn_core::util::regex_captures;
 use acorn_core::validation::ValidationError;
 use bon::Builder;
 use core::fmt;
@@ -82,9 +82,8 @@ impl PersistentIdentifierParse for Arxiv {
     }
     fn from_string(value: impl ToString) -> Self {
         let groups = ["schema_uri", "resource", "archive", "identifier", "version", "pdf"];
-        let pattern = format!("^{RE_ARXIV_TEXT}$");
         let text = value.to_string();
-        let lookup = regex_capture_lookup(pattern.as_str(), text.as_str(), groups.to_vec());
+        let lookup = regex_captures(&RE_ARXIV_EXACT, &text, groups.to_vec());
         let identifier = lookup.get("identifier").cloned();
         Self::init()
             .maybe_schema_uri(lookup.get("schema_uri").map(|_| DEFAULT_ARXIV_SCHEMA_URI.to_string()))

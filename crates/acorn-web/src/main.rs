@@ -14,6 +14,7 @@ fn app() -> Element {
     use_context_provider(|| Signal::new(acorn_web::session::Workspace::default()));
     use_context_provider(|| Signal::new(None::<details::Detail>));
     use_context_provider(|| Signal::new(geospatial_page::MapPins::default()));
+    use_context_provider(|| Signal::new(None::<Result<acorn_web::geospatial::LocationIndex, String>>));
     rsx! {
         document::Link { rel: "icon", r#type: "image/svg+xml", href: asset!("/assets/generated/acorn-app-icon.svg") }
         document::Link { rel: "license", title: "Lucide icon license", href: asset!("/assets/vendor/lucide.LICENSE") }

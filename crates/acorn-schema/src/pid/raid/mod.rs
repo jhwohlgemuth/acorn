@@ -4,13 +4,13 @@
 //!
 //! Use ACORN to generate JSON schema for RAiD metadata with `acorn schema raid`
 use crate::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse};
-use crate::util::constants::{RE_DOI, RE_RAID_TEXT};
+use crate::util::constants::{RE_DOI, RE_RAID_EXACT};
 use crate::validation::{is_iso_639_3_language_code, report_of, validate_license, IntoValidationReport, Validate, ValidationReport};
 use crate::vocabulary;
 use crate::Date;
 use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
-use acorn_core::util::{regex_capture_lookup, trim_unmatched_trailing_parentheses, StringExt};
+use acorn_core::util::{regex_captures, trim_unmatched_trailing_parentheses, StringExt};
 use acorn_core::validation::ValidationError;
 use alloc::collections::BTreeSet;
 use bon::Builder;
@@ -1287,9 +1287,8 @@ impl PersistentIdentifierParse for RAID {
     /// > RAiD identifiers are [DOI](crate::pid::DOI) identifiers. See this [blog post by DataCite](https://datacite.org/blog/datacite-ardc-announce-partnership-to-deliver-the-raid-service/) for details.
     fn from_string(value: impl ToString) -> Self {
         let groups = ["schema_uri", "directory_indicator", "registrant_code", "suffix"];
-        let pattern = format!("^{RE_RAID_TEXT}$");
         let text = value.to_string().trim().to_string();
-        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let lookup = regex_captures(&RE_RAID_EXACT, &text, groups.to_vec());
         let directory_indicator = lookup.get("directory_indicator").cloned();
         let registrant_code = lookup.get("registrant_code").cloned();
         let prefix = [directory_indicator, registrant_code]

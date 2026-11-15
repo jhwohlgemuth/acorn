@@ -1759,21 +1759,38 @@ where
     S: Into<String> + AsRef<str> + Clone + core::cmp::Eq + core::hash::Hash,
 {
     match Regex::new(pattern.as_ref()) {
-        | Ok(re) => re
-            .captures_iter(text.as_ref())
-            .last()
-            .and_then(Result::ok)
-            .map(|captures| {
-                captures
-                    .iter()
-                    .skip(1)
-                    .enumerate()
-                    .filter_map(|(index, data)| data.and_then(|results| groups.get(index).cloned().map(|key| (key, results.as_str().to_string()))))
-                    .collect::<HashMap<S, String>>()
-            })
-            .unwrap_or_default(),
+        | Ok(re) => regex_captures(&re, text.as_ref(), groups),
         | Err(_) => HashMap::new(),
     }
+}
+/// Create a lookup dictionary for the last capture of an already compiled regex
+///
+/// Prefer this over [`regex_capture_lookup`] on hot paths so the pattern is compiled once.
+/// ### Example
+/// ```rust
+/// use acorn_core::util::regex_captures;
+/// use fancy_regex::Regex;
+/// let re = Regex::new(r"(?P<year>\d{4})-(?P<month>\d{2})").unwrap();
+/// let lookup = regex_captures(&re, "2023-06", vec!["year", "month"]);
+/// assert_eq!(lookup["year"], "2023");
+/// assert_eq!(lookup["month"], "06");
+/// ```
+pub fn regex_captures<S>(re: &Regex, text: &str, groups: Vec<S>) -> HashMap<S, String>
+where
+    S: Clone + core::cmp::Eq + core::hash::Hash,
+{
+    re.captures_iter(text)
+        .last()
+        .and_then(Result::ok)
+        .map(|captures| {
+            captures
+                .iter()
+                .skip(1)
+                .enumerate()
+                .filter_map(|(index, data)| data.and_then(|results| groups.get(index).cloned().map(|key| (key, results.as_str().to_string()))))
+                .collect::<HashMap<S, String>>()
+        })
+        .unwrap_or_default()
 }
 /// Invert a regex pattern using negative lookahead so matches become exclusions.
 pub fn regex_inverse(pattern: impl AsRef<str>) -> String {

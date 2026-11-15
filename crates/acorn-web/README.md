@@ -105,6 +105,8 @@ make web-pages WEB_BASE_PATH=/acorn
 make web-test-pages WEB_BASE_PATH=/acorn
 ```
 
+`make web-build` adds a `<link rel="preload">` for the hashed WASM to `index.html` (`scripts/preload-wasm.mjs`), and `index.html` shows a loading shell until the application mounts. `make web-test-pages` also fails if Discover at the 16 KiB editor limit takes 3 s or longer; November 14, 2026 release builds measured 67–77 ms in Chromium. Remaining runtime work, including moving operations into a worker, is tracked in the [browser performance plan](../../.wiki/refactors/browser-performance.md).
+
 The GitHub repository is configured with Actions enabled, Pages' publishing source set to **GitHub Actions**, and the `github-pages` environment restricted to `main`. GitHub assigns the project site to the account's existing domain at `www.jasonwohlgemuth.com/acorn/`. The first hosted deployment is pending the workflow reaching the mirror. HTTPS enforcement must be enabled once GitHub provisions the site certificate; the setup API currently reports that the certificate does not exist yet. The GitLab mirror credential must be allowed to push workflow files (the `workflow` scope for a classic GitHub PAT). Keep workflow changes in GitLab so later mirroring does not overwrite GitHub-only edits. The first deployment requires this workflow and its supporting files to reach the mirror; the resulting live URL is recorded by the `github-pages` deployment. This setup does not change `acorn.ornl.gov` or publish desktop installers.
 
 References: [GitHub custom Pages workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [Dioxus base-path configuration](https://dioxuslabs.com/learn/0.7/guides/tools/configure/).

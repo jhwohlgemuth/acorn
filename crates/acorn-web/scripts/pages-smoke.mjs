@@ -72,6 +72,17 @@ try {
     assert.match(await licenseResponse.text(), /@codemirror\//);
     await page.getByRole("button", { name: "Validate", exact: true }).click();
     await page.getByRole("button", { name: "Copy result", exact: true }).waitFor();
+    const discovery = await readFile(new URL("../assets/examples/discovery.txt", import.meta.url), "utf8");
+    await page.locator('nav a[title="Discover identifiers"]').click();
+    await waitForServices(page);
+    await page.locator("#content-editor").fill(discovery.repeat(Math.floor(16384 / Buffer.byteLength(discovery))));
+    const started = Date.now();
+    await page.getByRole("button", { name: "Discover identifiers", exact: true }).click();
+    await page.getByText(/unique identifiers · normalized and deduplicated/).waitFor();
+    const elapsed = Date.now() - started;
+    // Regex recompilation once made a full editor take seconds; keep generous headroom for CI hosts.
+    assert.ok(elapsed < 3000, `Discovery at the editor limit took ${elapsed} ms`);
+    console.log(`Discovery at the 16 KiB editor limit rendered in ${elapsed} ms.`);
     const direct = await page.goto(`${origin}${prefix}/readability`);
     assert.equal(direct.status(), 404, "Exercise GitHub Pages' custom 404 response");
     await waitForServices(page);

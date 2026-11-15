@@ -18,18 +18,21 @@ pub(crate) fn Geospatial() -> Element {
     let workspace = use_context::<Signal<Workspace>>();
     let mut pins = use_context::<Signal<MapPins>>();
     let drawer = use_context::<Signal<Option<Detail>>>();
-    let mut index = use_signal(|| None::<Result<LocationIndex, String>>);
+    let mut index = use_context::<Signal<Option<Result<LocationIndex, String>>>>();
     let mut search = use_signal(String::new);
     let mut country = use_signal(String::new);
     let mut selected = use_signal(|| pins().selected);
     let mut error = use_signal(String::new);
     let mut descending = use_signal(|| false);
     use_future(move || async move {
-        let url = serde_json::to_string(&asset!("/assets/geospatial/ror-locations.json").to_string()).unwrap_or_default();
-        let script = format!("const response = await fetch({url}, {{credentials:'omit', redirect:'error'}}); if(!response.ok) throw new Error('Local registry unavailable'); const bytes = await response.arrayBuffer(); if(bytes.byteLength > 33554432) throw new Error('Local registry too large'); return JSON.parse(new TextDecoder().decode(bytes));");
-        index.set(Some(document::eval(&script).join::<LocationIndex>().await.map_err(|_| {
-            "The bundled ROR location index could not load. Reload the app to retry; no online registry was contacted.".into()
-        })));
+        // The session keeps one parsed registry; only a missing or failed load fetches again.
+        if !index.peek().as_ref().is_some_and(Result::is_ok) {
+            let url = serde_json::to_string(&asset!("/assets/geospatial/ror-locations.json").to_string()).unwrap_or_default();
+            let script = format!("const response = await fetch({url}, {{credentials:'omit', redirect:'error'}}); if(!response.ok) throw new Error('Local registry unavailable'); const bytes = await response.arrayBuffer(); if(bytes.byteLength > 33554432) throw new Error('Local registry too large'); return JSON.parse(new TextDecoder().decode(bytes));");
+            index.set(Some(document::eval(&script).join::<LocationIndex>().await.map_err(|_| {
+                "The bundled ROR location index could not load. Reload the app to retry; no online registry was contacted.".into()
+            })));
+        }
     });
     use_future(move || async move {
         let base = asset!("/assets/generated/geospatial").to_string();
@@ -53,7 +56,7 @@ pub(crate) fn Geospatial() -> Element {
                 let id = event.get("id").and_then(Value::as_str).map(str::to_owned);
                 selected.set(id.clone());
                 if let Some(Ok(index)) = index.peek().as_ref() {
-                    if let Some(marker) = geospatial::markers_with_identifiers(&workspace(), index, &pins().identifiers)
+                    if let Some(marker) = geospatial::markers_with_identifiers(&workspace.read(), index, &pins.read().identifiers)
                         .iter()
                         .find(|marker| Some(&marker.id) == id.as_ref())
                     {
@@ -75,12 +78,12 @@ pub(crate) fn Geospatial() -> Element {
     use_drop(move || {
         document::eval("window.acornMap?.disconnect()");
     });
-    let data = index();
-    let snapshot = workspace();
+    let data = index.read();
+    let snapshot = workspace.read();
     let all = data
         .as_ref()
         .and_then(|result| result.as_ref().ok())
-        .map(|index| geospatial::markers_with_identifiers(&snapshot, index, &pins().identifiers))
+        .map(|index| geospatial::markers_with_identifiers(&snapshot, index, &pins.read().identifiers))
         .unwrap_or_default();
     let countries = all
         .iter()
@@ -148,12 +151,12 @@ pub(crate) fn Geospatial() -> Element {
         h2 { class: "section-heading", Icon { name: "globe" } "Organization locations" }
         div { id: "geospatial-map", class: "geospatial-map", hidden: !error().is_empty(), "aria-label": "Organization globe. The table below provides equivalent organization data." }
         if !error().is_empty() { p { role: "status", class: "status invalid", "{error}" } }
-        match data {
+        match &*data {
             None => rsx! { p { role: "status", "Loading bundled organization locations…" } },
             Some(Err(message)) => rsx! { p { role: "alert", class: "error", "{message}" } },
             Some(Ok(index)) => rsx! {
                 p { class: "small muted", "ROR {index.version} · {index.date} · {index.license}. Local NASA Black Marble imagery; no online map, terrain or registry services." }
-                details { summary { "Dataset provenance" } p { a { href: index.source, target: "_blank", rel: "noopener noreferrer", "Pinned ROR data release ↗" } } p { class: "small digest", "Source JSON SHA-256: {index.source_sha256}" } a { href: asset!("/assets/geospatial/ROR_PROVENANCE.md"), "Generation and license details" } }
+                details { summary { "Dataset provenance" } p { a { href: index.source.clone(), target: "_blank", rel: "noopener noreferrer", "Pinned ROR data release ↗" } } p { class: "small digest", "Source JSON SHA-256: {index.source_sha256}" } a { href: asset!("/assets/geospatial/ROR_PROVENANCE.md"), "Generation and license details" } }
             },
         }
         p { "{all.len()} organizations · {all.iter().filter(|marker| !marker.resolved).count()} unresolved · {all.iter().filter(|marker| marker.resolved && marker.location.is_none()).count()} without coordinates" }

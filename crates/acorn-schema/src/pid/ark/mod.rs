@@ -1,8 +1,8 @@
 //! Archival Resource Key parsing and formatting
 use crate::pid::{noid_check_digit, Betanumeric, PersistentIdentifier, PersistentIdentifierParse};
-use crate::util::constants::{RE_ARK, RE_ARK_TEXT};
+use crate::util::constants::{RE_ARK, RE_ARK_EXACT};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
-use acorn_core::util::regex_capture_lookup;
+use acorn_core::util::regex_captures;
 use bon::Builder;
 use core::fmt;
 
@@ -162,9 +162,8 @@ impl PersistentIdentifierParse for ARK {
     /// ```
     fn from_string(value: impl ToString) -> Self {
         let groups = ["nma", "label", "naan", "assigned_name", "parts", "variants"];
-        let pattern = format!("^{RE_ARK_TEXT}$");
         let text = value.to_string();
-        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let lookup = regex_captures(&RE_ARK_EXACT, &text, groups.to_vec());
         let parts = match lookup.get("parts") {
             | Some(value) => value.split('/').map(String::from).collect(),
             | None => vec![],

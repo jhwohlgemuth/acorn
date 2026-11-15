@@ -272,6 +272,27 @@ fn test_pid_infer() {
 }
 
 #[test]
+fn test_supports_discovery_excludes_urls_and_unknown_kinds() {
+    let supported = PID::iter().filter(PID::supports_discovery).collect::<Vec<_>>();
+    assert_eq!(
+        supported,
+        [
+            PID::ARK,
+            PID::Arxiv,
+            PID::DOI,
+            PID::Handle,
+            PID::ISBN,
+            PID::ISNI,
+            PID::ORCID,
+            PID::Patent,
+            PID::RAID,
+            PID::ROR,
+            PID::RRID,
+            PID::SWHID
+        ]
+    );
+}
+#[test]
 fn test_rrid_is_discoverable_but_not_project_identifying() {
     assert!(PID::RRID.is_discoverable());
     assert!(!PID::RRID.is_project_identifier());

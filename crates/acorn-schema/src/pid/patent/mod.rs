@@ -1,8 +1,8 @@
 //! Data model for patent data
 use super::{PersistentIdentifier, PersistentIdentifierParse};
-use crate::util::constants::{RE_PATENT, RE_PATENT_TEXT};
+use crate::util::constants::{RE_PATENT, RE_PATENT_EXACT};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
-use acorn_core::util::regex_capture_lookup;
+use acorn_core::util::regex_captures;
 use core::fmt;
 use derive_more::Display;
 use schemars::JsonSchema;
@@ -361,13 +361,12 @@ impl Patent {
                         | false => format!("US{with_kind_code}"),
                     }
                 }
-                let pattern = format!("^{RE_PATENT_TEXT}$");
                 let s: String = preprocess(value);
                 let groups = ["country_code", "year", "serial_number", "kind_code"]
                     .into_iter()
                     .map(String::from)
                     .collect::<Vec<_>>();
-                let lookup = regex_capture_lookup(pattern, s, groups);
+                let lookup = regex_captures(&RE_PATENT_EXACT, &s, groups);
                 let country_code = lookup.get("country_code").cloned().map(CountryCode::from);
                 let serial_number = lookup.get("serial_number").cloned().unwrap_or_default();
                 let kind_code = match lookup.get("kind_code").cloned() {

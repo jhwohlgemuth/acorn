@@ -7,6 +7,7 @@ use acorn_web::{
     presentation::text,
     session::{self, SuppliedFile, Workspace},
 };
+use alloc::rc::Rc;
 use dioxus::prelude::*;
 use serde_json::Value;
 
@@ -222,13 +223,13 @@ pub(crate) fn DetailsDrawer() -> Element {
     }
 }
 #[component]
-pub(crate) fn DiagnosticButton(finding: Value, source: String, checks: Value, tool: Tool) -> Element {
+pub(crate) fn DiagnosticButton(finding: Value, source: Rc<String>, checks: Rc<Value>, tool: Tool) -> Element {
     let drawer = use_context::<Signal<Option<Detail>>>();
     rsx! { button { class: "inspect-diagnostic", r#type: "button", title: "Inspect this finding and its source", onclick: move |_| {
         let path = finding.get("path").and_then(Value::as_str).or_else(|| finding.get("field").and_then(Value::as_str)).unwrap_or("No field path");
         open(drawer, Detail {
-            title: "Diagnostic details".into(), subtitle: path.into(), source: source.clone(), filename: "input.txt".into(), language: "auto".into(),
-            path: None, value: serde_json::from_str(&source).ok(), checks: Some(checks.clone()), tool, finding: Some(finding.clone()), marker: None,
+            title: "Diagnostic details".into(), subtitle: path.into(), source: source.to_string(), filename: "input.txt".into(), language: "auto".into(),
+            path: None, value: serde_json::from_str(&source).ok(), checks: Some(Value::clone(&checks)), tool, finding: Some(finding.clone()), marker: None,
         });
     }, Icon { name: "search" } "Inspect" } }
 }

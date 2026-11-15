@@ -115,7 +115,6 @@
 //! assert!(doi("10.11578/dc.20250604.1").is_ok());
 //! assert!(orcid("https://orcid.org/0000-0002-2057-9115").is_ok());
 //! ```
-#[cfg(test)]
 extern crate alloc;
 use acorn_analysis::readability::ReadabilityType;
 use acorn_analysis::{CheckCategory, CheckSeverity, FairDetails, FairEvidence, FairProfile};
@@ -130,6 +129,7 @@ use acorn_schema::standard::{datacite, dublin_core::DublinCoreDocument, Standard
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use acorn_schema::ContactPoint;
 use acorn_service::{AcornService, CheckReadabilityRequest, ValidateResearchActivityRequest, ValidateStandardRequest};
+use alloc::collections::BTreeSet;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
@@ -748,13 +748,18 @@ fn discover_identifiers(text: &str) -> IdentifierDiscoveryResult {
     const RESULT_LIMIT: usize = 100;
     let identifiers = Identifier::find_all(text)
         .into_iter()
-        .filter(|identifier| parse_identifier_kind(&identifier.kind.to_string()).is_ok())
+        .filter(|identifier| identifier.kind.supports_discovery())
         .filter_map(|identifier| identifier.normalized())
-        .map(|identifier| DiscoveredIdentifier {
-            kind: identifier.kind,
-            normalized: identifier.value,
+        .fold((Vec::new(), BTreeSet::new()), |(mut identifiers, mut seen), identifier| {
+            if seen.insert(identifier.clone()) {
+                identifiers.push(DiscoveredIdentifier {
+                    kind: identifier.kind,
+                    normalized: identifier.value,
+                });
+            }
+            (identifiers, seen)
         })
-        .collect::<Vec<_>>();
+        .0;
     IdentifierDiscoveryResult {
         count: identifiers.len(),
         truncated: identifiers.len() > RESULT_LIMIT,
@@ -825,21 +830,9 @@ fn parse_format(format: &str) -> Result<MimeType, String> {
     }
 }
 fn parse_identifier_kind(kind: &str) -> Result<PID, String> {
-    match PID::from(kind) {
-        | kind @ (PID::ARK
-        | PID::Arxiv
-        | PID::DOI
-        | PID::Handle
-        | PID::ISBN
-        | PID::ISNI
-        | PID::ORCID
-        | PID::Patent
-        | PID::RAID
-        | PID::ROR
-        | PID::RRID
-        | PID::SWHID) => Ok(kind),
-        | _ => Err(format!("Unsupported persistent identifier kind '{kind}'")),
-    }
+    Some(PID::from(kind))
+        .filter(PID::supports_discovery)
+        .ok_or_else(|| format!("Unsupported persistent identifier kind '{kind}'"))
 }
 fn parse_metric(metric: &str) -> Result<ReadabilityType, String> {
     match metric.to_ascii_lowercase().as_str() {

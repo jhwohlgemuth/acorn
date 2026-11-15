@@ -8,6 +8,7 @@ use acorn_web::{
     presentation::{self, items, text, DiagnosticList, DiagnosticSort},
 };
 use alloc::collections::BTreeSet;
+use alloc::rc::Rc;
 use case::CaseExt;
 use dioxus::prelude::*;
 use serde_json::Value;
@@ -138,7 +139,7 @@ fn Discovery(value: Value) -> Element {
         }
         for identifier in visible {
             {let normalized = text(identifier, "normalized").to_owned(); rsx! {
-                div { class: "identifier-row", PidBadge { kind: text(identifier, "kind").to_owned() } Code { text: normalized.clone(), language: "identifier", copyable: true }
+                div { class: "identifier-row", PidBadge { kind: text(identifier, "kind").to_owned() } span { class: "inline-code", code { class: "syntax language-identifier", "{normalized}" } CopyButton { text: normalized.clone() } }
                     if text(identifier, "kind").eq_ignore_ascii_case("ror") { RorMapButton { identifier: normalized.clone() } }
                     button { onclick: move |_| { session.set(normalized.clone()); nav.push(Route::Page { page: "inspect".into() }); }, "Inspect →" }
                 }
@@ -148,7 +149,7 @@ fn Discovery(value: Value) -> Element {
     }
 }
 #[component]
-fn Fair(value: Value, source: Option<String>) -> Element {
+fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
     let sort = use_signal(DiagnosticSort::default);
     let descending = use_signal(|| false);
     let (_, category_icon) = presentation::category_style(&CheckCategory::Fair);
@@ -223,15 +224,17 @@ fn Readability(value: Value) -> Element {
 pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Option<String>) -> Element {
     let sort = use_signal(DiagnosticSort::default);
     let descending = use_signal(|| false);
-    let json = serde_json::to_string_pretty(&value).unwrap_or_default();
-    let artifact = presentation::export(tool, &value);
-    let copy = artifact.content.clone();
+    let mut raw = use_signal(|| false);
+    // Shared once per result so diagnostic rows hold pointers instead of copies of the source and result.
+    let shared = use_memo(use_reactive((&value, &source), |(value, source)| (Rc::new(value), source.map(Rc::new))));
+    let artifact = use_memo(use_reactive((&tool, &value), |(tool, value)| presentation::export(tool, &value)));
+    let (checks, source) = shared();
     let conversion_icon = if items(&value, "warnings").is_empty() { "check" } else { "alert" };
     let (crosswalk_label, crosswalk_icon) = presentation::category_style(&CheckCategory::Crosswalk);
     let (warning_label, warning_tone) = presentation::severity_style(&CheckSeverity::Warning);
     rsx! {
         match tool {
-            Tool::Activity | Tool::Standard => rsx! { Validation { value: value.clone(), source: source.clone(), tool } },
+            Tool::Activity | Tool::Standard => rsx! { Validation { value: checks.clone(), source: source.clone(), tool } },
             Tool::Crosswalk => rsx! {
                 p { class: if items(&value, "warnings").is_empty() { "status diagnostic-status" } else { "status invalid diagnostic-status" },
                     Icon { name: conversion_icon }
@@ -246,13 +249,13 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
                         div { class: "diagnostic-heading", Icon { name: crosswalk_icon } strong { "{text(warning, \"field\")}" } span { class: "badge diagnostic-badge", "{warning_label}" } }
                         p { "{text(warning, \"lossType\")}" }
                         if warning["details"].is_string() { p { "{text(warning, \"details\")}" } }
-                        if let Some(source) = &source { DiagnosticButton { finding: warning.clone(), source: source.clone(), checks: value.clone(), tool } }
+                        if let Some(source) = &source { DiagnosticButton { finding: warning.clone(), source: source.clone(), checks: checks.clone(), tool } }
                     }
                 } }
                 } }
                 h3 { "Converted output" } CodeBlock { text: text(&value, "content").to_owned(), language: "json" }
             },
-            Tool::Fair => rsx! { Fair { value: value.clone(), source: source.clone() } },
+            Tool::Fair => rsx! { Fair { value: checks.clone(), source: source.clone() } },
             Tool::Readability => rsx! { Readability { value: value.clone() } },
             Tool::Diff => rsx! { Difference { value: value.clone() } },
             Tool::Discover => rsx! { Discovery { value: value.clone() } },
@@ -261,17 +264,20 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
         }
         div { class: "actions result-actions",
             button { onclick: move |_| {
-                let args = serde_json::to_string(&(artifact.content.clone(), artifact.filename.clone(), artifact.mime)).unwrap_or_default();
+                let artifact = artifact.read();
+                let args = serde_json::to_string(&(&artifact.content, &artifact.filename, artifact.mime)).unwrap_or_default();
                 document::eval(&format!("window.acornDownload(...{args})"));
             }, Icon { name: "download" } "Download result" }
-            CopyButton { text: copy, label: "Copy result" }
+            CopyButton { text: artifact.read().content.clone(), label: "Copy result" }
         }
         p { id: "output-status", role: "status", class: "muted small" }
-        details { summary { "Raw result JSON" } CodeBlock { text: json, language: "json", label: "Copy JSON" } }
+        details { summary { onclick: move |_| raw.toggle(), "Raw result JSON" }
+            if raw() { CodeBlock { text: serde_json::to_string_pretty(&value).unwrap_or_default(), language: "json", label: "Copy JSON" } }
+        }
     }
 }
 #[component]
-fn Validation(value: Value, source: Option<String>, tool: Tool) -> Element {
+fn Validation(value: Rc<Value>, source: Option<Rc<String>>, tool: Tool) -> Element {
     let sort = use_signal(DiagnosticSort::default);
     let descending = use_signal(|| false);
     let diagnostics = items(&value, "diagnostics");

@@ -485,6 +485,7 @@ version: ## Print the project version string.
 web-build: web-cli web-map web-prepare ## Build the release browser and verify its single WASM payload.
 	@python3 crates/acorn-web/scripts/clean-output.py
 	@python3 crates/acorn-web/scripts/rust.py "$(DIOXUS)" build --package acorn-web --platform web --release --profile web-release --debug-symbols false --base-path "$(WEB_BASE_PATH)" --locked
+	@node crates/acorn-web/scripts/preload-wasm.mjs $(WEB_PUBLIC)
 	@python3 scripts/package-acorn-skill.py --output $(WEB_PUBLIC)/acorn-skill
 	@python3 scripts/package-acorn-skill.py --output $(WEB_PUBLIC)/acorn-skill --check
 	@node crates/acorn-web/scripts/check-package.mjs $(WEB_PUBLIC)

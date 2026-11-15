@@ -1,9 +1,9 @@
 //! Digital Object Identifier parsing and formatting
 use crate::namespaces::{ARXIV_DATACITE_REGISTRANT_CODE, DATACITE_DOI_DIRECTORY_INDICATOR, DEFAULT_DOI_SCHEMA_URI};
 use crate::pid::{Arxiv, PersistentIdentifier, PersistentIdentifierParse, ISBN};
-use crate::util::constants::{RE_DOI, RE_DOI_TEXT};
+use crate::util::constants::{RE_DOI, RE_DOI_EXACT};
 use acorn_core::prelude::alloc::{format, String, ToString, Vec};
-use acorn_core::util::{regex_capture_lookup, trim_unmatched_trailing_parentheses, StringExt};
+use acorn_core::util::{regex_captures, trim_unmatched_trailing_parentheses, StringExt};
 use bon::Builder;
 use core::fmt;
 
@@ -148,9 +148,8 @@ impl PersistentIdentifierParse for DOI {
     /// ```
     fn from_string(value: impl ToString) -> Self {
         let groups = ["schema_uri", "directory_indicator", "prefix_element", "registrant_code", "suffix"];
-        let pattern = format!("^{RE_DOI_TEXT}$");
         let text = value.to_string().trim().to_string();
-        let lookup = regex_capture_lookup(pattern.as_ref(), text.as_ref(), groups.to_vec());
+        let lookup = regex_captures(&RE_DOI_EXACT, &text, groups.to_vec());
         DOI::init()
             .maybe_schema_uri(lookup.get("schema_uri").cloned())
             .maybe_directory_indicator(lookup.get("directory_indicator").cloned())
@@ -160,7 +159,7 @@ impl PersistentIdentifierParse for DOI {
     }
     /// Check if value is a valid [`DOI`]
     /// ### Conditions
-    /// - Must match DOI regular expression (see [`RE_DOI_TEXT`])
+    /// - Must match DOI regular expression (see [`RE_DOI_TEXT`](crate::util::constants::RE_DOI_TEXT))
     /// - Is valid with or without schema URI[^format]
     /// - `10.5555/` is not a valid DOI prefix
     /// ### Example

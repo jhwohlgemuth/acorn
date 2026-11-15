@@ -15,6 +15,7 @@ use crate::assets::patterns::{
     FAKE_PHONE_PATTERN, HTTP_URL_PREFIX_PATTERN, IMAGE_EXTENSION_PATTERN, ISO_8601_DATE_PATTERN, ISO_8601_YEAR_PATTERN, PARTIAL_DATE_PATTERN,
     PHONE_PATTERN, UNIX_EPOCH_PATTERN,
 };
+use alloc::format;
 use fancy_regex::Regex;
 use lazy_static::lazy_static;
 
@@ -69,6 +70,9 @@ pub const MAX_LENGTH_SUBTITLE: u64 = 75;
 ///
 /// [`title`]: ../../struct.ResearchActivity.html#structfield.title
 pub const MAX_LENGTH_TITLE: u64 = 45;
+fn exact(pattern: &str) -> Regex {
+    Regex::new(&format!("^{pattern}$")).expect("PID patterns should compile as anchored regexes")
+}
 lazy_static! {
     /// Regex that matches HTTP and HTTPS URLs.
     pub static ref HTTP_URL: Regex = Regex::new(HTTP_URL_PREFIX_PATTERN).expect("HTTP_URL_PREFIX_PATTERN should compile as a valid regex");
@@ -112,6 +116,28 @@ lazy_static! {
     pub static ref RE_ROR: Regex = Regex::new(RE_ROR_TEXT).expect("RE_ROR_TEXT should compile as a valid regex");
     /// Regex that matches HTTP and HTTPS URLs in prose and documents.
     pub static ref RE_URL: Regex = Regex::new(RE_URL_TEXT).expect("RE_URL_TEXT should compile as a valid regex");
+    /// Anchored [`RE_ARK_TEXT`] used to parse an exact ARK value.
+    pub static ref RE_ARK_EXACT: Regex = exact(RE_ARK_TEXT);
+    /// Anchored [`RE_ARXIV_TEXT`] used to parse an exact arXiv value.
+    pub static ref RE_ARXIV_EXACT: Regex = exact(RE_ARXIV_TEXT);
+    /// Anchored [`RE_DOI_TEXT`] used to parse an exact DOI value.
+    pub static ref RE_DOI_EXACT: Regex = exact(RE_DOI_TEXT);
+    /// Anchored [`RE_ISBN_10_COMPACT_TEXT`] used to parse an exact separator-free ISBN-10 value.
+    pub static ref RE_ISBN_10_COMPACT_EXACT: Regex = exact(RE_ISBN_10_COMPACT_TEXT);
+    /// Anchored [`RE_ISBN_10_TEXT`] used to parse an exact ISBN-10 value.
+    pub static ref RE_ISBN_10_EXACT: Regex = exact(RE_ISBN_10_TEXT);
+    /// Anchored [`RE_ISBN_13_TEXT`] used to parse an exact ISBN-13 value.
+    pub static ref RE_ISBN_13_EXACT: Regex = exact(RE_ISBN_13_TEXT);
+    /// Anchored [`RE_ISNI_TEXT`] used to parse an exact ISNI value.
+    pub static ref RE_ISNI_EXACT: Regex = exact(RE_ISNI_TEXT);
+    /// Anchored [`RE_ORCID_TEXT`] used to parse an exact ORCiD value.
+    pub static ref RE_ORCID_EXACT: Regex = exact(RE_ORCID_TEXT);
+    /// Anchored [`RE_PATENT_TEXT`] used to parse an exact patent value.
+    pub static ref RE_PATENT_EXACT: Regex = exact(RE_PATENT_TEXT);
+    /// Anchored [`RE_RAID_TEXT`] used to parse an exact RAiD value.
+    pub static ref RE_RAID_EXACT: Regex = exact(RE_RAID_TEXT);
+    /// Anchored [`RE_ROR_TEXT`] used to parse an exact ROR value.
+    pub static ref RE_ROR_EXACT: Regex = exact(RE_ROR_TEXT);
     /// Regex that should match an image extension (e.g. .png, .jpg, .jpeg, .svg)
     pub static ref RE_IMAGE_EXTENSION: Regex = Regex::new(IMAGE_EXTENSION_PATTERN).expect("IMAGE_EXTENSION_PATTERN should compile as a valid regex");
     /// Regex that should match an ISO 8601 date (e.g., `YYYY-MM-DD`)
