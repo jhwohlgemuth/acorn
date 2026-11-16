@@ -90,7 +90,7 @@ try {
         }
     };
     await page.goto(origin + prefix + "/");
-    await page.getByRole("heading", { name: "RAD Workspace" }).waitFor();
+    await page.getByRole("heading", { name: "Research Intelligence" }).waitFor();
     await page.waitForFunction(() => Boolean(window.acornChrome));
     const favicon = page.locator('link[rel="icon"][href*="acorn-app-icon"]');
     await favicon.waitFor({ state: "attached" });
@@ -111,7 +111,7 @@ try {
     await page.setViewportSize({ width: 1440, height: 900 });
     checks.push("Empty Home fits six viewports, with adjacent primary actions and bottom credit");
     await page.goto(origin + prefix + "/home");
-    await page.getByRole("heading", { name: "RAD Workspace", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Research Intelligence", exact: true }).waitFor();
     const closedIcon = await page.locator(".collapse svg").innerHTML();
     await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
     assert.notEqual(await page.locator(".collapse svg").innerHTML(), closedIcon);
@@ -634,6 +634,24 @@ try {
     await page.getByText(/ROR 2.15/).waitFor({ timeout: 60000 });
     await page.locator(".organization-table tbody tr").first().waitFor();
     await page.locator("#geospatial-map canvas").waitFor({ timeout: 60000 });
+    const layerButton = page.locator(".map-layer-widget > summary");
+    const layerButtonBox = await layerButton.boundingBox();
+    assert.ok(layerButtonBox && layerButtonBox.width <= 32 && layerButtonBox.height <= 36, "Layer selector matches the compact Cesium controls");
+    const layerIconBox = await layerButton.locator("svg").boundingBox();
+    assert.ok(layerIconBox && layerIconBox.width >= 23 && layerIconBox.height >= 23, "Layer icon matches the visual scale of the Cesium controls");
+    assert.ok(layerIconBox && Math.abs(layerIconBox.x + layerIconBox.width / 2 - layerButtonBox.x - layerButtonBox.width / 2) <= 1 && Math.abs(layerIconBox.y + layerIconBox.height / 2 - layerButtonBox.y - layerButtonBox.height / 2) <= 1, "Layer icon is centered within its control");
+    const homeButtonBox = await page.locator(".cesium-home-button").boundingBox();
+    const perspectiveButtonBox = await page.locator(".cesium-sceneModePicker-button3D").boundingBox();
+    assert.ok(homeButtonBox && perspectiveButtonBox && layerButtonBox.height === homeButtonBox.height && layerButtonBox.height === perspectiveButtonBox.height, `Layers, Home and Perspective controls have equal rendered heights (${layerButtonBox.height}, ${homeButtonBox?.height}, ${perspectiveButtonBox?.height})`);
+    assert.ok(homeButtonBox && homeButtonBox.x - (layerButtonBox.x + layerButtonBox.width) >= 6, "Layer selector is separated from the Home control");
+    assert.match(await layerButton.getAttribute("aria-label"), /^Map layers: /);
+    await layerButton.click();
+    await page.locator(".map-basemap input").first().waitFor();
+    assert.equal(await page.locator(".map-basemap input").count(), 4, "Every basemap is directly discoverable");
+    await shot("geospatial-layers");
+    await page.getByText("Natural Earth II", { exact: true }).click();
+    assert.equal(await layerButton.getAttribute("aria-label"), "Map layers: Natural Earth II");
+    await layerButton.click();
     const mapHeight = await page.locator("#geospatial-map").evaluate((node) => node.clientHeight);
     await page.locator(".cesium-fullscreenButton").click();
     await page.waitForFunction(() => document.fullscreenElement?.id === "geospatial-map");
@@ -662,6 +680,7 @@ try {
     assert.ok(tiles.size > 0, "Local NASA Black Marble tiles loaded");
     await shot("geospatial-light");
     checks.push("Pinned local ROR table and WebGL globe render");
+    checks.push("Layer selector matches the compact Cesium toolbar controls and exposes an accessible label");
     checks.push("Cesium fullscreen resizes and restores the map; Home centers on ORNL");
     await nav("Settings");
     await page.getByRole("button", { name: "Clear loaded session", exact: true }).click();

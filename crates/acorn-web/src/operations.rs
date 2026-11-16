@@ -299,7 +299,7 @@ pub fn run_operation(message: &str) -> String {
 /// Native builds test presentation contracts; computation runs in the browser.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(_tool: Tool, _request: &Request) -> Result<Value, String> {
-    Err("Open the browser workspace to run this operation.".into())
+    Err("Open ACORN Research Intelligence to run this operation.".into())
 }
 
 #[cfg(test)]

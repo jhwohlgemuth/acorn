@@ -7,10 +7,11 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-description = "Local-first RAD Workspace"
+description = "ACORN Research Intelligence browser application"
 
 [dependencies]
 acorn-analysis = { workspace = true, default-features = false, features = ["alloc"] }
+acorn-core = { workspace = true, features = ["alloc"] }
 acorn-schema.workspace = true
 acorn-wasm = { path = "../acorn-wasm" }
 case = "1.0.0"

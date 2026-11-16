@@ -5,8 +5,8 @@ const root = process.argv[2];
 assert.ok(root, "Pass the built public directory");
 const walk = async (path) => (await Promise.all((await readdir(path, { withFileTypes: true })).map(async (entry) => entry.isDirectory() ? walk(join(path, entry.name)) : [join(path, entry.name)]))).flat();
 const files = await walk(root);
-const wasm = files.filter((p) => p.endsWith(".wasm"));
-assert.equal(wasm.length, 1, "The UI and ACORN must share exactly one WASM payload");
+const wasm = files.filter((path) => /acorn-web_bg(?:-dxh[^/\\]+)?\.wasm$/.test(path));
+assert.equal(wasm.length, 1, "The UI and ACORN must share exactly one application WASM payload");
 const compiled = await WebAssembly.compile(await readFile(wasm[0]));
 for (const section of [".debug_info", ".debug_line", ".debug_abbrev", ".debug_str"]) {
     assert.equal(WebAssembly.Module.customSections(compiled, section).length, 0, `Release payload retains ${section}; build with --debug-symbols false`);

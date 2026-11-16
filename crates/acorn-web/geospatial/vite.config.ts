@@ -14,8 +14,8 @@ for (const folder of ["Assets", "ThirdParty", "Widgets", "Workers"]) {
     mkdirSync(target, { recursive: true });
     cpSync(resolve("node_modules/cesium/Build/Cesium", folder), target, { recursive: true });
     if (folder === "ThirdParty") {
-        // This raster/ellipsoid viewer does not expose 3D Tiles, KTX, splats or ZIP imports.
-        for (const decoder of ["basis_transcoder.wasm", "draco_decoder.wasm", "zip-module.wasm", "wasm_splats_bg.wasm"]) rmSync(resolve(target, decoder), { force: true });
+        // Optional OSM Buildings can use Draco-compressed 3D Tiles; KTX, splats and ZIP imports remain unavailable.
+        for (const decoder of ["basis_transcoder.wasm", "zip-module.wasm", "wasm_splats_bg.wasm"]) rmSync(resolve(target, decoder), { force: true });
     }
 }
 cpSync(resolve("imagery/BlackMarble"), resolve("public/cesium/Assets/Textures/BlackMarble"), { recursive: true });

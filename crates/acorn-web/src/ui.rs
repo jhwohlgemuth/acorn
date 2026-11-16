@@ -11,7 +11,7 @@ use dioxus::prelude::*;
 use serde_json::Value;
 use strum::IntoEnumIterator;
 
-const APP_NAME: &str = "RAD Workspace";
+const APP_NAME: &str = "ACORN Research Intelligence";
 const RAD_EXAMPLES: [(&str, &str); 3] = [
     ("Research summary", include_str!("../assets/examples/summary.json")),
     ("Publications and affiliations", SAMPLE),
@@ -30,7 +30,7 @@ pub(crate) enum Route {
 }
 #[component]
 fn AppName() -> Element {
-    rsx! { abbr { title: RAD_TITLE, "RAD" } " Workspace" }
+    rsx! { "{APP_NAME}" }
 }
 #[component]
 fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool) -> Element {
@@ -122,7 +122,7 @@ fn Home() -> Element {
         section { class: "home",
             div { class: "home-banner", img { class: "banner-dark", src: asset!("/assets/generated/banner_dark_mode.png"), alt: "ACORN", width: "320" } img { class: "banner-light", src: asset!("/assets/generated/banner_light_mode.png"), alt: "ACORN", width: "320" } }
             div { class: "home-brand",
-                h1 { class: "home-subtitle", AppName {} }
+                h1 { class: "home-subtitle", "Research Intelligence" }
                 p { class: "home-tagline", "Plant an acorn, grow your science" }
             }
             div { id: "home-actions", class: "actions centered",
@@ -227,10 +227,10 @@ fn InfoPage(page: String) -> Element {
     let title = match page.as_str() {
         | "portfolio" => "Portfolio",
         | "geospatial" => "Geospatial",
-        | "install" => "Install RAD Workspace",
+        | "install" => "Install ACORN Research Intelligence",
         | "skill" => "ACORN Skill",
         | "settings" => "Settings",
-        | "about" => "About RAD Workspace",
+        | "about" => "About ACORN Research Intelligence",
         | _ => "Page not found",
     };
     let document_title = if title.ends_with(APP_NAME) {
@@ -263,7 +263,7 @@ fn InfoPage(page: String) -> Element {
                         div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } }
                     }
                 },
-                "about" => rsx! { p { class: "lede", "Accessible Content Optimization for Research Needs" } a { class: "card source-card", href: "https://code.ornl.gov/research-enablement/acorn", target: "_blank", rel: "noopener noreferrer", div { img { src: asset!("/assets/generated/acorn.svg"), alt: "", width: "32" } h2 { AppName {} } } span { "View source ↗" } } h2 { "ACORN Skill" } p { "The app provides local research tools; the matching skill explains their workflows in your agent environment." } div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "Explore the ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } } div { class: "about-principles", div { class: "card", h2 { "Local by default" } p { "Local files stay on this device. Remote files and buckets are fetched only when you choose Load. No uploads or telemetry." } } div { class: "card", h2 { "One workspace" } p { "Portable research tools and a matching agent skill. Desktop delivery is planned." } } } Technology {} div { class: "card ai-disclosure", a { href: "https://www.aihonestybadge.com/ai-assisted-badge", target: "_blank", rel: "noopener noreferrer", img { src: asset!("/assets/ai-assisted.svg"), alt: "AI Assisted", width: "113", height: "20" } } h2 { "AI-use disclosure" } p { "AI tools assisted with code, documentation and design under human direction. The maintainer reviews and tests the work. Review generated code before use." } div { class: "agent-links",
+                "about" => rsx! { p { class: "lede", "Accessible Content Optimization for Research Needs" } a { class: "card source-card", href: "https://code.ornl.gov/research-enablement/acorn", target: "_blank", rel: "noopener noreferrer", div { img { src: asset!("/assets/generated/acorn.svg"), alt: "", width: "32" } h2 { AppName {} } } span { "View source ↗" } } h2 { "ACORN Skill" } p { "ACORN Research Intelligence provides local research tools. The matching skill explains their workflows in your agent environment." } div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "Explore the ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } } div { class: "about-principles", div { class: "card", h2 { "Local by default" } p { "Local files stay on this device. Remote files and buckets are fetched only when you choose Load. No uploads or telemetry." } } div { class: "card", h2 { "One workspace" } p { "ACORN Research Intelligence combines portable research tools with a matching agent skill. Desktop delivery is planned." } } } Technology {} div { class: "card ai-disclosure", a { href: "https://www.aihonestybadge.com/ai-assisted-badge", target: "_blank", rel: "noopener noreferrer", img { src: asset!("/assets/ai-assisted.svg"), alt: "AI Assisted", width: "113", height: "20" } } h2 { "AI-use disclosure" } p { "AI tools assisted with code, documentation and design under human direction. The maintainer reviews and tests the work. Review generated code before use." } div { class: "agent-links",
                     for (id, name, url) in [("codex", "Codex", "https://openai.com/codex/"), ("copilot", "GitHub Copilot", "https://github.com/features/copilot"), ("microsoft", "Microsoft 365 Copilot", "https://www.microsoft.com/microsoft-365/copilot")] {
                         a { href: url, target: "_blank", rel: "noopener noreferrer", img { src: format!("{}#{id}", asset!("/assets/agent-marks.svg")), alt: "", width: "20", height: "20" } "{name}" }
                     }

@@ -3,6 +3,7 @@
 .vale/
 *.profdata
 *.profraw
+__pycache__
 /bin
 /content
 /docs/book

@@ -10,7 +10,7 @@ pub(crate) fn Install() -> Element {
     rsx! {
         p { class: "lede", "Choose the desktop app, the skill, or both." }
         div { class: "workflow-grid",
-            div { class: "card", h2 { "🖥️ RAD Workspace desktop" } p { "The shared research workspace for Windows, macOS and Linux." } p { class: "status invalid", "Desktop packages are not published yet." } }
+            div { class: "card", h2 { "🖥️ ACORN Research Intelligence desktop" } p { "The local research application for Windows, macOS and Linux." } p { class: "status invalid", "Desktop packages are not published yet." } }
             div { class: "card", h2 { "📖 ACORN Skill" } p { "Local research workflows for a compatible coding agent, matched to this app release." } Link { to: Route::Page { page: "skill".into() }, "Open the skill guide and download →" } }
         }
         h2 { "Desktop channels" }

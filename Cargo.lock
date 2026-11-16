@@ -446,6 +446,7 @@ name = "acorn-web"
 version = "0.6.3"
 dependencies = [
  "acorn-analysis",
+ "acorn-core",
  "acorn-schema",
  "acorn-wasm",
  "case",
