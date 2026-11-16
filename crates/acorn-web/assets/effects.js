@@ -149,6 +149,8 @@ function installChrome() {
     const preference = window.matchMedia("(prefers-color-scheme: dark)");
     const theme = createTheme(preference.matches, (dark, system) => {
         workspace.dataset.theme = dark ? "dark" : "light";
+        const favicon = document.getElementById("app-favicon");
+        if (favicon) favicon.href = dark ? favicon.dataset.darkIcon : favicon.dataset.lightIcon;
         const button = document.getElementById("theme-toggle");
         button?.setAttribute("aria-pressed", String(dark));
         button?.setAttribute("aria-label", dark ? "Dark theme" : "Light theme");

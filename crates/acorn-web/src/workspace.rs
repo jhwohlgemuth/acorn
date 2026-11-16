@@ -32,7 +32,7 @@ pub(crate) fn FileTree(paths: Vec<String>, prefix: String) -> Element {
         {let path = format!("{prefix}{name}");
         let is_file = paths.contains(&path);
         rsx! { li {
-            if is_file { button { class: "file-leaf", "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { details::open(drawer, Detail::file(file, &snapshot)); workspace.write().selected = Some(path.clone()); } }, span { "aria-hidden": "true", "📄" } "{name}" } }
+            if is_file { button { class: "file-leaf", "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { details::open(drawer, Detail::file(file, &snapshot)); workspace.write().selected = Some(path.clone()); } }, Icon { name: "file" } "{name}" } }
             else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/") } } }
         }}}
     } } }
@@ -51,9 +51,11 @@ pub(crate) fn Loader() -> Element {
     let mut remote_url = use_signal(String::new);
     let mut remote_ref = use_signal(String::new);
     let mut remote_error = use_signal(String::new);
+    let mut remote_success = use_signal(String::new);
     let mut remote_loading = use_signal(|| false);
     let mut credential_host = use_signal(String::new);
     let mut credential_message = use_signal(String::new);
+    let mut credential_error = use_signal(String::new);
     let mut history = use_signal(BucketHistory::default);
     use_future(move || async move {
         if let Ok(saved) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.history.read();").join::<BucketHistory>().await {
@@ -68,6 +70,7 @@ pub(crate) fn Loader() -> Element {
     use_future(move || async move {
         let mut channel = document::eval("if (!window.acornWorkspace) await new Promise(resolve => window.addEventListener('acorn-effects-ready', resolve, {once:true})); window.acornWorkspace.connect(batch => dioxus.send(batch)); await dioxus.recv();");
         while let Ok(batch) = channel.recv::<Selection>().await {
+            remote_success.set(String::new());
             if batch.files.is_empty() {
                 message.set(format!(
                     "No files loaded; {} entries skipped or unreadable. Your previous session is unchanged.",
@@ -107,6 +110,7 @@ pub(crate) fn Loader() -> Element {
                 button { r#type: "button", class: "source-close", "aria-label": "Close content loader", onclick: move |_| close_url(), "×" }
             }
             UrlFileInput { limit: session::FILE_LIMIT, workspace_file: true, onload: move |file: SuppliedFile| {
+                remote_success.set(String::new());
                 let next = workspace().replace(Selection { files: vec![file], skipped: 0 });
                 input.set(next.content()); workspace.set(next); message.set("File loaded. Choose Portfolio to validate and explore activities.".into()); close_url();
             } }
@@ -119,7 +123,7 @@ pub(crate) fn Loader() -> Element {
         form { class: "remote-loader", onsubmit: move |event| async move {
             event.prevent_default();
             if remote_loading() { return; }
-            remote_loading.set(true); remote_error.set(String::new());
+            remote_loading.set(true); remote_error.set(String::new()); remote_success.set(String::new()); message.set(String::new());
             let args = serde_json::to_string(&(remote_url(), remote_ref())).unwrap_or_default();
             let result = document::eval(&format!("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {{once:true}})); let result; try {{ result = {{ok: await window.acornRemote.load(...{args})}}; }} catch(error) {{ result = {{error: error.message}}; }} return {{...result, history: window.acornRemote.history.read()}};")).join::<Value>().await;
             match result {
@@ -131,7 +135,16 @@ pub(crate) fn Loader() -> Element {
                         let source = loaded.get("source").cloned().and_then(|value| serde_json::from_value::<WorkspaceSource>(value).ok());
                         if let Some(object) = loaded.as_object_mut() { object.remove("source"); }
                         match serde_json::from_value::<Selection>(loaded) {
-                            Ok(selection) => { let mut next = workspace().replace(selection); next.source = source; message.set(format!("{} remote files loaded; {} entries skipped. Open Portfolio to validate activities.", next.files.len(), next.skipped)); input.set(next.content()); workspace.set(next); },
+                            Ok(selection) if selection.files.is_empty() => remote_error.set("No supported files were found in this bucket. Your previous session is unchanged.".into()),
+                            Ok(selection) => {
+                                let mut next = workspace().replace(selection);
+                                next.source = source;
+                                let origin = next.source.as_ref().map(|source| format!(" from {}/{}", source.host, source.project)).unwrap_or_default();
+                                let noun = if next.files.len() == 1 { "file" } else { "files" };
+                                remote_success.set(format!("Bucket loaded: {} {noun}{origin}; {} entries skipped.", next.files.len(), next.skipped));
+                                input.set(next.content());
+                                workspace.set(next);
+                            },
                             Err(_) => remote_error.set("The repository returned an invalid file selection. Your previous session is unchanged.".into()),
                         }
                     }
@@ -144,24 +157,30 @@ pub(crate) fn Loader() -> Element {
             datalist { id: "bucket-repositories", for repository in &history.read().repositories { option { value: repository.clone() } } }
             datalist { id: "bucket-refs", for reference in &history.read().refs { option { value: reference.clone() } } }
             div { class: "remote-actions", label { class: "field", "Branch / tag / commit (optional)" input { disabled: remote_loading(), value: remote_ref(), oninput: move |event| remote_ref.set(event.value()), list: "bucket-refs", autocomplete: "off", placeholder: "Repository default", spellcheck: "false" } }
-                button { r#type: "submit", disabled: remote_loading() || remote_url().trim().is_empty(), Icon { name: "download" } if remote_loading() { "Loading…" } else { "Load bucket" } }
+                button { r#type: "submit", disabled: remote_loading() || remote_url().trim().is_empty(), "aria-busy": remote_loading(), Icon { name: "download" } if remote_loading() { "Loading…" } else { "Load bucket" } }
                 if remote_loading() { button { r#type: "button", onclick: move |_| { document::eval("window.acornRemote?.cancel()"); }, "Cancel" } }
             }
             p { class: "small muted", "Public repositories, folder or file URLs. For branches containing /, enter the full branch above. Loading replaces this session after a successful download." }
+            if !remote_success().is_empty() { div { class: "status bucket-success", role: "status", span { "{remote_success}" } Link { to: Route::Page { page: "portfolio".into() }, "Explore Portfolio →" } } }
             details { summary { "Optional repository access token" }
                 p { class: "small muted", "Use an expiring token for the selected repository. GitHub: fine-grained Contents read for this repository only. GitLab: repository files accept read_repository, but full private-bucket discovery may require project-scoped read_api. A secure browser context stores the token for this tab session, including reloads. It is never saved with workspace data. Revoke it at the provider if compromised." }
+                p { class: "small", if credential_host().is_empty() { "No token configured for this tab." } else { "Token •••••••• configured for {credential_host}." } }
                 label { class: "field", "Personal access token" input { id: "repository-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
-                button { r#type: "button", onclick: move |_| async move {
+                p { class: "small muted", "Saving a token replaces the current tab token and limits it to the repository above." }
+                div { class: "actions credential-actions", button { r#type: "button", class: "primary", onclick: move |_| async move {
                     let input = serde_json::to_string(&remote_url()).unwrap_or_default();
                     let result = document::eval(&format!("try {{ const field = document.getElementById('repository-token'); const host = window.acornRemote.setCredential({input}, field.value); field.value = ''; return {{host}}; }} catch(error) {{ return {{error: error.message}}; }}")).join::<Value>().await;
-                    if let Ok(value) = result { if let Some(host) = value.get("host").and_then(Value::as_str) { credential_host.set(host.to_owned()); credential_message.set(format!("Token enabled for {host} for this tab.")); } else { credential_message.set(value.get("error").and_then(Value::as_str).unwrap_or("Choose a valid repository URL and enter a token.").to_owned()); } }
+                    match result {
+                        Ok(value) => if let Some(host) = value.get("host").and_then(Value::as_str) { credential_host.set(host.to_owned()); credential_message.set(format!("Token enabled for {host} for this tab.")); credential_error.set(String::new()); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Choose a valid repository URL and enter a token.").to_owned()); credential_message.set(String::new()); },
+                        Err(_) => { credential_error.set("Could not save the repository token. Try again.".into()); credential_message.set(String::new()); },
+                    }
                 }, "Use token for this host" }
-                button { r#type: "button", onclick: move |_| { document::eval("window.acornRemote?.clearCredential(); const field = document.getElementById('repository-token'); if (field) field.value = '';"); credential_host.set(String::new()); credential_message.set("Token removed from this tab.".into()); }, "Remove token" }
-                if !credential_host().is_empty() { p { class: "small", "Current token host: {credential_host}" } }
-                if !credential_message().is_empty() { p { role: "status", "{credential_message}" } }
+                button { r#type: "button", class: "danger", disabled: credential_host().is_empty(), onclick: move |_| async move { if matches!(document::eval("const removed = window.acornRemote?.clearCredential() ?? false; const field = document.getElementById('repository-token'); if (field) field.value = ''; return removed;").join::<bool>().await, Ok(true)) { credential_host.set(String::new()); credential_message.set("Token removed from this tab.".into()); credential_error.set(String::new()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Remove token" } }
+                if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
+                if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
             }
             div { class: "actions small muted", span { "Recent inputs are remembered in this browser." }
-                button { r#type: "button", class: "small", disabled: remote_loading() || (history.read().repositories.is_empty() && history.read().refs.is_empty()), onclick: move |_| {
+                button { r#type: "button", class: "small danger", disabled: remote_loading() || (history.read().repositories.is_empty() && history.read().refs.is_empty()), onclick: move |_| {
                     document::eval("window.acornRemote?.history.clear()"); history.set(BucketHistory::default());
                 }, "Clear suggestions" }
             }
@@ -221,7 +240,7 @@ pub(crate) fn Portfolio() -> Element {
         if snapshot.files.is_empty() {
             div { class: "card empty", Icon { name: "portfolio" } h2 { "No research activities loaded" } p { "Open local content or try the bundled sample from Home." } Link { to: Route::Home {}, "Open Home →" } }
         } else {
-            details { summary { "{snapshot.files.len()} loaded files · {snapshot.bytes()} UTF-8 bytes" } FileTree { paths: snapshot.files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } }
+            details { class: "loaded-tree", summary { "{snapshot.files.len()} loaded files · {snapshot.bytes()} UTF-8 bytes" } FileTree { paths: snapshot.files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } }
             div { class: "actions", button { class: "primary", disabled: validating(), "aria-busy": validating(), onclick: move |_| async move {
                 validating.set(true);
                 let files = workspace.peek().files.clone();

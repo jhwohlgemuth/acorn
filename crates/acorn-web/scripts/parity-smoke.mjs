@@ -92,13 +92,15 @@ try {
     await page.goto(origin + prefix + "/");
     await page.getByRole("heading", { name: "Research Intelligence" }).waitFor();
     await page.waitForFunction(() => Boolean(window.acornChrome));
-    const favicon = page.locator('link[rel="icon"][href*="acorn-app-icon"]');
+    const favicon = page.locator('#app-favicon');
     await favicon.waitFor({ state: "attached" });
-    assert.ok((await page.request.get(new URL(await favicon.getAttribute("href"), page.url()).href)).ok(), "Brown ACORN SVG favicon loads");
+    assert.ok((await page.request.get(new URL(await favicon.getAttribute("href"), page.url()).href)).ok(), "Dark ACORN SVG favicon loads");
+    assert.equal(await favicon.getAttribute("href"), await favicon.getAttribute("data-dark-icon"));
     await page.locator(".sidebar-session").getByText("0 activities · 0 files", { exact: true }).waitFor();
     await shot("home-dark");
     assert.ok(await page.locator("#sample-data").evaluate((node) => { const sample = node.getBoundingClientRect(); const tour = document.getElementById("tour-start").getBoundingClientRect(); return Math.abs(sample.top - tour.top) < 2 && sample.left > tour.right; }), "Sample action sits right of tour");
-    assert.equal(await page.locator(".sidebar img").count(), 0);
+    assert.equal(await page.locator(".sidebar-brand .brand-icon-dark").isVisible(), true);
+    assert.equal(await page.locator(".sidebar-brand .brand-icon-light").isVisible(), false);
     assert.equal(await page.locator(".nav-item.active").evaluate((node) => getComputedStyle(node).boxShadow), "none");
     for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 390, height: 667 }, { width: 844, height: 390 }]) {
         await page.setViewportSize(viewport);
@@ -180,6 +182,10 @@ try {
     assert.equal(await page.getByRole("searchbox", { name: "Search activities" }).inputValue(), activityQuery);
     assert.ok(Math.abs(await page.evaluate(() => scrollY) - portfolioScroll) < 2, "closing the drawer preserves the Portfolio scroll position");
     await page.locator("#theme-toggle").click();
+    assert.equal(await page.locator(".sidebar-brand .brand-icon-dark").isVisible(), false);
+    assert.equal(await page.locator(".sidebar-brand .brand-icon-light").isVisible(), true);
+    assert.equal(await favicon.getAttribute("href"), await favicon.getAttribute("data-light-icon"));
+    assert.ok((await page.request.get(new URL(await favicon.getAttribute("href"), page.url()).href)).ok(), "Light ACORN SVG favicon loads");
     await activityButton.click();
     await drawer.screenshot({ path: resolve(output, "drawer-overview-light.png") });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -191,6 +197,7 @@ try {
     await page.waitForFunction(() => document.body.style.overflow === "");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.locator("#theme-toggle").click();
+    assert.equal(await favicon.getAttribute("href"), await favicon.getAttribute("data-dark-icon"));
     await activityButton.click();
     await drawer.getByRole("button", { name: "Open in Research Activity", exact: true }).click();
     await drawer.waitFor({ state: "hidden" });
@@ -887,12 +894,12 @@ try {
     await page.getByText("Optional repository access token").click();
     await page.locator("#repository-token").fill("browser-test-secret");
     await page.getByRole("button", { name: "Use token for this host" }).click();
-    await page.getByText("Current token host: api.github.com/acorn-test/bucket").waitFor();
+    await page.getByText("Token •••••••• configured for api.github.com/acorn-test/bucket.").waitFor();
     for (const source of ["acorn-test/bucket", "https://gitlab.com/acorn-test/bucket"]) {
         await page.getByRole("combobox", { name: "Repository or URL", exact: true }).fill(source);
         await page.getByRole("combobox", { name: "Branch / tag / commit (optional)", exact: true }).fill(source.startsWith("https") ? "release/v1" : "main");
         await page.getByRole("button", { name: "Load bucket", exact: true }).click();
-        await page.getByText(/1 remote files loaded/).waitFor();
+        await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
         await page.getByRole("button", { name: "Load bucket", exact: true }).waitFor();
     }
     await page.locator(".sidebar-session").getByText("0 activities · 1 file", { exact: true }).waitFor();

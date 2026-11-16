@@ -26,9 +26,12 @@ try {
     await page.locator(".activity-select").nth(1).click();
     await page.getByRole("button", { name: "Close details" }).click();
     await page.locator('nav a[title="Settings"]').click();
+    await page.getByText("3 files · 3 validated activities").waitFor();
+    await page.getByText("Not saved", { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => localStorage.getItem("acorn.workspace.v1")), null);
     await page.getByRole("button", { name: "Save loaded workspace on this device" }).click();
     await page.waitForFunction(() => Boolean(localStorage.getItem("acorn.workspace.v1")));
+    await page.getByText("On this device", { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("acorn.workspace.v1")).workspace.validations).length), 3);
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("acorn.workspace.v1")).workspace.selected), selectedPath);
     await page.route("**/assets/worker-*.js", async route => { await new Promise(resolveDelay => setTimeout(resolveDelay, 1200)); await route.continue(); });
@@ -48,7 +51,7 @@ try {
     await page.getByText("Optional repository access token").click();
     await page.locator("#repository-token").fill("browser-test-secret");
     await page.getByRole("button", { name: "Use token for this host" }).click();
-    await page.getByText("Current token host: api.github.com/owner/repo").waitFor();
+    await page.getByText("Token •••••••• configured for api.github.com/owner/repo.").waitFor();
     assert.equal(await page.locator("#repository-token").inputValue(), "");
     const requests = [];
     const revision = "a".repeat(40);
@@ -65,13 +68,14 @@ try {
         await route.fulfill({ status: 200, contentType: "application/json", headers, body: JSON.stringify(body) });
     });
     await page.getByRole("button", { name: "Load bucket" }).click();
-    await page.getByText(/1 remote files loaded/).waitFor();
+    await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
+    await page.locator('.bucket-success').getByRole("link", { name: "Explore Portfolio" }).waitFor();
     assert.ok(requests.filter(request => request.method === "GET").every(request => request.headers.authorization === "Bearer browser-test-secret" && !request.url.includes("browser-test-secret")));
     await page.getByRole("button", { name: "Remove token" }).click();
     assert.equal(await page.evaluate(() => window.acornRemote.credentialHost()), "");
     requests.length = 0;
     await page.getByRole("button", { name: "Load bucket" }).click();
-    await page.getByText(/1 remote files loaded/).waitFor();
+    await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
     assert.ok(requests.filter(request => request.method === "GET").every(request => !request.headers.authorization));
     const gitlabRequests = [];
     await page.route("https://code.ornl.gov/api/v4/projects/group%2Frepo**", async route => {
@@ -92,12 +96,15 @@ try {
     await page.getByRole("alert").filter({ hasText: /Access denied/ }).waitFor();
     await page.locator("#repository-token").fill("gitlab-test-secret");
     await page.getByRole("button", { name: "Use token for this host" }).click();
-    await page.getByText("Current token host: code.ornl.gov/group/repo").waitFor();
+    await page.getByText("Token •••••••• configured for code.ornl.gov/group/repo.").waitFor();
     await page.getByRole("button", { name: "Load bucket" }).click();
-    await page.getByText(/1 remote files loaded/).waitFor();
+    await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
     assert.ok(gitlabRequests.some(request => request.method === "GET" && request.headers["private-token"] === "gitlab-test-secret"));
     assert.ok(gitlabRequests.filter(request => request.method === "GET" && request.headers["private-token"]).every(request => !request.url.includes("gitlab-test-secret") && !request.redirect));
     await page.locator('nav a[title="Settings"]').click();
+    await page.getByText("gitlab · code.ornl.gov/group/repo").waitFor();
+    await page.getByRole("button", { name: "Clear recent bucket inputs" }).click();
+    await page.getByText("0 repository URLs · 0 refs remembered").waitFor();
     await page.getByRole("button", { name: "Save loaded workspace on this device" }).click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("acorn.workspace.v1") || "null")?.workspace?.source?.host === "code.ornl.gov");
     await page.reload();

@@ -1,6 +1,6 @@
 # Browser artwork notices
 
-Retrieved November 11, 2026. `technology.svg` embeds the following source bytes unchanged as separate SVG images; SVG view fragments select each mark. No brand endorsement is implied. ACORN banners and navigation geometry come from the repository's documentation assets and design specification under its MIT license. The app favicon is staged unchanged from `docs/src/_assets/acorn-app-icon-brown.svg`.
+Retrieved November 11, 2026. `technology.svg` embeds the following source bytes unchanged as separate SVG images; SVG view fragments select each mark. No brand endorsement is implied. ACORN banners and navigation geometry come from the repository's documentation assets and design specification under its MIT license. The dark and light app icons are staged unchanged from `docs/src/_assets/acorn-app-icon-brown.svg` and `docs/src/_assets/acorn-app-icon-light.svg`.
 
 | Mark | Source | SHA-256 |
 |---|---|---|

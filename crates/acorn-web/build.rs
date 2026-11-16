@@ -25,6 +25,10 @@ fn main() -> io::Result<()> {
     }
     let assets = [
         ("../../docs/src/_assets/acorn-app-icon-brown.svg", "assets/generated/acorn-app-icon.svg"),
+        (
+            "../../docs/src/_assets/acorn-app-icon-light.svg",
+            "assets/generated/acorn-app-icon-light.svg",
+        ),
         ("../../docs/src/_assets/acorn.svg", "assets/generated/acorn.svg"),
         ("../../docs/src/_assets/banner_dark_mode.png", "assets/generated/banner_dark_mode.png"),
         ("../../docs/src/_assets/banner_light_mode.png", "assets/generated/banner_light_mode.png"),

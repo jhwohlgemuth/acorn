@@ -228,6 +228,8 @@ fn InfoPage(page: String) -> Element {
     let mut storage_error = use_signal(String::new);
     let mut credential_status = use_signal(String::new);
     let mut credential_error = use_signal(String::new);
+    let mut credential_message = use_signal(String::new);
+    let mut recent_inputs = use_signal(|| (0_usize, 0_usize));
     use_future(move || async move {
         if let Ok(value) = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); return window.acornWorkspaceStorage.status()")
             .join::<Value>()
@@ -239,6 +241,11 @@ fn InfoPage(page: String) -> Element {
     use_future(move || async move {
         if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialHost();").join::<String>().await {
             credential_status.set(host);
+        }
+    });
+    use_future(move || async move {
+        if let Ok(counts) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); const history = window.acornRemote.history.read(); return [history.repositories.length, history.refs.length];").join::<(usize, usize)>().await {
+            recent_inputs.set(counts);
         }
     });
     let title = match page.as_str() {
@@ -255,6 +262,11 @@ fn InfoPage(page: String) -> Element {
     } else {
         format!("{title} · {APP_NAME}")
     };
+    let source_summary = workspace
+        .read()
+        .source
+        .as_ref()
+        .map(|source| format!("{} · {}/{}", source.kind, source.host, source.project));
     rsx! {
         document::Title { "{document_title}" }
         section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "portfolio" => "portfolio", "geospatial" => "globe", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } } "{title}" }
@@ -273,31 +285,48 @@ fn InfoPage(page: String) -> Element {
                         p { id: "theme-mode", class: "small muted", "Following your system preference." }
                     }
                     div { class: "card", h2 { class: "section-heading", Icon { name: "folder-open" } "Loaded session" }
-                        dl { class: "result-fields", dt { "Activities" } dd { "{workspace.read().activities().len()} validated" } dt { "Files" } dd { "{workspace.read().files.len()} · {workspace.read().bytes()} UTF-8 bytes" } dt { "Persistence" } dd { if storage_status().2 { "Save failed" } else if storage_status().0 { "Enabled" } else { "Off" } " · {storage_status().1} stored characters" } }
-                        if !storage_status().0 { button { disabled: workspace.read().files.is_empty(), onclick: move |_| async move {
-                            let value = serde_json::to_string(&workspace()).unwrap_or_default();
-                            match document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = storage?.enable({value}) ?? false; return {{...storage.status(), saved}}")).join::<Value>().await {
-                                Ok(result) => { storage_status.set(parse_storage_status(&result)); storage_error.set(String::new()); },
-                                Err(_) => storage_error.set("Could not save this workspace. Browser storage may be unavailable or full.".into()),
-                            }
-                        }, "Save loaded workspace on this device" } }
-                        button { disabled: workspace.read().files.is_empty() && session.read().is_empty() && map_pins.read().identifiers.is_empty(), onclick: move |_| { workspace.set(Workspace::default()); session.set(String::new()); map_pins.set(MapPins::default()); document::eval("window.acornWorkspace?.cancel(); window.acornChrome?.notifications.notify('Loaded session cleared.')"); }, "Clear loaded session" }
-                        button { disabled: !storage_status().0 && storage_status().1 == 0, onclick: move |_| async move { if matches!(document::eval("return window.acornWorkspaceStorage?.delete() ?? false").join::<bool>().await, Ok(true)) { storage_status.set((false, 0, false)); storage_error.set(String::new()); } else { storage_error.set("Could not delete browser storage.".into()); } }, "Delete saved workspace" }
+                        dl { class: "result-fields", dt { "Open now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } dt { "Saved copy" } dd { if storage_status().2 { "Save failed" } else if storage_status().0 { "On this device" } else { "Not saved" } } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
+                        p { class: "small muted", "The open session holds loaded files, tool input, validation results, the selected file, and map pins in this tab." }
+                        button { class: "danger", disabled: workspace.read().files.is_empty() && session.read().is_empty() && map_pins.read().identifiers.is_empty(), onclick: move |_| { workspace.set(Workspace::default()); session.set(String::new()); map_pins.set(MapPins::default()); document::eval("window.acornWorkspace?.cancel(); window.acornChrome?.notifications.notify('Loaded session cleared.')"); }, "Clear loaded session" }
+                        h3 { "Saved workspace on this device" }
+                        p { class: "small muted", "When saving is on, this browser keeps full file contents, validation results, the selected file, and bucket source details after reload. It does not save the repository token, separate tool input, or map pins." }
+                        div { class: "actions",
+                            if !storage_status().0 { button { disabled: workspace.read().files.is_empty(), onclick: move |_| async move {
+                                let value = serde_json::to_string(&workspace()).unwrap_or_default();
+                                match document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = storage?.enable({value}) ?? false; return {{...storage.status(), saved}}")).join::<Value>().await {
+                                    Ok(result) => { storage_status.set(parse_storage_status(&result)); storage_error.set(String::new()); },
+                                    Err(_) => storage_error.set("Could not save this workspace. Browser storage may be unavailable or full.".into()),
+                                }
+                            }, "Save loaded workspace on this device" } }
+                            button { class: "danger", disabled: !storage_status().0 && storage_status().1 == 0, onclick: move |_| async move { if matches!(document::eval("return window.acornWorkspaceStorage?.delete() ?? false").join::<bool>().await, Ok(true)) { storage_status.set((false, 0, false)); storage_error.set(String::new()); } else { storage_error.set("Could not delete browser storage.".into()); } }, "Delete saved workspace" }
+                        }
                         if !storage_error().is_empty() { p { role: "alert", class: "error", "{storage_error}" } }
                         if storage_status().2 { p { role: "alert", class: "error", "Workspace saving failed. The older saved copy was removed. This workspace is still open; reduce its size or free browser storage, then save it again." } }
-                        p { class: "small muted", "Saving is optional. This browser stores loaded files until you delete them. Validation runs again on restore. Clearing the loaded session also clears a saved copy when saving is enabled." } }
+                        p { class: "small muted", "Deleting the saved workspace leaves this open session available. Clearing the open session saves an empty copy when saving is on. Restored files are validated again." } }
                     div { class: "card", h2 { "Repository access" }
                         p { class: "small muted", "Enter an HTTPS GitHub or GitLab repository and an expiring token for that exact project. The token stays in secure-context session storage for this tab." }
+                        p { class: "small", if credential_status().is_empty() { "No repository token in this tab." } else { "Token •••••••• configured for {credential_status}." } }
                         label { class: "field", "Repository URL" input { id: "settings-repository", r#type: "url", autocomplete: "off", placeholder: "https://code.ornl.gov/group/project" } }
                         label { class: "field", "Personal access token" input { id: "settings-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
-                        button { onclick: move |_| async move {
+                        p { class: "small muted", "Saving a token replaces the current tab token. Only the matching repository can use it." }
+                        div { class: "actions credential-actions", button { class: "primary", onclick: move |_| async move {
                             let result = document::eval("try { const source = document.getElementById('settings-repository').value; const field = document.getElementById('settings-token'); const host = window.acornRemote.setCredential(source, field.value); field.value = ''; return {host}; } catch(error) { return {error: error.message}; }").join::<Value>().await;
-                            if let Ok(value) = result { if let Some(host) = value.get("host").and_then(Value::as_str) { credential_status.set(host.to_owned()); credential_error.set(String::new()); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Could not save this repository token.").to_owned()); } }
+                            match result {
+                                Ok(value) => if let Some(host) = value.get("host").and_then(Value::as_str) { credential_status.set(host.to_owned()); credential_error.set(String::new()); credential_message.set(format!("Token saved for {host} in this tab.")); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Could not save this repository token.").to_owned()); credential_message.set(String::new()); },
+                                Err(_) => { credential_error.set("Could not save this repository token. Try again.".into()); credential_message.set(String::new()); },
+                            }
                         }, "Save repository token" }
-                        p { class: "small", if credential_status().is_empty() { "No repository token in this tab." } else { "Token •••••••• configured for {credential_status}." } }
-                        button { disabled: credential_status().is_empty(), onclick: move |_| { document::eval("window.acornRemote?.clearCredential(); const field = document.getElementById('settings-token'); if (field) field.value = '';"); credential_status.set(String::new()); credential_error.set(String::new()); }, "Forget repository token" }
+                        button { class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(document::eval("const removed = window.acornRemote?.clearCredential() ?? false; const field = document.getElementById('settings-token'); if (field) field.value = ''; return removed;").join::<bool>().await, Ok(true)) { credential_status.set(String::new()); credential_error.set(String::new()); credential_message.set("Token removed from this tab.".into()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Forget repository token" } }
+                        if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
                         if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
                         p { class: "small muted", "Tokens use session storage only in a secure browser context. They survive reloads in this tab, remain separate from saved workspace data, and expire when this tab session ends. Revoke a token at its provider if needed." }
+                    }
+                    div { class: "card", h2 { "Recent bucket inputs" }
+                        p { class: "small muted", "This browser remembers repository URLs and branch, tag, or commit entries for suggestions. It does not store a token in this history." }
+                        p { class: "small", "{recent_inputs().0} repository URLs · {recent_inputs().1} refs remembered" }
+                        button { class: "danger", disabled: recent_inputs() == (0, 0), onclick: move |_| async move {
+                            if let Ok(counts) = document::eval("window.acornRemote?.history.clear(); const history = window.acornRemote?.history.read(); return [history?.repositories.length ?? 0, history?.refs.length ?? 0];").join::<(usize, usize)>().await { recent_inputs.set(counts); }
+                        }, "Clear recent bucket inputs" }
                     }
                     div { class: "card", h2 { "📦 Release" } p { title: RAD_TITLE, "{APP_NAME} · v{VERSION}" } Skill { compact: true }
                         div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } }
@@ -422,7 +451,14 @@ fn Shell() -> Element {
             a { class: "skip", href: "#content-main", "Skip to content" }
             header { class: "mobile-bar", span { AppName {} } button { id: "nav-toggle", onclick: move |_| { drawer.toggle(); if drawer() { document::eval("requestAnimationFrame(() => document.querySelector('#workspace-navigation a')?.focus())"); } }, "aria-expanded": drawer(), "aria-controls": "workspace-navigation", "aria-label": "Toggle navigation", Icon { name: match drawer() { true => "panel", false => "panel-open" } } } }
             aside { id: "workspace-navigation", class: "sidebar", "aria-label": "Workspace navigation",
-                div { class: "nav-controls", button { class: "collapse", onclick: move |_| collapsed.toggle(), title: if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-label": if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-expanded": !collapsed(), "aria-controls": "workspace-navigation", Icon { name: match collapsed() { true => "panel-open", false => "panel" } } } }
+                div { class: "nav-controls",
+                    Link { to: Route::Home {}, class: "sidebar-brand", title: "ACORN home", "aria-label": "ACORN home", onclick: move |_| { if drawer() { drawer.set(false); } },
+                        img { class: "brand-icon-dark", src: asset!("/assets/generated/acorn-app-icon.svg"), alt: "", width: "28", height: "28" }
+                        img { class: "brand-icon-light", src: asset!("/assets/generated/acorn-app-icon-light.svg"), alt: "", width: "28", height: "28" }
+                        span { class: "sidebar-brand-name", "aria-hidden": "true", "ACORN" }
+                    }
+                    button { class: "collapse", onclick: move |_| collapsed.toggle(), title: if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-label": if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-expanded": !collapsed(), "aria-controls": "workspace-navigation", Icon { name: match collapsed() { true => "panel-open", false => "panel" } } }
+                }
                 SidebarSession { onopen: move |_| { if drawer() { drawer.set(false); document::eval("requestAnimationFrame(() => document.querySelector('#content-main h1')?.focus())"); } } }
                 nav { "aria-label": "Primary", onclick: move |_| { if drawer() { drawer.set(false); document::eval("requestAnimationFrame(() => document.querySelector('#content-main h1')?.focus())"); } },
                     p { class: "nav-heading", "WORKSPACE" }
@@ -694,7 +730,7 @@ pub(crate) fn UrlFileInput(
         },
             div { class: "url-file-controls",
                 label { class: "field", "File URL" input { r#type: "url", required: true, disabled: loading(), value: url(), oninput: move |event| url.set(event.value()), placeholder: "https://example.org/file.json", spellcheck: "false" } }
-                button { r#type: "submit", class: "source-submit", disabled: loading() || url().trim().is_empty(), if loading() { span { class: "source-spinner", "aria-hidden": "true" } "Loading…" } else { Icon { name: "download" } "Load URL" } }
+                button { r#type: "submit", class: "source-submit", disabled: loading() || url().trim().is_empty(), "aria-busy": loading(), if loading() { span { class: "source-spinner", "aria-hidden": "true" } "Loading…" } else { Icon { name: "download" } "Load URL" } }
                 if loading() { button { r#type: "button", onclick: move |_| { document::eval("window.acornRemote?.file.cancel()"); }, "Cancel" } }
             }
             p { class: "small muted", "Direct file links · GitHub · GitLab" }

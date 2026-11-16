@@ -62,7 +62,14 @@ fn app() -> Element {
     use_context_provider(|| Signal::new(geospatial_page::MapPins::default()));
     use_context_provider(|| Signal::new(None::<Result<acorn_web::geospatial::LocationIndex, String>>));
     rsx! {
-        document::Link { rel: "icon", r#type: "image/svg+xml", href: asset!("/assets/generated/acorn-app-icon.svg") }
+        document::Link {
+            id: "app-favicon",
+            rel: "icon",
+            r#type: "image/svg+xml",
+            href: asset!("/assets/generated/acorn-app-icon.svg"),
+            "data-dark-icon": asset!("/assets/generated/acorn-app-icon.svg"),
+            "data-light-icon": asset!("/assets/generated/acorn-app-icon-light.svg"),
+        }
         document::Link { rel: "license", title: "Lucide icon license", href: asset!("/assets/vendor/lucide.LICENSE") }
         document::Link { rel: "stylesheet", href: asset!("/assets/app.css") }
         document::Script { src: asset!("/assets/effects.js"), "data-worker": asset!("/assets/worker.js") }
