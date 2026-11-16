@@ -3,6 +3,7 @@ import importlib.util
 import os
 from pathlib import Path
 import runpy
+import signal
 import subprocess
 import sys
 import tempfile
@@ -19,14 +20,15 @@ SPEC.loader.exec_module(RUST)
 class WebDevTests(unittest.TestCase):
     def test_cleanup_restores_terminal_even_when_child_cleanup_fails(self):
         terminal = ["original terminal settings"]
+        termios = MagicMock(TCSADRAIN=1)
         vite = MagicMock(returncode=None)
         vite.poll.return_value = None
         vite.wait.side_effect = RuntimeError("cleanup failed")
         dioxus = MagicMock(returncode=7)
         dioxus.poll.return_value = 7
-        with patch.dict(sys.modules, {"rust": RUST}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
+        with patch.dict(sys.modules, {"rust": RUST, "termios": termios}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
                 patch.object(sys.stdin, "isatty", return_value=True), patch("termios.tcgetattr", return_value=terminal), \
-                patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("os.killpg"), \
+                patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("os.killpg", create=True), \
                 patch.object(RUST, "environment", return_value={"PATH": "/selected/bin"}), \
                 patch("urllib.request.urlopen"), patch("subprocess.Popen", side_effect=[vite, dioxus]) as launch:
             with self.assertRaisesRegex(RuntimeError, "cleanup failed"):
@@ -34,6 +36,10 @@ class WebDevTests(unittest.TestCase):
             restore.assert_called_once()
             self.assertEqual(restore.call_args.args[2], terminal)
             self.assertEqual(launch.call_args.kwargs["env"]["PATH"], "/selected/bin")
+            if os.name == "nt":
+                self.assertEqual(launch.call_args.kwargs["creationflags"], subprocess.CREATE_NEW_PROCESS_GROUP)
+            else:
+                self.assertTrue(launch.call_args.kwargs["start_new_session"])
 
     def test_cli_setup_runs_only_for_missing_local_executable(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -70,17 +76,21 @@ class WebDevTests(unittest.TestCase):
                 self.assertTrue(marker.exists(), f"{target} must prepare the missing CLI")
 
     def test_dioxus_launch_failure_stops_vite_and_restores_terminal(self):
+        termios = MagicMock(TCSADRAIN=1)
         vite = MagicMock(returncode=None, pid=12345)
         vite.poll.return_value = None
-        with patch.dict(sys.modules, {"rust": RUST}), patch.object(sys, "argv", ["dev.py", "missing-dx", "serve", "--port", "8084"]), \
+        with patch.dict(sys.modules, {"rust": RUST, "termios": termios}), patch.object(sys, "argv", ["dev.py", "missing-dx", "serve", "--port", "8084"]), \
                 patch.object(sys.stdin, "isatty", return_value=True), patch("termios.tcgetattr", return_value=[]), \
-                patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("os.killpg") as terminate, \
+                patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("os.killpg", create=True) as terminate, \
                 patch.object(RUST, "environment", return_value={"PATH": "/selected/bin"}), \
                 patch("urllib.request.urlopen"), patch("subprocess.Popen", side_effect=[vite, FileNotFoundError("missing dx")]):
             with self.assertRaises(FileNotFoundError):
                 runpy.run_path(str(SCRIPTS / "dev.py"), run_name="__main__")
-            terminate.assert_called_once()
-            self.assertEqual(terminate.call_args.args[0], vite.pid)
+            if os.name == "nt":
+                vite.send_signal.assert_called_once_with(signal.CTRL_BREAK_EVENT)
+            else:
+                terminate.assert_called_once()
+                self.assertEqual(terminate.call_args.args[0], vite.pid)
             vite.wait.assert_called_once_with(timeout=10)
             restore.assert_called_once()
 
@@ -89,13 +99,21 @@ class WebDevTests(unittest.TestCase):
         with patch.dict(os.environ, original, clear=True), patch("subprocess.check_output", return_value="/selected/toolchain/bin/rustc\n") as which:
             selected = RUST.environment()
             which.assert_called_once_with(["rustup", "which", "rustc"], text=True)
-            self.assertEqual(selected["PATH"], "/selected/toolchain/bin" + os.pathsep + original["PATH"])
+            self.assertEqual(selected["PATH"], str(Path("/selected/toolchain/bin")) + os.pathsep + original["PATH"])
             self.assertEqual(selected["RUSTUP_TOOLCHAIN"], "custom")
             self.assertEqual(selected["CARGO_HOME"], "/custom/cargo")
             self.assertEqual(dict(os.environ), original)
 
+    def test_rustup_selection_uses_subprocess_on_windows(self):
+        command = ["cargo", "install", "dioxus-cli"]
+        with patch.object(RUST, "environment", return_value={"PATH": "C:\\selected\\bin"}), \
+                patch("subprocess.call", return_value=23) as call:
+            self.assertEqual(RUST.execute(command, platform="nt"), 23)
+            call.assert_called_once_with(command, env={"PATH": "C:\\selected\\bin"})
+
     def test_toolchain_failure_starts_no_servers_and_restores_terminal(self):
-        with patch.dict(sys.modules, {"rust": RUST}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
+        termios = MagicMock(TCSADRAIN=1)
+        with patch.dict(sys.modules, {"rust": RUST, "termios": termios}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
                 patch.object(sys.stdin, "isatty", return_value=True), patch("termios.tcgetattr", return_value=[]), \
                 patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("subprocess.Popen") as launch, \
                 patch.object(RUST, "environment", side_effect=subprocess.CalledProcessError(1, "rustup")):

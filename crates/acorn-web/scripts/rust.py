@@ -10,5 +10,11 @@ def environment():
     return {**os.environ, "PATH": str(Path(selected).parent) + os.pathsep + os.environ.get("PATH", "")}
 
 
+def execute(command, platform=os.name):
+    if platform == "nt":
+        return subprocess.call(command, env=environment())
+    os.execvpe(command[0], command, environment())
+
+
 if __name__ == "__main__":
-    os.execvpe(sys.argv[1], sys.argv[1:], environment())
+    sys.exit(execute(sys.argv[1:]))

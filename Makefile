@@ -503,6 +503,9 @@ web-cli: ## Ensure the local Dioxus CLI exists, or validate an explicit override
 web-dev: web-cli web-map web-prepare ## Run coordinated Dioxus and map Fast Refresh servers on loopback.
 	@python3 crates/acorn-web/scripts/dev.py "$(DIOXUS)" serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false --interactive false
 
+web-doctor: ## Diagnose browser development prerequisites without changing the machine.
+	@python3 crates/acorn-web/scripts/doctor.py "$(DIOXUS)" --frontend-port $(WEB_PORT)
+
 web-map: ## Build and stage the pinned offline organization map.
 	@npm --prefix crates/acorn-web/geospatial ci --ignore-scripts
 	@npm --prefix crates/acorn-web/geospatial run build
@@ -520,9 +523,7 @@ web-editor-bundle: ## Bundle the local CodeMirror editor and dependency license 
 	@npm --prefix crates/acorn-web run build:editor
 
 web-prepare: web-editor-bundle ## Stage canonical documentation artwork and the WebMCP adapter.
-	@mkdir -p crates/acorn-web/assets/generated
-	@cp docs/src/_assets/acorn.svg crates/acorn-web/assets/generated/acorn.svg
-	@cp crates/acorn-wasm/web/webmcp.js crates/acorn-web/assets/generated/webmcp.js
+	@python3 crates/acorn-web/scripts/stage-assets.py
 
 web-preview: ## Serve the built browser locally for review (run web-build first).
 	@python3 crates/acorn-web/scripts/preview.py $(WEB_PUBLIC) --port $(WEB_PORT)
@@ -540,6 +541,7 @@ web-skill: ## Stage and verify the canonical release-matched skill bundle.
 
 web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebMCP.
 	@python3 -m unittest discover -s scripts/tests -p 'test_package_acorn_skill.py'
+	@python3 -m unittest discover -s scripts/tests -p 'test_web_doctor.py'
 	@python3 -m unittest discover -s scripts/tests -p 'test_web_dev.py'
 	@python3 crates/acorn-web/scripts/rust.py cargo test -p acorn-web
 	@$(MAKE) test-webmcp
@@ -708,6 +710,7 @@ TASKS = \
 	web-check \
 	web-cli \
 	web-dev \
+	web-doctor \
 	web-editor-bundle \
 	web-package \
 	web-pages \
