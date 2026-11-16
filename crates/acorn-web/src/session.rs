@@ -1,6 +1,6 @@
 //! Bounded, in-memory supplied files and projections of explicitly validated activities.
 use alloc::collections::{BTreeMap, BTreeSet};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Largest accepted individual file, in UTF-8 bytes.
@@ -10,7 +10,7 @@ pub const FILE_COUNT: usize = 500;
 /// Total text bytes accepted per session.
 pub const TOTAL_LIMIT: usize = 16 * 1024 * 1024;
 /// A selected file, with no absolute path or reusable directory authority.
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SuppliedFile {
     /// Normalized relative path.
@@ -19,7 +19,7 @@ pub struct SuppliedFile {
     pub content: String,
 }
 /// Result of a user-mediated browser selection.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Selection {
     /// Candidate supplied files.
@@ -27,8 +27,24 @@ pub struct Selection {
     /// Rejections reported before content crossed the browser bridge.
     pub skipped: usize,
 }
+/// Provenance of a repository snapshot without credentials or absolute file authority.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkspaceSource {
+    /// Provider identifier.
+    pub kind: String,
+    /// API host used for the load.
+    pub host: String,
+    /// Provider project path.
+    pub project: String,
+    /// Requested path within the repository.
+    pub path: String,
+    /// Immutable revision used to read files.
+    pub revision: String,
+}
 /// One immutable loaded session; replacement clears stale validation and selection.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Workspace {
     /// Bounded files in path order.
     pub files: Vec<SuppliedFile>,
@@ -36,6 +52,9 @@ pub struct Workspace {
     pub validations: BTreeMap<String, Value>,
     /// Active source file, if any.
     pub selected: Option<String>,
+    /// Repository origin for a remote snapshot, if present.
+    #[serde(default)]
+    pub source: Option<WorkspaceSource>,
     /// Skipped or rejected files from the last selection.
     pub skipped: usize,
 }
@@ -67,6 +86,7 @@ impl Workspace {
                 selected: accepted.keys().next().cloned(),
                 files: accepted.into_values().collect(),
                 skipped,
+                source: None,
                 validations: BTreeMap::new(),
             }
         }
@@ -95,6 +115,19 @@ impl Workspace {
             .find(|file| Some(&file.path) == self.selected.as_ref())
             .map(|file| file.content.clone())
             .unwrap_or_default()
+    }
+    /// Recheck all persisted paths and limits before restoring browser storage.
+    pub fn restored(self) -> Option<Self> {
+        let selection = Selection {
+            files: self.files.clone(),
+            skipped: self.skipped,
+        };
+        let checked = Self::default().replace(selection);
+        let selected_exists = self
+            .selected
+            .as_ref()
+            .is_none_or(|path| checked.files.iter().any(|file| &file.path == path));
+        (checked.files == self.files && selected_exists).then_some(self)
     }
 }
 /// Reject traversal, absolute paths, unsupported extensions and paths deeper than 20 segments.
@@ -247,6 +280,29 @@ mod tests {
         });
         assert_eq!(large.bytes(), TOTAL_LIMIT);
         assert_eq!(large.skipped, 6);
+    }
+    #[test]
+    fn test_persisted_workspace_rechecks_bounds_and_keeps_state() {
+        let mut saved = Workspace::default().replace(Selection {
+            files: vec![file("a.json", "{}")],
+            skipped: 0,
+        });
+        saved.source = Some(WorkspaceSource {
+            kind: "gitlab".into(),
+            host: "code.ornl.gov".into(),
+            project: "group/repo".into(),
+            path: String::new(),
+            revision: "a".repeat(40),
+        });
+        saved
+            .validations
+            .insert("a.json".into(), json!({"valid":true,"value":{"title":"forged"}}));
+        let restored = saved.clone().restored().expect("valid saved workspace");
+        assert_eq!(restored.files, saved.files);
+        assert_eq!(restored.validations, saved.validations);
+        assert_eq!(restored.source, saved.source);
+        saved.files.first_mut().expect("saved file exists").path = "../a.json".into();
+        assert!(saved.restored().is_none());
     }
     #[test]
     fn test_portfolio_uses_only_validated_records_and_deduplicates_entities() {

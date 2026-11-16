@@ -591,6 +591,7 @@ try {
     assert.ok(await page.locator(".theme-sun").isVisible());
     assert.equal(await page.locator(".theme-moon").isVisible(), false);
     assert.equal(await page.locator(".credit-line,.acronym-note").count(), 0);
+    assert.equal(await page.evaluate(() => localStorage.getItem("acorn.workspace.v1")), null);
     await shot("settings-light");
     checks.push("Explicit and system themes, live preference changes, session metrics and matching skill");
     await nav("ACORN Skill");
@@ -688,6 +689,7 @@ try {
     await page.locator("#content-editor").fill("ROR: https://ror.org/01qz5mb56 DOI: 10.5281/zenodo.10000001");
     await page.getByRole("button", { name: "Discover identifiers", exact: true }).click();
     const rorRow = page.locator(".identifier-row").filter({ has: page.locator('[data-pid="ror"]') });
+    await page.getByRole("button", { name: "View on map", exact: true }).waitFor();
     assert.equal(await page.getByRole("button", { name: "View on map", exact: true }).count(), 1);
     await rorRow.getByRole("button", { name: "View on map", exact: true }).click();
     await page.locator(".map-focus").getByText("Oak Ridge National Laboratory", { exact: true }).waitFor({ timeout: 60000 });
@@ -865,8 +867,12 @@ try {
     const remoteContent = await readFile("crates/acorn-web/assets/examples/publications.json", "utf8");
     let pendingRemote;
     const observedRemote = [];
+    const observedHeaders = [];
     await page.route((url) => mockedRemote(url.href), async (route) => {
         const url = route.request().url(); observedRemote.push(url);
+        observedHeaders.push({ url, method: route.request().method(), headers: route.request().headers() });
+        const cors = { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization,private-token,accept", "Access-Control-Allow-Methods": "GET,OPTIONS" };
+        if (route.request().method() === "OPTIONS") { await route.fulfill({ status: 204, headers: cors }); return; }
         if (url.includes("/commits/pending")) { pendingRemote = route; return; }
         const body = url.endsWith("/bucket") || url.endsWith("%2Fbucket") ? { default_branch: "main" }
             : url.includes("/commits/") ? { sha, id: sha }
@@ -874,9 +880,14 @@ try {
             : url.includes("/git/blobs/") ? { encoding: "base64", content: Buffer.from(remoteContent).toString("base64") }
             : url.includes("/repository/tree?") ? [{ type: "blob", path: "activity.json" }]
             : remoteContent;
-        await route.fulfill({ status: 200, contentType: "application/json", body: typeof body === "string" ? body : JSON.stringify(body) });
+        await route.fulfill({ status: 200, contentType: "application/json", headers: cors, body: typeof body === "string" ? body : JSON.stringify(body) });
     });
     await page.locator(".remote-entry > summary").click();
+    await page.getByRole("combobox", { name: "Repository or URL", exact: true }).fill("acorn-test/bucket");
+    await page.getByText("Optional repository access token").click();
+    await page.locator("#repository-token").fill("browser-test-secret");
+    await page.getByRole("button", { name: "Use token for this host" }).click();
+    await page.getByText("Current token host: api.github.com/acorn-test/bucket").waitFor();
     for (const source of ["acorn-test/bucket", "https://gitlab.com/acorn-test/bucket"]) {
         await page.getByRole("combobox", { name: "Repository or URL", exact: true }).fill(source);
         await page.getByRole("combobox", { name: "Branch / tag / commit (optional)", exact: true }).fill(source.startsWith("https") ? "release/v1" : "main");
@@ -895,6 +906,11 @@ try {
     await shot("remote-loader");
     assert.ok(observedRemote.some((url) => url.includes("/git/trees/" + sha)));
     assert.ok(observedRemote.some((url) => url.endsWith("/raw?ref=" + sha)));
+    assert.ok(observedHeaders.filter(({ url, method }) => url.includes("api.github.com") && method === "GET").every(({ headers }) => headers.authorization === "Bearer browser-test-secret"));
+    assert.ok(observedHeaders.filter(({ url, method }) => url.includes("gitlab.com") && method === "GET").every(({ headers }) => !headers.authorization && !headers["private-token"]));
+    assert.ok(observedRemote.every((url) => !url.includes("browser-test-secret")));
+    await page.getByRole("button", { name: "Remove token" }).click();
+    assert.equal(await page.evaluate(() => window.acornRemote.credentialHost()), "");
     await page.getByRole("combobox", { name: "Repository or URL", exact: true }).fill("acorn-test/bucket");
     await page.getByRole("combobox", { name: "Branch / tag / commit (optional)", exact: true }).fill("pending");
     await page.getByRole("button", { name: "Load bucket", exact: true }).click();

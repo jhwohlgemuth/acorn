@@ -224,6 +224,23 @@ fn InfoPage(page: String) -> Element {
     let mut map_pins = use_context::<Signal<MapPins>>();
     let mut session = use_context::<Signal<String>>();
     let mut workspace = use_context::<Signal<Workspace>>();
+    let mut storage_status = use_context::<Signal<(bool, usize, bool)>>();
+    let mut storage_error = use_signal(String::new);
+    let mut credential_status = use_signal(String::new);
+    let mut credential_error = use_signal(String::new);
+    use_future(move || async move {
+        if let Ok(value) = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); return window.acornWorkspaceStorage.status()")
+            .join::<Value>()
+            .await
+        {
+            storage_status.set(parse_storage_status(&value));
+        }
+    });
+    use_future(move || async move {
+        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialHost();").join::<String>().await {
+            credential_status.set(host);
+        }
+    });
     let title = match page.as_str() {
         | "portfolio" => "Portfolio",
         | "geospatial" => "Geospatial",
@@ -256,9 +273,32 @@ fn InfoPage(page: String) -> Element {
                         p { id: "theme-mode", class: "small muted", "Following your system preference." }
                     }
                     div { class: "card", h2 { class: "section-heading", Icon { name: "folder-open" } "Loaded session" }
-                        dl { class: "result-fields", dt { "Activities" } dd { "{workspace.read().activities().len()} validated" } dt { "Files" } dd { "{workspace.read().files.len()} · {workspace.read().bytes()} UTF-8 bytes" } dt { "Persistence" } dd { "None · this tab only" } }
-                        button { disabled: workspace.read().files.is_empty() && session.read().is_empty() && map_pins.read().identifiers.is_empty(), onclick: move |_| { workspace.set(Workspace::default()); session.set(String::new()); map_pins.set(MapPins::default()); document::eval("window.acornWorkspace?.cancel(); window.acornChrome?.notifications.notify('Loaded session cleared. Exported copies are unchanged.')"); }, "Clear loaded session" }
-                        p { class: "small muted", "Clearing or reloading removes this session only. Exported files and installed skill copies are unchanged." } }
+                        dl { class: "result-fields", dt { "Activities" } dd { "{workspace.read().activities().len()} validated" } dt { "Files" } dd { "{workspace.read().files.len()} · {workspace.read().bytes()} UTF-8 bytes" } dt { "Persistence" } dd { if storage_status().2 { "Save failed" } else if storage_status().0 { "Enabled" } else { "Off" } " · {storage_status().1} stored characters" } }
+                        if !storage_status().0 { button { disabled: workspace.read().files.is_empty(), onclick: move |_| async move {
+                            let value = serde_json::to_string(&workspace()).unwrap_or_default();
+                            match document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = storage?.enable({value}) ?? false; return {{...storage.status(), saved}}")).join::<Value>().await {
+                                Ok(result) => { storage_status.set(parse_storage_status(&result)); storage_error.set(String::new()); },
+                                Err(_) => storage_error.set("Could not save this workspace. Browser storage may be unavailable or full.".into()),
+                            }
+                        }, "Save loaded workspace on this device" } }
+                        button { disabled: workspace.read().files.is_empty() && session.read().is_empty() && map_pins.read().identifiers.is_empty(), onclick: move |_| { workspace.set(Workspace::default()); session.set(String::new()); map_pins.set(MapPins::default()); document::eval("window.acornWorkspace?.cancel(); window.acornChrome?.notifications.notify('Loaded session cleared.')"); }, "Clear loaded session" }
+                        button { disabled: !storage_status().0 && storage_status().1 == 0, onclick: move |_| async move { if matches!(document::eval("return window.acornWorkspaceStorage?.delete() ?? false").join::<bool>().await, Ok(true)) { storage_status.set((false, 0, false)); storage_error.set(String::new()); } else { storage_error.set("Could not delete browser storage.".into()); } }, "Delete saved workspace" }
+                        if !storage_error().is_empty() { p { role: "alert", class: "error", "{storage_error}" } }
+                        if storage_status().2 { p { role: "alert", class: "error", "Workspace saving failed. The older saved copy was removed. This workspace is still open; reduce its size or free browser storage, then save it again." } }
+                        p { class: "small muted", "Saving is optional. This browser stores loaded files until you delete them. Validation runs again on restore. Clearing the loaded session also clears a saved copy when saving is enabled." } }
+                    div { class: "card", h2 { "Repository access" }
+                        p { class: "small muted", "Enter an HTTPS GitHub or GitLab repository and an expiring token for that exact project. The token stays in secure-context session storage for this tab." }
+                        label { class: "field", "Repository URL" input { id: "settings-repository", r#type: "url", autocomplete: "off", placeholder: "https://code.ornl.gov/group/project" } }
+                        label { class: "field", "Personal access token" input { id: "settings-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
+                        button { onclick: move |_| async move {
+                            let result = document::eval("try { const source = document.getElementById('settings-repository').value; const field = document.getElementById('settings-token'); const host = window.acornRemote.setCredential(source, field.value); field.value = ''; return {host}; } catch(error) { return {error: error.message}; }").join::<Value>().await;
+                            if let Ok(value) = result { if let Some(host) = value.get("host").and_then(Value::as_str) { credential_status.set(host.to_owned()); credential_error.set(String::new()); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Could not save this repository token.").to_owned()); } }
+                        }, "Save repository token" }
+                        p { class: "small", if credential_status().is_empty() { "No repository token in this tab." } else { "Token •••••••• configured for {credential_status}." } }
+                        button { disabled: credential_status().is_empty(), onclick: move |_| { document::eval("window.acornRemote?.clearCredential(); const field = document.getElementById('settings-token'); if (field) field.value = '';"); credential_status.set(String::new()); credential_error.set(String::new()); }, "Forget repository token" }
+                        if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
+                        p { class: "small muted", "Tokens use session storage only in a secure browser context. They survive reloads in this tab, remain separate from saved workspace data, and expire when this tab session ends. Revoke a token at its provider if needed." }
+                    }
                     div { class: "card", h2 { "📦 Release" } p { title: RAD_TITLE, "{APP_NAME} · v{VERSION}" } Skill { compact: true }
                         div { class: "actions", Link { to: Route::Page { page: "skill".into() }, "ACORN Skill →" } Link { to: Route::Page { page: "install".into() }, "Install options →" } }
                     }
@@ -272,6 +312,13 @@ fn InfoPage(page: String) -> Element {
             }
         }
     }
+}
+pub(crate) fn parse_storage_status(value: &Value) -> (bool, usize, bool) {
+    (
+        value["enabled"] == true,
+        value["bytes"].as_u64().unwrap_or(0) as usize,
+        value["failed"] == true,
+    )
 }
 #[component]
 fn Page(page: String) -> Element {

@@ -132,7 +132,7 @@ def _plan_files(wiki: Path) -> tuple[Path, ...]:
         sorted(
             path
             for path in wiki.rglob("*.md")
-            if _frontmatter(path.read_text(encoding="utf-8")).get("type") == "Plan"
+            if _frontmatter(path.read_text(encoding="utf-8")).get("type") in {"Plan", "Epic"}
         )
     )
 
@@ -183,14 +183,16 @@ def _validate_plan(plan: Plan, root: Path, wiki: Path) -> list[str]:
     label = str(plan.path.relative_to(root))
     errors = [f"{label}: missing frontmatter `{field}`" for field in sorted(REQUIRED_PLAN_FIELDS - plan.fields.keys())]
     parent_entrypoint = plan.path.parent / "index.md"
-    if plan.path.name != "index.md" and parent_entrypoint.exists() and _frontmatter(parent_entrypoint.read_text(encoding="utf-8")).get("type") == "Plan":
-        errors.append(f"{label}: adjacent Markdown in a folder-format plan cannot be a second Plan entrypoint")
+    if plan.path.name != "index.md" and parent_entrypoint.exists() and _frontmatter(parent_entrypoint.read_text(encoding="utf-8")).get("type") in {"Plan", "Epic"}:
+        errors.append(f"{label}: adjacent Markdown in a folder-format plan or epic cannot be a second entrypoint")
     difficulty = str(plan.fields.get("difficulty", ""))
     execution = str(plan.fields.get("execution", ""))
     impact = str(plan.fields.get("impact", ""))
     package = plan.fields.get("package", [])
     tags = plan.fields.get("tags", [])
     status = str(plan.fields.get("status", ""))
+    if plan.fields.get("type") == "Epic" and execution != "coordination":
+        errors.append(f"{label}: epics require coordination execution")
     if difficulty not in ALLOWED_DIFFICULTIES:
         errors.append(f"{label}: invalid difficulty `{difficulty}`")
     if execution not in ALLOWED_EXECUTION:
@@ -243,7 +245,7 @@ def validate_repository(root: Path) -> list[str]:
         valid = asset_dir == 0
         if asset_dir > 0:
             entrypoint = wiki.joinpath(*parts[:asset_dir]) / "index.md"
-            valid = entrypoint.exists() and _frontmatter(entrypoint.read_text(encoding="utf-8")).get("type") == "Plan"
+            valid = entrypoint.exists() and _frontmatter(entrypoint.read_text(encoding="utf-8")).get("type") in {"Plan", "Epic"}
         if not valid:
             errors.append(f"{path.relative_to(resolved_root)}: non-Markdown artifact must be in an adjacent _assets directory")
     phase_ids = [phase.identifier for plan in plans for phase in plan.phases]

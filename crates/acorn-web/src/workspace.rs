@@ -2,7 +2,7 @@ use crate::details::{self, Detail};
 use crate::ui::{validate_files, Icon, Route, UrlFileInput};
 use acorn_web::{
     presentation::text,
-    session::{self, Selection, SuppliedFile, Workspace},
+    session::{self, Selection, SuppliedFile, Workspace, WorkspaceSource},
 };
 use alloc::collections::BTreeSet;
 use dioxus::prelude::*;
@@ -20,7 +20,7 @@ fn Distribution(title: &'static str, counts: alloc::collections::BTreeMap<String
 }
 #[component]
 pub(crate) fn FileTree(paths: Vec<String>, prefix: String) -> Element {
-    let workspace = use_context::<Signal<Workspace>>();
+    let mut workspace = use_context::<Signal<Workspace>>();
     let drawer = use_context::<Signal<Option<Detail>>>();
     let children = paths
         .iter()
@@ -32,7 +32,7 @@ pub(crate) fn FileTree(paths: Vec<String>, prefix: String) -> Element {
         {let path = format!("{prefix}{name}");
         let is_file = paths.contains(&path);
         rsx! { li {
-            if is_file { button { class: "file-leaf", "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { details::open(drawer, Detail::file(file, &snapshot)); } }, span { "aria-hidden": "true", "📄" } "{name}" } }
+            if is_file { button { class: "file-leaf", "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { details::open(drawer, Detail::file(file, &snapshot)); workspace.write().selected = Some(path.clone()); } }, span { "aria-hidden": "true", "📄" } "{name}" } }
             else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/") } } }
         }}}
     } } }
@@ -52,10 +52,17 @@ pub(crate) fn Loader() -> Element {
     let mut remote_ref = use_signal(String::new);
     let mut remote_error = use_signal(String::new);
     let mut remote_loading = use_signal(|| false);
+    let mut credential_host = use_signal(String::new);
+    let mut credential_message = use_signal(String::new);
     let mut history = use_signal(BucketHistory::default);
     use_future(move || async move {
         if let Ok(saved) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.history.read();").join::<BucketHistory>().await {
             history.set(saved);
+        }
+    });
+    use_future(move || async move {
+        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialHost();").join::<String>().await {
+            credential_host.set(host);
         }
     });
     use_future(move || async move {
@@ -120,8 +127,11 @@ pub(crate) fn Loader() -> Element {
                     if let Ok(saved) = serde_json::from_value::<BucketHistory>(value.get("history").cloned().unwrap_or(Value::Null)) { history.set(saved); }
                     if let Some(error) = value.get("error").and_then(Value::as_str) { remote_error.set(error.to_owned()); }
                     else {
-                        match serde_json::from_value::<Selection>(value.get("ok").cloned().unwrap_or(Value::Null)) {
-                            Ok(selection) => { let next = workspace().replace(selection); message.set(format!("{} remote files loaded; {} entries skipped. Open Portfolio to validate activities.", next.files.len(), next.skipped)); input.set(next.content()); workspace.set(next); },
+                        let mut loaded = value.get("ok").cloned().unwrap_or(Value::Null);
+                        let source = loaded.get("source").cloned().and_then(|value| serde_json::from_value::<WorkspaceSource>(value).ok());
+                        if let Some(object) = loaded.as_object_mut() { object.remove("source"); }
+                        match serde_json::from_value::<Selection>(loaded) {
+                            Ok(selection) => { let mut next = workspace().replace(selection); next.source = source; message.set(format!("{} remote files loaded; {} entries skipped. Open Portfolio to validate activities.", next.files.len(), next.skipped)); input.set(next.content()); workspace.set(next); },
                             Err(_) => remote_error.set("The repository returned an invalid file selection. Your previous session is unchanged.".into()),
                         }
                     }
@@ -138,6 +148,18 @@ pub(crate) fn Loader() -> Element {
                 if remote_loading() { button { r#type: "button", onclick: move |_| { document::eval("window.acornRemote?.cancel()"); }, "Cancel" } }
             }
             p { class: "small muted", "Public repositories, folder or file URLs. For branches containing /, enter the full branch above. Loading replaces this session after a successful download." }
+            details { summary { "Optional repository access token" }
+                p { class: "small muted", "Use an expiring token for the selected repository. GitHub: fine-grained Contents read for this repository only. GitLab: repository files accept read_repository, but full private-bucket discovery may require project-scoped read_api. A secure browser context stores the token for this tab session, including reloads. It is never saved with workspace data. Revoke it at the provider if compromised." }
+                label { class: "field", "Personal access token" input { id: "repository-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
+                button { r#type: "button", onclick: move |_| async move {
+                    let input = serde_json::to_string(&remote_url()).unwrap_or_default();
+                    let result = document::eval(&format!("try {{ const field = document.getElementById('repository-token'); const host = window.acornRemote.setCredential({input}, field.value); field.value = ''; return {{host}}; }} catch(error) {{ return {{error: error.message}}; }}")).join::<Value>().await;
+                    if let Ok(value) = result { if let Some(host) = value.get("host").and_then(Value::as_str) { credential_host.set(host.to_owned()); credential_message.set(format!("Token enabled for {host} for this tab.")); } else { credential_message.set(value.get("error").and_then(Value::as_str).unwrap_or("Choose a valid repository URL and enter a token.").to_owned()); } }
+                }, "Use token for this host" }
+                button { r#type: "button", onclick: move |_| { document::eval("window.acornRemote?.clearCredential(); const field = document.getElementById('repository-token'); if (field) field.value = '';"); credential_host.set(String::new()); credential_message.set("Token removed from this tab.".into()); }, "Remove token" }
+                if !credential_host().is_empty() { p { class: "small", "Current token host: {credential_host}" } }
+                if !credential_message().is_empty() { p { role: "status", "{credential_message}" } }
+            }
             div { class: "actions small muted", span { "Recent inputs are remembered in this browser." }
                 button { r#type: "button", class: "small", disabled: remote_loading() || (history.read().repositories.is_empty() && history.read().refs.is_empty()), onclick: move |_| {
                     document::eval("window.acornRemote?.history.clear()"); history.set(BucketHistory::default());
@@ -160,7 +182,6 @@ pub(crate) fn Portfolio() -> Element {
     let mut status = use_signal(String::new);
     let mut sort = use_signal(|| "title");
     let mut descending = use_signal(|| false);
-    let mut selected = use_signal(|| None::<String>);
     let mut validating = use_signal(|| false);
     let snapshot = workspace();
     let activities = snapshot.activities();
@@ -191,7 +212,7 @@ pub(crate) fn Portfolio() -> Element {
     });
     let selection = filtered
         .iter()
-        .find(|(file, _)| Some(&file.path) == selected().as_ref())
+        .find(|(file, _)| Some(&file.path) == snapshot.selected.as_ref())
         .or_else(|| filtered.first())
         .copied();
     let invalid = snapshot.validations.values().filter(|value| value["valid"] != true).count();
@@ -229,7 +250,7 @@ pub(crate) fn Portfolio() -> Element {
                     th { scope: "col", "aria-sort": if sort() == field { if descending() { "descending" } else { "ascending" } } else { "none" }, button { onclick: move |_| { if sort() == field { descending.toggle(); } else { sort.set(field); descending.set(false); } }, "{label}" } }
                 } } }
                 tbody { for (file, value) in &filtered { {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); rsx! {
-                    tr { td { button { class: "activity-select", "aria-pressed": selection.is_some_and(|(chosen, _)| chosen.path == path), onclick: move |_| { selected.set(Some(path.clone())); details::open(drawer, detail.clone()); }, "{text(value, \"title\")}" } small { "{file.path}" } } td { "{session::activity_type(value)}" } td { "{session::activity_status(value)}" } }
+                    tr { td { button { class: "activity-select", "aria-pressed": selection.is_some_and(|(chosen, _)| chosen.path == path), onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); }, "{text(value, \"title\")}" } small { "{file.path}" } } td { "{session::activity_type(value)}" } td { "{session::activity_status(value)}" } }
                 }} } }
             }
             if filtered.is_empty() && !activities.is_empty() { div { class: "card empty", h2 { "No matching activities" } p { "Try another search or reset the filters." } button { onclick: move |_| { search.set(String::new()); kind.set(String::new()); status.set(String::new()); }, "Reset filters" } } }

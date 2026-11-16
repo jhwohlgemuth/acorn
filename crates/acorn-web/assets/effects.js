@@ -184,7 +184,13 @@ function installChrome() {
     window.addEventListener("pagehide", () => { tour.cancel(); notifications.dismiss(); });
     theme.sync();
 }
-installChrome();
+if (document.querySelector(".workspace")) installChrome();
+else if (typeof MutationObserver === "function" && document.documentElement) {
+    const observer = new MutationObserver(() => {
+        if (document.querySelector(".workspace")) { observer.disconnect(); installChrome(); }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+}
 
 const workspaceLimits = { count: 500, depth: 20, file: 262144, total: 16777216, entries: 10000 };
 function validWorkspacePath(path) {

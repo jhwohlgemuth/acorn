@@ -138,6 +138,14 @@ class ValidatorTests(unittest.TestCase):
         root = self._repository(PLAN + DUPLICATE_PHASE)
         self.assertTrue(any("duplicate phase ID" in error for error in validate_repository(root)))
 
+    def test_epic_is_validated_as_a_coordination_entry(self) -> None:
+        root = self._repository()
+        epic = root / ".wiki" / "coordination.md"
+        epic.write_text(COORDINATION.replace("type: Plan", "type: Epic"), encoding="utf-8")
+        self.assertEqual(validate_repository(root), [])
+        epic.write_text(COORDINATION.replace("type: Plan", "type: Epic").replace("execution: coordination", "execution: phased"), encoding="utf-8")
+        self.assertTrue(any("epics require coordination execution" in error for error in validate_repository(root)))
+
     def test_empty_package_is_rejected(self) -> None:
         root = self._repository(PLAN.replace("package: [workspace]", "package: []"))
         self.assertTrue(any("package must be a non-empty list" in error for error in validate_repository(root)))

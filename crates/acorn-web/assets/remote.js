@@ -41,11 +41,13 @@ async function readRemoteBytes(response, maximum) {
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
     return bytes;
 }
-async function loadRemoteBucket(source, signal, fetcher = fetch) {
+async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
     const base = source.kind === "github" ? `${source.origin}/repos/${source.project.split("/").map(encodeURIComponent).join("/")}` : `${source.origin}/api/v4/projects/${encodeURIComponent(source.project)}`;
     const request = async (path, maximum = remoteLimits.listing) => {
         signal.throwIfAborted();
-        return readRemoteBytes(await fetcher(base + path, { signal, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: "application/json" } }), maximum);
+        const headers = { Accept: "application/json" };
+        if (token) headers[source.kind === "github" ? "Authorization" : "PRIVATE-TOKEN"] = source.kind === "github" ? `Bearer ${token}` : token;
+        return readRemoteBytes(await fetcher(base + path, { signal, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers }), maximum);
     };
     const json = async (path) => JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await request(path)));
     const repository = await json("");
@@ -62,12 +64,16 @@ async function loadRemoteBucket(source, signal, fetcher = fetch) {
     } else if (source.file) {
         entries = [{ path: source.path, type: "blob" }];
     } else {
+        let pageToken = "";
         for (let page = 1; page <= 101; page += 1) {
-            const batch = await json(`/repository/tree?recursive=true&per_page=100&page=${page}&ref=${revision}&path=${encodeURIComponent(source.path)}`);
+            const cursor = pageToken ? `&page_token=${encodeURIComponent(pageToken)}` : "";
+            const batch = await json(`/repository/tree?recursive=true&pagination=keyset&per_page=100&ref=${revision}&path=${encodeURIComponent(source.path)}${cursor}`);
             if (!Array.isArray(batch)) throw new Error("Invalid repository listing.");
             entries.push(...batch);
             if (entries.length > remoteLimits.entries) throw new Error("Folder contains too many entries. Choose a smaller folder.");
             if (batch.length < 100) break;
+            pageToken = batch.at(-1)?.id;
+            if (!/^[a-f0-9]{40,64}$/i.test(pageToken || "")) throw new Error("Repository returned an invalid listing cursor.");
         }
     }
     const inside = (path) => !source.path || path === source.path || (!source.file && path.startsWith(source.path + "/"));
@@ -93,7 +99,7 @@ async function loadRemoteBucket(source, signal, fetcher = fetch) {
     }
     signal.throwIfAborted();
     if (!files.length) throw new Error("No supported research files found at this location.");
-    return { files, skipped: candidates.length - accepted.length };
+    return { files, skipped: candidates.length - accepted.length, source: { kind: source.kind, host: new URL(source.origin).host, project: source.project, path: source.path, revision } };
 }
 function createBucketHistory(storage = () => window.localStorage) {
     const key = "acorn.bucket-history.v1";
@@ -169,25 +175,60 @@ function createRemoteFileLoader(fetcher = fetch) {
         },
     };
 }
+function createRepositoryCredentials(storage = () => window.sessionStorage, secure = () => window.isSecureContext) {
+    const key = "acorn.repository-credential.v1";
+    const read = () => {
+        if (!secure()) return null;
+        try {
+            const value = JSON.parse(storage().getItem(key));
+            return value && ["github", "gitlab"].includes(value.kind) && typeof value.host === "string" && typeof value.project === "string" && typeof value.token === "string" ? value : null;
+        } catch { return null; }
+    };
+    return {
+        read,
+        clear() { try { storage().removeItem(key); return true; } catch { return false; } },
+        set(source, token) {
+            if (!secure()) throw new Error("Repository tokens require a secure browser context.");
+            const credential = { kind: source.kind, host: new URL(source.origin).host, project: source.project, token };
+            try { storage().setItem(key, JSON.stringify(credential)); } catch { throw new Error("Session storage is unavailable. Repository token was not saved."); }
+            return credential;
+        },
+    };
+}
 function createRemoteLoader() {
     let active;
+    const credentials = createRepositoryCredentials();
     const file = createRemoteFileLoader();
     const history = createBucketHistory();
     return {
         cancel() { active?.abort(); active = undefined; file.cancel(); },
         file,
         history,
+        credentialHost() { const saved = credentials.read(); return saved ? `${saved.host}/${saved.project}` : ""; },
+        clearCredential() { return credentials.clear(); },
+        setCredential(input, token) {
+            const source = parseRemoteBucket(input);
+            if (!token || token.length > 4096 || /[\r\n]/.test(token)) throw new Error("Enter a valid token.");
+            const credential = credentials.set(source, token);
+            return `${credential.host}/${credential.project}`;
+        },
         async load(input, branch) {
             window.acornWorkspace.cancel();
             const controller = new AbortController();
             active = controller;
             const timeout = setTimeout(() => controller.abort(), 120000);
+            let token = "";
             try {
                 const source = parseRemoteBucket(input, branch);
                 history.remember(input, branch);
-                return await loadRemoteBucket(source, controller.signal);
+                const credential = credentials.read();
+                token = credential?.host === new URL(source.origin).host && credential.kind === source.kind && credential.project === source.project ? credential.token : "";
+                return await loadRemoteBucket(source, controller.signal, fetch, token);
             }
-            catch (error) { throw new Error(controller.signal.aborted ? "Remote load cancelled or timed out. Your previous session is unchanged." : error instanceof TypeError ? "Could not load this public repository. Check the URL, network connection and the server’s CORS settings." : error.message); }
+            catch (error) {
+                const message = controller.signal.aborted ? "Remote load cancelled or timed out. Your previous session is unchanged." : error instanceof TypeError ? "Could not load this repository. Check the URL, network connection and the server’s CORS settings." : error instanceof SyntaxError ? "The repository returned invalid data." : error.message;
+                throw new Error(token ? message.replaceAll(token, "[redacted]") : message);
+            }
             finally { clearTimeout(timeout); if (active === controller) active = undefined; }
         },
     };

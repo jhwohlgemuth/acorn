@@ -2,9 +2,13 @@
 
 > **Sanitized copy:** Account labels and related assets have been redacted. Historical checksums and import results describe the originals; see [privacy and reuse limits](../privacy.md).
 
+## In progress
+
+- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - ABW-40 private GitLab bucket loading is active after accepted ABW-39/41/38 credential, GitHub, and workspace-persistence work. The minimum GitLab token scope and live private-host CORS behavior remain to be resolved. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
+
 ## Planned
 
-- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - Browser parity items 1–5 are implemented, including tool-specific results, folders/Portfolio/local map, Settings and browser Skill/Install; ABW-10 is accepted and pruned. ABW-35 local reload acceptance is ready; ABW-36 hosted Pages acceptance awaits mirror/certificate evidence. Remaining phases cover focused and cross-engine acceptance, native integration and verified publication. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
+- [Research Activity Index projection and navigation](research-activity-index-implementation.md) - After ABW-40 accepts private GitLab loading, ABW-42 derives deterministic rows from validated/restored RAD and ABW-43 adds Research Index-inspired search, sorting, layouts, details, and accessible relationship navigation before ABW-19 acceptance.
 - [Conversational RAD assistance and reviewed fixes](assisted-rad-workspace.md) - After ABW-11 creates the desktop shell, add an opt-in Ask ACORN panel to the shared UI, grounded read-only tools, ACORN-backed fix previews, per-fix review, and explicit browser download or native save.
 - [Opt-in netrc authentication](netrc-support.md) - Add explicit native credential loading, origin-scoped HTTPS Basic authentication and remote BagIt download flags; preserve provider/OAuth precedence and anonymous defaults. Earthdata compatibility is unproven and outside the initial release claim.
 - [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam, multi-select control, and release validation remain.
@@ -41,6 +45,7 @@
 
 ## Epics
 
+- [Research Activity Index capability](research-activity-index/index.md) - Coordinates ABW-40 private GitLab loading → ABW-42 deterministic projection → ABW-43 Research Index-inspired catalog/navigation → ABW-19 integrated acceptance.
 - [PowerApp and Power Automate intake portfolio](powerapps-jsonl-intake/index.md) - Coordinates the accepted SharePoint baseline, report-first approval plans, retained GitLab fallback, shared deployment and boundaries with downloader, Teams, Vergil, editorial and enrichment work.
 
 ## Coordination
