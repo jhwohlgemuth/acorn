@@ -31,11 +31,22 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const failures = [];
 async function waitForServices(page) {
     // A visible heading does not mean deferred module imports have finished.
-    await page.waitForFunction(() => {
-        const status = document.getElementById("webmcp-status")?.textContent;
-        const editors = !document.querySelector(".code-editor") || document.querySelector(".cm-content");
-        return window.acornSyntax && editors && status && status !== "WebMCP: initializing";
-    });
+    try {
+        await page.waitForFunction(() => {
+            const status = document.getElementById("webmcp-status")?.textContent;
+            const editors = !document.querySelector(".code-editor") || document.querySelector(".cm-content");
+            return window.acornSyntax && editors && status && status !== "WebMCP: initializing";
+        });
+    } catch (error) {
+        const state = await page.evaluate(() => ({
+            title: document.title,
+            syntax: Boolean(window.acornSyntax),
+            editor: Boolean(document.querySelector(".cm-content")),
+            codeEditor: Boolean(document.querySelector(".code-editor")),
+            webmcp: document.getElementById("webmcp-status")?.textContent,
+        }));
+        throw new Error(`Browser services did not initialize: ${JSON.stringify({ state, failures })}`, { cause: error });
+    }
     assert.match(await page.locator("#webmcp-status").textContent(), /^WebMCP: (installed|unsupported)$/);
 }
 const browser = await chromium.launch().catch((error) => { server.close(); throw error; });

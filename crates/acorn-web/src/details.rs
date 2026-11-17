@@ -1,6 +1,7 @@
 use crate::results::ResultView;
 use crate::syntax::{CodeBlock, CodeEditor};
 use crate::ui::{Icon, Route};
+use acorn_web::research_index::{Project, ResearchIndex};
 use acorn_web::{
     geospatial::Marker,
     operations::Tool,
@@ -24,6 +25,7 @@ pub(crate) struct Detail {
     tool: Tool,
     finding: Option<Value>,
     marker: Option<Marker>,
+    project: Option<Project>,
 }
 impl Detail {
     pub(crate) fn file(file: &SuppliedFile, workspace: &Workspace) -> Self {
@@ -35,7 +37,18 @@ impl Detail {
             .to_owned();
         Self {
             title,
-            subtitle: file.path.clone(),
+            subtitle: workspace.source.as_ref().map_or_else(
+                || file.path.clone(),
+                |source| {
+                    format!(
+                        "{} · {}/{} @ {}",
+                        file.path,
+                        source.host,
+                        source.project,
+                        source.revision.chars().take(12).collect::<String>()
+                    )
+                },
+            ),
             source: file.content.clone(),
             filename: file.path.rsplit('/').next().unwrap_or("source.txt").into(),
             language: match file.path.rsplit('.').next() {
@@ -51,6 +64,7 @@ impl Detail {
             tool: Tool::Activity,
             finding: None,
             marker: None,
+            project: None,
         }
     }
     pub(crate) fn organization(marker: &Marker) -> Self {
@@ -66,6 +80,30 @@ impl Detail {
             tool: Tool::Activity,
             finding: None,
             marker: Some(marker.clone()),
+            project: None,
+        }
+    }
+}
+impl From<&Project> for Detail {
+    fn from(project: &Project) -> Self {
+        Self::from(project.clone())
+    }
+}
+impl From<Project> for Detail {
+    fn from(project: Project) -> Self {
+        Self {
+            title: project.title.clone(),
+            subtitle: format!("Project · {}", project.id),
+            source: String::new(),
+            filename: String::new(),
+            language: "json".into(),
+            path: None,
+            value: None,
+            checks: None,
+            tool: Tool::Activity,
+            finding: None,
+            marker: None,
+            project: Some(project),
         }
     }
 }
@@ -102,11 +140,39 @@ fn ActivityOverview(value: Value) -> Element {
             li { if let Some(href) = identifier_href(identifier) { a { href, target: "_blank", rel: "noopener noreferrer", "{identifier}" } } else { "{identifier}" } }
         } }
         if let Some(sections) = value.get("sections").filter(|sections| sections.is_object()) {
-            for (name, content) in sections.as_object().into_iter().flatten() {
-                details { summary { "{acorn_web::presentation::label(name)}" }
-                    for paragraph in session::many(content) { if let Some(paragraph) = paragraph.as_str() { p { class: "details-description", "{paragraph}" } } }
-                }
+            if let Some(focus) = sections.get("research").and_then(|research| research.get("focus")).and_then(Value::as_str) {
+                h3 { class: "details-section-title", "Research focus" }
+                p { class: "details-description", "{focus}" }
             }
+            if let Some(areas) = sections.get("research").and_then(|research| research.get("areas")).and_then(Value::as_array) { if !areas.is_empty() {
+                h3 { class: "details-section-title", "Research areas" }
+                ul { class: "details-entities", for area in areas { if let Some(area) = area.as_str() { li { "{area}" } } } }
+            } }
+            for (name, content) in sections.as_object().into_iter().flatten() {
+                if name != "research" { details { summary { "{acorn_web::presentation::label(name)}" }
+                    for paragraph in session::many(content) { if let Some(paragraph) = paragraph.as_str() { p { class: "details-description", "{paragraph}" } } }
+                } }
+            }
+        }
+        if !session::many(metadata(&value, "websites")).is_empty() {
+            h3 { class: "details-section-title", "Related links" }
+            ul { class: "details-entities", for website in session::many(metadata(&value, "websites")) {
+                if let Some(url) = website["url"].as_str().and_then(identifier_href) { li { a { href: url, target: "_blank", rel: "noopener noreferrer", "{website[\"description\"].as_str().unwrap_or(\"Website\")}" } } }
+            } }
+        }
+        if !session::many(metadata(&value, "media")).is_empty() {
+            h3 { class: "details-section-title", "Media" }
+            ul { class: "details-entities", for media in session::many(metadata(&value, "media")) {
+                {let caption = media["caption"].as_str().or_else(|| media["description"].as_str()).unwrap_or("Media item"); rsx! { li {
+                    if let Some(url) = media["contentUrl"].as_str().and_then(identifier_href) { a { href: url, target: "_blank", rel: "noopener noreferrer", "{caption}" } } else { "{caption}" }
+                } }}
+            } }
+        }
+        if let Some(contact) = value.get("contact").filter(|contact| contact.is_object()) {
+            h3 { class: "details-section-title", "Contact" }
+            p { "{contact[\"givenName\"].as_str().unwrap_or(\"\")} {contact[\"familyName\"].as_str().unwrap_or(\"\")}" }
+            if let Some(organization) = contact["organization"].as_str() { p { "{organization}" } }
+            if let Some(email) = contact["email"].as_str() { if !email.is_empty() { p { a { href: "mailto:{email}", "{email}" } } } }
         }
     }
 }
@@ -146,6 +212,7 @@ pub(crate) fn DetailsDrawer() -> Element {
         }
     }));
     let snapshot = workspace();
+    let index = ResearchIndex::from(&snapshot);
     rsx! {
         dialog { id: "details-drawer", class: "details-drawer", "aria-labelledby": "details-title",
             div { class: "details-resize", role: "separator", tabindex: "0", "aria-label": "Resize details drawer", "aria-orientation": "vertical", "aria-valuemin": "360", "aria-valuemax": "900", "aria-valuenow": "480", title: "Drag to resize · Left/Right arrows to adjust width" }
@@ -154,12 +221,15 @@ pub(crate) fn DetailsDrawer() -> Element {
                     div { p { class: "details-eyebrow", "{detail.subtitle}" } h2 { id: "details-title", tabindex: "-1", "{detail.title}" } }
                     button { class: "details-close", "aria-label": "Close details", title: "Close details (Esc)", onclick: move |_| { document::eval("window.acornDetails?.close()"); }, "×" }
                 }
-                div { class: "details-tabs", role: "tablist", "aria-label": "Details view",
+                if let Some(href) = snapshot.source.as_ref().and_then(|source| detail.path.as_deref().and_then(|path| source.link(path))) {
+                    p { class: "details-provenance", a { href, target: "_blank", rel: "noopener noreferrer", "View source at loaded revision ↗" } }
+                }
+                if detail.project.is_none() { div { class: "details-tabs", role: "tablist", "aria-label": "Details view",
                     for (name, label, icon) in [("overview", "Overview", "filecheck"), ("source", "Source", "code"), ("checks", "Checks", "check")] {
                         button { id: "details-tab-{name}", role: "tab", "aria-selected": tab() == name, "aria-controls": "details-panel", tabindex: if tab() == name { "0" } else { "-1" }, onclick: move |_| tab.set(name), Icon { name: icon } "{label}" }
                     }
-                }
-                div { id: "details-panel", class: "details-body", role: "tabpanel", "aria-labelledby": "details-tab-{tab}", tabindex: "0",
+                } }
+                div { id: "details-panel", class: "details-body", role: if detail.project.is_some() { "region" } else { "tabpanel" }, "aria-labelledby": if detail.project.is_some() { "details-title".to_string() } else { format!("details-tab-{tab}") }, tabindex: "0",
                     match tab() {
                         "source" => rsx! {
                             p { class: "small muted", "Read-only preview · {detail.source.len()} UTF-8 bytes" }
@@ -184,6 +254,17 @@ pub(crate) fn DetailsDrawer() -> Element {
                         },
                         _ => rsx! {
                             if let Some(finding) = &detail.finding { FindingOverview { finding: finding.clone(), value: detail.value.clone() } }
+                            else if let Some(project) = &detail.project {
+                                if !project.summary.is_empty() { p { class: "details-description", "{project.summary}" } }
+                                dl { class: "details-facts", div { dt { "Identifier" } dd { "{project.id}" } } div { dt { "Activities" } dd { "{project.paths.len()}" } } }
+                                h3 { class: "details-section-title", "Organizations" }
+                                if project.organizations.is_empty() { p { class: "small muted", "Not provided" } }
+                                else { ul { class: "details-entities", for organization in &project.organizations { li { "{organization}" } } } }
+                                h3 { class: "details-section-title", "Activities" }
+                                for path in &project.paths { if let Some(file) = snapshot.files.iter().find(|file| &file.path == path) {
+                                    {let next = Detail::file(file, &snapshot); rsx! { button { class: "details-related", onclick: move |_| open(drawer, next.clone()), strong { "{next.title}" } small { "{path}" } } }}
+                                } }
+                            }
                             else if let Some(marker) = &detail.marker {
                                 dl { class: "details-facts",
                                     div { dt { "ROR" } dd { a { href: marker.id.clone(), target: "_blank", rel: "noopener noreferrer", "{marker.id}" } } }
@@ -205,11 +286,20 @@ pub(crate) fn DetailsDrawer() -> Element {
                                 }
                             } else if let Some(value) = &detail.value {
                                 ActivityOverview { value: value.clone() }
+                                if let Some(project) = index.projects.iter().find(|project| project.paths.iter().any(|path| Some(path) == detail.path.as_ref())) {
+                                    {let next = Detail::from(project); rsx! { button { class: "details-related", onclick: move |_| open(drawer, next.clone()), "View project: {project.title}" } }}
+                                }
+                                if let Some(path) = detail.path.as_deref() { if !index.related(path).is_empty() {
+                                    h3 { class: "details-section-title", "Related activities" }
+                                    for activity in index.related(path) { if let Some(file) = snapshot.files.iter().find(|file| file.path == activity.path) {
+                                        {let next = Detail::file(file, &snapshot); rsx! { button { class: "details-related", onclick: move |_| open(drawer, next.clone()), strong { "{activity.title}" } small { "{activity.path}" } } }}
+                                    } }
+                                } }
                             } else { div { class: "details-empty", Icon { name: "code" } h3 { "File preview" } p { "Open Source to read this file. Its original content is preserved." } } }
                         },
                     }
                 }
-                if detail.marker.is_none() {
+                if detail.marker.is_none() && detail.project.is_none() {
                     footer { class: "details-footer", button { class: "primary", onclick: move |_| {
                         input.set(detail.source.clone());
                         if let Some(path) = &detail.path { let mut workspace = workspace; let mut next = workspace(); next.selected = Some(path.clone()); workspace.set(next); }
@@ -229,7 +319,7 @@ pub(crate) fn DiagnosticButton(finding: Value, source: Rc<String>, checks: Rc<Va
         let path = finding.get("path").and_then(Value::as_str).or_else(|| finding.get("field").and_then(Value::as_str)).unwrap_or("No field path");
         open(drawer, Detail {
             title: "Diagnostic details".into(), subtitle: path.into(), source: source.to_string(), filename: "input.txt".into(), language: "auto".into(),
-            path: None, value: serde_json::from_str(&source).ok(), checks: Some(Value::clone(&checks)), tool, finding: Some(finding.clone()), marker: None,
+            path: None, value: serde_json::from_str(&source).ok(), checks: Some(Value::clone(&checks)), tool, finding: Some(finding.clone()), marker: None, project: None,
         });
     }, Icon { name: "search" } "Inspect" } }
 }

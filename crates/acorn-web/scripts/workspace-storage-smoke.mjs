@@ -5,6 +5,7 @@ import { extname, resolve, sep } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(process.argv[2] || "target/dx/acorn-web/release/web/public");
+const validActivity = await readFile(new URL("../assets/examples/publications.json", import.meta.url), "utf8");
 const types = { ".css": "text/css", ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm", ".png": "image/png" };
 const server = createServer(async (request, response) => {
     const path = resolve(root, `.${new URL(request.url, "http://localhost").pathname}`);
@@ -41,6 +42,8 @@ try {
     await page.waitForFunction(() => document.querySelector(".sidebar-session")?.innerText.includes("3 activities · 3 files"));
     await page.unroute("**/assets/worker-*.js");
     await page.locator('nav a[title="Portfolio"]').click();
+    assert.equal(await page.locator(".catalog-project").count(), 3);
+    assert.equal(await page.getByRole("status").filter({ hasText: "3 activities in 3 projects" }).count(), 1);
     assert.equal(await page.locator('.activity-select[aria-pressed="true"]').locator("..").locator("small").innerText(), selectedPath);
     await page.locator('nav a[title="Settings"]').click();
     await page.getByRole("button", { name: "Delete saved workspace" }).click();
@@ -48,10 +51,9 @@ try {
     await page.locator('nav a[title="Home"]').click();
     await page.locator(".remote-entry > summary").click();
     await page.getByRole("combobox", { name: "Repository or URL" }).fill("owner/repo");
-    await page.getByText("Optional repository access token").click();
     await page.locator("#repository-token").fill("browser-test-secret");
-    await page.getByRole("button", { name: "Use token for this host" }).click();
-    await page.getByText("Token •••••••• configured for api.github.com/owner/repo.").waitFor();
+    await page.getByRole("button", { name: "Save token for this host" }).click();
+    await page.getByText("Token •••••••• configured for api.github.com.").waitFor();
     assert.equal(await page.locator("#repository-token").inputValue(), "");
     const requests = [];
     const revision = "a".repeat(40);
@@ -78,46 +80,67 @@ try {
     await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
     assert.ok(requests.filter(request => request.method === "GET").every(request => !request.headers.authorization));
     const gitlabRequests = [];
-    await page.route("https://code.ornl.gov/api/v4/projects/group%2Frepo**", async route => {
+    await page.route("https://code.ornl.gov/api/v4/projects/group%2F**", async route => {
         const request = route.request();
         gitlabRequests.push({ url: request.url(), method: request.method(), headers: request.headers(), redirect: request.redirectedFrom() });
         const headers = { "Access-Control-Allow-Origin": `http://127.0.0.1:${server.address().port}`, "Access-Control-Allow-Headers": "private-token,accept", "Access-Control-Allow-Methods": "GET,OPTIONS" };
         if (request.method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
         if (request.headers()["private-token"] !== "gitlab-test-secret") { await route.fulfill({ status: 403, headers }); return; }
         const url = request.url();
-        const body = url.endsWith("/group%2Frepo") ? { default_branch: "main" }
+        const body = /\/group%2F(?:repo|other)$/.test(url) ? { default_branch: "main" }
             : url.includes("/repository/commits/") ? { id: revision }
             : url.includes("/repository/tree?") ? [{ type: "blob", path: "rad.json" }]
-            : "{}";
+            : validActivity;
         await route.fulfill({ status: 200, contentType: "application/json", headers, body: typeof body === "string" ? body : JSON.stringify(body) });
     });
     await page.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/repo");
     await page.getByRole("button", { name: "Load bucket" }).click();
     await page.getByRole("alert").filter({ hasText: /Access denied/ }).waitFor();
     await page.locator("#repository-token").fill("gitlab-test-secret");
-    await page.getByRole("button", { name: "Use token for this host" }).click();
-    await page.getByText("Token •••••••• configured for code.ornl.gov/group/repo.").waitFor();
+    await page.getByRole("button", { name: "Save token for this host" }).click();
+    await page.getByText("Token •••••••• configured for code.ornl.gov.").waitFor();
     await page.getByRole("button", { name: "Load bucket" }).click();
     await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
     assert.ok(gitlabRequests.some(request => request.method === "GET" && request.headers["private-token"] === "gitlab-test-secret"));
     assert.ok(gitlabRequests.filter(request => request.method === "GET" && request.headers["private-token"]).every(request => !request.url.includes("gitlab-test-secret") && !request.redirect));
+    gitlabRequests.length = 0;
+    await page.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/other");
+    await page.getByRole("button", { name: "Load bucket" }).click();
+    await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
+    assert.ok(gitlabRequests.some(request => request.url.includes("group%2Fother") && request.method === "GET" && request.headers["private-token"] === "gitlab-test-secret"), "the same host token loads a second project");
+    await page.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/repo");
+    await page.getByRole("button", { name: "Load bucket" }).click();
+    await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
+    await page.locator('nav a[title="Portfolio"]').click();
+    await page.getByRole("button", { name: "Validate loaded activities" }).click();
+    await page.getByRole("status").filter({ hasText: "1 activity in 1 project" }).waitFor();
+    await page.locator(".activity-select").click();
+    await page.getByRole("dialog").getByRole("link", { name: "View source at loaded revision" }).waitFor();
+    await page.getByRole("button", { name: "Close details" }).click();
     await page.locator('nav a[title="Settings"]').click();
     await page.getByText("gitlab · code.ornl.gov/group/repo").waitFor();
+    assert.equal(await page.locator("#settings-repository, #settings-token").count(), 0, "Home is the only token entry point");
     await page.getByRole("button", { name: "Clear recent bucket inputs" }).click();
     await page.getByText("0 repository URLs · 0 refs remembered").waitFor();
     await page.getByRole("button", { name: "Save loaded workspace on this device" }).click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("acorn.workspace.v1") || "null")?.workspace?.source?.host === "code.ornl.gov");
     await page.reload();
-    await page.locator(".sidebar-session").getByText("0 activities · 1 file", { exact: true }).waitFor();
-    await page.getByText("Token •••••••• configured for code.ornl.gov/group/repo.").waitFor();
+    await page.locator(".sidebar-session").getByText("1 activity · 1 file", { exact: true }).waitFor();
+    await page.locator('nav a[title="Portfolio"]').click();
+    await page.getByRole("status").filter({ hasText: "1 activity in 1 project" }).waitFor();
+    await page.locator('nav a[title="Settings"]').click();
+    await page.getByText("Token •••••••• configured for code.ornl.gov.").waitFor();
     await page.getByRole("button", { name: "Forget repository token" }).click();
     await page.getByText("No repository token in this tab.").waitFor();
     assert.equal(await page.evaluate(() => sessionStorage.getItem("acorn.repository-credential.v1")), null);
-    await page.locator("#settings-repository").fill("https://code.ornl.gov/group/repo");
-    await page.locator("#settings-token").fill("settings-test-secret");
-    await page.getByRole("button", { name: "Save repository token" }).click();
-    await page.getByText("Token •••••••• configured for code.ornl.gov/group/repo.").waitFor();
-    assert.equal(await page.locator("#settings-token").inputValue(), "");
+    await page.getByRole("link", { name: "Add or replace token on Home" }).click();
+    await page.locator(".remote-entry > summary").click();
+    await page.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/repo");
+    await page.locator("#repository-token").fill("settings-test-secret");
+    await page.getByRole("button", { name: "Save token for this host" }).click();
+    await page.getByText("Token •••••••• configured for code.ornl.gov.").waitFor();
+    assert.equal(await page.locator("#repository-token").inputValue(), "");
+    await page.locator('nav a[title="Settings"]').click();
     assert.equal(await page.evaluate(() => localStorage.getItem("acorn.workspace.v1")?.includes("settings-test-secret")), false);
     await page.getByRole("button", { name: "Forget repository token" }).click();
     await page.getByRole("button", { name: "Delete saved workspace" }).click();
@@ -137,6 +160,18 @@ try {
     await page.getByText(/Workspace saving failed\. The older saved copy was removed/).waitFor();
     await page.reload();
     await page.locator(".sidebar-session").getByText("0 activities · 0 files", { exact: true }).waitFor();
+    await page.locator('nav a[title="Home"]').click();
+    await page.getByRole("button", { name: "Open file or folder" }).click();
+    const fileChooser = page.waitForEvent("filechooser");
+    await page.getByRole("button", { name: "Files", exact: true }).click();
+    await (await fileChooser).setFiles(Array.from({ length: 500 }, (_, index) => ({ name: `activity-${String(index).padStart(3, "0")}.json`, mimeType: "application/json", buffer: Buffer.from(validActivity) })));
+    await page.locator(".sidebar-session").getByText("0 activities · 500 files", { exact: true }).waitFor({ timeout: 60000 });
+    await page.locator('nav a[title="Portfolio"]').click();
+    const validationStarted = Date.now();
+    await page.getByRole("button", { name: "Validate loaded activities" }).click();
+    await page.getByRole("status").filter({ hasText: "500 activities in 1 project" }).waitFor({ timeout: 60000 });
+    assert.equal(await page.locator(".activity-table tbody tr").count(), 500);
+    console.log(`500-file index validation and rendering: ${Date.now() - validationStarted} ms`);
     console.log("Restore gating, failed-save recovery, opt-in workspace restore/delete, authenticated/anonymous GitHub, and mocked private GitLab loading passed in Chromium.");
 } finally {
     await browser.close();

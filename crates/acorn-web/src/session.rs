@@ -1,23 +1,15 @@
 //! Bounded, in-memory supplied files and projections of explicitly validated activities.
+use acorn_core::util::StringConversion;
 use alloc::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Largest accepted individual file, in UTF-8 bytes.
-pub const FILE_LIMIT: usize = 256 * 1024;
 /// Maximum accepted files in a session.
 pub const FILE_COUNT: usize = 500;
+/// Largest accepted individual file, in UTF-8 bytes.
+pub const FILE_LIMIT: usize = 256 * 1024;
 /// Total text bytes accepted per session.
 pub const TOTAL_LIMIT: usize = 16 * 1024 * 1024;
-/// A selected file, with no absolute path or reusable directory authority.
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct SuppliedFile {
-    /// Normalized relative path.
-    pub path: String,
-    /// UTF-8 source text.
-    pub content: String,
-}
 /// Result of a user-mediated browser selection.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -27,20 +19,14 @@ pub struct Selection {
     /// Rejections reported before content crossed the browser bridge.
     pub skipped: usize,
 }
-/// Provenance of a repository snapshot without credentials or absolute file authority.
+/// A selected file, with no absolute path or reusable directory authority.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct WorkspaceSource {
-    /// Provider identifier.
-    pub kind: String,
-    /// API host used for the load.
-    pub host: String,
-    /// Provider project path.
-    pub project: String,
-    /// Requested path within the repository.
+pub struct SuppliedFile {
+    /// Normalized relative path.
     pub path: String,
-    /// Immutable revision used to read files.
-    pub revision: String,
+    /// UTF-8 source text.
+    pub content: String,
 }
 /// One immutable loaded session; replacement clears stale validation and selection.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -58,7 +44,47 @@ pub struct Workspace {
     /// Skipped or rejected files from the last selection.
     pub skipped: usize,
 }
+/// Provenance of a repository snapshot without credentials or absolute file authority.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkspaceSource {
+    /// Provider identifier.
+    pub kind: String,
+    /// API host used for the load.
+    pub host: String,
+    /// Provider project path.
+    pub project: String,
+    /// Requested path within the repository.
+    pub path: String,
+    /// Immutable revision used to read files.
+    pub revision: String,
+}
 impl Workspace {
+    /// Validated records only; invalid or unvalidated files never enter the portfolio.
+    pub fn activities(&self) -> Vec<(&SuppliedFile, &Value)> {
+        self.files
+            .iter()
+            .filter_map(|file| {
+                self.validations
+                    .get(&file.path)
+                    .filter(|result| result["valid"] == true)
+                    .and_then(|result| result.get("value").filter(|value| value.is_object()))
+                    .map(|value| (file, value))
+            })
+            .collect()
+    }
+    /// Total loaded UTF-8 bytes.
+    pub fn bytes(&self) -> usize {
+        self.files.iter().map(|file| file.content.len()).sum()
+    }
+    /// Content of the selected source file.
+    pub fn content(&self) -> String {
+        self.files
+            .iter()
+            .find(|file| Some(&file.path) == self.selected.as_ref())
+            .map(|file| file.content.clone())
+            .unwrap_or_default()
+    }
     /// Accept a selection atomically; total failure preserves the prior session.
     pub fn replace(&self, selection: Selection) -> Self {
         let mut files = selection.files;
@@ -91,31 +117,6 @@ impl Workspace {
             }
         }
     }
-    /// Total loaded UTF-8 bytes.
-    pub fn bytes(&self) -> usize {
-        self.files.iter().map(|file| file.content.len()).sum()
-    }
-    /// Validated records only; invalid or unvalidated files never enter the portfolio.
-    pub fn activities(&self) -> Vec<(&SuppliedFile, &Value)> {
-        self.files
-            .iter()
-            .filter_map(|file| {
-                self.validations
-                    .get(&file.path)
-                    .filter(|result| result["valid"] == true)
-                    .and_then(|result| result.get("value").filter(|value| value.is_object()))
-                    .map(|value| (file, value))
-            })
-            .collect()
-    }
-    /// Content of the selected source file.
-    pub fn content(&self) -> String {
-        self.files
-            .iter()
-            .find(|file| Some(&file.path) == self.selected.as_ref())
-            .map(|file| file.content.clone())
-            .unwrap_or_default()
-    }
     /// Recheck all persisted paths and limits before restoring browser storage.
     pub fn restored(self) -> Option<Self> {
         let selection = Selection {
@@ -130,36 +131,45 @@ impl Workspace {
         (checked.files == self.files && selected_exists).then_some(self)
     }
 }
-/// Reject traversal, absolute paths, unsupported extensions and paths deeper than 20 segments.
-pub fn valid_path(path: &str) -> bool {
-    let parts = path.split('/').collect::<Vec<_>>();
-    !path.contains(['\\', ':'])
-        && !path.chars().any(char::is_control)
-        && parts.len() <= 20
-        && parts.iter().all(|part| !part.is_empty() && !matches!(*part, "." | ".."))
-        && path
-            .rsplit_once('.')
-            .is_some_and(|(_, extension)| ["json", "yaml", "yml", "md", "txt"].contains(&extension.to_ascii_lowercase().as_str()))
-}
-/// Treat the schema's single-or-many representation consistently.
-pub fn many(value: &Value) -> Vec<&Value> {
-    match value {
-        | Value::Array(values) => values.iter().collect(),
-        | Value::Null => Vec::new(),
-        | other => vec![other],
+impl WorkspaceSource {
+    /// Construct a source file link pinned to the revision used for loading.
+    pub fn link(&self, path: &str) -> Option<String> {
+        let host = self.host.as_str();
+        let safe_host = !host.is_empty() && host.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'));
+        let safe_revision = self.revision.len() >= 40 && self.revision.bytes().all(|byte| byte.is_ascii_hexdigit());
+        (safe_host && safe_revision)
+            .then(|| encoded_path(&self.project).zip(encoded_path(path)))
+            .flatten()
+            .and_then(|(project, path)| match self.kind.as_str() {
+                | "github" => Some(format!("https://github.com/{project}/blob/{}/{path}", self.revision)),
+                | "gitlab" => Some(format!("https://{host}/{project}/-/blob/{}/{path}", self.revision)),
+                | _ => None,
+            })
     }
-}
-fn metadata<'a>(value: &'a Value, field: &str) -> &'a Value {
-    value.get("meta").and_then(|meta| meta.get(field)).unwrap_or(&Value::Null)
-}
-/// Human-readable activity kind; missing optional fields remain explicit.
-pub fn activity_type(value: &Value) -> &str {
-    value["@type"].as_str().unwrap_or("Research activity")
 }
 /// Current status, without inferring one from missing metadata.
 pub fn activity_status(value: &Value) -> &str {
     metadata(value, "status").as_str().unwrap_or("Not provided")
 }
+/// Human-readable activity kind; missing optional fields remain explicit.
+pub fn activity_type(value: &Value) -> &str {
+    value["@type"].as_str().unwrap_or("Research activity")
+}
+/// Stable distribution for charts and their text equivalents.
+pub fn distribution(records: &[(&SuppliedFile, &Value)], classify: fn(&Value) -> &str) -> BTreeMap<String, usize> {
+    records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
+        let count = counts.entry(classify(value).into()).or_insert(0_usize);
+        *count = count.saturating_add(1);
+        counts
+    })
+}
+fn encoded_path(path: &str) -> Option<String> {
+    path.split('/')
+        .map(|part| (!part.is_empty() && !matches!(part, "." | "..") && !part.chars().any(char::is_control)).then(|| part.percent_encode()))
+        .collect::<Option<Vec<_>>>()
+        .map(|parts| parts.join("/"))
+}
+
 /// Unique normalized organization, contributor or identifier values in validated records.
 pub fn entities(records: &[(&SuppliedFile, &Value)], field: &str) -> BTreeSet<String> {
     records
@@ -212,15 +222,28 @@ pub fn identifiers(records: &[(&SuppliedFile, &Value)]) -> BTreeSet<String> {
         .filter(|value| !value.is_empty())
         .collect()
 }
-/// Stable distribution for charts and their text equivalents.
-pub fn distribution(records: &[(&SuppliedFile, &Value)], classify: fn(&Value) -> &str) -> BTreeMap<String, usize> {
-    records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
-        let count = counts.entry(classify(value).into()).or_insert(0_usize);
-        *count = count.saturating_add(1);
-        counts
-    })
+/// Treat the schema's single-or-many representation consistently.
+pub fn many(value: &Value) -> Vec<&Value> {
+    match value {
+        | Value::Array(values) => values.iter().collect(),
+        | Value::Null => Vec::new(),
+        | other => vec![other],
+    }
 }
-
+fn metadata<'a>(value: &'a Value, field: &str) -> &'a Value {
+    value.get("meta").and_then(|meta| meta.get(field)).unwrap_or(&Value::Null)
+}
+/// Reject traversal, absolute paths, unsupported extensions and paths deeper than 20 segments.
+pub fn valid_path(path: &str) -> bool {
+    let parts = path.split('/').collect::<Vec<_>>();
+    !path.contains(['\\', ':'])
+        && !path.chars().any(char::is_control)
+        && parts.len() <= 20
+        && parts.iter().all(|part| !part.is_empty() && !matches!(*part, "." | ".."))
+        && path
+            .rsplit_once('.')
+            .is_some_and(|(_, extension)| ["json", "yaml", "yml", "md", "txt"].contains(&extension.to_ascii_lowercase().as_str()))
+}
 #[cfg(test)]
 mod tests {
     use super::*;

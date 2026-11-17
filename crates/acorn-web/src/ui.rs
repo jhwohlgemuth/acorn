@@ -32,6 +32,24 @@ pub(crate) enum Route {
 fn AppName() -> Element {
     rsx! { "{APP_NAME}" }
 }
+/// The single dispatch seam for browser operations: the operation worker when available, otherwise in-thread.
+pub(crate) async fn execute(tool: Tool, request: Request) -> Result<Value, String> {
+    let message = serde_json::to_string(&(tool, &request)).unwrap_or_default();
+    let channel = document::eval("const message = await dioxus.recv(); return await (window.acornOperations?.run(message) ?? { unavailable: 'The operation client is unavailable.' });");
+    let reply = match channel.send(message) {
+        | Ok(()) => channel.join::<Value>().await.unwrap_or(Value::Null),
+        | Err(_) => Value::Null,
+    };
+    match (reply.get("reply").and_then(Value::as_str), reply.get("error").and_then(Value::as_str)) {
+        | (Some(text), _) => operations::decode(text),
+        | (None, Some(message)) => Err(message.to_owned()),
+        | (None, None) => {
+            // Let the busy state paint before the synchronous computation holds the main thread.
+            let _ = document::eval("await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve)))").await;
+            operations::run(tool, &request)
+        }
+    }
+}
 #[component]
 fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool) -> Element {
     let mut error = use_signal(String::new);
@@ -304,19 +322,10 @@ fn InfoPage(page: String) -> Element {
                         if storage_status().2 { p { role: "alert", class: "error", "Workspace saving failed. The older saved copy was removed. This workspace is still open; reduce its size or free browser storage, then save it again." } }
                         p { class: "small muted", "Deleting the saved workspace leaves this open session available. Clearing the open session saves an empty copy when saving is on. Restored files are validated again." } }
                     div { class: "card", h2 { "Repository access" }
-                        p { class: "small muted", "Enter an HTTPS GitHub or GitLab repository and an expiring token for that exact project. The token stays in secure-context session storage for this tab." }
+                        p { class: "small muted", "One token is available in this tab for repositories on its provider and HTTPS host. Add or replace it beside the repository loader on Home." }
                         p { class: "small", if credential_status().is_empty() { "No repository token in this tab." } else { "Token •••••••• configured for {credential_status}." } }
-                        label { class: "field", "Repository URL" input { id: "settings-repository", r#type: "url", autocomplete: "off", placeholder: "https://code.ornl.gov/group/project" } }
-                        label { class: "field", "Personal access token" input { id: "settings-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
-                        p { class: "small muted", "Saving a token replaces the current tab token. Only the matching repository can use it." }
-                        div { class: "actions credential-actions", button { class: "primary", onclick: move |_| async move {
-                            let result = document::eval("try { const source = document.getElementById('settings-repository').value; const field = document.getElementById('settings-token'); const host = window.acornRemote.setCredential(source, field.value); field.value = ''; return {host}; } catch(error) { return {error: error.message}; }").join::<Value>().await;
-                            match result {
-                                Ok(value) => if let Some(host) = value.get("host").and_then(Value::as_str) { credential_status.set(host.to_owned()); credential_error.set(String::new()); credential_message.set(format!("Token saved for {host} in this tab.")); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Could not save this repository token.").to_owned()); credential_message.set(String::new()); },
-                                Err(_) => { credential_error.set("Could not save this repository token. Try again.".into()); credential_message.set(String::new()); },
-                            }
-                        }, "Save repository token" }
-                        button { class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(document::eval("const removed = window.acornRemote?.clearCredential() ?? false; const field = document.getElementById('settings-token'); if (field) field.value = ''; return removed;").join::<bool>().await, Ok(true)) { credential_status.set(String::new()); credential_error.set(String::new()); credential_message.set("Token removed from this tab.".into()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Forget repository token" } }
+                        div { class: "actions credential-actions", Link { to: Route::Home {}, "Add or replace token on Home →" }
+                            button { class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(document::eval("return window.acornRemote?.clearCredential() ?? false").join::<bool>().await, Ok(true)) { credential_status.set(String::new()); credential_error.set(String::new()); credential_message.set("Token removed from this tab.".into()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Forget repository token" } }
                         if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
                         if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
                         p { class: "small muted", "Tokens use session storage only in a secure browser context. They survive reloads in this tab, remain separate from saved workspace data, and expire when this tab session ends. Revoke a token at its provider if needed." }
@@ -342,13 +351,6 @@ fn InfoPage(page: String) -> Element {
         }
     }
 }
-pub(crate) fn parse_storage_status(value: &Value) -> (bool, usize, bool) {
-    (
-        value["enabled"] == true,
-        value["bytes"].as_u64().unwrap_or(0) as usize,
-        value["failed"] == true,
-    )
-}
 #[component]
 fn Page(page: String) -> Element {
     if page == "home" {
@@ -359,39 +361,12 @@ fn Page(page: String) -> Element {
         rsx! { InfoPage { page } }
     }
 }
-/// The single dispatch seam for browser operations: the operation worker when available, otherwise in-thread.
-pub(crate) async fn execute(tool: Tool, request: Request) -> Result<Value, String> {
-    let message = serde_json::to_string(&(tool, &request)).unwrap_or_default();
-    let channel = document::eval("const message = await dioxus.recv(); return await (window.acornOperations?.run(message) ?? { unavailable: 'The operation client is unavailable.' });");
-    let reply = match channel.send(message) {
-        | Ok(()) => channel.join::<Value>().await.unwrap_or(Value::Null),
-        | Err(_) => Value::Null,
-    };
-    match (reply.get("reply").and_then(Value::as_str), reply.get("error").and_then(Value::as_str)) {
-        | (Some(text), _) => operations::decode(text),
-        | (None, Some(message)) => Err(message.to_owned()),
-        | (None, None) => {
-            // Let the busy state paint before the synchronous computation holds the main thread.
-            let _ = document::eval("await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve)))").await;
-            operations::run(tool, &request)
-        }
-    }
-}
-/// Validate Research Activity files one at a time through [`execute`].
-pub(crate) async fn validate_files(files: Vec<SuppliedFile>) -> Vec<(String, Result<Value, String>)> {
-    let mut results = Vec::with_capacity(files.len());
-    for file in files {
-        let result = execute(
-            Tool::Activity,
-            Request {
-                input: file.content,
-                ..Request::default()
-            },
-        )
-        .await;
-        results.push((file.path, result));
-    }
-    results
+pub(crate) fn parse_storage_status(value: &Value) -> (bool, usize, bool) {
+    (
+        value["enabled"] == true,
+        value["bytes"].as_u64().unwrap_or(0) as usize,
+        value["failed"] == true,
+    )
 }
 async fn read_local_file(file: FileData, limit: usize) -> Result<String, String> {
     if file.size() > limit as u64 {
@@ -743,6 +718,22 @@ pub(crate) fn UrlFileInput(
     }
 }
 
+/// Validate Research Activity files one at a time through [`execute`].
+pub(crate) async fn validate_files(files: Vec<SuppliedFile>) -> Vec<(String, Result<Value, String>)> {
+    let mut results = Vec::with_capacity(files.len());
+    for file in files {
+        let result = execute(
+            Tool::Activity,
+            Request {
+                input: file.content,
+                ..Request::default()
+            },
+        )
+        .await;
+        results.push((file.path, result));
+    }
+    results
+}
 #[cfg(test)]
 mod tests {
     use super::*;

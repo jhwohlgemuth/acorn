@@ -63,7 +63,13 @@ async function installWebMcp() {
         console.error(`WebMCP installation failed: ${error?.stack ?? error}`);
     }
 }
-installWebMcp();
+if (document.getElementById("webmcp-status")) installWebMcp();
+else if (typeof MutationObserver === "function" && document.documentElement) {
+    const observer = new MutationObserver(() => {
+        if (document.getElementById("webmcp-status")) { observer.disconnect(); installWebMcp(); }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+}
 
 function createTheme(preference, apply) {
     let systemDark = preference;

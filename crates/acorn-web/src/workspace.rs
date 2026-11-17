@@ -2,6 +2,7 @@ use crate::details::{self, Detail};
 use crate::ui::{validate_files, Icon, Route, UrlFileInput};
 use acorn_web::{
     presentation::text,
+    research_index::{CatalogSort, ResearchIndex},
     session::{self, Selection, SuppliedFile, Workspace, WorkspaceSource},
 };
 use alloc::collections::BTreeSet;
@@ -153,7 +154,7 @@ pub(crate) fn Loader() -> Element {
             }
             remote_loading.set(false);
         },
-            label { class: "field", "Repository or URL" input { r#type: "text", required: true, disabled: remote_loading(), value: remote_url(), oninput: move |event| remote_url.set(event.value()), list: "bucket-repositories", autocomplete: "off", placeholder: "owner/repo or https://gitlab.com/group/project", spellcheck: "false" } }
+            label { class: "field", "Repository or URL" input { r#type: "text", required: true, disabled: remote_loading(), value: remote_url(), oninput: move |event| remote_url.set(event.value()), list: "bucket-repositories", autocomplete: "off", placeholder: "owner/repo or https://gitlab.example.org/group/project", spellcheck: "false" } }
             datalist { id: "bucket-repositories", for repository in &history.read().repositories { option { value: repository.clone() } } }
             datalist { id: "bucket-refs", for reference in &history.read().refs { option { value: reference.clone() } } }
             div { class: "remote-actions", label { class: "field", "Branch / tag / commit (optional)" input { disabled: remote_loading(), value: remote_ref(), oninput: move |event| remote_ref.set(event.value()), list: "bucket-refs", autocomplete: "off", placeholder: "Repository default", spellcheck: "false" } }
@@ -162,11 +163,11 @@ pub(crate) fn Loader() -> Element {
             }
             p { class: "small muted", "Public repositories, folder or file URLs. For branches containing /, enter the full branch above. Loading replaces this session after a successful download." }
             if !remote_success().is_empty() { div { class: "status bucket-success", role: "status", span { "{remote_success}" } Link { to: Route::Page { page: "portfolio".into() }, "Explore Portfolio →" } } }
-            details { summary { "Optional repository access token" }
-                p { class: "small muted", "Use an expiring token for the selected repository. GitHub: fine-grained Contents read for this repository only. GitLab: repository files accept read_repository, but full private-bucket discovery may require project-scoped read_api. A secure browser context stores the token for this tab session, including reloads. It is never saved with workspace data. Revoke it at the provider if compromised." }
-                p { class: "small", if credential_host().is_empty() { "No token configured for this tab." } else { "Token •••••••• configured for {credential_host}." } }
-                label { class: "field", "Personal access token" input { id: "repository-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
-                p { class: "small muted", "Saving a token replaces the current tab token and limits it to the repository above." }
+            div { class: "repository-credential", h3 { "Private repository access" }
+                p { class: "small muted", "Enter the repository URL above to choose its provider and HTTPS host. A saved token works for repositories you can access on that host, and is never sent to another host. GitLab needs read_api; GitHub needs Contents read. Only one token is kept for this tab." }
+                p { class: "small", if credential_host().is_empty() { "No token saved for this tab." } else { "Token •••••••• configured for {credential_host}." } }
+                label { class: "field", "Access token" input { id: "repository-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
+                p { class: "small muted", "Saving replaces the current tab token. It survives reloads, stays separate from saved workspace data, and is cleared when the tab session ends. Use an expiring token and revoke it at the provider if compromised." }
                 div { class: "actions credential-actions", button { r#type: "button", class: "primary", onclick: move |_| async move {
                     let input = serde_json::to_string(&remote_url()).unwrap_or_default();
                     let result = document::eval(&format!("try {{ const field = document.getElementById('repository-token'); const host = window.acornRemote.setCredential({input}, field.value); field.value = ''; return {{host}}; }} catch(error) {{ return {{error: error.message}}; }}")).join::<Value>().await;
@@ -174,7 +175,7 @@ pub(crate) fn Loader() -> Element {
                         Ok(value) => if let Some(host) = value.get("host").and_then(Value::as_str) { credential_host.set(host.to_owned()); credential_message.set(format!("Token enabled for {host} for this tab.")); credential_error.set(String::new()); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Choose a valid repository URL and enter a token.").to_owned()); credential_message.set(String::new()); },
                         Err(_) => { credential_error.set("Could not save the repository token. Try again.".into()); credential_message.set(String::new()); },
                     }
-                }, "Use token for this host" }
+                }, "Save token for this host" }
                 button { r#type: "button", class: "danger", disabled: credential_host().is_empty(), onclick: move |_| async move { if matches!(document::eval("const removed = window.acornRemote?.clearCredential() ?? false; const field = document.getElementById('repository-token'); if (field) field.value = ''; return removed;").join::<bool>().await, Ok(true)) { credential_host.set(String::new()); credential_message.set("Token removed from this tab.".into()); credential_error.set(String::new()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Remove token" } }
                 if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
                 if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
@@ -201,17 +202,32 @@ pub(crate) fn Portfolio() -> Element {
     let mut status = use_signal(String::new);
     let mut sort = use_signal(|| "title");
     let mut descending = use_signal(|| false);
+    let mut layout = use_signal(|| "list");
     let mut validating = use_signal(|| false);
     let snapshot = workspace();
     let activities = snapshot.activities();
+    let index = ResearchIndex::from(&snapshot);
     let types = session::distribution(&activities, session::activity_type);
     let statuses = session::distribution(&activities, session::activity_status);
-    let query = search().to_lowercase();
+    let query = search();
+    let matches = index.search(
+        &query,
+        if sort() == "relevance" {
+            CatalogSort::Relevance
+        } else {
+            CatalogSort::Alphabetical
+        },
+    );
+    let ranks = matches
+        .iter()
+        .enumerate()
+        .map(|(rank, activity)| (activity.path.as_str(), rank))
+        .collect::<alloc::collections::BTreeMap<_, _>>();
     let mut filtered = activities
         .iter()
         .copied()
         .filter(|(file, value)| {
-            (query.is_empty() || format!("{} {}", text(value, "title"), file.path).to_lowercase().contains(&query))
+            ranks.contains_key(file.path.as_str())
                 && (kind().is_empty() || session::activity_type(value) == kind())
                 && (status().is_empty() || session::activity_status(value) == status())
         })
@@ -222,13 +238,27 @@ pub(crate) fn Portfolio() -> Element {
             | "status" => session::activity_status(value).to_owned(),
             | _ => text(value, "title").to_lowercase(),
         };
-        let order = key(left).cmp(&key(right)).then(left_file.path.cmp(&right_file.path));
+        let order = if sort() == "relevance" {
+            ranks.get(left_file.path.as_str()).cmp(&ranks.get(right_file.path.as_str()))
+        } else {
+            key(left).cmp(&key(right)).then(left_file.path.cmp(&right_file.path))
+        };
         if descending() {
             order.reverse()
         } else {
             order
         }
     });
+    let mut visible_projects = index
+        .projects
+        .iter()
+        .filter(|project| project.paths.iter().any(|path| filtered.iter().any(|(file, _)| &file.path == path)))
+        .collect::<Vec<_>>();
+    if sort() == "relevance" {
+        visible_projects.sort_by_key(|project| project.paths.iter().filter_map(|path| ranks.get(path.as_str())).min().copied());
+    }
+    let activity_noun = if filtered.len() == 1 { "activity" } else { "activities" };
+    let project_noun = if visible_projects.len() == 1 { "project" } else { "projects" };
     let selection = filtered
         .iter()
         .find(|(file, _)| Some(&file.path) == snapshot.selected.as_ref())
@@ -253,25 +283,48 @@ pub(crate) fn Portfolio() -> Element {
             }, if validating() { "Validating…" } else { "Validate loaded activities" } } }
             p { class: "small muted", "Validation reads JSON files only and runs when requested. Other files remain available in the loaded tree. {invalid} invalid or unreadable activities." }
             if activities.is_empty() { p { class: "status invalid", "No validated activities yet. Validate the loaded JSON files, or inspect a file in Research Activity." } }
-            label { class: "field", "Search activities" input { r#type: "search", value: search(), oninput: move |event| search.set(event.value()), placeholder: "Search title or source file…" } }
+            label { class: "field", "Search activities" input { r#type: "search", value: search(), oninput: move |event| search.set(event.value()), placeholder: "Search titles, people, organizations, identifiers or files…" } }
             div { class: "options",
                 label { class: "field", "Activity type" select { value: kind(), onchange: move |event| kind.set(event.value()), option { value: "", "All activity types" } for name in types.keys() { option { value: "{name}", "{name}" } } } }
                 label { class: "field", "Status" select { value: status(), onchange: move |event| status.set(event.value()), option { value: "", "All statuses" } for name in statuses.keys() { option { value: "{name}", "{name}" } } } }
+                label { class: "field", "Sort results" select { value: sort(), onchange: move |event| { sort.set(match event.value().as_str() { "relevance" => "relevance", "type" => "type", "status" => "status", _ => "title" }); descending.set(false); }, option { value: "title", "Alphabetical" } option { value: "relevance", "Relevance" } option { value: "type", "Type" } option { value: "status", "Status" } } }
             }
+            div { class: "catalog-toolbar", p { role: "status", "{filtered.len()} {activity_noun} in {visible_projects.len()} {project_noun}" }
+                div { class: "actions", role: "group", "aria-label": "Catalog layout",
+                    button { "aria-pressed": layout() == "list", onclick: move |_| layout.set("list"), "List" }
+                    button { "aria-pressed": layout() == "cards", onclick: move |_| layout.set("cards"), "Cards" }
+                }
+            }
+            if !visible_projects.is_empty() { section { class: "catalog-projects", "aria-label": "Projects", h2 { "Projects" }
+                div { class: "catalog-project-grid", for project in visible_projects {
+                    {let detail = Detail::from(project); let project_activity_noun = if project.paths.len() == 1 { "activity" } else { "activities" }; rsx! { article { class: "card catalog-project",
+                        h3 { button { onclick: move |_| details::open(drawer, detail.clone()), "{project.title}" } }
+                        p { class: "small muted", "{project.id} · {project.paths.len()} {project_activity_noun}" }
+                        if !project.summary.is_empty() { p { "{project.summary}" } }
+                    } }}
+                } }
+            } }
             div { class: "metrics",
                 for (label, count) in [("Activities", filtered.len()), ("Organizations", session::entities(&filtered, "organizations").len()), ("Contributors", session::entities(&filtered, "contributors").len()), ("Identifiers", session::identifiers(&filtered).len())] {
                     div { class: "card metric", strong { "{count}" } small { "{label}" } }
                 }
             }
             div { class: "distribution-grid", Distribution { title: "Activity types", counts: session::distribution(&filtered, session::activity_type) } Distribution { title: "Statuses", counts: session::distribution(&filtered, session::activity_status) } }
-            table { class: "activity-table", caption { "{filtered.len()} matching activities" }
+            if layout() == "list" { table { class: "activity-table", caption { "{filtered.len()} matching {activity_noun}" }
                 thead { tr { for (field, label) in [("title", "Activity"), ("type", "Type"), ("status", "Status")] {
                     th { scope: "col", "aria-sort": if sort() == field { if descending() { "descending" } else { "ascending" } } else { "none" }, button { onclick: move |_| { if sort() == field { descending.toggle(); } else { sort.set(field); descending.set(false); } }, "{label}" } }
                 } } }
                 tbody { for (file, value) in &filtered { {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); rsx! {
                     tr { td { button { class: "activity-select", "aria-pressed": selection.is_some_and(|(chosen, _)| chosen.path == path), onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); }, "{text(value, \"title\")}" } small { "{file.path}" } } td { "{session::activity_type(value)}" } td { "{session::activity_status(value)}" } }
                 }} } }
-            }
+            } } else { div { class: "catalog-activity-grid", "aria-label": "Activities", for (file, value) in &filtered {
+                {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); let project = index.activities.iter().find(|activity| activity.path == path).map(|activity| activity.project_id.as_str()).unwrap_or("Unassigned"); rsx! { article { class: "card catalog-activity",
+                    p { class: "small muted", "{session::activity_type(value)} · {session::activity_status(value)}" }
+                    h3 { button { onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); }, "{text(value, \"title\")}" } }
+                    p { class: "small muted", "Project: {project} · {file.path}" }
+                    if let Some(summary) = value["subtitle"].as_str() { p { "{summary}" } }
+                } }}
+            } } }
             if filtered.is_empty() && !activities.is_empty() { div { class: "card empty", h2 { "No matching activities" } p { "Try another search or reset the filters." } button { onclick: move |_| { search.set(String::new()); kind.set(String::new()); status.set(String::new()); }, "Reset filters" } } }
 
         }

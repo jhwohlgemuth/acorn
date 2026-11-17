@@ -1,45 +1,109 @@
 const remoteLimits = { entries: 10000, file: 262144, files: 500, listing: 5242880, total: 16777216 };
-function parseRemoteBucket(input, branch = "") {
-    const value = input.trim();
-    const url = new URL(/^[\w.-]+\/[\w.-]+$/.test(value) ? `https://github.com/${value}` : value);
-    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.port || !url.hostname.includes(".") || /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname) || url.hostname.startsWith("[")) throw new Error("Use a public HTTPS GitHub or GitLab repository URL without credentials or query parameters.");
-    const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-    if (parts.some((part) => !part || part === "." || part === ".." || /[\\\x00-\x1f\x7f]/.test(part))) throw new Error("Invalid repository path.");
-    const github = url.hostname === "github.com" || url.hostname === "www.github.com";
-    const marker = github ? 2 : parts.indexOf("-");
-    const project = (marker < 0 ? parts : parts.slice(0, marker)).join("/").replace(/\.git$/, "");
-    if ((github && parts.length < 2) || (!github && project.split("/").length < 2)) throw new Error("Include the repository owner or GitLab group and project.");
-    const route = marker < 0 ? [] : parts.slice(marker);
-    if (!github && route[0] === "-") route.shift();
-    if (route.length && !["tree", "blob", "raw"].includes(route[0])) throw new Error("Use a repository, folder (tree), or file (blob) URL.");
-    const tail = route.slice(1);
-    const requested = branch.trim();
-    const refParts = requested.split("/");
-    const consumed = requested && refParts.every((part, i) => tail[i] === part) ? refParts.length : 1;
-    const ref = requested || tail[0] || "";
-    const path = tail.slice(consumed).join("/");
-    if (route.length && !tail.length) throw new Error("The URL is missing its branch or revision.");
-    return { kind: github ? "github" : "gitlab", origin: github ? "https://api.github.com" : url.origin, project, ref, path, file: ["blob", "raw"].includes(route[0]) };
+function createBucketHistory(storage = () => window.localStorage) {
+    const key = "acorn.bucket-history.v1";
+    const recent = (values) => [...new Set((Array.isArray(values) ? values : []).filter((value) => typeof value === "string" && value.length <= 2048).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+    const read = () => {
+        try {
+            const saved = JSON.parse(storage().getItem(key));
+            return { repositories: recent(saved?.repositories), refs: recent(saved?.refs) };
+        } catch { return { repositories: [], refs: [] }; }
+    };
+    return {
+        clear() { try { storage().removeItem(key); } catch { /* Storage may be disabled. Loading remains available. */ } },
+        read,
+        remember(input, branch) {
+            const saved = read();
+            const next = { repositories: recent([input, ...saved.repositories]), refs: recent([branch, ...saved.refs]) };
+            try { storage().setItem(key, JSON.stringify(next)); } catch { /* History is optional when storage is unavailable or full. */ }
+        },
+    };
 }
-async function readRemoteBytes(response, maximum) {
-    if (!response.ok) throw new Error(response.status === 429 || response.status === 403 ? "Access denied or API rate limit reached. Try later or choose a smaller public folder." : response.status === 404 ? "Repository, branch or path not found. Check the URL and public access." : `Repository request failed (${response.status}).`);
-    if (Number(response.headers.get("content-length")) > maximum) throw new Error("Remote response exceeds the size limit. Choose a smaller folder or file.");
-    const reader = response.body.getReader();
-    const chunks = [];
-    let size = 0;
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            size += value.byteLength;
-            if (size > maximum) throw new Error("Remote response exceeds the size limit. Choose a smaller folder or file.");
-            chunks.push(value);
-        }
-    } finally { await reader.cancel(); }
-    const bytes = new Uint8Array(size);
-    let offset = 0;
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-    return bytes;
+function createRemoteFileLoader(fetcher = fetch) {
+    let active;
+    return {
+        cancel() { active?.abort(); active = undefined; },
+        async load(input, maximum, workspaceFile = false) {
+            window.acornWorkspace?.cancel?.();
+            active?.abort();
+            const controller = new AbortController();
+            active = controller;
+            const timeout = setTimeout(() => controller.abort(), 30000);
+            try {
+                const file = await loadRemoteFile(input, maximum, controller.signal, fetcher);
+                controller.signal.throwIfAborted();
+                if (workspaceFile && !window.acornWorkspace.validPath(file.path)) throw new Error("Choose a JSON, YAML, Markdown or text file for this workspace.");
+                return file;
+            } catch (error) {
+                const message = controller.signal.aborted ? "File download cancelled or timed out." : error instanceof TypeError ? "Could not fetch this file. Check the URL and network connection; the server must allow browser access (CORS). You can download the file and choose it locally instead." : error.message;
+                throw new Error(`${message} Current content is unchanged.`);
+            } finally { clearTimeout(timeout); if (active === controller) active = undefined; }
+        },
+    };
+}
+function createRemoteLoader() {
+    let active;
+    const credentials = createRepositoryCredentials();
+    const file = createRemoteFileLoader();
+    const history = createBucketHistory();
+    return {
+        cancel() { active?.abort(); active = undefined; file.cancel(); },
+        file,
+        history,
+        credentialHost() {
+            const saved = credentials.read();
+            if (!saved) return "";
+            return saved.scope === "host" ? saved.host : `${saved.host}/${saved.project} (repository only; save again for this host)`;
+        },
+        clearCredential() { return credentials.clear(); },
+        setCredential(input, token) {
+            const source = parseRemoteBucket(input);
+            const cleaned = token.trim();
+            if (!cleaned || cleaned.length > 4096 || /[\r\n]/.test(cleaned)) throw new Error("Enter a valid token.");
+            const credential = credentials.set(source, cleaned);
+            return credential.host;
+        },
+        async load(input, branch) {
+            window.acornWorkspace.cancel();
+            const controller = new AbortController();
+            active = controller;
+            const timeout = setTimeout(() => controller.abort(), 120000);
+            let token = "";
+            try {
+                const source = parseRemoteBucket(input, branch);
+                history.remember(input, branch);
+                const credential = credentials.read();
+                token = credential?.host === new URL(source.origin).host && credential.kind === source.kind && (credential.scope === "host" || credential.project === source.project) ? credential.token : "";
+                return await loadRemoteBucket(source, controller.signal, fetch, token);
+            }
+            catch (error) {
+                const message = controller.signal.aborted ? "Remote load cancelled or timed out. Your previous session is unchanged." : error instanceof TypeError ? "Could not load this repository. Check the URL, network connection and the server’s CORS settings." : error instanceof SyntaxError ? "The repository returned invalid data." : error.message;
+                throw new Error(token ? message.replaceAll(token, "[redacted]") : message);
+            }
+            finally { clearTimeout(timeout); if (active === controller) active = undefined; }
+        },
+    };
+}
+function createRepositoryCredentials(storage = () => window.sessionStorage, secure = () => window.isSecureContext) {
+    const key = "acorn.repository-credential.v1";
+    const read = () => {
+        if (!secure()) return null;
+        try {
+            const value = JSON.parse(storage().getItem(key));
+            const valid = value && ["github", "gitlab"].includes(value.kind) && typeof value.host === "string" && typeof value.token === "string";
+            const scope = value?.scope === "host" ? "host" : value?.scope === undefined && typeof value?.project === "string" ? "project" : null;
+            return valid && scope ? { ...value, scope } : null;
+        } catch { return null; }
+    };
+    return {
+        read,
+        clear() { try { storage().removeItem(key); return true; } catch { return false; } },
+        set(source, token) {
+            if (!secure()) throw new Error("Repository tokens require a secure browser context.");
+            const credential = { kind: source.kind, host: new URL(source.origin).host, scope: "host", token };
+            try { storage().setItem(key, JSON.stringify(credential)); } catch { throw new Error("Session storage is unavailable. Repository token was not saved."); }
+            return credential;
+        },
+    };
 }
 async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
     const base = source.kind === "github" ? `${source.origin}/repos/${source.project.split("/").map(encodeURIComponent).join("/")}` : `${source.origin}/api/v4/projects/${encodeURIComponent(source.project)}`;
@@ -47,7 +111,14 @@ async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
         signal.throwIfAborted();
         const headers = { Accept: "application/json" };
         if (token) headers[source.kind === "github" ? "Authorization" : "PRIVATE-TOKEN"] = source.kind === "github" ? `Bearer ${token}` : token;
-        return readRemoteBytes(await fetcher(base + path, { signal, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers }), maximum);
+        const response = await fetcher(base + path, { signal, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", headers });
+        if (source.kind === "gitlab" && response.status === 401) {
+            const step = !path ? "project details" : path.startsWith("/repository/commits/") ? "the commit" : path.startsWith("/repository/tree?") ? "the file listing" : "a repository file";
+            throw new Error(token
+                ? `GitLab rejected the configured token (401) while reading ${step}. Check that the token is active, has read_api, and its owner can access this project.`
+                : `GitLab requires authentication (401) while reading ${step}. Save a token for this host in this tab.`);
+        }
+        return readRemoteBytes(response, maximum);
     };
     const json = async (path) => JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await request(path)));
     const repository = await json("");
@@ -101,41 +172,6 @@ async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
     if (!files.length) throw new Error("No supported research files found at this location.");
     return { files, skipped: candidates.length - accepted.length, source: { kind: source.kind, host: new URL(source.origin).host, project: source.project, path: source.path, revision } };
 }
-function createBucketHistory(storage = () => window.localStorage) {
-    const key = "acorn.bucket-history.v1";
-    const recent = (values) => [...new Set((Array.isArray(values) ? values : []).filter((value) => typeof value === "string" && value.length <= 2048).map((value) => value.trim()).filter(Boolean))].slice(0, 20);
-    const read = () => {
-        try {
-            const saved = JSON.parse(storage().getItem(key));
-            return { repositories: recent(saved?.repositories), refs: recent(saved?.refs) };
-        } catch { return { repositories: [], refs: [] }; }
-    };
-    return {
-        clear() { try { storage().removeItem(key); } catch { /* Storage may be disabled. Loading remains available. */ } },
-        read,
-        remember(input, branch) {
-            const saved = read();
-            const next = { repositories: recent([input, ...saved.repositories]), refs: recent([branch, ...saved.refs]) };
-            try { storage().setItem(key, JSON.stringify(next)); } catch { /* History is optional when storage is unavailable or full. */ }
-        },
-    };
-}
-function parseFileUrl(input) {
-    let url;
-    try { url = new URL(input.trim()); } catch { throw new Error("Enter a complete HTTPS file URL."); }
-    if (url.protocol !== "https:" || url.username || url.password) throw new Error("Use an HTTPS file URL without embedded credentials.");
-    url.hash = "";
-    if (["github.com", "www.github.com"].includes(url.hostname)) {
-        const parts = url.pathname.split("/");
-        if (parts[3] !== "blob" || parts.length < 6) throw new Error("Use a GitHub file link containing /blob/ or a raw file URL.");
-        url.hostname = "raw.githubusercontent.com";
-        parts.splice(3, 1);
-        url.pathname = parts.join("/");
-    } else if (url.pathname.includes("/-/blob/")) {
-        url.pathname = url.pathname.replace("/-/blob/", "/-/raw/");
-    }
-    return url;
-}
 async function loadRemoteFile(input, maximum, signal, fetcher = fetch) {
     const url = parseFileUrl(input);
     if (!Number.isSafeInteger(maximum) || maximum < 1 || maximum > remoteLimits.file) throw new Error("Invalid file size limit.");
@@ -153,85 +189,63 @@ async function loadRemoteFile(input, maximum, signal, fetcher = fetch) {
     const extension = /json/i.test(response.headers.get("content-type") || "") ? ".json" : /yaml/i.test(response.headers.get("content-type") || "") ? ".yaml" : ".txt";
     return { path: path.includes(".") ? path : path + extension, content };
 }
-function createRemoteFileLoader(fetcher = fetch) {
-    let active;
-    return {
-        cancel() { active?.abort(); active = undefined; },
-        async load(input, maximum, workspaceFile = false) {
-            window.acornWorkspace?.cancel?.();
-            active?.abort();
-            const controller = new AbortController();
-            active = controller;
-            const timeout = setTimeout(() => controller.abort(), 30000);
-            try {
-                const file = await loadRemoteFile(input, maximum, controller.signal, fetcher);
-                controller.signal.throwIfAborted();
-                if (workspaceFile && !window.acornWorkspace.validPath(file.path)) throw new Error("Choose a JSON, YAML, Markdown or text file for this workspace.");
-                return file;
-            } catch (error) {
-                const message = controller.signal.aborted ? "File download cancelled or timed out." : error instanceof TypeError ? "Could not fetch this file. Check the URL and network connection; the server must allow browser access (CORS). You can download the file and choose it locally instead." : error.message;
-                throw new Error(`${message} Current content is unchanged.`);
-            } finally { clearTimeout(timeout); if (active === controller) active = undefined; }
-        },
-    };
+function parseFileUrl(input) {
+    let url;
+    try { url = new URL(input.trim()); } catch { throw new Error("Enter a complete HTTPS file URL."); }
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error("Use an HTTPS file URL without embedded credentials.");
+    url.hash = "";
+    if (["github.com", "www.github.com"].includes(url.hostname)) {
+        const parts = url.pathname.split("/");
+        if (parts[3] !== "blob" || parts.length < 6) throw new Error("Use a GitHub file link containing /blob/ or a raw file URL.");
+        url.hostname = "raw.githubusercontent.com";
+        parts.splice(3, 1);
+        url.pathname = parts.join("/");
+    } else if (url.pathname.includes("/-/blob/")) {
+        url.pathname = url.pathname.replace("/-/blob/", "/-/raw/");
+    }
+    return url;
 }
-function createRepositoryCredentials(storage = () => window.sessionStorage, secure = () => window.isSecureContext) {
-    const key = "acorn.repository-credential.v1";
-    const read = () => {
-        if (!secure()) return null;
-        try {
-            const value = JSON.parse(storage().getItem(key));
-            return value && ["github", "gitlab"].includes(value.kind) && typeof value.host === "string" && typeof value.project === "string" && typeof value.token === "string" ? value : null;
-        } catch { return null; }
-    };
-    return {
-        read,
-        clear() { try { storage().removeItem(key); return true; } catch { return false; } },
-        set(source, token) {
-            if (!secure()) throw new Error("Repository tokens require a secure browser context.");
-            const credential = { kind: source.kind, host: new URL(source.origin).host, project: source.project, token };
-            try { storage().setItem(key, JSON.stringify(credential)); } catch { throw new Error("Session storage is unavailable. Repository token was not saved."); }
-            return credential;
-        },
-    };
+function parseRemoteBucket(input, branch = "") {
+    const value = input.trim();
+    const url = new URL(/^[\w.-]+\/[\w.-]+$/.test(value) ? `https://github.com/${value}` : value);
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.port || !url.hostname.includes(".") || /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname) || url.hostname.startsWith("[")) throw new Error("Use a public HTTPS GitHub or GitLab repository URL without credentials or query parameters.");
+    const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    if (parts.some((part) => !part || part === "." || part === ".." || /[\\\x00-\x1f\x7f]/.test(part))) throw new Error("Invalid repository path.");
+    const github = url.hostname === "github.com" || url.hostname === "www.github.com";
+    const marker = github ? 2 : parts.indexOf("-");
+    const project = (marker < 0 ? parts : parts.slice(0, marker)).join("/").replace(/\.git$/, "");
+    if ((github && parts.length < 2) || (!github && project.split("/").length < 2)) throw new Error("Include the repository owner or GitLab group and project.");
+    const route = marker < 0 ? [] : parts.slice(marker);
+    if (!github && route[0] === "-") route.shift();
+    if (route.length && !["tree", "blob", "raw"].includes(route[0])) throw new Error("Use a repository, folder (tree), or file (blob) URL.");
+    const tail = route.slice(1);
+    const requested = branch.trim();
+    const refParts = requested.split("/");
+    const consumed = requested && refParts.every((part, i) => tail[i] === part) ? refParts.length : 1;
+    const ref = requested || tail[0] || "";
+    const path = tail.slice(consumed).join("/");
+    if (route.length && !tail.length) throw new Error("The URL is missing its branch or revision.");
+    return { kind: github ? "github" : "gitlab", origin: github ? "https://api.github.com" : url.origin, project, ref, path, file: ["blob", "raw"].includes(route[0]) };
 }
-function createRemoteLoader() {
-    let active;
-    const credentials = createRepositoryCredentials();
-    const file = createRemoteFileLoader();
-    const history = createBucketHistory();
-    return {
-        cancel() { active?.abort(); active = undefined; file.cancel(); },
-        file,
-        history,
-        credentialHost() { const saved = credentials.read(); return saved ? `${saved.host}/${saved.project}` : ""; },
-        clearCredential() { return credentials.clear(); },
-        setCredential(input, token) {
-            const source = parseRemoteBucket(input);
-            if (!token || token.length > 4096 || /[\r\n]/.test(token)) throw new Error("Enter a valid token.");
-            const credential = credentials.set(source, token);
-            return `${credential.host}/${credential.project}`;
-        },
-        async load(input, branch) {
-            window.acornWorkspace.cancel();
-            const controller = new AbortController();
-            active = controller;
-            const timeout = setTimeout(() => controller.abort(), 120000);
-            let token = "";
-            try {
-                const source = parseRemoteBucket(input, branch);
-                history.remember(input, branch);
-                const credential = credentials.read();
-                token = credential?.host === new URL(source.origin).host && credential.kind === source.kind && credential.project === source.project ? credential.token : "";
-                return await loadRemoteBucket(source, controller.signal, fetch, token);
-            }
-            catch (error) {
-                const message = controller.signal.aborted ? "Remote load cancelled or timed out. Your previous session is unchanged." : error instanceof TypeError ? "Could not load this repository. Check the URL, network connection and the server’s CORS settings." : error instanceof SyntaxError ? "The repository returned invalid data." : error.message;
-                throw new Error(token ? message.replaceAll(token, "[redacted]") : message);
-            }
-            finally { clearTimeout(timeout); if (active === controller) active = undefined; }
-        },
-    };
+async function readRemoteBytes(response, maximum) {
+    if (!response.ok) throw new Error(response.status === 429 || response.status === 403 ? "Access denied or API rate limit reached. Try later or choose a smaller public folder." : response.status === 404 ? "Repository, branch or path not found. If it is private, save a token for this host." : `Repository request failed (${response.status}).`);
+    if (Number(response.headers.get("content-length")) > maximum) throw new Error("Remote response exceeds the size limit. Choose a smaller folder or file.");
+    const reader = response.body.getReader();
+    const chunks = [];
+    let size = 0;
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            size += value.byteLength;
+            if (size > maximum) throw new Error("Remote response exceeds the size limit. Choose a smaller folder or file.");
+            chunks.push(value);
+        }
+    } finally { await reader.cancel(); }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return bytes;
 }
 window.acornRemote = createRemoteLoader();
 window.dispatchEvent?.(new Event("acorn-remote-ready"));

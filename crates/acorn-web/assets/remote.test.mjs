@@ -113,32 +113,35 @@ test("repository token is header-only and scoped to its selected provider host",
     await load("");
     assert.ok(seen.every(({ options }) => !Object.hasOwn(options.headers, "Authorization")));
 });
-test("repository credential is tab-only, host-bound and removable", async () => {
+test("repository credential is tab-only, provider/host-bound and removable", async () => {
     const seen = [];
     context.window.acornWorkspace.cancel = () => {};
     context.fetch = async (url, options) => {
         seen.push({ url, options });
-        if (url.endsWith("/a/b") || url.endsWith("/a/c") || url.endsWith("/projects/a%2Fb")) return response({ default_branch: "main" });
+        if (url.endsWith("/a/b") || url.endsWith("/a/c") || url.endsWith("/projects/a%2Fb") || url.endsWith("/projects/a%2Fc")) return response({ default_branch: "main" });
         if (url.includes("/commits/")) return response(url.includes("api.github.com") ? { sha } : { id: sha });
         if (url.includes("/git/trees/")) return response({ tree: [{ type: "blob", path: "rad.json", sha }] });
         if (url.includes("/repository/tree?")) return response([{ type: "blob", path: "rad.json" }]);
         return url.includes("api.github.com") ? response({ encoding: "base64", content: "e30=" }) : response("{}");
     };
     const loader = context.createRemoteLoader();
-    assert.equal(loader.setCredential("a/b", "secret-value"), "api.github.com/a/b");
-    assert.equal(context.createRemoteLoader().credentialHost(), "api.github.com/a/b", "same-tab reload reads session storage");
+    assert.equal(loader.setCredential("a/b", "secret-value"), "api.github.com");
+    assert.equal(context.createRemoteLoader().credentialHost(), "api.github.com", "same-tab reload reads session storage");
     await loader.load("a/b", "");
     assert.ok(seen.every(({ options }) => options.headers.Authorization === "Bearer secret-value"));
     seen.length = 0;
     await loader.load("a/c", "");
-    assert.ok(seen.every(({ options }) => !Object.hasOwn(options.headers, "Authorization")));
+    assert.ok(seen.every(({ options }) => options.headers.Authorization === "Bearer secret-value"), "a second GitHub repository shares its provider host token");
     seen.length = 0;
     await loader.load("https://gitlab.com/a/b", "");
     assert.ok(seen.every(({ options }) => !Object.hasOwn(options.headers, "Authorization") && !Object.hasOwn(options.headers, "PRIVATE-TOKEN")));
     seen.length = 0;
-    assert.equal(loader.setCredential("https://gitlab.com/a/b", "gitlab-secret"), "gitlab.com/a/b");
+    assert.equal(loader.setCredential("https://gitlab.com/a/b", "gitlab-secret"), "gitlab.com");
     await loader.load("https://gitlab.com/a/b", "");
     assert.ok(seen.every(({ url, options }) => !url.includes("gitlab-secret") && options.headers["PRIVATE-TOKEN"] === "gitlab-secret" && options.redirect === "error"));
+    seen.length = 0;
+    await loader.load("https://gitlab.com/a/c", "");
+    assert.ok(seen.every(({ options }) => options.headers["PRIVATE-TOKEN"] === "gitlab-secret"), "a second GitLab repository shares its provider host token");
     seen.length = 0;
     await loader.load("https://code.ornl.gov/a/b", "");
     assert.ok(seen.every(({ options }) => !Object.hasOwn(options.headers, "PRIVATE-TOKEN")), "a token never crosses GitLab hosts");
@@ -146,6 +149,26 @@ test("repository credential is tab-only, host-bound and removable", async () => 
     assert.equal(loader.credentialHost(), "");
     assert.equal(sessionValues.has("acorn.repository-credential.v1"), false);
     assert.equal(loader.history.read().repositories.includes("secret-value"), false);
+});
+test("an existing project-bound tab token stays project-bound until explicitly replaced", async () => {
+    const key = "acorn.repository-credential.v1";
+    sessionStorage.setItem(key, JSON.stringify({ kind: "gitlab", host: "code.ornl.gov", project: "group/first", token: "legacy-token" }));
+    context.window.acornWorkspace.cancel = () => {};
+    const seen = [];
+    context.fetch = async (url, options) => { seen.push({ url, options }); return response({ message: "401 Unauthorized" }, 401); };
+    const loader = context.createRemoteLoader();
+    assert.match(loader.credentialHost(), /code\.ornl\.gov\/group\/first \(repository only/);
+    await assert.rejects(loader.load("https://code.ornl.gov/group/first", ""), /rejected the configured token/);
+    assert.equal(seen[0].options.headers["PRIVATE-TOKEN"], "legacy-token");
+    seen.length = 0;
+    await assert.rejects(loader.load("https://code.ornl.gov/group/second", ""), /Save a token for this host/);
+    assert.equal(Object.hasOwn(seen[0].options.headers, "PRIVATE-TOKEN"), false);
+    assert.equal(loader.setCredential("https://code.ornl.gov/group/first", "legacy-token"), "code.ornl.gov");
+    assert.equal(loader.credentialHost(), "code.ornl.gov");
+    seen.length = 0;
+    await assert.rejects(loader.load("https://code.ornl.gov/group/second", ""), /rejected the configured token/);
+    assert.equal(seen[0].options.headers["PRIVATE-TOKEN"], "legacy-token");
+    loader.clearCredential();
 });
 test("repository tokens require secure session storage", () => {
     const credentials = context.createRepositoryCredentials(() => sessionStorage, () => false);
@@ -169,8 +192,45 @@ test("GitLab paginates and loads raw files at a pinned commit", async () => {
     });
     assert.equal(result.files.length, 1); assert.ok(seen.some((url) => url.includes(`page_token=${sha}`))); assert.ok(seen.at(-1).endsWith(`ref=${sha}`));
 });
+test("private GitLab load keeps its token on the selected host and redacts failures", async () => {
+    context.window.acornWorkspace.cancel = () => {};
+    const calls = [];
+    context.fetch = async (url, options) => {
+        calls.push({ url, options });
+        if (url.endsWith("/projects/a%2Fb")) return response({ default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("/repository/tree?")) return response([{ type: "blob", path: "rad.json" }]);
+        return response("{}");
+    };
+    const loader = context.createRemoteLoader();
+    loader.setCredential("https://gitlab.com/a/b", "private-demo-token");
+    const loaded = await loader.load("https://gitlab.com/a/b", "");
+    assert.equal(loaded.source.revision, sha);
+    assert.equal(loaded.files[0].path, "rad.json");
+    assert.ok(calls.every(({ url, options }) => url.startsWith("https://gitlab.com/api/v4/projects/a%2Fb") && options.headers["PRIVATE-TOKEN"] === "private-demo-token" && options.redirect === "error"));
+    context.fetch = async () => { throw new Error("private-demo-token rejected"); };
+    await assert.rejects(loader.load("https://gitlab.com/a/b", ""), (error) => !error.message.includes("private-demo-token") && error.message.includes("[redacted]"));
+    loader.clearCredential();
+    assert.equal(sessionValues.has("acorn.repository-credential.v1"), false);
+});
+test("nested GitLab project 401 distinguishes a rejected token from an unmatched host", async () => {
+    const project = "https://code.ornl.gov/research-enablement/buckets/nssd";
+    const seen = [];
+    context.window.acornWorkspace.cancel = () => {};
+    context.fetch = async (url, options) => { seen.push({ url, options }); return response({ message: "401 Unauthorized" }, 401); };
+    const loader = context.createRemoteLoader();
+    assert.equal(loader.setCredential(project, "  legacy-pat  "), "code.ornl.gov");
+    await assert.rejects(loader.load(project, ""), /configured token \(401\) while reading project details/);
+    assert.equal(seen[0].url, "https://code.ornl.gov/api/v4/projects/research-enablement%2Fbuckets%2Fnssd");
+    assert.equal(seen[0].options.headers["PRIVATE-TOKEN"], "legacy-pat");
+    seen.length = 0;
+    await assert.rejects(loader.load("https://other.example.org/research-enablement/buckets/other", ""), /requires authentication \(401\).*this host/);
+    assert.equal(Object.hasOwn(seen[0].options.headers, "PRIVATE-TOKEN"), false);
+    loader.clearCredential();
+});
 test("remote failures, truncated trees, oversized streams and cancellation reject atomically", async () => {
     await assert.rejects(context.readRemoteBytes(response("denied", 403), 10), /rate limit/);
+    await assert.rejects(context.readRemoteBytes(response("missing", 404), 10), /save a token for this host/);
     await assert.rejects(context.readRemoteBytes(response("12345"), 4), /size limit/);
     await assert.rejects(context.loadRemoteBucket(context.parseRemoteBucket("a/b"), new AbortController().signal, async (url) => response(url.endsWith("/a/b") ? { default_branch: "main" } : url.includes("/commits/") ? { sha } : { truncated: true, tree: [] })), /too large/);
     const controller = new AbortController(); controller.abort();

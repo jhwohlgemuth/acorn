@@ -129,6 +129,31 @@ try {
     await page.getByRole("button", { name: "Try Sample Data" }).click();
     await page.getByRole("heading", { name: "Portfolio", exact: true }).waitFor();
     assert.equal(await page.locator(".activity-table tbody tr").count(), 3);
+    assert.equal(await page.getByRole("status").filter({ hasText: "3 activities in" }).count(), 1);
+    await page.getByRole("combobox", { name: "Sort results" }).selectOption("relevance");
+    assert.equal(await page.locator(".activity-table tbody tr").count(), 3);
+    await page.getByRole("button", { name: "Cards", exact: true }).click();
+    assert.equal(await page.locator(".catalog-activity").count(), 3);
+    await page.getByRole("button", { name: "List", exact: true }).click();
+    await page.getByRole("combobox", { name: "Sort results" }).selectOption("title");
+    if (await page.getByRole("button", { name: "Dismiss", exact: true }).isVisible()) await page.getByRole("button", { name: "Dismiss", exact: true }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.getByRole("button", { name: "List", exact: true }).getAttribute("aria-pressed"), "true");
+    await noOverflow("Portfolio index at 390px");
+    await shot("portfolio-index-mobile");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const firstProject = page.locator(".catalog-project h3 button").first();
+    await firstProject.click();
+    const projectDrawer = page.getByRole("dialog");
+    await projectDrawer.getByRole("heading", { name: "Activities", exact: true }).waitFor();
+    await projectDrawer.locator(".details-related").first().focus();
+    await projectDrawer.locator(".details-related").first().press("Enter");
+    await projectDrawer.getByRole("heading", { name: "Research focus", exact: true }).waitFor();
+    await projectDrawer.getByRole("button", { name: /View project:/ }).press("Enter");
+    await projectDrawer.getByRole("heading", { name: "Activities", exact: true }).waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    checks.push("Index project details, result count, relevance sort and card/list layouts work with validated sample data");
     await page.locator(".sidebar-session").getByText("3 activities · 3 files", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
     assert.equal(await page.locator(".session-count").innerText(), "3 · 3");
@@ -150,6 +175,8 @@ try {
     const drawer = page.getByRole("dialog");
     await drawer.waitFor();
     assert.ok(await drawer.getByRole("heading", { name: "Contributors", exact: false }).isVisible());
+    await drawer.getByRole("heading", { name: "Research focus", exact: true }).waitFor();
+    await drawer.getByRole("heading", { name: "Contact", exact: true }).waitFor();
     assert.equal(Math.round((await drawer.boundingBox()).width), 480);
     const drawerGrip = drawer.getByRole("separator", { name: "Resize details drawer" });
     await drawerGrip.press("ArrowLeft");
@@ -203,6 +230,7 @@ try {
     await drawer.waitFor({ state: "hidden" });
     assert.equal(await page.locator("#content").inputValue(), previewText);
     checks.push("RAD drawer previews, folds, copies and downloads read-only source; resizing, mobile layout, checks and focus return work");
+    if (process.env.ACORN_PARITY_SCOPE !== "index") {
     const tools = ["Research Activity", "Metadata standard", "Crosswalk", "FAIR assessment", "Readability", "Content diff", "Big-O comparison", "Discover identifiers", "Inspect identifier"];
     for (const name of tools) {
         await nav(name);
@@ -894,7 +922,7 @@ try {
     await page.getByText("Optional repository access token").click();
     await page.locator("#repository-token").fill("browser-test-secret");
     await page.getByRole("button", { name: "Use token for this host" }).click();
-    await page.getByText("Token •••••••• configured for api.github.com/acorn-test/bucket.").waitFor();
+    await page.getByText("Token •••••••• configured for api.github.com.").waitFor();
     for (const source of ["acorn-test/bucket", "https://gitlab.com/acorn-test/bucket"]) {
         await page.getByRole("combobox", { name: "Repository or URL", exact: true }).fill(source);
         await page.getByRole("combobox", { name: "Branch / tag / commit (optional)", exact: true }).fill(source.startsWith("https") ? "release/v1" : "main");
@@ -1056,6 +1084,7 @@ try {
         await celebration.close();
     }
     checks.push("First valid validation celebrates once per visit, cleans up, and respects reduced motion");
+    }
     assert.deepEqual(failures, []);
     await writeFile(resolve(output, "checks.json"), JSON.stringify({ browser: browser.version(), checks, failures }, null, 2) + "\n");
     console.log(`Browser parity smoke passed: ${checks.length} checks. Screenshots: ${output}`);

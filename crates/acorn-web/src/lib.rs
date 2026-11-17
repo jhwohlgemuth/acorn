@@ -3,4 +3,8 @@ extern crate alloc;
 pub mod geospatial;
 pub mod operations;
 pub mod presentation;
+pub mod research_index;
 pub mod session;
+
+#[cfg(test)]
+mod tests;
