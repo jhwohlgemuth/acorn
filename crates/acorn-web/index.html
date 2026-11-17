@@ -1,2 +1,63 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="ACORN Research Intelligence: local tools for Research Activity Data"><link rel="icon" href="data:,"><style>#boot{position:fixed;inset:0;display:grid;place-content:center;gap:12px;justify-items:center;font:15px system-ui,sans-serif;background:#1f2229;color:#abb2bf}#boot i{width:28px;height:28px;border:3px solid currentColor;border-right-color:transparent;border-radius:50%;animation:boot 0.9s linear infinite}@keyframes boot{to{transform:rotate(1turn)}}@media (prefers-reduced-motion:reduce){#boot i{animation:none}}#main:not(:empty)+#boot{display:none}</style></head><body><div id="main"></div><div id="boot" role="status"><i aria-hidden="true"></i>Loading ACORN Research Intelligence…</div><noscript>ACORN Research Intelligence requires JavaScript and WebAssembly.</noscript></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="ACORN Research Intelligence: local tools for Research Activity Data">
+<link rel="icon" href="data:,">
+<style>
+html{background:#1f2229;color:#abb2bf}
+#main:not([data-styles-ready]){visibility:hidden}
+#main[data-styles-ready]:has(.workspace)+#boot{display:none}
+#boot{position:fixed;inset:0;display:grid;place-content:center;gap:12px;justify-items:center;font:15px system-ui,sans-serif;background:#1f2229;color:#abb2bf}
+#boot i{width:28px;height:28px;border:3px solid currentColor;border-right-color:transparent;border-radius:50%;animation:boot 0.9s linear infinite}
+#boot button{font:inherit;color:inherit;background:transparent;border:1px solid currentColor;border-radius:5px;padding:7px 12px;cursor:pointer}
+@keyframes boot{to{transform:rotate(1turn)}}
+@media (prefers-color-scheme:light){html,#boot{background:#f7f8fa;color:#242931}}
+@media (prefers-reduced-motion:reduce){#boot i{animation:none}}
+</style>
+<script>
+window.acornInitialTheme = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+const markStylesReady = () => {
+    const main = document.getElementById('main');
+    if (main) main.setAttribute('data-styles-ready', '');
+    else document.addEventListener('DOMContentLoaded', markStylesReady, { once: true });
+};
+const showStylesError = () => {
+    const boot = document.getElementById('boot');
+    if (!boot) {
+        document.addEventListener('DOMContentLoaded', showStylesError, { once: true });
+        return;
+    }
+    boot.setAttribute('role', 'alert');
+    boot.querySelector('i')?.remove();
+    boot.querySelector('span').textContent = 'ACORN styles could not load.';
+    const retry = document.createElement('button');
+    retry.textContent = 'Retry';
+    retry.onclick = () => location.reload();
+    boot.append(retry);
+};
+window.markStylesReady = markStylesReady;
+window.showStylesError = showStylesError;
+const watchAppStylesheet = () => {
+    const initial = document.getElementById('initial-app-stylesheet');
+    if (initial) {
+        if (initial.sheet) markStylesReady();
+        return true;
+    }
+    const stylesheet = document.getElementById('app-stylesheet');
+    if (!stylesheet) return false;
+    if (stylesheet.sheet) markStylesReady();
+    else {
+        stylesheet.addEventListener('load', markStylesReady, { once: true });
+        stylesheet.addEventListener('error', showStylesError, { once: true });
+    }
+    return true;
+};
+if (!watchAppStylesheet()) new MutationObserver((_, observer) => {
+    if (watchAppStylesheet()) observer.disconnect();
+}).observe(document.head, { childList: true, subtree: true });
+</script>
+</head>
+<body><div id="main"></div><div id="boot" role="status"><i aria-hidden="true"></i><span>Loading ACORN Research Intelligence…</span></div><noscript>ACORN Research Intelligence requires JavaScript and WebAssembly.</noscript></body>
+</html>

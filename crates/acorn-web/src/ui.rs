@@ -411,6 +411,11 @@ fn SelectField(label: &'static str, value: String, options: Vec<&'static str>, o
 fn Shell() -> Element {
     let mut collapsed = use_signal(|| false);
     let mut drawer = use_signal(|| false);
+    let initial_theme = js_sys::Reflect::get(&js_sys::global(), &"acornInitialTheme".into())
+        .ok()
+        .and_then(|value| value.as_string())
+        .unwrap_or_else(|| "dark".into());
+    let initially_dark = initial_theme == "dark";
     let route = use_route::<Route>();
     let current = match route {
         | Route::Home {} => "home".to_owned(),
@@ -422,7 +427,7 @@ fn Shell() -> Element {
     }));
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/vendor/driver.css") }
-        div { class: format!("workspace {} {}", if collapsed() { "compact" } else { "" }, if drawer() { "drawer-open" } else { "" }), onkeydown: move |event| { if event.key() == Key::Escape && drawer() { drawer.set(false); document::eval("document.getElementById('nav-toggle')?.focus()"); } }, "data-theme": "dark",
+        div { class: format!("workspace {} {}", if collapsed() { "compact" } else { "" }, if drawer() { "drawer-open" } else { "" }), onkeydown: move |event| { if event.key() == Key::Escape && drawer() { drawer.set(false); document::eval("document.getElementById('nav-toggle')?.focus()"); } }, "data-theme": initial_theme,
             a { class: "skip", href: "#content-main", "Skip to content" }
             header { class: "mobile-bar", span { AppName {} } button { id: "nav-toggle", onclick: move |_| { drawer.toggle(); if drawer() { document::eval("requestAnimationFrame(() => document.querySelector('#workspace-navigation a')?.focus())"); } }, "aria-expanded": drawer(), "aria-controls": "workspace-navigation", "aria-label": "Toggle navigation", Icon { name: match drawer() { true => "panel", false => "panel-open" } } } }
             aside { id: "workspace-navigation", class: "sidebar", "aria-label": "Workspace navigation",
@@ -464,7 +469,7 @@ fn Shell() -> Element {
                 }
             }
             div { id: "notification", class: "notification", hidden: true, span { id: "notification-text", role: "status", "aria-live": "polite" } button { "aria-label": "Dismiss notification", onclick: move |_| { document::eval("window.acornChrome?.notifications.dismiss()"); }, "Dismiss" } }
-            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": "Dark theme", title: "Toggle dark or light theme", "aria-pressed": "true", onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", "Dark" } } } Outlet::<Route> {} }
+            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": if initially_dark { "Dark theme" } else { "Light theme" }, title: "Toggle dark or light theme", "aria-pressed": initially_dark, onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", if initially_dark { "Dark" } else { "Light" } } } } Outlet::<Route> {} }
             crate::details::DetailsDrawer {}
         }
     }

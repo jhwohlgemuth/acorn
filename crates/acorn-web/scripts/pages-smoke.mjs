@@ -51,7 +51,14 @@ async function waitForServices(page) {
 }
 const browser = await chromium.launch().catch((error) => { server.close(); throw error; });
 try {
-    const page = await browser.newPage();
+    const failedStylesPage = await browser.newPage();
+    await failedStylesPage.route(/\/assets\/app(?:-dxh[^/]+)?\.css$/, (route) => route.abort());
+    await failedStylesPage.goto(`${origin}${prefix}/`, { waitUntil: "domcontentloaded" });
+    await failedStylesPage.getByRole("button", { name: "Retry" }).waitFor();
+    assert.equal(await failedStylesPage.locator("#boot").getAttribute("role"), "alert");
+    assert.equal(await failedStylesPage.locator("#main").getAttribute("data-styles-ready"), null);
+    await failedStylesPage.close();
+    const page = await browser.newPage({ colorScheme: "light" });
     page.setDefaultTimeout(15000);
     page.on("pageerror", (error) => failures.push(error.message));
     page.on("requestfailed", (request) => failures.push(`${request.url()}: ${request.failure()?.errorText}`));
@@ -64,6 +71,8 @@ try {
     await page.goto(`${origin}${prefix}/`);
     await waitForServices(page);
     await page.getByRole("heading", { name: "Research Intelligence" }).waitFor();
+    assert.equal(await page.locator(".workspace").getAttribute("data-theme"), "light", "The first rendered workspace follows the system theme");
+    await page.locator("#boot").waitFor({ state: "hidden" });
     await page.waitForFunction(() => { const image = document.querySelector(".home-banner img"); return image?.complete && image.naturalWidth > 0; });
     await page.waitForFunction(() => getComputedStyle(document.querySelector(".sidebar")).position !== "static");
     await page.getByRole("button", { name: "Try Sample Data" }).click();

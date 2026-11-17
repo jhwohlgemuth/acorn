@@ -71,7 +71,7 @@ fn app() -> Element {
             "data-light-icon": asset!("/assets/generated/acorn-app-icon-light.svg"),
         }
         document::Link { rel: "license", title: "Lucide icon license", href: asset!("/assets/vendor/lucide.LICENSE") }
-        document::Link { rel: "stylesheet", href: asset!("/assets/app.css") }
+        document::Link { id: "app-stylesheet", rel: "stylesheet", href: asset!("/assets/app.css") }
         document::Script { src: asset!("/assets/effects.js"), "data-worker": asset!("/assets/worker.js") }
         document::Script { src: asset!("/assets/details.js") }
         document::Script { src: asset!("/assets/remote.js") }

@@ -19,4 +19,7 @@ for (const name of ["assessFairMetadata", "checkReadability", "compareBigO", "cr
 }
 const html = await readFile(join(root, "index.html"), "utf8");
 assert.ok(!html.includes("fonts.googleapis.com"), "Runtime fonts must be local");
+const stylesheet = html.match(/<link id="initial-app-stylesheet" rel="stylesheet" href="([^"]+)"/)?.[1];
+assert.ok(stylesheet?.includes("/assets/"), "The application stylesheet must load from the HTML head");
+assert.ok(files.includes(join(root, stylesheet.slice(stylesheet.indexOf("/assets/") + 1))), "The HTML stylesheet must reference a packaged asset");
 console.log(`Single WASM payload verified: ${(await stat(wasm[0])).size} bytes; bindings: ${Buffer.byteLength(bindings)} bytes; nine operation exports.`);
