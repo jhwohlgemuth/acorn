@@ -25,7 +25,7 @@ function createImagery(id: LayerId, base: string, onError: (message: string) => 
     }) : id === "natural-earth" ? new UrlTemplateImageryProvider({
         url: new URL("Assets/Textures/NaturalEarthII/", base).href + "{z}/{x}/{reverseY}.jpg",
         tilingScheme: new GeographicTilingScheme(),
-        maximumLevel: 5,
+        maximumLevel: 2,
         credit: "Natural Earth II",
     }) : id === "blue-marble" ? new UrlTemplateImageryProvider({
         url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
