@@ -1,14 +1,17 @@
 use crate::details::{self, Detail};
+use crate::media::ImageCarousel;
 use crate::ui::{validate_files, Icon, Route, UrlFileInput};
+use acorn_core::util::MimeType;
 use acorn_web::{
     presentation::text,
-    research_index::{CatalogSort, ResearchIndex},
+    research_index::{CatalogSort, Project, ResearchIndex},
     session::{self, Selection, SuppliedFile, Workspace, WorkspaceSource},
 };
-use alloc::collections::BTreeSet;
+use alloc::collections::{BTreeMap, BTreeSet};
 use dioxus::prelude::*;
 use serde_json::{json, Value};
 
+const TAG_COLOR_COUNT: usize = 8;
 #[derive(Clone, Default, serde::Deserialize)]
 struct BucketHistory {
     repositories: Vec<String>,
@@ -32,8 +35,9 @@ pub(crate) fn FileTree(paths: Vec<String>, prefix: String) -> Element {
     rsx! { ul { class: "file-tree", for name in children {
         {let path = format!("{prefix}{name}");
         let is_file = paths.contains(&path);
+        let thumbnail = workspace.read().image_file(&path);
         rsx! { li {
-            if is_file { button { class: "file-leaf", "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { details::open(drawer, Detail::file(file, &snapshot)); workspace.write().selected = Some(path.clone()); } }, Icon { name: "file" } "{name}" } }
+            if is_file { button { class: "file-leaf", "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { details::open(drawer, Detail::file(file, &snapshot)); if !MimeType::from(file.path.as_str()).is_image() { workspace.write().selected = Some(path.clone()); } } }, if let Some(thumbnail) = thumbnail { img { class: "file-thumb", src: thumbnail, alt: "" } } else { Icon { name: "file" } } "{name}" } }
             else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/") } } }
         }}}
     } } }
@@ -116,7 +120,7 @@ pub(crate) fn Loader() -> Element {
                 input.set(next.content()); workspace.set(next); message.set("File loaded. Choose Portfolio to validate and explore activities.".into()); close_url();
             } }
         } }
-        p { class: "load-limits small muted", "JSON, YAML, Markdown or text · 256 KiB per file · 500 files · 16 MiB total" }
+        p { class: "load-limits small muted", "JSON, YAML, Markdown, text, SVG, PNG, JPEG or WebP · 256 KiB per file · 500 files · 16 MiB stored total" }
         details { class: "remote-entry", summary {
             "Open a " span { class: "repository-name repository-github", img { src: asset!("/assets/generated/github.svg"), alt: "", width: "16", height: "16" } "GitHub" }
             " or " span { class: "repository-name", img { src: asset!("/assets/generated/gitlab.svg"), alt: "", width: "16", height: "16" } "GitLab" } " bucket"
@@ -207,6 +211,7 @@ pub(crate) fn Portfolio() -> Element {
     let snapshot = workspace();
     let activities = snapshot.activities();
     let index = ResearchIndex::from(&snapshot);
+    let tag_colors = tag_colors(&index.projects);
     let types = session::distribution(&activities, session::activity_type);
     let statuses = session::distribution(&activities, session::activity_status);
     let query = search();
@@ -259,6 +264,7 @@ pub(crate) fn Portfolio() -> Element {
     }
     let activity_noun = if filtered.len() == 1 { "activity" } else { "activities" };
     let project_noun = if visible_projects.len() == 1 { "project" } else { "projects" };
+    let record_noun = if activities.len() == 1 { "record" } else { "records" };
     let selection = filtered
         .iter()
         .find(|(file, _)| Some(&file.path) == snapshot.selected.as_ref())
@@ -266,15 +272,15 @@ pub(crate) fn Portfolio() -> Element {
         .copied();
     let invalid = snapshot.validations.values().filter(|value| value["valid"] != true).count();
     rsx! {
-        p { class: "lede", "Research activities in this session · {activities.len()} validated records" }
+        p { class: "lede", "Research activities in this session · {activities.len()} validated {record_noun}" }
         if snapshot.files.is_empty() {
             div { class: "card empty", Icon { name: "portfolio" } h2 { "No research activities loaded" } p { "Open local content or try the bundled sample from Home." } Link { to: Route::Home {}, "Open Home →" } }
         } else {
-            details { class: "loaded-tree", summary { "{snapshot.files.len()} loaded files · {snapshot.bytes()} UTF-8 bytes" } FileTree { paths: snapshot.files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } }
+            details { class: "loaded-tree", summary { "{snapshot.files.len()} loaded files · {snapshot.bytes()} stored bytes" } FileTree { paths: snapshot.files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } }
             div { class: "actions", button { class: "primary", disabled: validating(), "aria-busy": validating(), onclick: move |_| async move {
                 validating.set(true);
                 let files = workspace.peek().files.clone();
-                let validations = validate_files(files.iter().filter(|file| file.path.to_lowercase().ends_with(".json")).cloned().collect()).await;
+                let validations = validate_files(files.iter().filter(|file| matches!(MimeType::from(file.path.as_str()), MimeType::Json)).cloned().collect()).await;
                 validating.set(false);
                 // A newer selection replaces the session while validation runs; its files are not these results' source.
                 if workspace.peek().files == files {
@@ -290,17 +296,23 @@ pub(crate) fn Portfolio() -> Element {
                 label { class: "field", "Sort results" select { value: sort(), onchange: move |event| { sort.set(match event.value().as_str() { "relevance" => "relevance", "type" => "type", "status" => "status", _ => "title" }); descending.set(false); }, option { value: "title", "Alphabetical" } option { value: "relevance", "Relevance" } option { value: "type", "Type" } option { value: "status", "Status" } } }
             }
             div { class: "catalog-toolbar", p { role: "status", "{filtered.len()} {activity_noun} in {visible_projects.len()} {project_noun}" }
-                div { class: "actions", role: "group", "aria-label": "Catalog layout",
-                    button { "aria-pressed": layout() == "list", onclick: move |_| layout.set("list"), "List" }
-                    button { "aria-pressed": layout() == "cards", onclick: move |_| layout.set("cards"), "Cards" }
+                div { class: "actions", role: "group", "aria-label": "Project layout",
+                    button { "aria-label": "List", title: "List view", "aria-pressed": layout() == "list", onclick: move |_| layout.set("list"), Icon { name: "list" } }
+                    button { "aria-label": "Cards", title: "Cards view", "aria-pressed": layout() == "cards", onclick: move |_| layout.set("cards"), Icon { name: "portfolio" } }
                 }
             }
             if !visible_projects.is_empty() { section { class: "catalog-projects", "aria-label": "Projects", h2 { "Projects" }
-                div { class: "catalog-project-grid", for project in visible_projects {
-                    {let detail = Detail::from(project); let project_activity_noun = if project.paths.len() == 1 { "activity" } else { "activities" }; rsx! { article { class: "card catalog-project",
-                        h3 { button { onclick: move |_| details::open(drawer, detail.clone()), "{project.title}" } }
-                        p { class: "small muted", "{project.id} · {project.paths.len()} {project_activity_noun}" }
-                        if !project.summary.is_empty() { p { "{project.summary}" } }
+                div { class: "catalog-project-grid", "data-layout": layout(), for project in visible_projects {
+                    {let detail = Detail::from(project); let project_activity_noun = if project.paths.len() == 1 { "activity" } else { "activities" }; let images = snapshot.project_slides(&project.paths); rsx! { article { class: "card catalog-project",
+                        ImageCarousel { slides: images, label: project.title.clone(), compact: true }
+                        div { class: "catalog-card-body",
+                            h3 { button { onclick: move |_| details::open(drawer, detail.clone()), "{project.title}" } }
+                            p { class: "small muted", "{project.id} · {project.paths.len()} {project_activity_noun}" }
+                            if !project.summary.is_empty() { p { class: "catalog-project-summary", "{project.summary}" } }
+                            if !project.keywords.is_empty() { ul { class: "catalog-keywords", "aria-label": "Project keywords", tabindex: if layout() == "list" { "0" } else { "-1" },
+                                for keyword in &project.keywords { li { class: "catalog-keyword", "data-tag-color": tag_colors.get(keyword.as_str()).copied().unwrap_or_default().to_string(), "{keyword}" } }
+                            } }
+                        }
                     } }}
                 } }
             } }
@@ -310,23 +322,52 @@ pub(crate) fn Portfolio() -> Element {
                 }
             }
             div { class: "distribution-grid", Distribution { title: "Activity types", counts: session::distribution(&filtered, session::activity_type) } Distribution { title: "Statuses", counts: session::distribution(&filtered, session::activity_status) } }
-            if layout() == "list" { table { class: "activity-table", caption { "{filtered.len()} matching {activity_noun}" }
+            table { class: "activity-table", caption { "{filtered.len()} matching {activity_noun}" }
                 thead { tr { for (field, label) in [("title", "Activity"), ("type", "Type"), ("status", "Status")] {
                     th { scope: "col", "aria-sort": if sort() == field { if descending() { "descending" } else { "ascending" } } else { "none" }, button { onclick: move |_| { if sort() == field { descending.toggle(); } else { sort.set(field); descending.set(false); } }, "{label}" } }
                 } } }
                 tbody { for (file, value) in &filtered { {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); rsx! {
                     tr { td { button { class: "activity-select", "aria-pressed": selection.is_some_and(|(chosen, _)| chosen.path == path), onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); }, "{text(value, \"title\")}" } small { "{file.path}" } } td { "{session::activity_type(value)}" } td { "{session::activity_status(value)}" } }
                 }} } }
-            } } else { div { class: "catalog-activity-grid", "aria-label": "Activities", for (file, value) in &filtered {
-                {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); let project = index.activities.iter().find(|activity| activity.path == path).map(|activity| activity.project_id.as_str()).unwrap_or("Unassigned"); rsx! { article { class: "card catalog-activity",
-                    p { class: "small muted", "{session::activity_type(value)} · {session::activity_status(value)}" }
-                    h3 { button { onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); }, "{text(value, \"title\")}" } }
-                    p { class: "small muted", "Project: {project} · {file.path}" }
-                    if let Some(summary) = value["subtitle"].as_str() { p { "{summary}" } }
-                } }}
-            } } }
+            }
             if filtered.is_empty() && !activities.is_empty() { div { class: "card empty", h2 { "No matching activities" } p { "Try another search or reset the filters." } button { onclick: move |_| { search.set(String::new()); kind.set(String::new()); status.set(String::new()); }, "Reset filters" } } }
 
         }
+    }
+}
+fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
+    projects
+        .iter()
+        .flat_map(|project| project.keywords.iter().map(String::as_str))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .enumerate()
+        .map(|(index, tag)| (tag, index % TAG_COLOR_COUNT))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tag_colors_repeat_after_palette_and_ignore_project_order() {
+        let tags = (0..=TAG_COLOR_COUNT).map(|index| format!("tag-{index:02}")).collect::<Vec<_>>();
+        let first = tags.first().expect("first tag");
+        let wrapped = tags.get(TAG_COLOR_COUNT).expect("tag after the palette");
+        let project = |keywords: Vec<String>| Project {
+            id: String::new(),
+            title: String::new(),
+            summary: String::new(),
+            paths: Vec::new(),
+            organizations: Vec::new(),
+            keywords,
+        };
+        let projects = [project(tags.clone()), project(vec![first.clone()])];
+        let colors = tag_colors(&projects);
+        assert_eq!(colors.len(), TAG_COLOR_COUNT + 1);
+        assert_eq!(colors.values().copied().collect::<BTreeSet<_>>().len(), TAG_COLOR_COUNT);
+        assert_eq!(colors.get(first.as_str()), colors.get(wrapped.as_str()));
+        assert_eq!(colors, tag_colors(&[projects[1].clone(), projects[0].clone()]));
     }
 }

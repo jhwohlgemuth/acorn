@@ -9,7 +9,7 @@ function createBucketHistory(storage = () => window.localStorage) {
         } catch { return { repositories: [], refs: [] }; }
     };
     return {
-        clear() { try { storage().removeItem(key); } catch { /* Storage may be disabled. Loading remains available. */ } },
+        clear() { try { storage().removeItem(key); return true; } catch { return false; } },
         read,
         remember(input, branch) {
             const saved = read();
@@ -29,9 +29,9 @@ function createRemoteFileLoader(fetcher = fetch) {
             active = controller;
             const timeout = setTimeout(() => controller.abort(), 30000);
             try {
-                const file = await loadRemoteFile(input, maximum, controller.signal, fetcher);
+                const file = await loadRemoteFile(input, maximum, controller.signal, fetcher, workspaceFile);
                 controller.signal.throwIfAborted();
-                if (workspaceFile && !window.acornWorkspace.validPath(file.path)) throw new Error("Choose a JSON, YAML, Markdown or text file for this workspace.");
+                if (workspaceFile && !window.acornWorkspace.validPath(file.path)) throw new Error("Choose a JSON, YAML, Markdown, text or supported image file for this workspace.");
                 return file;
             } catch (error) {
                 const message = controller.signal.aborted ? "File download cancelled or timed out." : error instanceof TypeError ? "Could not fetch this file. Check the URL and network connection; the server must allow browser access (CORS). You can download the file and choose it locally instead." : error.message;
@@ -47,6 +47,7 @@ function createRemoteLoader() {
     const history = createBucketHistory();
     return {
         cancel() { active?.abort(); active = undefined; file.cancel(); },
+        clearData() { const historyCleared = history.clear(); const credentialCleared = credentials.clear(); return historyCleared && credentialCleared; },
         file,
         history,
         credentialHost() {
@@ -164,15 +165,18 @@ async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
         } else {
             bytes = await request(`/repository/files/${encodeURIComponent(entry.path)}/raw?ref=${revision}`, remoteLimits.file);
         }
-        total += bytes.byteLength;
-        if (bytes.byteLength > remoteLimits.file || total > remoteLimits.total) throw new Error("Bucket exceeds the 256 KiB per-file or 16 MiB total limit.");
-        files.push({ path: entry.path, content: new TextDecoder("utf-8", { fatal: true }).decode(bytes) });
+        if (bytes.byteLength > remoteLimits.file) throw new Error("Bucket exceeds the 256 KiB per-file limit.");
+        const image = window.acornWorkspace.imageMime(entry.path);
+        const content = image ? window.acornWorkspace.imageContent(entry.path, bytes) : new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        total += image ? content.length : bytes.byteLength;
+        if (total > remoteLimits.total) throw new Error("Bucket exceeds the 16 MiB stored total limit.");
+        files.push({ path: entry.path, content });
     }
     signal.throwIfAborted();
     if (!files.length) throw new Error("No supported research files found at this location.");
     return { files, skipped: candidates.length - accepted.length, source: { kind: source.kind, host: new URL(source.origin).host, project: source.project, path: source.path, revision } };
 }
-async function loadRemoteFile(input, maximum, signal, fetcher = fetch) {
+async function loadRemoteFile(input, maximum, signal, fetcher = fetch, workspaceFile = false) {
     const url = parseFileUrl(input);
     if (!Number.isSafeInteger(maximum) || maximum < 1 || maximum > remoteLimits.file) throw new Error("Invalid file size limit.");
     signal.throwIfAborted();
@@ -181,13 +185,17 @@ async function loadRemoteFile(input, maximum, signal, fetcher = fetch) {
     if (response.url) parseFileUrl(response.url);
     const bytes = await readRemoteBytes(response, maximum);
     signal.throwIfAborted();
-    let content;
-    try { content = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
-    catch { throw new Error("Choose a UTF-8 text file."); }
     const name = decodeURIComponent(url.pathname.split("/").pop() || "download.txt");
     const path = !name || name === "." || name === ".." || /[\\/\x00-\x1f\x7f]/.test(name) ? "download.txt" : name;
     const extension = /json/i.test(response.headers.get("content-type") || "") ? ".json" : /yaml/i.test(response.headers.get("content-type") || "") ? ".yaml" : ".txt";
-    return { path: path.includes(".") ? path : path + extension, content };
+    const resolved = path.includes(".") ? path : path + extension;
+    let content;
+    if (workspaceFile && window.acornWorkspace.imageMime(resolved)) content = window.acornWorkspace.imageContent(resolved, bytes);
+    else {
+        try { content = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+        catch { throw new Error("Choose a UTF-8 text file."); }
+    }
+    return { path: resolved, content };
 }
 function parseFileUrl(input) {
     let url;

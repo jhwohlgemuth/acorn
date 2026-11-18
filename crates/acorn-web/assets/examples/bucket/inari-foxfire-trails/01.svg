@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Foxfire lantern trail</title>
+  <desc id="desc">A fictional violet forest path winds beneath a torii gate and glowing lanterns.</desc>
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#18152e"/><stop offset="1" stop-color="#62436b"/></linearGradient><radialGradient id="glow"><stop stop-color="#ffe9a4" stop-opacity=".9"/><stop offset="1" stop-color="#f4a35d" stop-opacity="0"/></radialGradient></defs>
+  <rect width="640" height="360" fill="url(#sky)"/>
+  <g fill="#d6b6d1" opacity=".8"><circle cx="52" cy="43" r="2"/><circle cx="179" cy="71" r="2"/><circle cx="299" cy="34" r="2"/><circle cx="428" cy="60" r="2"/><circle cx="582" cy="44" r="2"/></g>
+  <path d="M0 195 55 118 104 195 156 91 215 195 275 126 335 198 403 104 468 196 536 114 640 203V360H0Z" fill="#29243e"/>
+  <path d="M0 260 Q164 215 320 262 T640 242V360H0Z" fill="#413352"/>
+  <path d="M152 360 Q230 282 310 253 T486 184" fill="none" stroke="#deb58b" stroke-width="44" opacity=".55"/>
+  <g fill="#f3ad68"><rect x="432" y="131" width="10" height="106"/><rect x="523" y="131" width="10" height="106"/><rect x="414" y="130" width="137" height="11"/><rect x="426" y="146" width="113" height="8"/></g>
+  <g><circle cx="224" cy="276" r="40" fill="url(#glow)"/><circle cx="224" cy="276" r="7" fill="#ffe5a1"/><circle cx="310" cy="242" r="33" fill="url(#glow)"/><circle cx="310" cy="242" r="6" fill="#ffe5a1"/><circle cx="381" cy="214" r="28" fill="url(#glow)"/><circle cx="381" cy="214" r="5" fill="#ffe5a1"/></g>
+  <rect x="24" y="309" width="592" height="38" rx="8" fill="#19162f" opacity=".88"/>
+  <text x="42" y="334" fill="#fff" font-family="sans-serif" font-size="18" font-weight="600">Foxfire lantern trail</text>
+</svg>

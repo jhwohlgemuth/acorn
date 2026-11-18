@@ -1,0 +1,86 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "inari-foxfire-trails",
+    "doi": "10.5072/acorn-sample-inari-foxfire-trails",
+    "ror": "https://ror.org/000000001",
+    "contributors": [
+      {
+        "name": "Sample Person",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0000-0000-0001",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Example Organization",
+        "identifiers": [
+          {
+            "value": "https://ror.org/000000001",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": []
+      }
+    ],
+    "media": [
+      {
+        "caption": "Fictional illustration for Inari Foxfire Trails: Signal Atlas.",
+        "contentUrl": "00.svg"
+      },
+      {
+        "caption": "Foxfire signals along a fictional lantern trail.",
+        "contentUrl": "01.svg"
+      }
+    ],
+    "keywords": [
+      "visualization",
+      "geospatial",
+      "modeling",
+      "mapping",
+      "data-science",
+      "simulation",
+      "sensor-design",
+      "digital-humanities",
+      "environmental-science",
+      "climate-science",
+      "astronomy",
+      "plant-science"
+    ]
+  },
+  "title": "Inari Foxfire Trails: Signal Atlas",
+  "subtitle": "A fictional atlas of lantern signals through a shifting forest.",
+  "sections": {
+    "mission": "This fictional project explores fictional lantern signals through a shifting forest. All settings and observations are invented. It links each illustration to field notes so readers can compare the evidence and follow the sequence.",
+    "challenge": "How can a traveler compare several routes when each imagined signal moves between observations? A single illustration cannot explain the order of observations or why one interpretation was chosen. Each entry therefore records its place in the sequence, describes what changed, and keeps gaps in the imagined evidence visible.",
+    "approach": [
+      "Mark each lantern position on a storybook route and keep the source sketches beside the map."
+    ],
+    "impact": [
+      "Offer a clear atlas for comparing paths, signals, and uncertain turns."
+    ],
+    "research": {
+      "focus": "Exploring the imagined themes of Inari Foxfire Trails: Signal Atlas in a fictional research record. Locations and measurements remain imaginary.",
+      "areas": [
+        "Illustrative research metadata and maps"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Sample",
+    "familyName": "Person",
+    "email": "sample.person@example.org",
+    "organization": "Example Organization",
+    "telephone": "202-555-0101",
+    "url": "https://example.org/sample-person"
+  }
+}

@@ -14,9 +14,18 @@ example domains. The browser checks syntax locally without resolving identifiers
 | `diff-before.json` / `diff-after.json` | Nested metadata changes, added and removed fields, modified arrays, new datasets and outputs, and changed licensing. **Use example** selects JSON Patch for semantic diff; the same pair also works as unified text diff. Key order and whitespace alone do not create JSON Patch operations. |
 | `readability.txt` | Several paragraphs mixing accessible explanations with technical methods and dense prose. |
 
+The Home sample loads `bucket/`, a fictional bucket with a layout similar to an
+NSSD research bucket: project folders with `index.json`, `index.yaml`, or
+`index.md` and optional sibling images. It contains four JSON records, one YAML
+record, two Markdown records, eleven SVG illustrations, one record folder without
+an image, and one image-only folder. Every project title and person is fictional;
+no NSSD record text or imagery is bundled. Project cards show illustrations for
+validated JSON records, with a placeholder for Jade River Crossing's missing
+image; the other files remain available in the file tree.
+
 The inspection example uses a qualified Software Heritage content identifier with
 origin, revision anchor, path and line range. Big-O compares composite growth
-expressions. Home loads the three valid RAD files; validation tool examples are
+expressions. Validation tool examples are
 deliberately flawed and labeled in the button tooltip and document title.
 
 Vocabulary matching defaults to Off. Select Strict or Relaxed to enable vocabulary advisories. Local FAIR findings

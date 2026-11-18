@@ -1,18 +1,21 @@
 //! ACORN's Dioxus browser composition root
 extern crate alloc;
+pub(crate) use acorn_web::media;
 use dioxus::prelude::*;
 
 mod details;
 mod geospatial_page;
 mod results;
+mod sample;
 mod skill;
 mod syntax;
 mod ui;
 mod workspace;
+
 fn app() -> Element {
     use_context_provider(|| Signal::new(String::new()));
     let mut workspace = use_context_provider(|| Signal::new(acorn_web::session::Workspace::default()));
-    let mut storage_status = use_context_provider(|| Signal::new((false, 0_usize, false)));
+    let mut storage_status = use_context_provider(|| Signal::new((0_usize, false)));
     let mut restored = use_signal(|| false);
     use_future(move || async move {
         let saved = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); return window.acornWorkspaceStorage.restore()").join::<serde_json::Value>().await;
@@ -45,7 +48,7 @@ fn app() -> Element {
     use_effect(move || {
         if restored() {
             if let Ok(value) = serde_json::to_string(&workspace()) {
-                let evaluator = document::eval(&format!("const storage = window.acornWorkspaceStorage; const attempted = storage?.status().enabled ?? false; const saved = storage?.save({value}) ?? false; return {{...storage.status(), newFailure: attempted && !saved}}"));
+                let evaluator = document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = storage?.save({value}) ?? false; return {{...storage.status(), newFailure: !saved}}"));
                 spawn(async move {
                     let result = evaluator.join::<serde_json::Value>().await;
                     if let Ok(status) = result {
@@ -74,6 +77,7 @@ fn app() -> Element {
         document::Link { id: "app-stylesheet", rel: "stylesheet", href: asset!("/assets/app.css") }
         document::Script { src: asset!("/assets/effects.js"), "data-worker": asset!("/assets/worker.js") }
         document::Script { src: asset!("/assets/details.js") }
+        document::Script { src: asset!("/assets/carousel.js") }
         document::Script { src: asset!("/assets/remote.js") }
         document::Script { src: asset!("/assets/workspace-storage.js") }
         document::Script { src: asset!("/assets/syntax.js"), "data-prism": asset!("/assets/vendor/prism.js") }

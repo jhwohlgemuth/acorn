@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Lunar phase ledger</title>
+  <desc id="desc">A fictional night survey chart traces moon phases and observations across a blue sky.</desc>
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#101b37"/><stop offset="1" stop-color="#345a88"/></linearGradient><clipPath id="phases"><circle cx="98" cy="75" r="22"/><circle cx="208" cy="75" r="22"/><circle cx="318" cy="75" r="22"/><circle cx="428" cy="75" r="22"/><circle cx="538" cy="75" r="22"/></clipPath></defs>
+  <rect width="640" height="360" fill="url(#sky)"/>
+  <g stroke="#a6bde0" opacity=".25"><path d="M64 54H578M64 106H578M64 158H578M64 210H578M64 262H578M98 36V280M208 36V280M318 36V280M428 36V280M538 36V280"/></g>
+  <path d="M98 239 Q209 167 318 192 T538 100" fill="none" stroke="#f6d990" stroke-width="4" stroke-linecap="round" stroke-dasharray="5 10"/>
+  <g fill="#f6dfaa"><circle cx="98" cy="239" r="7"/><circle cx="208" cy="185" r="7"/><circle cx="318" cy="192" r="7"/><circle cx="428" cy="161" r="7"/><circle cx="538" cy="100" r="7"/></g>
+  <g fill="#d9e7f7"><circle cx="98" cy="75" r="22"/><circle cx="208" cy="75" r="22"/><circle cx="318" cy="75" r="22"/><circle cx="428" cy="75" r="22"/><circle cx="538" cy="75" r="22"/></g>
+  <g clip-path="url(#phases)" fill="#152344"><circle cx="98" cy="75" r="22"/><rect x="186" y="53" width="22" height="44"/><rect x="428" y="53" width="22" height="44"/><circle cx="528" cy="75" r="22"/></g>
+  <g fill="none" stroke="#f6dfaa" stroke-width="2"><circle cx="98" cy="75" r="22"/><circle cx="208" cy="75" r="22"/><circle cx="318" cy="75" r="22"/><circle cx="428" cy="75" r="22"/><circle cx="538" cy="75" r="22"/></g>
+  <rect x="24" y="309" width="592" height="38" rx="8" fill="#101b37" opacity=".88"/>
+  <text x="42" y="334" fill="#fff" font-family="sans-serif" font-size="18" font-weight="600">Lunar phase ledger</text>
+</svg>

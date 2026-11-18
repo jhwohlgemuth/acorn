@@ -1,3 +1,4 @@
+use crate::media::ImageCarousel;
 use crate::results::ResultView;
 use crate::syntax::{CodeBlock, CodeEditor};
 use crate::ui::{Icon, Route};
@@ -29,7 +30,8 @@ pub(crate) struct Detail {
 }
 impl Detail {
     pub(crate) fn file(file: &SuppliedFile, workspace: &Workspace) -> Self {
-        let value = serde_json::from_str::<Value>(&file.content).ok();
+        let image = workspace.image_file(&file.path).is_some();
+        let value = (!image).then(|| serde_json::from_str::<Value>(&file.content).ok()).flatten();
         let title = value
             .as_ref()
             .and_then(|value| value.get("title").and_then(Value::as_str))
@@ -49,7 +51,7 @@ impl Detail {
                     )
                 },
             ),
-            source: file.content.clone(),
+            source: if image { String::new() } else { file.content.clone() },
             filename: file.path.rsplit('/').next().unwrap_or("source.txt").into(),
             language: match file.path.rsplit('.').next() {
                 | Some("json") => "json",
@@ -197,6 +199,12 @@ pub(crate) fn DetailsDrawer() -> Element {
         }
     }));
     let detail = drawer();
+    let snapshot = workspace();
+    let image_src = detail
+        .as_ref()
+        .and_then(|detail| detail.path.as_deref())
+        .and_then(|path| snapshot.image_file(path));
+    let image = image_src.is_some();
     let visible = detail.is_some();
     use_effect(use_reactive((&detail,), move |(detail,)| {
         if detail.is_some() {
@@ -211,7 +219,6 @@ pub(crate) fn DetailsDrawer() -> Element {
             document::eval("window.acornDetails?.close()");
         }
     }));
-    let snapshot = workspace();
     let index = ResearchIndex::from(&snapshot);
     rsx! {
         dialog { id: "details-drawer", class: "details-drawer", "aria-labelledby": "details-title",
@@ -224,12 +231,12 @@ pub(crate) fn DetailsDrawer() -> Element {
                 if let Some(href) = snapshot.source.as_ref().and_then(|source| detail.path.as_deref().and_then(|path| source.link(path))) {
                     p { class: "details-provenance", a { href, target: "_blank", rel: "noopener noreferrer", "View source at loaded revision ↗" } }
                 }
-                if detail.project.is_none() { div { class: "details-tabs", role: "tablist", "aria-label": "Details view",
+                if detail.project.is_none() && !image { div { class: "details-tabs", role: "tablist", "aria-label": "Details view",
                     for (name, label, icon) in [("overview", "Overview", "filecheck"), ("source", "Source", "code"), ("checks", "Checks", "check")] {
                         button { id: "details-tab-{name}", role: "tab", "aria-selected": tab() == name, "aria-controls": "details-panel", tabindex: if tab() == name { "0" } else { "-1" }, onclick: move |_| tab.set(name), Icon { name: icon } "{label}" }
                     }
                 } }
-                div { id: "details-panel", class: "details-body", role: if detail.project.is_some() { "region" } else { "tabpanel" }, "aria-labelledby": if detail.project.is_some() { "details-title".to_string() } else { format!("details-tab-{tab}") }, tabindex: "0",
+                div { id: "details-panel", class: "details-body", role: if detail.project.is_some() || image { "region" } else { "tabpanel" }, "aria-labelledby": if detail.project.is_some() || image { "details-title".to_string() } else { format!("details-tab-{tab}") }, tabindex: "0",
                     match tab() {
                         "source" => rsx! {
                             p { class: "small muted", "Read-only preview · {detail.source.len()} UTF-8 bytes" }
@@ -255,6 +262,7 @@ pub(crate) fn DetailsDrawer() -> Element {
                         _ => rsx! {
                             if let Some(finding) = &detail.finding { FindingOverview { finding: finding.clone(), value: detail.value.clone() } }
                             else if let Some(project) = &detail.project {
+                                ImageCarousel { slides: snapshot.project_slides(&project.paths), label: project.title.clone(), compact: false }
                                 if !project.summary.is_empty() { p { class: "details-description", "{project.summary}" } }
                                 dl { class: "details-facts", div { dt { "Identifier" } dd { "{project.id}" } } div { dt { "Activities" } dd { "{project.paths.len()}" } } }
                                 h3 { class: "details-section-title", "Organizations" }
@@ -285,6 +293,7 @@ pub(crate) fn DetailsDrawer() -> Element {
                                     }
                                 }
                             } else if let Some(value) = &detail.value {
+                                if let Some(path) = detail.path.as_deref() { ImageCarousel { slides: snapshot.slides(path, value), label: detail.title.clone(), compact: false } }
                                 ActivityOverview { value: value.clone() }
                                 if let Some(project) = index.projects.iter().find(|project| project.paths.iter().any(|path| Some(path) == detail.path.as_ref())) {
                                     {let next = Detail::from(project); rsx! { button { class: "details-related", onclick: move |_| open(drawer, next.clone()), "View project: {project.title}" } }}
@@ -295,11 +304,13 @@ pub(crate) fn DetailsDrawer() -> Element {
                                         {let next = Detail::file(file, &snapshot); rsx! { button { class: "details-related", onclick: move |_| open(drawer, next.clone()), strong { "{activity.title}" } small { "{activity.path}" } } }}
                                     } }
                                 } }
+                            } else if let Some(src) = image_src {
+                                img { class: "details-standalone-image", src, alt: detail.title.clone() }
                             } else { div { class: "details-empty", Icon { name: "code" } h3 { "File preview" } p { "Open Source to read this file. Its original content is preserved." } } }
                         },
                     }
                 }
-                if detail.marker.is_none() && detail.project.is_none() {
+                if detail.marker.is_none() && detail.project.is_none() && !image {
                     footer { class: "details-footer", button { class: "primary", onclick: move |_| {
                         input.set(detail.source.clone());
                         if let Some(path) = &detail.path { let mut workspace = workspace; let mut next = workspace(); next.selected = Some(path.clone()); workspace.set(next); }

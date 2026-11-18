@@ -450,6 +450,7 @@ dependencies = [
  "acorn-schema",
  "acorn-wasm",
  "case",
+ "data-encoding",
  "dioxus",
  "js-sys",
  "serde",

@@ -4,12 +4,6 @@ import { CameraFlyTo, type CesiumComponentRef, Entity, Scene, Viewer } from "res
 import type { State } from "./bridge";
 import { configureHome } from "./home";
 
-export class MapBoundary extends Component<{ children: React.ReactNode; onError: (message: string) => void }, { failed: boolean }> {
-    state = { failed: false };
-    static getDerivedStateFromError() { return { failed: true }; }
-    componentDidCatch() { this.props.onError("The map is unavailable. All organization locations remain in the table."); }
-    render() { return this.state.failed ? null : this.props.children; }
-}
 const layers = [
     { id: "black-marble", label: "Black Marble", detail: "Offline · NASA night imagery" },
     { id: "natural-earth", label: "Natural Earth II", detail: "Offline · physical map" },
@@ -17,6 +11,12 @@ const layers = [
     { id: "openstreetmap", label: "OpenStreetMap", detail: "Online · roads and labels" },
 ] as const;
 type LayerId = typeof layers[number]["id"];
+export class MapBoundary extends Component<{ children: React.ReactNode; onError: (message: string) => void }, { failed: boolean }> {
+    state = { failed: false };
+    static getDerivedStateFromError() { return { failed: true }; }
+    componentDidCatch() { this.props.onError("The map is unavailable. All organization locations remain in the table."); }
+    render() { return this.state.failed ? null : this.props.children; }
+}
 function createImagery(id: LayerId, base: string, onError: (message: string) => void) {
     const provider = id === "black-marble" ? new UrlTemplateImageryProvider({
         url: new URL("Assets/Textures/BlackMarble/", base).href + "{z}/{y}/{x}.png",
@@ -78,10 +78,16 @@ export function MapView({ state, base, select, error }: { state: State; base: st
         >
         <Scene onRenderError={() => error("WebGL rendering stopped. Use the organization table.")} />
         {state.markers.filter((marker) => marker.location).map((marker) => <Entity key={marker.id} id={marker.id}
-            name={marker.name} properties={{ ror: marker.id, country: marker.location!.country, latitude: marker.location!.latitude, longitude: marker.location!.longitude, references: marker.references }} position={Cartesian3.fromDegrees(marker.location!.longitude, marker.location!.latitude)}
-            point={{ pixelSize: marker.id === state.selected ? 14 : 9, color: Color.fromCssColorString("#39ab68"), outlineColor: Color.WHITE, outlineWidth: 2 }} />)}
+            name={marker.project_ids.length ? `${marker.name} · ${marker.project_ids.length} ${marker.project_ids.length === 1 ? "project" : "projects"}` : marker.name}
+            properties={{ ror: marker.id, country: marker.location!.country, latitude: marker.location!.latitude, longitude: marker.location!.longitude, references: marker.references, projectCount: marker.project_ids.length }}
+            position={Cartesian3.fromDegrees(marker.location!.longitude, marker.location!.latitude)}
+            point={{ pixelSize: marker.id === state.selected ? 15 : Math.min(12, 8 + marker.project_ids.length), color: Color.fromCssColorString(marker.project_ids.length > 1 ? "#f0b84b" : "#39ab68"), outlineColor: Color.WHITE, outlineWidth: 2 }} />)}
         {chosen && <CameraFlyTo duration={0} destination={Cartesian3.fromDegrees(chosen.longitude, chosen.latitude, 3000000)} />}
     </Viewer>
+    {state.markers.some((marker) => marker.location) && <div className="map-project-legend" aria-label="Map marker legend">
+        <span><i className="map-marker-single" aria-hidden="true" />One project or added location</span>
+        <span><i className="map-marker-shared" aria-hidden="true" />Shared by projects</span>
+    </div>}
     <details className="map-layer-widget">
         <summary title={`Map layers: ${selectedLayer.label}`} aria-label={`Map layers: ${selectedLayer.label}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg></summary>
         <div className="map-layer-panel">

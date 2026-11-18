@@ -1,0 +1,3 @@
+stages:
+  - validate
+# Fictional example; no job is run.

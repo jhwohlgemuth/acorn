@@ -1,8 +1,10 @@
 use crate::geospatial_page::{Geospatial, MapPins};
 use crate::results::ResultView;
+use crate::sample;
 use crate::skill::{Install, Skill};
 use crate::syntax::CodeEditor;
 use crate::workspace::{FileTree, Loader, Portfolio};
+use acorn_core::util::MimeType;
 use acorn_web::operations::{self, Request, Tool};
 use acorn_web::presentation;
 use acorn_web::session::{Selection, SuppliedFile, Workspace};
@@ -12,13 +14,7 @@ use serde_json::Value;
 use strum::IntoEnumIterator;
 
 const APP_NAME: &str = "ACORN Research Intelligence";
-const RAD_EXAMPLES: [(&str, &str); 3] = [
-    ("Research summary", include_str!("../assets/examples/summary.json")),
-    ("Publications and affiliations", SAMPLE),
-    ("Compute resources and software", include_str!("../assets/examples/computing.json")),
-];
 const RAD_TITLE: &str = "Research Activity Data";
-const SAMPLE: &str = include_str!("../assets/examples/publications.json");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Clone, Debug, PartialEq, Routable)]
 pub(crate) enum Route {
@@ -135,6 +131,7 @@ fn Home() -> Element {
     let nav = use_navigator();
     let mut workspace = use_context::<Signal<Workspace>>();
     let mut loading = use_signal(|| false);
+    let sample_loaded = sample::is_loaded(&workspace());
     rsx! {
         document::Title { "{APP_NAME}" }
         section { class: "home",
@@ -145,14 +142,15 @@ fn Home() -> Element {
             }
             div { id: "home-actions", class: "actions centered",
                 button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { document::eval("window.acornChrome?.tour.start()"); }, Icon { name: "compass" } "Take a tour" }
-                button { id: "sample-data", class: "sample-action", disabled: loading(), "aria-busy": loading(), onclick: move |_| async move {
+                if !sample_loaded { button { id: "sample-data", class: "sample-action", disabled: loading(), "aria-busy": loading(), onclick: move |_| async move {
                     loading.set(true);
-                    let mut loaded = Workspace::default().replace(Selection { files: RAD_EXAMPLES.iter().enumerate().map(|(index, (_, content))| SuppliedFile { path: format!("sample-{index}.json"), content: (*content).into() }).collect(), skipped: 0 });
-                    loaded.validations = validate_files(loaded.files.clone()).await.into_iter().filter_map(|(path, result)| result.ok().map(|value| (path, value))).collect();
+                    let mut loaded = Workspace::default().replace(Selection { files: sample::files(), skipped: 0 });
+                    loaded.validations = validate_files(loaded.files.iter().filter(|file| matches!(MimeType::from(file.path.as_str()), MimeType::Json)).cloned().collect()).await.into_iter().filter_map(|(path, result)| result.ok().map(|value| (path, value))).collect();
+                    loaded.selected = sample_activity_path(&loaded);
                     loading.set(false);
                     session.set(loaded.content()); workspace.set(loaded); nav.push(Route::Page { page: "portfolio".into() });
-                    document::eval("window.acornChrome?.notifications.notify('Bundled sample activities loaded.')");
-                }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } }
+                    document::eval("window.acornChrome?.notifications.notify('Synthetic research bucket loaded.')");
+                }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } } }
             }
             Link { id: "skill-entry", to: Route::Page { page: "skill".into() }, class: "skill-card", span { "The home of the ACORN Skill" } p { "Validate metadata, convert formats and inspect identifiers, then use ACORN in your agent environment." } span { class: "muted", "Explore the skill guide →" } }
             Loader {}
@@ -204,6 +202,7 @@ pub(crate) fn Icon(name: &'static str) -> Element {
       <path class="s" d="M12 11v5M12 8h.01" />"#
         }
         | "link" => r#"<path d="m10 13 4-4m-6 6-2 2a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m4 1 2-2a3.5 3.5 0 0 1 5 5l-4 4a3.5 3.5 0 0 1-5 0"/>"#,
+        | "list" => r#"<path class="s" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />"#,
         | "panel" => {
             r#"<rect class="s" x="3" y="4" width="18" height="16" rx="2" />
       <path class="s" d="M9 4v16M14 8l-3 4 3 4" />"#
@@ -242,7 +241,7 @@ fn InfoPage(page: String) -> Element {
     let mut map_pins = use_context::<Signal<MapPins>>();
     let mut session = use_context::<Signal<String>>();
     let mut workspace = use_context::<Signal<Workspace>>();
-    let mut storage_status = use_context::<Signal<(bool, usize, bool)>>();
+    let mut storage_status = use_context::<Signal<(usize, bool)>>();
     let mut storage_error = use_signal(String::new);
     let mut credential_status = use_signal(String::new);
     let mut credential_error = use_signal(String::new);
@@ -302,25 +301,36 @@ fn InfoPage(page: String) -> Element {
                         }
                         p { id: "theme-mode", class: "small muted", "Following your system preference." }
                     }
-                    div { class: "card", h2 { class: "section-heading", Icon { name: "folder-open" } "Loaded session" }
-                        dl { class: "result-fields", dt { "Open now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } dt { "Saved copy" } dd { if storage_status().2 { "Save failed" } else if storage_status().0 { "On this device" } else { "Not saved" } } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
-                        p { class: "small muted", "The open session holds loaded files, tool input, validation results, the selected file, and map pins in this tab." }
-                        button { class: "danger", disabled: workspace.read().files.is_empty() && session.read().is_empty() && map_pins.read().identifiers.is_empty(), onclick: move |_| { workspace.set(Workspace::default()); session.set(String::new()); map_pins.set(MapPins::default()); document::eval("window.acornWorkspace?.cancel(); window.acornChrome?.notifications.notify('Loaded session cleared.')"); }, "Clear loaded session" }
-                        h3 { "Saved workspace on this device" }
-                        p { class: "small muted", "When saving is on, this browser keeps full file contents, validation results, the selected file, and bucket source details after reload. It does not save the repository token, separate tool input, or map pins." }
+                    div { class: "card", h2 { class: "section-heading", Icon { name: "folder-open" } "Your data" }
+                        dl { class: "result-fields", dt { "Loaded now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } dt { "Saved for reload" } dd { if storage_status().1 { "Latest save failed" } else if storage_status().0 > 0 { "On this device" } else { "Nothing saved" } } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
+                        p { class: "small muted", "Loaded files and the selected activity are saved automatically in this browser and restored after reload." }
                         div { class: "actions",
-                            if !storage_status().0 { button { disabled: workspace.read().files.is_empty(), onclick: move |_| async move {
-                                let value = serde_json::to_string(&workspace()).unwrap_or_default();
-                                match document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = storage?.enable({value}) ?? false; return {{...storage.status(), saved}}")).join::<Value>().await {
-                                    Ok(result) => { storage_status.set(parse_storage_status(&result)); storage_error.set(String::new()); },
-                                    Err(_) => storage_error.set("Could not save this workspace. Browser storage may be unavailable or full.".into()),
+                            button { class: "danger", onclick: move |_| async move {
+                                let deleted = document::eval("window.acornWorkspace?.cancel(); window.acornRemote?.cancel(); let workspaceDeleted = false; let remoteDeleted = false; try { workspaceDeleted = window.acornWorkspaceStorage?.delete() ?? false; } catch {} try { remoteDeleted = window.acornRemote?.clearData() ?? false; } catch {} return [workspaceDeleted, remoteDeleted]")
+                                    .join::<(bool, bool)>()
+                                    .await;
+                                workspace.set(Workspace::default());
+                                session.set(String::new());
+                                map_pins.set(MapPins::default());
+                                credential_error.set(String::new());
+                                credential_message.set(String::new());
+                                if let Ok((workspace_deleted, remote_deleted)) = deleted {
+                                    if workspace_deleted { storage_status.set((0, false)); }
+                                    if remote_deleted { recent_inputs.set((0, 0)); credential_status.set(String::new()); }
+                                    if workspace_deleted && remote_deleted {
+                                        storage_error.set(String::new());
+                                        document::eval("window.acornChrome?.theme.reset(); window.acornChrome?.notifications.notify('All app data deleted.')");
+                                    } else {
+                                        storage_error.set("Open session cleared, but some saved browser data could not be deleted. Clear this site's data in your browser and retry.".into());
+                                    }
+                                } else {
+                                    storage_error.set("Open session cleared, but saved browser data could not be verified. Clear this site's data in your browser and retry.".into());
                                 }
-                            }, "Save loaded workspace on this device" } }
-                            button { class: "danger", disabled: !storage_status().0 && storage_status().1 == 0, onclick: move |_| async move { if matches!(document::eval("return window.acornWorkspaceStorage?.delete() ?? false").join::<bool>().await, Ok(true)) { storage_status.set((false, 0, false)); storage_error.set(String::new()); } else { storage_error.set("Could not delete browser storage.".into()); } }, "Delete saved workspace" }
+                            }, "Delete all data" }
                         }
                         if !storage_error().is_empty() { p { role: "alert", class: "error", "{storage_error}" } }
-                        if storage_status().2 { p { role: "alert", class: "error", "Workspace saving failed. The older saved copy was removed. This workspace is still open; reduce its size or free browser storage, then save it again." } }
-                        p { class: "small muted", "Deleting the saved workspace leaves this open session available. Clearing the open session saves an empty copy when saving is on. Restored files are validated again." } }
+                        if storage_status().1 { p { role: "alert", class: "error", "Workspace saving failed. The last saved copy remains on this device. Reduce the workspace size or free browser storage; the app will retry on the next workspace change." } }
+                        p { class: "small muted", "Deletes loaded and saved files, tool input, map pins, recent bucket inputs, and the repository token in this tab." } }
                     div { class: "card", h2 { "Repository access" }
                         p { class: "small muted", "One token is available in this tab for repositories on its provider and HTTPS host. Add or replace it beside the repository loader on Home." }
                         p { class: "small", if credential_status().is_empty() { "No repository token in this tab." } else { "Token •••••••• configured for {credential_status}." } }
@@ -361,12 +371,8 @@ fn Page(page: String) -> Element {
         rsx! { InfoPage { page } }
     }
 }
-pub(crate) fn parse_storage_status(value: &Value) -> (bool, usize, bool) {
-    (
-        value["enabled"] == true,
-        value["bytes"].as_u64().unwrap_or(0) as usize,
-        value["failed"] == true,
-    )
+pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool) {
+    (value["bytes"].as_u64().unwrap_or(0) as usize, value["failed"] == true)
 }
 async fn read_local_file(file: FileData, limit: usize) -> Result<String, String> {
     if file.size() > limit as u64 {
@@ -402,6 +408,13 @@ pub(crate) fn ResultTree(value: Value, depth: usize) -> Element {
         | Value::Null => rsx! { span { class: "muted", "Not provided" } },
         | other => rsx! { span { "{other}" } },
     }
+}
+fn sample_activity_path(workspace: &Workspace) -> Option<String> {
+    workspace
+        .activities()
+        .into_iter()
+        .find(|(file, _)| file.path.ends_with("/index.json"))
+        .map(|(file, _)| file.path.clone())
 }
 #[component]
 fn SelectField(label: &'static str, value: String, options: Vec<&'static str>, onchange: EventHandler<String>) -> Element {
@@ -507,8 +520,13 @@ fn Technology() -> Element {
                     span { strong { "{name}" } small { "{purpose}" } }
                 }
             }
-            for (icon, name, purpose, url) in [("compass", "Driver.js", "Guided tour", "https://driverjs.com/"), ("shield", "WebMCP", "Optional agent tools", "https://webmachinelearning.github.io/webmcp/")] {
-                a { class: "technology-card", href: url, target: "_blank", rel: "noopener noreferrer", Icon { name: icon } span { strong { "{name}" } small { "{purpose}" } } }
+            a { class: "technology-card", href: "https://driverjs.com/", target: "_blank", rel: "noopener noreferrer",
+                img { src: asset!("/assets/javascript-logo.svg"), alt: "", width: "32", height: "32" }
+                span { strong { "Driver.js" } small { "Guided tour" } }
+            }
+            a { class: "technology-card", href: "https://webmachinelearning.github.io/webmcp/", target: "_blank", rel: "noopener noreferrer",
+                Icon { name: "shield" }
+                span { strong { "WebMCP" } small { "Optional agent tools" } }
             }
         }
         p { class: "small muted", "Technology names and marks identify their respective projects; no endorsement is implied. " a { href: asset!("/assets/NOTICE.md"), "Artwork sources and notices" } }
@@ -722,7 +740,6 @@ pub(crate) fn UrlFileInput(
         }
     }
 }
-
 /// Validate Research Activity files one at a time through [`execute`].
 pub(crate) async fn validate_files(files: Vec<SuppliedFile>) -> Vec<(String, Result<Value, String>)> {
     let mut results = Vec::with_capacity(files.len());
@@ -738,32 +755,4 @@ pub(crate) async fn validate_files(files: Vec<SuppliedFile>) -> Vec<(String, Res
         results.push((file.path, result));
     }
     results
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use dioxus::core::Mutation;
-    use serde_json::json;
-
-    #[test]
-    fn test_result_tree_preserves_nested_patch_values() {
-        let value = json!({"patch": [
-            {"op": "add", "path": "/title", "value": "Added title"},
-            {"op": "replace", "path": "/x", "value": 2}
-        ]});
-        let mut dom = VirtualDom::new_with_props(ResultTree, ResultTreeProps { value, depth: 0 });
-        let mutations = dom.rebuild_to_vec();
-        let text = mutations
-            .edits
-            .iter()
-            .filter_map(|edit| match edit {
-                | Mutation::CreateTextNode { value, .. } | Mutation::SetText { value, .. } => Some(value.as_str()),
-                | _ => None,
-            })
-            .collect::<Vec<_>>();
-        assert!(text.contains(&"Added title"), "add value must be visible: {text:?}");
-        assert!(text.contains(&"2"), "replacement value must be visible: {text:?}");
-        assert!(text.contains(&"/title"));
-        assert!(text.contains(&"/x"));
-    }
 }

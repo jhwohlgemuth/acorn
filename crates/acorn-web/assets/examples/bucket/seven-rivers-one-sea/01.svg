@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Seven rivers confluence map</title>
+  <desc id="desc">Seven fictional rivers branch through green terrain and meet a blue sea.</desc>
+  <defs><linearGradient id="land" x2="0" y2="1"><stop stop-color="#173e48"/><stop offset="1" stop-color="#577f64"/></linearGradient><linearGradient id="sea" x2="0" y2="1"><stop stop-color="#6ab4b5"/><stop offset="1" stop-color="#245d79"/></linearGradient></defs>
+  <rect width="640" height="360" fill="url(#land)"/>
+  <path d="M0 260 Q105 229 202 256 T401 244 T640 224V360H0Z" fill="url(#sea)"/>
+  <g fill="none" stroke="#b1ddcf" stroke-width="10" stroke-linecap="round" opacity=".9"><path d="M44 37Q76 94 173 141T315 247"/><path d="M127 18Q140 94 192 151T315 247"/><path d="M220 25Q206 94 234 156T315 247"/><path d="M313 29Q285 105 286 170T315 247"/><path d="M412 26Q371 97 342 163T315 247"/><path d="M507 35Q448 98 385 169T315 247"/><path d="M594 46Q492 95 419 162T315 247"/></g>
+  <g fill="#e6dfad"><circle cx="44" cy="37" r="6"/><circle cx="127" cy="18" r="6"/><circle cx="220" cy="25" r="6"/><circle cx="313" cy="29" r="6"/><circle cx="412" cy="26" r="6"/><circle cx="507" cy="35" r="6"/><circle cx="594" cy="46" r="6"/><circle cx="315" cy="247" r="11"/></g>
+  <g stroke="#c8e5dd" stroke-width="2" opacity=".55"><path d="M58 284Q130 273 204 286"/><path d="M379 276Q468 268 582 283"/><path d="M113 301Q207 293 270 304"/><path d="M410 304Q498 295 580 304"/></g>
+  <rect x="24" y="309" width="592" height="38" rx="8" fill="#153746" opacity=".88"/>
+  <text x="42" y="334" fill="#fff" font-family="sans-serif" font-size="18" font-weight="600">Seven rivers confluence map</text>
+</svg>

@@ -1,12 +1,14 @@
 use crate::details::{self, Detail};
 use crate::ui::{Icon, Route};
+use acorn_core::util::suffix;
 use acorn_web::{
     geospatial::{self, LocationIndex, Marker, MARKER_LIMIT},
+    research_index::ResearchIndex,
     session::Workspace,
 };
 use alloc::collections::BTreeSet;
 use dioxus::prelude::*;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 #[derive(Clone, Default)]
 pub(crate) struct MapPins {
@@ -21,17 +23,15 @@ pub(crate) fn Geospatial() -> Element {
     let mut index = use_context::<Signal<Option<Result<LocationIndex, String>>>>();
     let mut search = use_signal(String::new);
     let mut country = use_signal(String::new);
+    let mut project = use_signal(String::new);
     let mut selected = use_signal(|| pins().selected);
+    let mut expanded_projects = use_signal(|| None::<String>);
     let mut error = use_signal(String::new);
     let mut descending = use_signal(|| false);
     use_future(move || async move {
         // The session keeps one parsed registry; only a missing or failed load fetches again.
         if !index.peek().as_ref().is_some_and(Result::is_ok) {
-            let url = serde_json::to_string(&asset!("/assets/geospatial/ror-locations.json").to_string()).unwrap_or_default();
-            let script = format!("const response = await fetch({url}, {{credentials:'omit', redirect:'error'}}); if(!response.ok) throw new Error('Local registry unavailable'); const bytes = await response.arrayBuffer(); if(bytes.byteLength > 33554432) throw new Error('Local registry too large'); return JSON.parse(new TextDecoder().decode(bytes));");
-            index.set(Some(document::eval(&script).join::<LocationIndex>().await.map_err(|_| {
-                "The bundled ROR location index could not load. Reload the app to retry; no online registry was contacted.".into()
-            })));
+            load_index(index).await;
         }
     });
     use_future(move || async move {
@@ -80,6 +80,13 @@ pub(crate) fn Geospatial() -> Element {
     });
     let data = index.read();
     let snapshot = workspace.read();
+    let catalog = ResearchIndex::from(&*snapshot);
+    let active_project = project();
+    let active_project = if catalog.projects.iter().any(|item| item.id == active_project) {
+        active_project
+    } else {
+        String::new()
+    };
     let all = data
         .as_ref()
         .and_then(|result| result.as_ref().ok())
@@ -95,6 +102,7 @@ pub(crate) fn Geospatial() -> Element {
         .filter(|marker| {
             (query.is_empty() || format!("{} {}", marker.name, marker.id).to_lowercase().contains(&query))
                 && (country().is_empty() || marker.location.as_ref().is_some_and(|location| location.country == country()))
+                && (active_project.is_empty() || marker.project_ids.contains(&active_project))
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -118,8 +126,9 @@ pub(crate) fn Geospatial() -> Element {
         filtered.truncate(MARKER_LIMIT);
     }
     let selection = selected().filter(|id| filtered.iter().any(|marker| &marker.id == id));
-    let focused = all.iter().find(|marker| Some(&marker.id) == selected().as_ref());
-    let payload = json!({"markers":filtered,"selected":selection});
+    let focused = filtered.iter().find(|marker| Some(&marker.id) == selection.as_ref());
+    let organization_noun = format!("organization{}", suffix(filtered.len()));
+    let payload = geospatial::map_payload(&filtered, &catalog.projects, selection.as_deref());
     use_effect(use_reactive((&payload,), move |(payload,)| {
         document::eval(&format!("window.acornMap?.update({payload})"));
     }));
@@ -137,6 +146,7 @@ pub(crate) fn Geospatial() -> Element {
                 div { class: "map-focus", role: "status",
                     Icon { name: "globe" }
                     div { strong { "{marker.name}" } small { "{marker.id}" }
+                        if !marker.project_ids.is_empty() { small { "Associated projects: {marker.project_ids.len()}" } }
                         if let Some(location) = &marker.location { small { "{location.country} · {location.latitude:.4}, {location.longitude:.4}" } }
                         else { small { if marker.resolved { "This ROR record has no usable coordinates in the local index." } else { "This ROR is not in the local index. No map location is available." } } }
                     }
@@ -145,6 +155,7 @@ pub(crate) fn Geospatial() -> Element {
             }}
         }
         div { class: "options",
+            label { class: "field", "Project" select { value: active_project, onchange: move |event| project.set(event.value()), option { value: "", "All projects" } for item in &catalog.projects { option { value: "{item.id}", "{item.title}" } } } }
             label { class: "field", "Search organizations" input { r#type: "search", placeholder: "Search name or ROR identifier…", value: search(), oninput: move |event| search.set(event.value()) } }
             label { class: "field", "Country" select { value: country(), onchange: move |event| country.set(event.value()), option { value: "", "All countries" } for name in countries { option { value: "{name}", "{name}" } } } }
         }
@@ -153,19 +164,23 @@ pub(crate) fn Geospatial() -> Element {
         if !error().is_empty() { p { role: "status", class: "status invalid", "{error}" } }
         match &*data {
             None => rsx! { p { role: "status", "Loading bundled organization locations…" } },
-            Some(Err(message)) => rsx! { p { role: "alert", class: "error", "{message}" } },
+            Some(Err(message)) => rsx! { div { p { role: "alert", class: "error", "{message}" } button { r#type: "button", onclick: move |_| { index.set(None); spawn(load_index(index)); }, "Retry local index" } } },
             Some(Ok(index)) => rsx! {
                 p { class: "small muted", "ROR {index.version} · {index.date} · {index.license}. Local NASA Black Marble imagery; no online map, terrain or registry services." }
                 details { summary { "Dataset provenance" } p { a { href: index.source.clone(), target: "_blank", rel: "noopener noreferrer", "Pinned ROR data release ↗" } } p { class: "small digest", "Source JSON SHA-256: {index.source_sha256}" } a { href: asset!("/assets/geospatial/ROR_PROVENANCE.md"), "Generation and license details" } }
             },
         }
-        p { "{all.len()} organizations · {all.iter().filter(|marker| !marker.resolved).count()} unresolved · {all.iter().filter(|marker| marker.resolved && marker.location.is_none()).count()} without coordinates" }
+        p { "{catalog.projects.len()} projects · {all.len()} organizations · {all.iter().filter(|marker| !marker.resolved).count()} unresolved · {all.iter().filter(|marker| marker.resolved && marker.location.is_none()).count()} without coordinates" }
         if total > MARKER_LIMIT { p { class: "status invalid", "Showing {MARKER_LIMIT} of {total} matching organizations. Narrow the filters to see the remainder." } }
-        if filtered.is_empty() && !all.is_empty() { div { class: "card empty", h2 { "No matching organizations" } p { "Try another search or reset the filters." } button { onclick: move |_| { search.set(String::new()); country.set(String::new()); }, "Reset filters" } } }
-        table { class: "organization-table", caption { "{filtered.len()} matching organizations" }
-            thead { tr { th { scope: "col", "aria-sort": if descending() { "descending" } else { "ascending" }, button { onclick: move |_| descending.toggle(), "Organization" } } th { scope: "col", "Country" } th { scope: "col", "Coordinates" } th { scope: "col", "References" } } }
-            tbody { for marker in &filtered { {let id = marker.id.clone(); let detail = Detail::organization(marker); rsx! {
-                tr { td { button { "aria-pressed": selection.as_ref() == Some(&id), onclick: move |_| { selected.set(Some(id.clone())); details::open(drawer, detail.clone()); }, "{marker.name}" } small { a { href: marker.id.clone(), target: "_blank", rel: "noopener noreferrer", "{marker.id}" } } }
+        if filtered.is_empty() && !all.is_empty() { div { class: "card empty", h2 { "No matching organizations" } p { "Try another search or reset the filters." } button { onclick: move |_| { search.set(String::new()); country.set(String::new()); project.set(String::new()); }, "Reset filters" } } }
+        table { class: "organization-table", caption { "{filtered.len()} matching {organization_noun}" }
+            thead { tr { th { scope: "col", "aria-sort": if descending() { "descending" } else { "ascending" }, button { onclick: move |_| descending.toggle(), "Organization and projects" } } th { scope: "col", "Country" } th { scope: "col", "Coordinates" } th { scope: "col", "References" } } }
+            tbody { for marker in &filtered { {let id = marker.id.clone(); let detail = Detail::organization(marker); let expanded = expanded_projects().as_ref() == Some(&marker.id); let expand_id = marker.id.clone(); rsx! {
+                tr { td { button { "aria-pressed": selection.as_ref() == Some(&id), onclick: move |_| { selected.set(Some(id.clone())); details::open(drawer, detail.clone()); }, "{marker.name}" } small { a { href: marker.id.clone(), target: "_blank", rel: "noopener noreferrer", "{marker.id}" } }
+                    if !marker.project_ids.is_empty() { small { "Projects ({marker.project_ids.len()}):" } for project_id in marker.project_ids.iter().take(if expanded { marker.project_ids.len() } else { 5 }) { if let Some(item) = catalog.projects.iter().find(|item| &item.id == project_id) { {let project_detail = Detail::from(item); rsx! { button { r#type: "button", onclick: move |_| details::open(drawer, project_detail.clone()), "{item.title}" } } } } }
+                        if marker.project_ids.len() > 5 { button { r#type: "button", onclick: move |_| expanded_projects.set(if expanded { None } else { Some(expand_id.clone()) }), if expanded { "Show fewer projects" } else { "Show all projects" } } }
+                    }
+                }
                     if let Some(location) = &marker.location { td { "{location.country}" } td { "{location.latitude:.4}, {location.longitude:.4}" } }
                     else { td { "Not available" } td { if marker.resolved { "No coordinates" } else { "Not in local registry" } } }
                     td { "{marker.references}" }
@@ -174,6 +189,13 @@ pub(crate) fn Geospatial() -> Element {
         }
         if filtered.is_empty() && !snapshot.activities().is_empty() { p { "No referenced ROR organizations match this view." } }
     }
+}
+async fn load_index(mut index: Signal<Option<Result<LocationIndex, String>>>) {
+    let url = serde_json::to_string(&asset!("/assets/geospatial/ror-locations.json").to_string()).unwrap_or_default();
+    let script = format!("const response = await fetch({url}, {{credentials:'omit', redirect:'error'}}); if(!response.ok) throw new Error('Local registry unavailable'); const bytes = await response.arrayBuffer(); if(bytes.byteLength > 33554432) throw new Error('Local registry too large'); return JSON.parse(new TextDecoder().decode(bytes));");
+    index.set(Some(document::eval(&script).join::<LocationIndex>().await.map_err(|_| {
+        "The bundled ROR location index could not load. Retry to read the local asset again; no online registry was contacted.".into()
+    })));
 }
 #[component]
 pub(crate) fn RorMapButton(identifier: String) -> Element {

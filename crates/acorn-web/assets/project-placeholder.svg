@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title description">
+  <title id="title">Project image placeholder</title>
+  <desc id="description">A simple landscape inside a dashed frame.</desc>
+  <rect width="640" height="360" rx="18" fill="#263241"/>
+  <rect x="24" y="24" width="592" height="312" rx="14" fill="none" stroke="#9aafbd" stroke-width="3" stroke-dasharray="12 10"/>
+  <circle cx="475" cy="116" r="38" fill="#d4b57a"/>
+  <path d="M65 280 202 146l99 99 68-68 164 103Z" fill="#60888b"/>
+  <path d="M65 280 202 146l99 99 68-68 164 103Z" fill="none" stroke="#c6d8d3" stroke-width="6" stroke-linejoin="round"/>
+  <text x="320" y="318" fill="#e8eff0" font-family="system-ui,sans-serif" font-size="22" text-anchor="middle">No image available</text>
+</svg>

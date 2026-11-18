@@ -1,0 +1,46 @@
+meta:
+  archive: false
+  draft: true
+  status: active
+  identifier: kitsune-lantern-atlas
+  doi: 10.5072/acorn-sample-kitsune-lantern-atlas
+  ror: https://ror.org/000000001
+  contributors:
+  - name: Sample Person
+    identifiers:
+    - value: https://orcid.org/0000-0000-0000-0001
+      scheme: ORCID
+    affiliations: []
+    roles: []
+  organizations:
+  - name: Example Organization
+    identifiers:
+    - value: https://ror.org/000000001
+      scheme: ROR
+    roles: []
+  media:
+  - caption: Fictional illustration 1 for Kitsune Lantern Atlas
+    contentUrl: 00.svg
+  keywords:
+  - fictional research
+title: Kitsune Lantern Atlas
+subtitle: A fictional guide to shifting paths and signals.
+sections:
+  mission: This fictional project explores fictional guide to shifting paths and signals.
+  challenge: How can a traveler follow signals when paths seem to shift?
+  approach:
+  - Trace fictional lantern routes through a storybook forest.
+  impact:
+  - Show how clear markers support a journey.
+  research:
+    focus: Exploring the imagined themes of kitsune lantern atlas in a research record.
+    areas:
+    - Illustrative research metadata
+contact:
+  jobTitle: Researcher
+  givenName: Sample
+  familyName: Person
+  email: sample.person@example.org
+  organization: Example Organization
+  telephone: 202-555-0101
+  url: https://example.org/sample-person

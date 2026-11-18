@@ -71,6 +71,14 @@ else if (typeof MutationObserver === "function" && document.documentElement) {
     observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
+function createNotifier(show, schedule = setTimeout, cancel = clearTimeout) {
+    let timer;
+    const dismiss = () => { cancel(timer); timer = undefined; show(""); };
+    return {
+        dismiss,
+        notify(message) { dismiss(); show(message); timer = schedule(dismiss, 6000); },
+    };
+}
 function createTheme(preference, apply) {
     let systemDark = preference;
     let explicit = null;
@@ -81,14 +89,6 @@ function createTheme(preference, apply) {
         reset() { explicit = null; sync(); },
         toggle() { explicit = !(explicit ?? systemDark); sync(); },
         update(dark) { systemDark = dark; sync(); },
-    };
-}
-function createNotifier(show, schedule = setTimeout, cancel = clearTimeout) {
-    let timer;
-    const dismiss = () => { cancel(timer); timer = undefined; show(""); };
-    return {
-        dismiss,
-        notify(message) { dismiss(); show(message); timer = schedule(dismiss, 6000); },
     };
 }
 function createTour(loadDriver, environment) {
@@ -200,11 +200,29 @@ else if (typeof MutationObserver === "function" && document.documentElement) {
     observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-const workspaceLimits = { count: 500, depth: 20, file: 262144, total: 16777216, entries: 10000 };
+const workspaceLimits = { count: 500, depth: 20, entries: 10000, file: 262144, total: 16777216 };
 function validWorkspacePath(path) {
     const parts = path.split("/");
     return !/[\\:\x00-\x1f\x7f]/.test(path) && parts.length <= workspaceLimits.depth
-        && parts.every((part) => part && part !== "." && part !== "..") && /\.(json|ya?ml|md|txt)$/i.test(path);
+        && parts.every((part) => part && part !== "." && part !== "..") && /\.(json|ya?ml|md|txt|svg|png|jpe?g|webp)$/i.test(path);
+}
+function workspaceImageMime(path) {
+    if (/\.png$/i.test(path)) return "image/png";
+    if (/\.jpe?g$/i.test(path)) return "image/jpeg";
+    if (/\.webp$/i.test(path)) return "image/webp";
+    return "";
+}
+function workspaceImageContent(path, buffer) {
+    const mime = workspaceImageMime(path);
+    const bytes = new Uint8Array(buffer);
+    const valid = mime === "image/png" ? [137, 80, 78, 71, 13, 10, 26, 10].every((byte, index) => bytes[index] === byte)
+        : mime === "image/jpeg" ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+            : mime === "image/webp" && [82, 73, 70, 70].every((byte, index) => bytes[index] === byte)
+                && [87, 69, 66, 80].every((byte, index) => bytes[index + 8] === byte);
+    if (!valid) throw new Error("Image bytes do not match the file extension.");
+    const parts = [];
+    for (let start = 0; start < bytes.length; start += 32768) parts.push(String.fromCharCode(...bytes.subarray(start, start + 32768)));
+    return `data:${mime};base64,${btoa(parts.join(""))}`;
 }
 async function readWorkspaceFiles(candidates, skipped = 0) {
     const files = [];
@@ -215,8 +233,11 @@ async function readWorkspaceFiles(candidates, skipped = 0) {
         try {
             const buffer = await file.arrayBuffer();
             if (buffer.byteLength > workspaceLimits.file || bytes + buffer.byteLength > workspaceLimits.total) { skipped += 1; continue; }
-            const content = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-            files.push({ path, content }); paths.add(path); bytes += buffer.byteLength;
+            const image = workspaceImageMime(path);
+            const content = image ? workspaceImageContent(path, buffer) : new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+            const storedBytes = image ? content.length : buffer.byteLength;
+            if (bytes + storedBytes > workspaceLimits.total) { skipped += 1; continue; }
+            files.push({ path, content }); paths.add(path); bytes += storedBytes;
         } catch { skipped += 1; }
     }
     return { files, skipped };
@@ -270,7 +291,7 @@ function createWorkspaceInput() {
         pick(mode) {
             cancel();
             const input = document.createElement("input");
-            input.type = "file"; input.multiple = true; input.accept = ".json,.yaml,.yml,.md,.txt";
+            input.type = "file"; input.multiple = true; input.accept = ".json,.yaml,.yml,.md,.txt,.svg,.png,.jpg,.jpeg,.webp";
             if (mode === "folder") {
                 if (!("webkitdirectory" in input)) { window.acornChrome?.notifications.notify("Folder selection is unavailable in this browser. Choose files instead."); return; }
                 input.webkitdirectory = true;
@@ -294,7 +315,7 @@ function createWorkspaceInput() {
         },
     };
 }
-window.acornWorkspace = { ...createWorkspaceInput(), validPath: validWorkspacePath };
+window.acornWorkspace = { ...createWorkspaceInput(), validPath: validWorkspacePath, imageMime: workspaceImageMime, imageContent: workspaceImageContent };
 if (document.addEventListener) {
     document.addEventListener("click", (event) => {
         document.querySelectorAll(".workflow-menu[open]").forEach((menu) => { if (!menu.contains(event.target)) menu.removeAttribute("open"); });

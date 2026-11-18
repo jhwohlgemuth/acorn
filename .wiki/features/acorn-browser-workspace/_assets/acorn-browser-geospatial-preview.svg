@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="932" viewBox="0 0 1440 932" role="img" aria-labelledby="title description">
-  <title id="title">Organization Map</title>
-  <desc id="description">Editable ACORN design preview following the OKF Browser layout. Sample state; package publication is pending.</desc>
+  <title id="title">Project-aware organization map</title>
+  <desc id="description">Editable ACORN design preview of a loaded project bucket, with shared organization markers and an equivalent table.</desc>
   <defs>
     <symbol id="acorn-mark" viewBox="280 200 480 640">
       <g transform="translate(0 1024) scale(.1 -.1)" fill="#80350E" stroke="none">
@@ -133,10 +133,10 @@
     <circle cx="1397" cy="36.5" r="5.5" fill="white" />
     <path d="M494 837H1166" fill="none" stroke="#3c424e" />
     <text x="830" y="868" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="middle">Made with ♥ by jhwohlgemuth</text>
-    <text x="252" y="62" font-size="25" fill="#e4e7ed" font-weight="650" text-anchor="start">Organization map</text>
-    <text x="252" y="91" font-size="14" fill="#a0a7b4" font-weight="400" text-anchor="start">Locations referenced by ROR identifiers in the loaded Research Activities.</text>
+    <text x="252" y="62" font-size="25" fill="#e4e7ed" font-weight="650" text-anchor="start">Project organization map</text>
+    <text x="252" y="91" font-size="14" fill="#a0a7b4" font-weight="400" text-anchor="start">Validated projects share local ROR locations; project filters also apply to the table.</text>
     <rect x="1110" y="84" width="220" height="24" rx="5" fill="#282c34" stroke="#3c424e" />
-    <text x="1120" y="100" font-size="11" fill="#a0a7b4" font-weight="500" text-anchor="start">Bundled ROR 2.1 index</text>
+    <text x="1120" y="100" font-size="11" fill="#a0a7b4" font-weight="500" text-anchor="start">Project: All projects ▾</text>
     <rect x="252" y="134" width="756" height="481" rx="10" fill="#282c34" stroke="#3c424e" />
     <rect x="268" y="150" width="724" height="449" rx="8" fill="#171d24" stroke="none" />
     <svg x="441" y="169" width="375" height="375" viewBox="0 0 256 256">
@@ -165,17 +165,17 @@
     <text x="1052" y="203" font-size="21" fill="#e4e7ed" font-weight="600" text-anchor="start">Oak Ridge</text>
     <text x="1052" y="232" font-size="21" fill="#e4e7ed" font-weight="600" text-anchor="start">National Laboratory</text>
     <text x="1052" y="273" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">Oak Ridge, Tennessee, United States</text>
-    <text x="1052" y="300" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">ROR  01rsgy036</text>
+    <text x="1052" y="300" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">ROR  01qz5mb56</text>
     <text x="1052" y="327" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">35.93, −84.31</text>
     <rect x="1052" y="358" width="100.4" height="24" rx="5" fill="#294337" stroke="#3c424e" />
-    <text x="1062" y="374" font-size="11" fill="#8fd4ab" font-weight="500" text-anchor="start">4 activities</text>
+    <text x="1062" y="374" font-size="11" fill="#8fd4ab" font-weight="500" text-anchor="start">2 projects</text>
     <text x="1052" y="423" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">3 mapped organizations</text>
     <text x="1052" y="449" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">1 unresolved identifier</text>
     <text x="1052" y="475" font-size="13" fill="#a0a7b4" font-weight="400" text-anchor="start">1 organization without a location</text>
     <rect x="1052" y="545" width="336" height="36" rx="6" fill="#00662c" stroke="#00662c" />
     <text x="1220.0" y="568" font-size="13" fill="#fff" font-weight="500" text-anchor="middle">View related activities</text>
     <rect x="252" y="639" width="1156" height="148" rx="10" fill="#282c34" stroke="#3c424e" />
-    <text x="272" y="668" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">ORGANIZATIONS</text>
+    <text x="272" y="668" font-size="11" fill="#a0a7b4" font-weight="600" text-anchor="start">ORGANIZATIONS AND PROJECTS</text>
     <text x="1388" y="668" font-size="11" fill="#a0a7b4" font-weight="400" text-anchor="end">Accessible table · same selection as the map</text>
     <rect x="264" y="681" width="1132" height="26" rx="4" fill="#294337" stroke="none" />
     <text x="276" y="700" font-size="12" fill="#e4e7ed" font-weight="400" text-anchor="start">Oak Ridge National Laboratory</text>
@@ -188,7 +188,7 @@
     <text x="820" y="760" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="start">Saskatoon, CA</text>
     <text x="1352" y="760" font-size="12" fill="#a0a7b4" font-weight="400" text-anchor="end">1 activity</text>
     <rect x="0" y="900" width="1440" height="32" rx="0" fill="#14181d" stroke="none" />
-    <text x="20" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="start">Geospatial · local markers and equivalent table · design preview · sample content</text>
+    <text x="20" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="start">Geospatial · shared project markers and equivalent table · design preview · sample content</text>
     <text x="1420" y="921" font-size="10" fill="#a5b1bc" font-weight="400" text-anchor="end">1440 × 900  /  2026-11-11</text>
   </g>
 </svg>

@@ -507,6 +507,9 @@ pub enum MimeType {
     /// Resource Description Framework Turtle syntax.
     #[display("text/turtle")]
     Turtle,
+    /// WebP image.
+    #[display("image/webp")]
+    Webp,
     /// YAML Ain't Markup Language (YAML)
     ///
     /// See <https://yaml.org/>
@@ -699,6 +702,7 @@ impl From<&str> for MimeType {
     /// | pptx | application/vnd.openxmlformats-officedocument.presentationml.presentation |
     /// | rs | text/rust |
     /// | svg | image/svg+xml |
+    /// | webp | image/webp |
     /// | toml | application/toml |
     /// | txt | text/plain |
     /// | yaml | application/yaml |
@@ -745,6 +749,7 @@ impl From<&str> for MimeType {
             | "7z" => MimeType::SevenZip,
             | "spdx.json" => MimeType::Sbom,
             | "svg" => MimeType::Svg,
+            | "webp" => MimeType::Webp,
             | "tar" => MimeType::Tar,
             | "toml" => MimeType::Toml,
             | "ttl" => MimeType::Turtle,
@@ -787,83 +792,6 @@ impl MimeType {
             | true => Ok(()),
             | false => Err(AcornError::new(format!("{operation} does not support {}", self.file_type()))),
         }
-    }
-    /// Return whether a path can be analyzed as a metadata check input.
-    #[cfg(feature = "std")]
-    pub fn is_supported_metadata_path(path: &Path) -> bool {
-        let media_type = Self::from(path.to_string_lossy().as_ref());
-        media_type.is_json()
-            || media_type.is_jsonc()
-            || media_type.is_markdown()
-            || media_type.is_pdf()
-            || media_type.is_yaml()
-            || media_type.is_zon()
-            || path.file_name().is_some_and(|name| name == "Kitfile")
-    }
-    /// Resolve a textual MIME type from a path, falling back to content inference.
-    #[cfg(feature = "std")]
-    pub fn from_path_or_content(path: &Path, content: &str) -> Self {
-        let detected = Self::from(path.to_string_lossy().as_ref());
-        match detected.is_unknown() || detected.is_vendor() {
-            | true => Self::infer_from(content),
-            | false => detected,
-        }
-    }
-    /// Infer a supported textual file type from in-memory content.
-    pub fn infer_from(content: &str) -> Self {
-        match serde_json::from_str::<Value>(content).is_ok() {
-            | true => Self::Json,
-            | false if detect_json(content) => Self::Jsonc,
-            | false if is_research_activity_markdown(content) => Self::Markdown,
-            | false if is_research_activity_yaml(content) => Self::Yaml,
-            | false if is_research_activity_zon(content) => Self::Zon,
-            | false => Self::Text,
-        }
-    }
-    /// Infer a MIME type from file content using host-backed format detection.
-    #[cfg(feature = "std")]
-    pub fn infer(bytes: &[u8]) -> Option<Self> {
-        anydoc::Format::from_bytes(bytes)
-            .map(Self::from)
-            .or_else(|| {
-                infer::get(bytes).and_then(|kind| match kind.mime_type() {
-                    | "application/gzip" | "application/x-gzip" => Some(Self::Gzip),
-                    | "application/pdf" => Some(Self::Pdf),
-                    | "application/x-7z-compressed" => Some(Self::SevenZip),
-                    | "application/zip" => Some(Self::Zip),
-                    | "application/x-tar" => Some(Self::Tar),
-                    | "application/zstd" | "application/x-zstd" => Some(Self::Zstd),
-                    | "image/jpeg" => Some(Self::Jpeg),
-                    | "image/png" => Some(Self::Png),
-                    | _ => None,
-                })
-            })
-            .or_else(|| is_rhai_source(bytes).then_some(Self::Rhai))
-    }
-    /// Return whether this MIME type is an archive format supported by export operations.
-    pub fn is_archive(&self) -> bool {
-        matches!(self, Self::Gzip | Self::SevenZip | Self::Tar | Self::Zip)
-    }
-    /// Return whether this file type is accepted as OCI model content.
-    pub fn is_model_resource(&self) -> bool {
-        match self {
-            | Self::Gguf | Self::Json | Self::Jsonc | Self::Onnx | Self::Pytorch | Self::Safetensors | Self::Text => true,
-            | Self::Vendor(extension) => matches!(extension.as_str(), "model" | "tiktoken"),
-            | Self::Unknown(name) => name.ends_with("tokenizer_config"),
-            | _ => false,
-        }
-    }
-    /// Return whether this MIME type is supported by repository automation.
-    pub fn is_repository_file(&self) -> bool {
-        self.is_cff()
-            || self.is_json()
-            || self.is_jsonc()
-            || self.is_ld_json()
-            || self.is_markdown()
-            || self.is_rdf_xml()
-            || self.is_turtle()
-            || self.is_yaml()
-            || self.is_zon()
     }
     /// Returns the file type as a string
     /// ### Example
@@ -919,12 +847,107 @@ impl MimeType {
             | MimeType::Text => "txt",
             | MimeType::Toml => "toml",
             | MimeType::Turtle => "ttl",
+            | MimeType::Webp => "webp",
             | MimeType::Yaml => "yaml",
             | MimeType::Zon => "zonf",
             | MimeType::Zip => "zip",
             | MimeType::Zstd => "tar.zst",
             | MimeType::Vendor(extension) => extension,
             | _ => "unknown-file-type",
+        }
+    }
+    /// Resolve a textual MIME type from a path, falling back to content inference.
+    #[cfg(feature = "std")]
+    pub fn from_path_or_content(path: &Path, content: &str) -> Self {
+        let detected = Self::from(path.to_string_lossy().as_ref());
+        match detected.is_unknown() || detected.is_vendor() {
+            | true => Self::infer_from(content),
+            | false => detected,
+        }
+    }
+    /// Infer a MIME type from file content using host-backed format detection.
+    #[cfg(feature = "std")]
+    pub fn infer(bytes: &[u8]) -> Option<Self> {
+        anydoc::Format::from_bytes(bytes)
+            .map(Self::from)
+            .or_else(|| {
+                infer::get(bytes).and_then(|kind| match kind.mime_type() {
+                    | "application/gzip" | "application/x-gzip" => Some(Self::Gzip),
+                    | "application/pdf" => Some(Self::Pdf),
+                    | "application/x-7z-compressed" => Some(Self::SevenZip),
+                    | "application/zip" => Some(Self::Zip),
+                    | "application/x-tar" => Some(Self::Tar),
+                    | "application/zstd" | "application/x-zstd" => Some(Self::Zstd),
+                    | "image/jpeg" => Some(Self::Jpeg),
+                    | "image/png" => Some(Self::Png),
+                    | _ => None,
+                })
+            })
+            .or_else(|| is_rhai_source(bytes).then_some(Self::Rhai))
+    }
+    /// Infer a supported textual file type from in-memory content.
+    pub fn infer_from(content: &str) -> Self {
+        match serde_json::from_str::<Value>(content).is_ok() {
+            | true => Self::Json,
+            | false if detect_json(content) => Self::Jsonc,
+            | false if is_research_activity_markdown(content) => Self::Markdown,
+            | false if is_research_activity_yaml(content) => Self::Yaml,
+            | false if is_research_activity_zon(content) => Self::Zon,
+            | false => Self::Text,
+        }
+    }
+    /// Return whether this MIME type is an archive format supported by export operations.
+    pub fn is_archive(&self) -> bool {
+        matches!(self, Self::Gzip | Self::SevenZip | Self::Tar | Self::Zip)
+    }
+    /// Whether this MIME type is an image accepted by the browser workspace.
+    pub fn is_image(&self) -> bool {
+        self.is_raster_image() || self.is_svg()
+    }
+    /// Return whether this file type is accepted as OCI model content.
+    pub fn is_model_resource(&self) -> bool {
+        match self {
+            | Self::Gguf | Self::Json | Self::Jsonc | Self::Onnx | Self::Pytorch | Self::Safetensors | Self::Text => true,
+            | Self::Vendor(extension) => matches!(extension.as_str(), "model" | "tiktoken"),
+            | Self::Unknown(name) => name.ends_with("tokenizer_config"),
+            | _ => false,
+        }
+    }
+    /// Whether this MIME type is a raster image accepted by the browser workspace.
+    pub fn is_raster_image(&self) -> bool {
+        matches!(self, Self::Png | Self::Jpeg | Self::Webp)
+    }
+    /// Return whether this MIME type is supported by repository automation.
+    pub fn is_repository_file(&self) -> bool {
+        self.is_cff()
+            || self.is_json()
+            || self.is_jsonc()
+            || self.is_ld_json()
+            || self.is_markdown()
+            || self.is_rdf_xml()
+            || self.is_turtle()
+            || self.is_yaml()
+            || self.is_zon()
+    }
+    /// Return whether a path can be analyzed as a metadata check input.
+    #[cfg(feature = "std")]
+    pub fn is_supported_metadata_path(path: &Path) -> bool {
+        let media_type = Self::from(path.to_string_lossy().as_ref());
+        media_type.is_json()
+            || media_type.is_jsonc()
+            || media_type.is_markdown()
+            || media_type.is_pdf()
+            || media_type.is_yaml()
+            || media_type.is_zon()
+            || path.file_name().is_some_and(|name| name == "Kitfile")
+    }
+    /// Whether bytes begin with the expected signature for a supported raster image.
+    pub fn signature(&self, bytes: &[u8]) -> bool {
+        match self {
+            | Self::Png => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+            | Self::Jpeg => bytes.starts_with(&[0xff, 0xd8, 0xff]),
+            | Self::Webp => bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"),
+            | _ => false,
         }
     }
 }

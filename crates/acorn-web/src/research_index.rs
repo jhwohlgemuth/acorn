@@ -37,6 +37,8 @@ pub struct Activity {
     pub contributors: Vec<String>,
     /// Normalized persistent identifiers associated with the activity.
     pub identifiers: Vec<String>,
+    /// Controlled vocabulary keywords assigned to the activity.
+    pub keywords: Vec<String>,
     search_text: String,
 }
 /// A project groups validated activities by their RAD metadata identifier.
@@ -52,6 +54,8 @@ pub struct Project {
     pub paths: Vec<String>,
     /// Unique associated organizations.
     pub organizations: Vec<String>,
+    /// Unique controlled vocabulary keywords across project activities.
+    pub keywords: Vec<String>,
 }
 /// Derived catalog; no source files or validation results are copied into mutable app state.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -71,6 +75,13 @@ impl Activity {
             .to_string();
         let organizations = entities(&meta["organizations"]);
         let contributors = entities(&meta["contributors"]);
+        let keywords = many(&meta["keywords"])
+            .into_iter()
+            .filter_map(string)
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         let identifiers = PID::iter()
             .filter(PID::supports_discovery)
             .flat_map(|kind| many(&meta[kind.as_str()]))
@@ -118,6 +129,7 @@ impl Activity {
             organizations,
             contributors,
             identifiers,
+            keywords,
         }
     }
     fn relevance(&self, terms: &[String]) -> usize {
@@ -161,6 +173,12 @@ impl From<&Workspace> for ResearchIndex {
                     organizations: members
                         .iter()
                         .flat_map(|activity| activity.organizations.iter().cloned())
+                        .collect::<BTreeSet<_>>()
+                        .into_iter()
+                        .collect(),
+                    keywords: members
+                        .iter()
+                        .flat_map(|activity| activity.keywords.iter().cloned())
                         .collect::<BTreeSet<_>>()
                         .into_iter()
                         .collect(),

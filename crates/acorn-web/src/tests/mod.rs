@@ -13,7 +13,7 @@ fn test_index_ignores_invalid_and_replaced_records() {
         })
         .collect();
     let mut workspace = Workspace::default().replace(Selection { files, skipped: 0 });
-    let value = json!({"title":"A project","meta":{"identifier":"project-one","organizations":[{"name":"Example"}]}});
+    let value = json!({"title":"A project","meta":{"identifier":"project-one","organizations":[{"name":"Example"}],"keywords":["visualization","geospatial"]}});
     for path in ["a.json", "b.json"] {
         workspace.validations.insert(path.into(), json!({"valid":true,"value":value}));
     }
@@ -22,6 +22,7 @@ fn test_index_ignores_invalid_and_replaced_records() {
     assert_eq!(index.activities.len(), 2);
     assert_eq!(index.projects.len(), 1);
     assert_eq!(index.projects.first().expect("one project").paths, ["a.json", "b.json"]);
+    assert_eq!(index.projects.first().expect("one project").keywords, ["geospatial", "visualization"]);
     let replaced = workspace.replace(Selection {
         files: vec![SuppliedFile {
             path: "new.json".into(),
@@ -162,4 +163,401 @@ fn test_related_activities_and_source_links() {
     }
     .link("a.json")
     .is_none());
+}
+
+mod geospatial_tests {
+    use crate::geospatial::*;
+    use crate::research_index::ResearchIndex;
+    use crate::session::{Selection, SuppliedFile, Workspace};
+    use alloc::collections::BTreeSet;
+    use serde_json::json;
+    use std::fs::read_to_string;
+    use std::time::Instant;
+
+    #[test]
+    fn test_local_join_deduplicates_and_preserves_unresolved_locationless_records() {
+        let mut workspace = Workspace::default().replace(Selection {
+            files: vec![SuppliedFile {
+                path: "sample.json".into(),
+                content: "{}".into(),
+            }],
+            skipped: 0,
+        });
+        workspace.validations.insert("sample.json".into(), json!({"valid":true,"value":{"meta":{"ror":["01qz5mb56","https://ror.org/01qz5mb56","http://ror.org/01qz5mb56","invalid","https://ror.org/04aj4c181","https://ror.org/05bnh6r87"]}}}));
+        let index: LocationIndex = serde_json::from_value(json!({"version":"fixture","date":"fixture","source":"fixture","sourceSha256":"fixture","license":"CC0-1.0","organizations":{
+            "https://ror.org/01qz5mb56":{"name":"Example","locations":[{"country":"US","latitude":91,"longitude":0},{"country":"US","latitude":35,"longitude":-84}]},
+            "https://ror.org/04aj4c181":{"name":"Locationless","locations":[]}
+        }})).unwrap();
+        let rows = markers(&workspace, &index);
+        let first = rows.iter().find(|marker| marker.id.ends_with("01qz5mb56")).unwrap();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(first.id, "https://ror.org/01qz5mb56");
+        assert!(first.resolved);
+        assert_eq!(first.references, 3);
+        assert_eq!(first.location.as_ref().unwrap().latitude, 35.0);
+        assert_eq!(first.activities.len(), 1);
+        assert!(rows.iter().any(|marker| marker.resolved && marker.location.is_none()));
+        assert!(rows.iter().any(|marker| !marker.resolved));
+        assert!(markers(&Workspace::default(), &index).is_empty());
+        let pins = BTreeSet::from([
+            "01qz5mb56".into(),
+            "http://ror.org/01qz5mb56".into(),
+            "https://ror.org/04aj4c181".into(),
+            "https://ror.org/05bnh6r87".into(),
+            "https://ror.org/01qz5mb56xxx".into(),
+            "not-a-ror".into(),
+        ]);
+        let standalone = markers_with_identifiers(&Workspace::default(), &index, &pins);
+        assert_eq!(standalone.len(), 3);
+        assert!(standalone.iter().all(|marker| marker.references == 0 && marker.activities.is_empty()));
+        assert_eq!(standalone.iter().filter(|marker| marker.location.is_some()).count(), 1);
+        assert!(standalone.iter().any(|marker| marker.resolved && marker.location.is_none()));
+        assert!(standalone.iter().any(|marker| !marker.resolved && marker.location.is_none()));
+        assert_eq!(markers_with_identifiers(&workspace, &index, &pins), rows);
+        assert_eq!(canonical_ror(" 01qz5mb56 "), Some("https://ror.org/01qz5mb56".into()));
+        assert_eq!(canonical_ror("https://ror.org/01qz5mb56xxx"), None);
+    }
+    #[test]
+    fn test_maximum_bucket_projects_and_map_payload_stay_bounded_after_restore_and_replacement() {
+        let source = read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/geospatial/ror-locations.json")).expect("bundled local index");
+        let mut index: LocationIndex = serde_json::from_str(&source).expect("valid local index");
+        let ids = index
+            .organizations
+            .iter()
+            .filter(|(id, organization)| canonical_ror(id).is_some() && !organization.locations.is_empty())
+            .take(1_000)
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(ids.len(), 1_000);
+        index.organizations.retain(|id, _| ids.binary_search(id).is_ok());
+        let files = (0..500)
+            .map(|number| SuppliedFile {
+                path: format!("activity-{number:03}.json"),
+                content: "{}".into(),
+            })
+            .collect();
+        let mut workspace = Workspace::default().replace(Selection { files, skipped: 0 });
+        for (number, [first, second]) in ids.as_chunks::<2>().0.iter().enumerate() {
+            workspace.validations.insert(
+                format!("activity-{number:03}.json"),
+                json!({"valid":true,"value":{
+                    "title":format!("Project {number:03}"),
+                    "meta":{"identifier":format!("project-{number:03}"),"ror":[first,second]}
+                }}),
+            );
+        }
+        let started = Instant::now();
+        let rows = markers(&workspace, &index);
+        let catalog = ResearchIndex::from(&workspace);
+        let payload = map_payload(&rows, &catalog.projects, rows.first().map(|row| row.id.as_str()));
+        let elapsed = started.elapsed();
+        let encoded = payload.to_string();
+        eprintln!(
+            "ABW-18: 500 files, 500 projects, 1000 markers: join + payload {elapsed:?}; payload {} bytes",
+            encoded.len()
+        );
+        assert_eq!(catalog.projects.len(), 500);
+        assert_eq!(rows.len(), 1_000);
+        assert!(rows.iter().all(|row| row.project_ids.len() == 1 && row.location.is_some()));
+        assert!(
+            encoded.len() < 1_000_000,
+            "map payload must stay below one megabyte for this maximum bucket"
+        );
+        assert!(encoded.contains("\"version\":1"));
+        assert!(!encoded.contains("\"activities\""), "map payload must not copy activity paths");
+        let restored = serde_json::from_str::<Workspace>(&serde_json::to_string(&workspace).expect("serialize workspace"))
+            .expect("deserialize workspace")
+            .restored()
+            .expect("bounded restored workspace");
+        assert_eq!(markers(&restored, &index), rows);
+        let replaced = restored.replace(Selection {
+            files: vec![SuppliedFile {
+                path: "new.json".into(),
+                content: "{}".into(),
+            }],
+            skipped: 0,
+        });
+        assert!(markers(&replaced, &index).is_empty());
+        assert!(ResearchIndex::from(&replaced).projects.is_empty());
+    }
+    #[test]
+    fn test_project_memberships_share_organizations_without_duplicate_locations() {
+        let files = [
+            "alpha/first.json",
+            "alpha/second.json",
+            "beta/index.json",
+            "gamma/no-id.json",
+            "invalid.json",
+        ]
+        .into_iter()
+        .map(|path| SuppliedFile {
+            path: path.into(),
+            content: "{}".into(),
+        })
+        .collect();
+        let mut workspace = Workspace::default().replace(Selection { files, skipped: 0 });
+        workspace.validations.insert(
+            "alpha/first.json".into(),
+            json!({"valid":true,"value":{"title":"Alpha","meta":{"identifier":"project-alpha","ror":["01qz5mb56","04aj4c181"]}}}),
+        );
+        workspace.validations.insert(
+            "alpha/second.json".into(),
+            json!({"valid":true,"value":{"title":"Alpha part two","meta":{"identifier":"project-alpha","ror":["01qz5mb56"]}}}),
+        );
+        workspace.validations.insert(
+            "beta/index.json".into(),
+            json!({"valid":true,"value":{"title":"Beta","meta":{"identifier":"project-beta","ror":["01qz5mb56"]}}}),
+        );
+        workspace.validations.insert(
+            "gamma/no-id.json".into(),
+            json!({"valid":true,"value":{"title":"Gamma","meta":{"ror":["05bnh6r87"]}}}),
+        );
+        workspace
+            .validations
+            .insert("invalid.json".into(), json!({"valid":false,"value":{"meta":{"ror":["01qz5mb56"]}}}));
+        let index: LocationIndex = serde_json::from_value(
+            json!({"version":"fixture","date":"fixture","source":"fixture","sourceSha256":"fixture","license":"CC0-1.0","organizations":{
+                "https://ror.org/01qz5mb56":{"name":"Shared","locations":[{"country":"US","latitude":35,"longitude":-84}]},
+                "https://ror.org/04aj4c181":{"name":"Locationless","locations":[]}
+            }}),
+        )
+        .expect("valid location fixture");
+        let rows = markers(&workspace, &index);
+        let shared = rows.iter().find(|marker| marker.id.ends_with("01qz5mb56")).expect("shared organization");
+        let locationless = rows
+            .iter()
+            .find(|marker| marker.id.ends_with("04aj4c181"))
+            .expect("locationless organization");
+        let unresolved = rows
+            .iter()
+            .find(|marker| marker.id.ends_with("05bnh6r87"))
+            .expect("unresolved organization");
+        assert_eq!(rows.len(), 3);
+        assert_eq!(shared.references, 3);
+        assert_eq!(shared.activities.len(), 3);
+        assert_eq!(shared.project_ids, BTreeSet::from(["project-alpha".into(), "project-beta".into()]));
+        assert_eq!(locationless.project_ids, BTreeSet::from(["project-alpha".into()]));
+        assert!(locationless.location.is_none());
+        assert_eq!(unresolved.project_ids, BTreeSet::from(["gamma/no-id.json".into()]));
+        assert!(!unresolved.resolved);
+    }
+}
+
+mod media_tests {
+    use crate::session::{SuppliedFile, Workspace};
+    use serde_json::json;
+
+    #[test]
+    fn test_project_slides_keep_explicit_missing_references() {
+        let workspace = Workspace {
+            files: vec![SuppliedFile {
+                path: "with-image/cover.png".into(),
+                content: "data:image/png;base64,cover".into(),
+            }],
+            validations: [
+                (
+                    "missing/index.json".into(),
+                    json!({"value":{"meta":{"media":[{"contentUrl":"missing.png","caption":"Missing cover"}]}}}),
+                ),
+                ("with-image/index.json".into(), json!({"value":{}})),
+            ]
+            .into(),
+            ..Workspace::default()
+        };
+        let paths = vec!["missing/index.json".into(), "with-image/index.json".into()];
+        let slides = workspace.project_slides(&paths);
+        assert_eq!(slides.len(), 2);
+        assert_eq!(slides.first().map(|slide| slide.caption.as_str()), Some("Missing cover"));
+        assert_eq!(slides.get(1).map(|slide| slide.caption.as_str()), Some("cover.png"));
+    }
+    #[test]
+    fn test_project_slides_skip_implicit_missing_images() {
+        let workspace = Workspace {
+            files: vec![SuppliedFile {
+                path: "with-image/cover.png".into(),
+                content: "data:image/png;base64,cover".into(),
+            }],
+            validations: [
+                ("without-image/index.json".into(), json!({"value":{}})),
+                ("with-image/index.json".into(), json!({"value":{}})),
+            ]
+            .into(),
+            ..Workspace::default()
+        };
+        let paths = vec!["without-image/index.json".into(), "with-image/index.json".into()];
+        let slides = workspace.project_slides(&paths);
+        assert_eq!(slides.len(), 1);
+        assert_eq!(slides.first().map(|slide| slide.caption.as_str()), Some("cover.png"));
+    }
+    #[test]
+    fn test_project_slides_use_one_fallback_when_empty() {
+        let workspace = Workspace {
+            validations: [
+                ("first/index.json".into(), json!({"value":{}})),
+                ("second/index.json".into(), json!({"value":{}})),
+            ]
+            .into(),
+            ..Workspace::default()
+        };
+        let paths = vec!["first/index.json".into(), "second/index.json".into()];
+        let slides = workspace.project_slides(&paths);
+        assert_eq!(slides.len(), 1);
+        assert_eq!(slides.first().map(|slide| slide.caption.as_str()), Some("No image available"));
+    }
+    #[test]
+    fn test_video_media_does_not_hide_sibling_image_or_create_missing_slide() {
+        let workspace = Workspace {
+            files: vec![SuppliedFile {
+                path: "project/cover.png".into(),
+                content: "data:image/png;base64,cover".into(),
+            }],
+            ..Workspace::default()
+        };
+        let value = json!({"meta":{"media":[{"contentUrl":"https://example.org/movie.mp4?poster=cover.png","description":"Field recording"}]}});
+        let images = workspace.slides("project/index.json", &value);
+        assert_eq!(images.len(), 1);
+        assert_eq!(images.first().map(|slide| slide.caption.as_str()), Some("cover.png"));
+        assert_eq!(images.first().map(|slide| slide.src.as_str()), Some("data:image/png;base64,cover"));
+        let fallback = Workspace::default().slides("project/index.json", &value);
+        assert_eq!(fallback.first().map(|slide| slide.caption.as_str()), Some("No image available"));
+    }
+}
+
+mod session_tests {
+    use crate::session::*;
+    use data_encoding::BASE64;
+    use serde_json::json;
+    fn file(path: &str, content: &str) -> SuppliedFile {
+        SuppliedFile {
+            path: path.into(),
+            content: content.into(),
+        }
+    }
+    #[test]
+    fn test_failed_selection_preserves_content_and_validation() {
+        let original = Workspace::default().replace(Selection {
+            files: vec![file("ok.json", "{}")],
+            skipped: 0,
+        });
+        let next = original.replace(Selection {
+            files: vec![file("../bad.json", "bad")],
+            skipped: 2,
+        });
+        assert_eq!(next.files, original.files);
+        assert_eq!(next.selected, original.selected);
+        assert_eq!(next.skipped, 3);
+    }
+    #[test]
+    fn test_images_require_canonical_raster_bytes_and_do_not_seed_text_tools() {
+        let bytes = b"\x89PNG\r\n\x1a\nfixture";
+        let image = format!("data:image/png;base64,{}", BASE64.encode(bytes));
+        let jpeg = format!("data:image/jpeg;base64,{}", BASE64.encode(b"\xff\xd8\xfffixture"));
+        let webp = format!("data:image/webp;base64,{}", BASE64.encode(b"RIFFxxxxWEBPfixture"));
+        let workspace = Workspace::default().replace(Selection {
+            files: vec![
+                file("a/cover.png", &image),
+                file("a/detail.jpeg", &jpeg),
+                file("a/diagram.svg", "<svg xmlns='http://www.w3.org/2000/svg'/>"),
+                file("a/chart.webp", &webp),
+                file("a/index.json", "{}"),
+                file("a/wrong.jpg", &image),
+                file("a/invalid.webp", "data:image/webp;base64,not-base64"),
+            ],
+            skipped: 0,
+        });
+        assert_eq!(workspace.files.len(), 5);
+        assert_eq!(workspace.skipped, 2);
+        assert_eq!(workspace.selected.as_deref(), Some("a/index.json"));
+        assert_eq!(workspace.content(), "{}");
+        assert_eq!(workspace.clone().restored(), Some(workspace));
+        let only_image = Workspace::default().replace(Selection {
+            files: vec![file("cover.png", &image), file("diagram.svg", "<svg/>")],
+            skipped: 0,
+        });
+        assert!(only_image.selected.is_none());
+        assert!(only_image.content().is_empty());
+        assert!(valid_path("a/cover.webp"));
+    }
+    #[test]
+    fn test_limits_sorting_duplicates_and_traversal() {
+        let workspace = Workspace::default().replace(Selection {
+            files: vec![
+                file("b/x.json", "{}"),
+                file("a.txt", "text"),
+                file("a.txt", "text"),
+                file("/bad.json", ""),
+                file("huge.txt", &"é".repeat(FILE_LIMIT)),
+            ],
+            skipped: 0,
+        });
+        assert_eq!(
+            workspace.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>(),
+            ["a.txt", "b/x.json"]
+        );
+        assert_eq!(workspace.skipped, 3);
+        assert_eq!(workspace.bytes(), 6);
+        for path in ["../x.json", "a/../x.json", "a//b.json", "C:/x.json", "a\\b.json", "x.exe", "\n.json"] {
+            assert!(!valid_path(path), "{path}");
+        }
+        assert!(!valid_path(&format!("{}x.json", "a/".repeat(20))));
+        assert!(valid_path("a/é.JSON"));
+        let many = Workspace::default().replace(Selection {
+            files: (0..510).map(|i| file(&format!("{i:03}.txt"), "x")).collect(),
+            skipped: 0,
+        });
+        assert_eq!(many.files.len(), 500);
+        assert_eq!(many.skipped, 10);
+        let large = Workspace::default().replace(Selection {
+            files: (0..70).map(|i| file(&format!("{i:03}.txt"), &"x".repeat(FILE_LIMIT))).collect(),
+            skipped: 0,
+        });
+        assert_eq!(large.bytes(), TOTAL_LIMIT);
+        assert_eq!(large.skipped, 6);
+    }
+    #[test]
+    fn test_persisted_workspace_rechecks_bounds_and_keeps_state() {
+        let mut saved = Workspace::default().replace(Selection {
+            files: vec![file("a.json", "{}")],
+            skipped: 0,
+        });
+        saved.source = Some(WorkspaceSource {
+            kind: "gitlab".into(),
+            host: "code.ornl.gov".into(),
+            project: "group/repo".into(),
+            path: String::new(),
+            revision: "a".repeat(40),
+        });
+        saved
+            .validations
+            .insert("a.json".into(), json!({"valid":true,"value":{"title":"forged"}}));
+        let restored = saved.clone().restored().expect("valid saved workspace");
+        assert_eq!(restored.files, saved.files);
+        assert_eq!(restored.validations, saved.validations);
+        assert_eq!(restored.source, saved.source);
+        saved.files.first_mut().expect("saved file exists").path = "../a.json".into();
+        assert!(saved.restored().is_none());
+    }
+    #[test]
+    fn test_portfolio_uses_only_validated_records_and_deduplicates_entities() {
+        let mut workspace = Workspace::default().replace(Selection {
+            files: vec![file("a.json", "{}"), file("b.json", "{}"), file("invalid.json", "{}")],
+            skipped: 0,
+        });
+        let value = json!({"title":"A","@type":"Project","meta":{"status":"active","doi":"https://doi.org/10.1/x","organizations":[{"name":"Example","identifiers":[{"value":"https://ror.org/example"}]}]}});
+        for name in ["a.json", "b.json"] {
+            workspace.validations.insert(name.into(), json!({"valid":true,"value":value}));
+        }
+        workspace.validations.insert("invalid.json".into(), json!({"valid":false,"value":value}));
+        let records = workspace.activities();
+        assert_eq!(records.len(), 2);
+        assert_eq!(entities(&records, "organizations").len(), 1);
+        assert_eq!(identifiers(&records).len(), 2);
+        assert_eq!(distribution(&records, activity_type).get("Project"), Some(&2));
+        let replaced = workspace.replace(Selection {
+            files: vec![file("new.json", "{}")],
+            skipped: 0,
+        });
+        assert!(replaced.activities().is_empty());
+        assert_eq!(replaced.selected.as_deref(), Some("new.json"));
+    }
 }

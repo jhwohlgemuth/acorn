@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Mirror garden light paths</title>
+  <desc id="desc">A fictional golden mirror sends rays across green terraces and reflecting pools.</desc>
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#18343a"/><stop offset="1" stop-color="#537446"/></linearGradient><linearGradient id="pool" x2="0" y2="1"><stop stop-color="#a3d5a7"/><stop offset="1" stop-color="#345e61"/></linearGradient></defs>
+  <rect width="640" height="360" fill="url(#sky)"/>
+  <path d="M0 185 Q160 142 320 184 T640 170 V360 H0Z" fill="#294d40"/>
+  <path d="M0 230 Q180 181 323 229 T640 216 V360 H0Z" fill="#41734f"/>
+  <g stroke="#f9d677" stroke-width="3" opacity=".7"><path d="M320 72V8M276 84 239 27M364 84 401 27M258 119 196 105M382 119 444 105M276 154 239 210M364 154 401 210"/></g>
+  <circle cx="320" cy="119" r="57" fill="#c59242" stroke="#ffe6a0" stroke-width="8"/>
+  <circle cx="320" cy="119" r="39" fill="#fce6a4" opacity=".82"/>
+  <path d="M42 255 Q180 234 320 258 T598 253" fill="none" stroke="#cce4a2" stroke-width="12" opacity=".7"/>
+  <ellipse cx="180" cy="283" rx="105" ry="22" fill="url(#pool)"/><ellipse cx="455" cy="287" rx="128" ry="24" fill="url(#pool)"/>
+  <g fill="#e5edbe" opacity=".8"><circle cx="139" cy="280" r="3"/><circle cx="190" cy="287" r="3"/><circle cx="414" cy="285" r="3"/><circle cx="492" cy="292" r="3"/></g>
+  <rect x="24" y="309" width="592" height="38" rx="8" fill="#172e31" opacity=".88"/>
+  <text x="42" y="334" fill="#fff" font-family="sans-serif" font-size="18" font-weight="600">Light paths and reflecting pools</text>
+</svg>

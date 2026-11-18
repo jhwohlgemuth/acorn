@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "moonlit-bamboo-grove",
+    "media": [
+      {
+        "caption": "Fictional illustration 1 for Moonlit Bamboo Grove with annotated field notes and context.",
+        "contentUrl": "00.svg"
+      },
+      {
+        "caption": "Fictional illustration 2 for Moonlit Bamboo Grove with annotated field notes and context.",
+        "contentUrl": "01.svg"
+      }
+    ],
+    "keywords": [
+      "plant-science",
+      "visualization"
+    ],
+    "doi": "10.5072/acorn-sample-moonlit-bamboo-grove",
+    "ror": "https://ror.org/000000001",
+    "contributors": [
+      {
+        "name": "Sample Person",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0000-0000-0001",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Example Organization",
+        "identifiers": [
+          {
+            "value": "https://ror.org/000000001",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": []
+      }
+    ]
+  },
+  "title": "Moonlit Bamboo Grove: Growth Field Notes",
+  "subtitle": "A fictional record of steady growth and quiet observation and field notes.",
+  "sections": {
+    "mission": "This fictional project explores fictional record of steady growth and quiet observation. The record links each illustration to a repeatable observation and makes the fictional setting explicit. The activity is an illustrative research sample.",
+    "challenge": "How can slow growth be observed in a quiet landscape? One image alone cannot show the sequence of changes or explain why an observer chose a particular viewpoint. The fictional setting also needs to be clear so readers do not mistake these illustrations for measured locations. Each entry must retain its place in the sequence and identify what changed since the preceding observation. A reader should be able to compare alternate interpretations and trace them back to the original notes.",
+    "approach": [
+      "Record fictional bamboo shoots under changing moonlight. Keep the sketches in a stable sequence. Track each change in an annotated fieldbook."
+    ],
+    "impact": [
+      "Make gradual change visible through repeated notes. It also demonstrates a clear research record. This makes every step easier to compare."
+    ],
+    "research": {
+      "focus": "Exploring the imagined themes of moonlit bamboo grove in a research record. The setting and measurements are fictional. Locations remain imaginary.",
+      "areas": [
+        "Illustrative research metadata and maps"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Sample",
+    "familyName": "Person",
+    "email": "sample.person@example.org",
+    "organization": "Example Organization",
+    "telephone": "202-555-0101",
+    "url": "https://example.org/sample-person"
+  }
+}

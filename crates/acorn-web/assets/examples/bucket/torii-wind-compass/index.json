@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "torii-wind-compass",
+    "doi": "10.5072/acorn-sample-torii-wind-compass",
+    "ror": "https://ror.org/000000001",
+    "contributors": [
+      {
+        "name": "Sample Person",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0000-0000-0001",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Example Organization",
+        "identifiers": [
+          {
+            "value": "https://ror.org/000000001",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": []
+      }
+    ],
+    "media": [
+      {
+        "caption": "Fictional illustration for Torii Wind Compass: Seasonal Routes.",
+        "contentUrl": "00.svg"
+      }
+    ],
+    "keywords": [
+      "climate-science",
+      "geospatial",
+      "modeling"
+    ]
+  },
+  "title": "Torii Wind Compass: Seasonal Routes",
+  "subtitle": "A fictional atlas of winds through a mountain pass.",
+  "sections": {
+    "mission": "This fictional project explores fictional winds guiding travel through a mountain pass. All settings and observations are invented. It links each illustration to field notes so readers can compare the evidence and follow the sequence.",
+    "challenge": "How can an imagined route remain understandable when the prevailing wind changes? A single illustration cannot explain the order of observations or why one interpretation was chosen. Each entry therefore records its place in the sequence, describes what changed, and keeps gaps in the imagined evidence visible.",
+    "approach": [
+      "Compare seasonal wind sketches and annotate each turn in a common fieldbook."
+    ],
+    "impact": [
+      "Illustrate a repeatable way to explain changing routes."
+    ],
+    "research": {
+      "focus": "Exploring the imagined themes of Torii Wind Compass: Seasonal Routes in a fictional research record. Locations and measurements remain imaginary.",
+      "areas": [
+        "Illustrative research metadata and maps"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Sample",
+    "familyName": "Person",
+    "email": "sample.person@example.org",
+    "organization": "Example Organization",
+    "telephone": "202-555-0101",
+    "url": "https://example.org/sample-person"
+  }
+}

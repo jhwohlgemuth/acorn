@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "thousand-mile-wayfinder",
+    "media": [
+      {
+        "caption": "Fictional illustration 1 for Thousand Mile Wayfinder with annotated field notes and context.",
+        "contentUrl": "00.svg"
+      }
+    ],
+    "keywords": [
+      "geospatial",
+      "visualization",
+      "modeling"
+    ],
+    "doi": "10.5072/acorn-sample-thousand-mile-wayfinder",
+    "ror": "https://ror.org/000000001",
+    "contributors": [
+      {
+        "name": "Sample Person",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0000-0000-0001",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Example Organization",
+        "identifiers": [
+          {
+            "value": "https://ror.org/000000001",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": []
+      }
+    ]
+  },
+  "title": "Thousand Mile Wayfinder: Route Fieldbook",
+  "subtitle": "A fictional study of many small steps across a landscape and field notes.",
+  "sections": {
+    "mission": "This fictional project explores fictional study of many small steps across a landscape. The record links each illustration to a repeatable observation and makes the fictional setting explicit. The activity is an illustrative research sample.",
+    "challenge": "How can many small steps become a useful long route? One image alone cannot show the sequence of changes or explain why an observer chose a particular viewpoint. The fictional setting also needs to be clear so readers do not mistake these illustrations for measured locations. Each entry must retain its place in the sequence and identify what changed since the preceding observation. A reader should be able to compare alternate interpretations and trace them back to the original notes.",
+    "approach": [
+      "Record each fictional step and compare possible trails. Keep the sketches in a stable sequence. Track each change in an annotated fieldbook."
+    ],
+    "impact": [
+      "Show how a long journey grows from a first step. The resulting example helps readers inspect gradual change and understand how evidence is organized."
+    ],
+    "research": {
+      "focus": "Exploring the imagined themes of thousand mile wayfinder in a research record. The setting and measurements are fictional. Locations remain imaginary.",
+      "areas": [
+        "Illustrative research metadata and maps"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Sample",
+    "familyName": "Person",
+    "email": "sample.person@example.org",
+    "organization": "Example Organization",
+    "telephone": "202-555-0101",
+    "url": "https://example.org/sample-person"
+  }
+}

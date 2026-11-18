@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "jade-river-crossing",
+    "keywords": [
+      "geospatial",
+      "earth-science",
+      "visualization"
+    ],
+    "doi": "10.5072/acorn-sample-jade-river-crossing",
+    "ror": "https://ror.org/000000001",
+    "contributors": [
+      {
+        "name": "Sample Person",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0000-0000-0001",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Example Organization",
+        "identifiers": [
+          {
+            "value": "https://ror.org/000000001",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": []
+      }
+    ]
+  },
+  "title": "Jade River Crossing: A Seasonal Route Atlas",
+  "subtitle": "A fictional map of patient routes through changing water and field notes.",
+  "sections": {
+    "mission": "This fictional project explores fictional map of patient routes through changing water. The record links each illustration to a repeatable observation and makes the fictional setting explicit. The activity is an illustrative research sample.",
+    "challenge": "How can steady water reshape an imagined crossing? One image alone cannot show the sequence of changes or explain why an observer chose a particular viewpoint. The fictional setting also needs to be clear so readers do not mistake these illustrations for measured locations. Each entry must retain its place in the sequence and identify what changed since the preceding observation. Where evidence is incomplete, the record should still explain the activity without hiding gaps or inventing results.",
+    "approach": [
+      "Sketch fictional river paths over many seasons. Annotate each imagined observation with a location, a time, and a comparison to the preceding scene."
+    ],
+    "impact": [
+      "Illustrate how patient observation reveals change. It also demonstrates a clear research record. This makes every step easier to compare."
+    ],
+    "research": {
+      "focus": "Exploring the imagined themes of jade river crossing in a research record. The setting and measurements are fictional. Locations remain imaginary.",
+      "areas": [
+        "Illustrative research metadata and maps"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Sample",
+    "familyName": "Person",
+    "email": "sample.person@example.org",
+    "organization": "Example Organization",
+    "telephone": "202-555-0101",
+    "url": "https://example.org/sample-person"
+  }
+}

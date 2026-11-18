@@ -1,14 +1,15 @@
-//! Bounded, in-memory supplied files and projections of explicitly validated activities.
-use acorn_core::util::StringConversion;
+//! Bounded supplied files and projections of explicitly validated activities.
+use acorn_core::util::{MimeType, StringConversion};
 use alloc::collections::{BTreeMap, BTreeSet};
+use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Maximum accepted files in a session.
 pub const FILE_COUNT: usize = 500;
-/// Largest accepted individual file, in UTF-8 bytes.
+/// Largest accepted individual file, in source bytes.
 pub const FILE_LIMIT: usize = 256 * 1024;
-/// Total text bytes accepted per session.
+/// Total encoded content bytes accepted per session.
 pub const TOTAL_LIMIT: usize = 16 * 1024 * 1024;
 /// Result of a user-mediated browser selection.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -25,7 +26,7 @@ pub struct Selection {
 pub struct SuppliedFile {
     /// Normalized relative path.
     pub path: String,
-    /// UTF-8 source text.
+    /// UTF-8 source text, or a canonical data URL for a supported raster image.
     pub content: String,
 }
 /// One immutable loaded session; replacement clears stale validation and selection.
@@ -73,7 +74,7 @@ impl Workspace {
             })
             .collect()
     }
-    /// Total loaded UTF-8 bytes.
+    /// Total encoded content bytes.
     pub fn bytes(&self) -> usize {
         self.files.iter().map(|file| file.content.len()).sum()
     }
@@ -82,6 +83,7 @@ impl Workspace {
         self.files
             .iter()
             .find(|file| Some(&file.path) == self.selected.as_ref())
+            .filter(|file| !MimeType::from(file.path.as_str()).is_image())
             .map(|file| file.content.clone())
             .unwrap_or_default()
     }
@@ -92,13 +94,10 @@ impl Workspace {
         let (accepted, _, skipped) = files
             .into_iter()
             .fold((BTreeMap::new(), 0_usize, selection.skipped), |(mut accepted, bytes, skipped), file| {
-                if valid_path(&file.path)
-                    && file.content.len() <= FILE_LIMIT
-                    && bytes.saturating_add(file.content.len()) <= TOTAL_LIMIT
-                    && accepted.len() < FILE_COUNT
-                    && !accepted.contains_key(&file.path)
-                {
-                    let bytes = bytes.saturating_add(file.content.len());
+                let size = valid_path(&file.path).then(|| stored_size(&file)).flatten();
+                let available = accepted.len() < FILE_COUNT && !accepted.contains_key(&file.path);
+                if let Some(size) = size.filter(|size| available && bytes.saturating_add(*size) <= TOTAL_LIMIT) {
+                    let bytes = bytes.saturating_add(size);
                     accepted.insert(file.path.clone(), file);
                     (accepted, bytes, skipped)
                 } else {
@@ -109,7 +108,10 @@ impl Workspace {
             Self { skipped, ..self.clone() }
         } else {
             Self {
-                selected: accepted.keys().next().cloned(),
+                selected: accepted
+                    .values()
+                    .find(|file| !MimeType::from(file.path.as_str()).is_image())
+                    .map(|file| file.path.clone()),
                 files: accepted.into_values().collect(),
                 skipped,
                 source: None,
@@ -233,6 +235,20 @@ pub fn many(value: &Value) -> Vec<&Value> {
 fn metadata<'a>(value: &'a Value, field: &str) -> &'a Value {
     value.get("meta").and_then(|meta| meta.get(field)).unwrap_or(&Value::Null)
 }
+fn stored_size(file: &SuppliedFile) -> Option<usize> {
+    let mime = MimeType::from(file.path.as_str());
+    if mime.is_raster_image() {
+        let prefix = format!("data:{mime};base64,");
+        file.content
+            .strip_prefix(&prefix)
+            .and_then(|payload| BASE64.decode(payload.as_bytes()).ok().map(|decoded| (payload, decoded)))
+            .and_then(|(payload, decoded)| {
+                (mime.signature(&decoded) && decoded.len() <= FILE_LIMIT && BASE64.encode(&decoded) == payload).then_some(file.content.len())
+            })
+    } else {
+        (file.content.len() <= FILE_LIMIT).then_some(file.content.len())
+    }
+}
 /// Reject traversal, absolute paths, unsupported extensions and paths deeper than 20 segments.
 pub fn valid_path(path: &str) -> bool {
     let parts = path.split('/').collect::<Vec<_>>();
@@ -240,114 +256,9 @@ pub fn valid_path(path: &str) -> bool {
         && !path.chars().any(char::is_control)
         && parts.len() <= 20
         && parts.iter().all(|part| !part.is_empty() && !matches!(*part, "." | ".."))
-        && path
-            .rsplit_once('.')
-            .is_some_and(|(_, extension)| ["json", "yaml", "yml", "md", "txt"].contains(&extension.to_ascii_lowercase().as_str()))
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    fn file(path: &str, content: &str) -> SuppliedFile {
-        SuppliedFile {
-            path: path.into(),
-            content: content.into(),
-        }
-    }
-    #[test]
-    fn test_failed_selection_preserves_content_and_validation() {
-        let original = Workspace::default().replace(Selection {
-            files: vec![file("ok.json", "{}")],
-            skipped: 0,
-        });
-        let next = original.replace(Selection {
-            files: vec![file("../bad.json", "bad")],
-            skipped: 2,
-        });
-        assert_eq!(next.files, original.files);
-        assert_eq!(next.selected, original.selected);
-        assert_eq!(next.skipped, 3);
-    }
-    #[test]
-    fn test_limits_sorting_duplicates_and_traversal() {
-        let workspace = Workspace::default().replace(Selection {
-            files: vec![
-                file("b/x.json", "{}"),
-                file("a.txt", "text"),
-                file("a.txt", "text"),
-                file("/bad.json", ""),
-                file("huge.txt", &"é".repeat(FILE_LIMIT)),
-            ],
-            skipped: 0,
-        });
-        assert_eq!(
-            workspace.files.iter().map(|file| file.path.as_str()).collect::<Vec<_>>(),
-            ["a.txt", "b/x.json"]
-        );
-        assert_eq!(workspace.skipped, 3);
-        assert_eq!(workspace.bytes(), 6);
-        for path in ["../x.json", "a/../x.json", "a//b.json", "C:/x.json", "a\\b.json", "x.exe", "\n.json"] {
-            assert!(!valid_path(path), "{path}");
-        }
-        assert!(!valid_path(&format!("{}x.json", "a/".repeat(20))));
-        assert!(valid_path("a/é.JSON"));
-        let many = Workspace::default().replace(Selection {
-            files: (0..510).map(|i| file(&format!("{i:03}.txt"), "x")).collect(),
-            skipped: 0,
-        });
-        assert_eq!(many.files.len(), 500);
-        assert_eq!(many.skipped, 10);
-        let large = Workspace::default().replace(Selection {
-            files: (0..70).map(|i| file(&format!("{i:03}.txt"), &"x".repeat(FILE_LIMIT))).collect(),
-            skipped: 0,
-        });
-        assert_eq!(large.bytes(), TOTAL_LIMIT);
-        assert_eq!(large.skipped, 6);
-    }
-    #[test]
-    fn test_persisted_workspace_rechecks_bounds_and_keeps_state() {
-        let mut saved = Workspace::default().replace(Selection {
-            files: vec![file("a.json", "{}")],
-            skipped: 0,
-        });
-        saved.source = Some(WorkspaceSource {
-            kind: "gitlab".into(),
-            host: "code.ornl.gov".into(),
-            project: "group/repo".into(),
-            path: String::new(),
-            revision: "a".repeat(40),
-        });
-        saved
-            .validations
-            .insert("a.json".into(), json!({"valid":true,"value":{"title":"forged"}}));
-        let restored = saved.clone().restored().expect("valid saved workspace");
-        assert_eq!(restored.files, saved.files);
-        assert_eq!(restored.validations, saved.validations);
-        assert_eq!(restored.source, saved.source);
-        saved.files.first_mut().expect("saved file exists").path = "../a.json".into();
-        assert!(saved.restored().is_none());
-    }
-    #[test]
-    fn test_portfolio_uses_only_validated_records_and_deduplicates_entities() {
-        let mut workspace = Workspace::default().replace(Selection {
-            files: vec![file("a.json", "{}"), file("b.json", "{}"), file("invalid.json", "{}")],
-            skipped: 0,
-        });
-        let value = json!({"title":"A","@type":"Project","meta":{"status":"active","doi":"https://doi.org/10.1/x","organizations":[{"name":"Example","identifiers":[{"value":"https://ror.org/example"}]}]}});
-        for name in ["a.json", "b.json"] {
-            workspace.validations.insert(name.into(), json!({"valid":true,"value":value}));
-        }
-        workspace.validations.insert("invalid.json".into(), json!({"valid":false,"value":value}));
-        let records = workspace.activities();
-        assert_eq!(records.len(), 2);
-        assert_eq!(entities(&records, "organizations").len(), 1);
-        assert_eq!(identifiers(&records).len(), 2);
-        assert_eq!(distribution(&records, activity_type).get("Project"), Some(&2));
-        let replaced = workspace.replace(Selection {
-            files: vec![file("new.json", "{}")],
-            skipped: 0,
-        });
-        assert!(replaced.activities().is_empty());
-        assert_eq!(replaced.selected.as_deref(), Some("new.json"));
-    }
+        && path.rsplit_once('.').is_some()
+        && matches!(
+            MimeType::from(path),
+            MimeType::Json | MimeType::Yaml | MimeType::Markdown | MimeType::Text | MimeType::Svg | MimeType::Png | MimeType::Jpeg | MimeType::Webp
+        )
 }

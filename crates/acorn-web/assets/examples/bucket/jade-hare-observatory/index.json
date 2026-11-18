@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "jade-hare-observatory",
+    "doi": "10.5072/acorn-sample-jade-hare-observatory",
+    "ror": "https://ror.org/000000001",
+    "contributors": [
+      {
+        "name": "Sample Person",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0000-0000-0001",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      {
+        "name": "Example Organization",
+        "identifiers": [
+          {
+            "value": "https://ror.org/000000001",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": []
+      }
+    ],
+    "media": [
+      {
+        "caption": "Fictional illustration for Jade Hare Observatory: Lunar Field Notes.",
+        "contentUrl": "00.svg"
+      },
+      {
+        "caption": "Lunar observatory dome and orbital field notes.",
+        "contentUrl": "01.svg"
+      }
+    ],
+    "keywords": [
+      "astronomy",
+      "data-science",
+      "visualization"
+    ]
+  },
+  "title": "Jade Hare Observatory: Lunar Field Notes",
+  "subtitle": "A fictional field atlas of imagined craters and changing points of light.",
+  "sections": {
+    "mission": "This fictional project explores imagined craters and changing points of light. All settings and observations are invented. It links each illustration to field notes so readers can compare the evidence and follow the sequence.",
+    "challenge": "How can a fictional observer distinguish a steady landmark from a passing glimmer? A single illustration cannot explain the order of observations or why one interpretation was chosen. Each entry therefore records its place in the sequence, describes what changed, and keeps gaps in the imagined evidence visible.",
+    "approach": [
+      "Sketch the same horizon repeatedly and annotate where each bright point appears."
+    ],
+    "impact": [
+      "Create an illustrative notebook that makes comparisons across observations easy."
+    ],
+    "research": {
+      "focus": "Exploring the imagined themes of Jade Hare Observatory: Lunar Field Notes in a fictional research record. Locations and measurements remain imaginary.",
+      "areas": [
+        "Illustrative research metadata and maps"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Sample",
+    "familyName": "Person",
+    "email": "sample.person@example.org",
+    "organization": "Example Organization",
+    "telephone": "202-555-0101",
+    "url": "https://example.org/sample-person"
+  }
+}

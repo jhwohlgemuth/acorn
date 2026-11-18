@@ -2,6 +2,8 @@
 
 Retrieved November 11, 2026. `technology.svg` embeds the following source bytes unchanged as separate SVG images; SVG view fragments select each mark. No brand endorsement is implied. ACORN banners and navigation geometry come from the repository's documentation assets and design specification under its MIT license. The dark and light app icons are staged unchanged from `docs/src/_assets/acorn-app-icon-brown.svg` and `docs/src/_assets/acorn-app-icon-light.svg`.
 
+`javascript-logo.svg` is a locally drawn JavaScript mark used for the Driver.js entry on the About page.
+
 | Mark | Source | SHA-256 |
 |---|---|---|
 | rust | [rust.svg](https://github.com/gilbarbara/logos/blob/main/logos/rust.svg) | `1c61e79af0f7589027ff3aaf9376c442591933be498aa01ca4041566da1db4dd` |

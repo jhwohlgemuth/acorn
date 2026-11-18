@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Inari Foxfire Trails: Signal Atlas</title>
+  <desc id="desc">Fictional layered landscape with a glowing marker and an annotated route.</desc>
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#241d3f"/><stop offset="1" stop-color="#684b89"/></linearGradient></defs>
+  <rect width="640" height="360" fill="url(#sky)"/>
+  <circle cx="492" cy="92" r="48" fill="#f5e0a5" opacity=".9"/>
+  <path d="M0 234 Q95 156 204 235 T425 215 T640 203 V360 H0Z" fill="#d49c73" opacity=".55"/>
+  <path d="M0 273 Q115 215 239 286 T483 257 T640 271 V360 H0Z" fill="#684b89" opacity=".9"/>
+  <path d="M72 300 C148 265 190 279 275 236 S424 215 546 175" fill="none" stroke="#f5e0a5" stroke-width="5" stroke-linecap="round" stroke-dasharray="3 15"/>
+  <g fill="#f5e0a5"><circle cx="72" cy="300" r="7"/><circle cx="275" cy="236" r="7"/><circle cx="546" cy="175" r="7"/></g>
+  <rect x="24" y="300" width="592" height="42" rx="8" fill="#241d3f" opacity=".82"/>
+  <text x="42" y="327" fill="#fff" font-family="sans-serif" font-size="19" font-weight="600">Inari Foxfire Trails: Signal Atlas</text>
+</svg>

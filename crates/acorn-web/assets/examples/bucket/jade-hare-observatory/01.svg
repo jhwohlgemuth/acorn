@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Lunar observatory field notes</title>
+  <desc id="desc">A fictional teal observatory dome watches an orbit traced around the moon.</desc>
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#102936"/><stop offset="1" stop-color="#416c75"/></linearGradient></defs>
+  <rect width="640" height="360" fill="url(#sky)"/>
+  <g fill="#c1ddd6"><circle cx="81" cy="61" r="2"/><circle cx="190" cy="47" r="2"/><circle cx="301" cy="88" r="2"/><circle cx="571" cy="49" r="2"/><circle cx="526" cy="164" r="2"/></g>
+  <circle cx="448" cy="104" r="64" fill="#e8dfbd"/><circle cx="423" cy="85" r="9" fill="#c5bc9e"/><circle cx="471" cy="123" r="13" fill="#c5bc9e"/><circle cx="436" cy="135" r="6" fill="#c5bc9e"/>
+  <ellipse cx="448" cy="104" rx="110" ry="36" transform="rotate(-24 448 104)" fill="none" stroke="#8fd5c9" stroke-width="3" opacity=".8"/>
+  <path d="M0 253 Q180 213 328 256 T640 232V360H0Z" fill="#213f4a"/>
+  <path d="M82 284A104 104 0 0 1 290 284Z" fill="#91b8aa" stroke="#c7ded0" stroke-width="5"/>
+  <rect x="82" y="282" width="208" height="20" fill="#243f48"/><path d="M186 180V281M116 232H256" stroke="#456d70" stroke-width="4"/>
+  <path d="M299 279 362 192 383 200 336 279Z" fill="#b6d2c8"/><circle cx="374" cy="194" r="9" fill="#e8dfbd"/>
+  <rect x="24" y="309" width="592" height="38" rx="8" fill="#102936" opacity=".88"/>
+  <text x="42" y="334" fill="#fff" font-family="sans-serif" font-size="18" font-weight="600">Lunar observatory field notes</text>
+</svg>

@@ -1,9 +1,10 @@
 //! Local ROR joins for validated Research Activity Data; no registry or map effects.
+use crate::research_index::{Project, ResearchIndex};
 use crate::session::{SuppliedFile, Workspace};
 use acorn_schema::pid::{PersistentIdentifier, PersistentIdentifierParse, ROR};
 use alloc::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 /// Maximum organizations sent to the map and displayed in its equivalent table.
 pub const MARKER_LIMIT: usize = 1000;
@@ -45,6 +46,8 @@ pub struct Marker {
     pub references: usize,
     /// Related relative file paths.
     pub activities: BTreeSet<String>,
+    /// Stable identifiers of validated projects associated with this organization.
+    pub project_ids: BTreeSet<String>,
     /// First deterministic location, if coordinates are available.
     pub location: Option<Location>,
     /// Whether the ROR was present in the pinned index.
@@ -89,12 +92,37 @@ fn collect(value: &Value, field: &str, file: &SuppliedFile, references: &mut BTr
         | _ => {}
     }
 }
+/// Serialize the bounded Cesium bridge view without repeating activity paths or registry records.
+pub fn map_payload(markers: &[Marker], projects: &[Project], selected: Option<&str>) -> Value {
+    json!({
+        "version": 1,
+        "projects": projects.iter().map(|project| json!({
+            "id": project.id,
+            "title": project.title,
+            "activity_count": project.paths.len(),
+        })).collect::<Vec<_>>(),
+        "markers": markers.iter().map(|marker| json!({
+            "id": marker.id,
+            "name": marker.name,
+            "references": marker.references,
+            "project_ids": marker.project_ids,
+            "location": marker.location,
+        })).collect::<Vec<_>>(),
+        "selected": selected,
+    })
+}
 /// Join all validated session records to the local index, without resolving identifiers.
 pub fn markers(workspace: &Workspace, index: &LocationIndex) -> Vec<Marker> {
     markers_with_identifiers(workspace, index, &BTreeSet::new())
 }
 /// Include explicitly selected RORs without inventing activity references or changing RAD.
 pub fn markers_with_identifiers(workspace: &Workspace, index: &LocationIndex, identifiers: &BTreeSet<String>) -> Vec<Marker> {
+    let catalog = ResearchIndex::from(workspace);
+    let projects_by_path = catalog
+        .activities
+        .iter()
+        .map(|activity| (activity.path.as_str(), activity.project_id.as_str()))
+        .collect::<BTreeMap<_, _>>();
     let mut references = BTreeMap::<String, (usize, BTreeSet<String>)>::new();
     for (file, value) in workspace.activities() {
         collect(value, "", file, &mut references);
@@ -109,6 +137,11 @@ pub fn markers_with_identifiers(workspace: &Workspace, index: &LocationIndex, id
             Marker {
                 name: organization.map(|org| org.name.clone()).unwrap_or_else(|| id.clone()),
                 references: count,
+                project_ids: activities
+                    .iter()
+                    .filter_map(|path| projects_by_path.get(path.as_str()).copied())
+                    .map(str::to_owned)
+                    .collect(),
                 activities,
                 location: organization
                     .and_then(|org| {
@@ -125,55 +158,4 @@ pub fn markers_with_identifiers(workspace: &Workspace, index: &LocationIndex, id
             }
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::session::Selection;
-    use serde_json::json;
-
-    #[test]
-    fn test_local_join_deduplicates_and_preserves_unresolved_locationless_records() {
-        let mut workspace = Workspace::default().replace(Selection {
-            files: vec![SuppliedFile {
-                path: "sample.json".into(),
-                content: "{}".into(),
-            }],
-            skipped: 0,
-        });
-        workspace.validations.insert("sample.json".into(), json!({"valid":true,"value":{"meta":{"ror":["01qz5mb56","https://ror.org/01qz5mb56","http://ror.org/01qz5mb56","invalid","https://ror.org/04aj4c181","https://ror.org/05bnh6r87"]}}}));
-        let index: LocationIndex = serde_json::from_value(json!({"version":"fixture","date":"fixture","source":"fixture","sourceSha256":"fixture","license":"CC0-1.0","organizations":{
-            "https://ror.org/01qz5mb56":{"name":"Example","locations":[{"country":"US","latitude":91,"longitude":0},{"country":"US","latitude":35,"longitude":-84}]},
-            "https://ror.org/04aj4c181":{"name":"Locationless","locations":[]}
-        }})).unwrap();
-        let rows = markers(&workspace, &index);
-        let first = rows.iter().find(|marker| marker.id.ends_with("01qz5mb56")).unwrap();
-        assert_eq!(rows.len(), 3);
-        assert_eq!(first.id, "https://ror.org/01qz5mb56");
-        assert!(first.resolved);
-        assert_eq!(first.references, 3);
-        assert_eq!(first.location.as_ref().unwrap().latitude, 35.0);
-        assert_eq!(first.activities.len(), 1);
-        assert!(rows.iter().any(|marker| marker.resolved && marker.location.is_none()));
-        assert!(rows.iter().any(|marker| !marker.resolved));
-        assert!(markers(&Workspace::default(), &index).is_empty());
-        let pins = BTreeSet::from([
-            "01qz5mb56".into(),
-            "http://ror.org/01qz5mb56".into(),
-            "https://ror.org/04aj4c181".into(),
-            "https://ror.org/05bnh6r87".into(),
-            "https://ror.org/01qz5mb56xxx".into(),
-            "not-a-ror".into(),
-        ]);
-        let standalone = markers_with_identifiers(&Workspace::default(), &index, &pins);
-        assert_eq!(standalone.len(), 3);
-        assert!(standalone.iter().all(|marker| marker.references == 0 && marker.activities.is_empty()));
-        assert_eq!(standalone.iter().filter(|marker| marker.location.is_some()).count(), 1);
-        assert!(standalone.iter().any(|marker| marker.resolved && marker.location.is_none()));
-        assert!(standalone.iter().any(|marker| !marker.resolved && marker.location.is_none()));
-        assert_eq!(markers_with_identifiers(&workspace, &index, &pins), rows);
-        assert_eq!(canonical_ror(" 01qz5mb56 "), Some("https://ror.org/01qz5mb56".into()));
-        assert_eq!(canonical_ror("https://ror.org/01qz5mb56xxx"), None);
-    }
 }

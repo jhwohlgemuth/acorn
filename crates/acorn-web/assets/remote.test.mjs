@@ -4,7 +4,13 @@ import { runInNewContext } from "node:vm";
 import test from "node:test";
 const sessionValues = new Map();
 const sessionStorage = { getItem: key => sessionValues.get(key) ?? null, setItem: (key, value) => sessionValues.set(key, value), removeItem: key => sessionValues.delete(key) };
-const context = { window: { isSecureContext: true, sessionStorage, acornWorkspace: { validPath: (path) => !path.split("/").some((part) => [".", "..", ""].includes(part)) && /\.(json|md|ya?ml|txt)$/.test(path) } }, URL, TextDecoder, Uint8Array, AbortController, setTimeout, clearTimeout, atob, Event, fetch };
+const imageMime = (path) => /\.png$/i.test(path) ? "image/png" : /\.jpe?g$/i.test(path) ? "image/jpeg" : /\.webp$/i.test(path) ? "image/webp" : "";
+const imageContent = (path, bytes) => {
+    const mime = imageMime(path);
+    if (!mime || !bytes.length || (mime === "image/png" && bytes[0] !== 137)) throw new Error("Image bytes do not match the file extension.");
+    return `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
+};
+const context = { window: { isSecureContext: true, sessionStorage, acornWorkspace: { validPath: (path) => !path.split("/").some((part) => [".", "..", ""].includes(part)) && /\.(json|md|ya?ml|txt|svg|png|jpe?g|webp)$/i.test(path), imageMime, imageContent } }, URL, TextDecoder, Uint8Array, AbortController, setTimeout, clearTimeout, atob, Event, fetch };
 runInNewContext(await readFile(new URL("remote.js", import.meta.url), "utf8"), context);
 const sha = "a".repeat(40);
 const response = (data, status = 200) => new Response(typeof data === "string" ? data : JSON.stringify(data), { status });
@@ -34,6 +40,13 @@ test("file loading bounds UTF-8 bytes and omits credentials and referrers", asyn
     const encoded = await context.loadRemoteFile("https://example.org/a%2fb.txt", 4, signal, async () => response("safe"));
     assert.equal(encoded.path, "download.txt");
 });
+test("workspace image URLs retain bytes while text-tool URLs reject binary input", async () => {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/RZkAAAAASUVORK5CYII=", "base64");
+    const loader = context.createRemoteFileLoader(async () => new Response(png));
+    const loaded = await loader.load("https://example.org/cover.png", 262144, true);
+    assert.equal(loaded.content, `data:image/png;base64,${png.toString("base64")}`);
+    await assert.rejects(loader.load("https://example.org/cover.png", 262144), /UTF-8/);
+});
 test("file loader cancels and supersedes requests without returning stale content", async () => {
     const loader = context.createRemoteFileLoader(async (url, { signal }) => url.endsWith("slow.txt") ? new Promise((resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true })) : response("new"));
     const cancelled = loader.load("https://example.org/slow.txt", 10);
@@ -44,7 +57,7 @@ test("file loader cancels and supersedes requests without returning stale conten
     const next = await loader.load("https://example.org/new.txt", 10);
     await rejected;
     assert.equal(next.content, "new");
-    await assert.rejects(loader.load("https://example.org/file.exe", 10, true), /JSON, YAML, Markdown or text/);
+    await assert.rejects(loader.load("https://example.org/file.exe", 10, true), /supported image/);
 });
 test("bucket history persists recent unique inputs, bounds suggestions and clears only its own key", () => {
     const values = new Map([["unrelated", "keep"]]);
@@ -59,14 +72,14 @@ test("bucket history persists recent unique inputs, bounds suggestions and clear
     assert.equal(reopened.repositories[0], "owner/repo-24");
     assert.equal(reopened.repositories.at(-1), "owner/repo-5");
     assert.equal(reopened.refs[0], "release/24");
-    history.clear();
+    assert.equal(history.clear(), true);
     assert.equal(history.read().repositories.length, 0);
     assert.equal(values.get("unrelated"), "keep");
 });
 test("bucket history tolerates unavailable storage and malformed saved values", () => {
     const unavailable = context.createBucketHistory(() => { throw new Error("disabled"); });
     assert.equal(unavailable.read().repositories.length, 0);
-    assert.doesNotThrow(() => { unavailable.remember("owner/repo", "main"); unavailable.clear(); });
+    assert.doesNotThrow(() => { unavailable.remember("owner/repo", "main"); assert.equal(unavailable.clear(), false); });
     const full = context.createBucketHistory(() => ({ getItem: () => null, setItem() { throw new Error("quota"); } }));
     assert.doesNotThrow(() => full.remember("owner/repo", "main"));
     for (const malformed of ["{", "null", "[]", '{"repositories":17,"refs":{}}']) {
@@ -92,10 +105,26 @@ test("GitHub loads bounded supported files at the resolved commit without creden
         seen.push(url); assert.equal(options.credentials, "omit"); assert.equal(options.redirect, "error");
         if (url.endsWith("/a/b")) return response({ default_branch: "main" });
         if (url.endsWith("/commits/main")) return response({ sha });
-        if (url.includes("/git/trees/")) return response({ tree: [{ type: "blob", path: "rad.json", sha, size: 2 }, { type: "blob", path: "image.png", sha }] });
+        if (url.includes("/git/trees/")) return response({ tree: [{ type: "blob", path: "rad.json", sha, size: 2 }, { type: "blob", path: "ignored.bin", sha }] });
         return response({ encoding: "base64", content: "e30=" });
     });
     assert.equal(result.files[0].content, "{}"); assert.equal(result.skipped, 1); assert.ok(seen[2].includes(sha));
+});
+test("pinned GitHub and GitLab imports retain image bytes for the catalog", async () => {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/RZkAAAAASUVORK5CYII=", "base64");
+    for (const kind of ["github", "gitlab"]) {
+        const source = context.parseRemoteBucket(kind === "github" ? "a/b" : "https://gitlab.com/a/b");
+        const result = await context.loadRemoteBucket(source, new AbortController().signal, async (url) => {
+            if (url.endsWith("/a/b") || url.endsWith("/projects/a%2Fb")) return response({ default_branch: "main" });
+            if (url.includes("/commits/")) return response(kind === "github" ? { sha } : { id: sha });
+            if (url.includes("/git/trees/")) return response({ tree: [{ type: "blob", path: "project/cover.png", sha }] });
+            if (url.includes("/repository/tree?")) return response([{ type: "blob", path: "project/cover.png" }]);
+            return kind === "github" ? response({ encoding: "base64", content: png.toString("base64") }) : new Response(png);
+        });
+        assert.equal(result.files[0].path, "project/cover.png");
+        assert.equal(result.files[0].content, `data:image/png;base64,${png.toString("base64")}`);
+        assert.equal(result.source.revision, sha);
+    }
 });
 test("repository token is header-only and scoped to its selected provider host", async () => {
     const source = context.parseRemoteBucket("a/b");
