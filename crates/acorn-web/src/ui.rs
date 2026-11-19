@@ -112,19 +112,21 @@ fn Home() -> Element {
             div { class: "home-banner", img { class: "banner-dark", src: asset!("/assets/generated/banner_dark_mode.png"), alt: "ACORN", width: "320" } img { class: "banner-light", src: asset!("/assets/generated/banner_light_mode.png"), alt: "ACORN", width: "320" } }
             div { class: "home-brand",
                 h1 { class: "home-subtitle", "Research Intelligence" }
-                p { class: "home-tagline", "Plant an acorn, grow your science" }
             }
-            div { id: "home-actions", class: "actions centered",
-                button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { document::eval("window.acornChrome?.tour.start()"); }, Icon { name: "compass" } "Take a tour" }
-                if !sample_loaded { button { id: "sample-data", class: "sample-action", disabled: loading(), "aria-busy": loading(), onclick: move |_| async move {
-                    loading.set(true);
-                    let mut loaded = Workspace::default().replace(Selection { files: sample::files(), skipped: 0 });
-                    loaded.validations = validate_files(loaded.files.iter().filter(|file| matches!(MimeType::from(file.path.as_str()), MimeType::Json)).cloned().collect()).await.into_iter().filter_map(|(path, result)| result.ok().map(|value| (path, value))).collect();
-                    loaded.selected = sample_activity_path(&loaded);
-                    loading.set(false);
-                    session.set(loaded.content()); workspace.set(loaded); nav.push(Route::Page { page: "portfolio".into() });
-                    document::eval("window.acornChrome?.notifications.notify('Synthetic research bucket loaded.')");
-                }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } } }
+            div { class: "home-cta",
+                p { class: "home-tagline", "Plant an acorn, grow your science" }
+                div { id: "home-actions", class: "actions centered",
+                    button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { document::eval("window.acornChrome?.tour.start()"); }, Icon { name: "compass" } "Take a tour" }
+                    if !sample_loaded { button { id: "sample-data", class: "sample-action", disabled: loading(), "aria-busy": loading(), onclick: move |_| async move {
+                        loading.set(true);
+                        let mut loaded = Workspace::default().replace(Selection { files: sample::files(), skipped: 0 });
+                        loaded.validations = validate_files(loaded.files.iter().filter(|file| matches!(MimeType::from(file.path.as_str()), MimeType::Json)).cloned().collect()).await.into_iter().filter_map(|(path, result)| result.ok().map(|value| (path, value))).collect();
+                        loaded.selected = sample_activity_path(&loaded);
+                        loading.set(false);
+                        session.set(loaded.content()); workspace.set(loaded); nav.push(Route::Page { page: "portfolio".into() });
+                        document::eval("window.acornChrome?.notifications.notify('Synthetic research bucket loaded.')");
+                    }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } } }
+                }
             }
             Link { id: "skill-entry", to: Route::Page { page: "skill".into() }, class: "skill-card", span { "The home of the ACORN Skill" } p { "Validate metadata, convert formats and inspect identifiers, then use ACORN in your agent environment." } span { class: "muted", "Explore the skill guide →" } }
             Loader {}
@@ -217,11 +219,13 @@ pub(crate) fn Icon(name: &'static str) -> Element {
 }
 #[component]
 fn InfoPage(page: String) -> Element {
+    let mut collapsed = use_context::<Signal<bool>>();
     let mut map_pins = use_context::<Signal<MapPins>>();
     let mut session = use_context::<Signal<String>>();
     let mut workspace = use_context::<Signal<Workspace>>();
     let mut storage_status = use_context::<Signal<(usize, bool)>>();
     let mut storage_error = use_signal(String::new);
+    let mut settings_message = use_signal(String::new);
     let mut credential_status = use_signal(String::new);
     let mut credential_error = use_signal(String::new);
     let mut credential_message = use_signal(String::new);
@@ -235,7 +239,7 @@ fn InfoPage(page: String) -> Element {
         }
     });
     use_future(move || async move {
-        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialHost();").join::<String>().await {
+        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialStatus();").join::<String>().await {
             credential_status.set(host);
         }
     });
@@ -279,6 +283,15 @@ fn InfoPage(page: String) -> Element {
                             }
                         }
                         p { id: "theme-mode", class: "small muted", "Following your system preference." }
+                        div { class: "actions",
+                            button { onclick: move |_| {
+                                collapsed.set(false);
+                                let _ = js_sys::Reflect::set(&js_sys::global(), &"acornInitialSidebarCollapsed".into(), &false.into());
+                                document::eval("if (window.acornChrome) window.acornChrome.theme.reset(); try { sessionStorage.removeItem('acorn-sidebar-collapsed'); } catch {}");
+                                settings_message.set("Saved appearance and sidebar settings cleared.".into());
+                            }, "Clear saved settings" }
+                        }
+                        if !settings_message().is_empty() { p { role: "status", class: "status", "{settings_message}" } }
                     }
                     div { class: "card", h2 { class: "section-heading", Icon { name: "folder-open" } "Your data" }
                         dl { class: "result-fields", dt { "Loaded now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } dt { "Saved for reload" } dd { if storage_status().1 { "Latest save failed" } else if storage_status().0 > 0 { "On this device" } else { "Nothing saved" } } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
@@ -427,7 +440,7 @@ fn Shell() -> Element {
     let initial_theme = js_sys::Reflect::get(&js_sys::global(), &"acornInitialTheme".into())
         .ok()
         .and_then(|value| value.as_string())
-        .unwrap_or_else(|| "dark".into());
+        .unwrap_or_else(|| "light".into());
     let initially_dark = initial_theme == "dark";
     let route = use_route::<Route>();
     let current = match route {

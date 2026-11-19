@@ -79,15 +79,23 @@ function createNotifier(show, schedule = setTimeout, cancel = clearTimeout) {
         notify(message) { dismiss(); show(message); timer = schedule(dismiss, 6000); },
     };
 }
-function createTheme(preference, apply) {
+function createTheme(preference, apply, storage = () => window.localStorage, override = "") {
     let systemDark = preference;
-    let explicit = null;
-    const sync = () => apply(explicit ?? systemDark, explicit === null);
+    let mode = "system";
+    try {
+        const saved = storage().getItem("acorn.theme.v1");
+        if (["dark", "light", "system"].includes(saved)) mode = saved;
+    } catch {}
+    let fromUrl = ["dark", "light"].includes(override);
+    if (fromUrl) mode = override;
+    const currentDark = () => (mode === "system" && systemDark) || mode === "dark";
+    const sync = () => apply(currentDark(), mode === "system", fromUrl);
+    const save = () => { try { storage().setItem("acorn.theme.v1", mode); } catch {} };
     return {
         sync,
-        choose(mode) { if (["dark", "light", "system"].includes(mode)) { explicit = mode === "system" ? null : mode === "dark"; sync(); } },
-        reset() { explicit = null; sync(); },
-        toggle() { explicit = !(explicit ?? systemDark); sync(); },
+        choose(choice) { if (["dark", "light", "system"].includes(choice)) { mode = choice; fromUrl = false; save(); sync(); } },
+        reset() { mode = "system"; fromUrl = false; try { storage().removeItem("acorn.theme.v1"); } catch {} sync(); },
+        toggle() { const dark = currentDark(); mode = "dark"; if (dark) mode = "light"; fromUrl = false; save(); sync(); },
         update(dark) { systemDark = dark; sync(); },
     };
 }
@@ -153,8 +161,10 @@ function installChrome() {
     const workspace = document.querySelector(".workspace");
     if (!workspace || !window.matchMedia) return;
     const preference = window.matchMedia("(prefers-color-scheme: dark)");
-    const theme = createTheme(preference.matches, (dark, system) => {
+    const theme = createTheme(preference.matches, (dark, system, fromUrl) => {
         workspace.dataset.theme = dark ? "dark" : "light";
+        window.acornInitialTheme = workspace.dataset.theme;
+        document.documentElement.dataset.theme = workspace.dataset.theme;
         const favicon = document.getElementById("app-favicon");
         if (favicon) favicon.href = dark ? favicon.dataset.darkIcon : favicon.dataset.lightIcon;
         const button = document.getElementById("theme-toggle");
@@ -166,8 +176,12 @@ function installChrome() {
             document.querySelector(`[data-theme-choice="${choice}"]`)?.setAttribute("aria-pressed", String(choice === (system ? "system" : dark ? "dark" : "light")));
         }
         const mode = document.getElementById("theme-mode");
-        if (mode) mode.textContent = system ? "Following your system preference." : "Using your explicit choice for this session.";
-    });
+        if (mode) {
+            mode.textContent = "Using your saved theme preference.";
+            if (system) mode.textContent = "Following your system preference.";
+            if (fromUrl) mode.textContent = "Using the theme from this URL.";
+        }
+    }, () => window.localStorage, window.acornThemeOverride);
     const notifications = createNotifier((message) => {
         const region = document.getElementById("notification");
         const text = document.getElementById("notification-text");
@@ -181,6 +195,7 @@ function installChrome() {
         theme: () => workspace.dataset.theme,
     });
     window.acornChrome = { theme, notifications, tour };
+    theme.sync();
     preference.addEventListener("change", (event) => theme.update(event.matches));
     window.addEventListener("resize", () => {
         const toggle = document.getElementById("nav-toggle");
@@ -190,7 +205,6 @@ function installChrome() {
         }
     });
     window.addEventListener("pagehide", () => { tour.cancel(); notifications.dismiss(); });
-    theme.sync();
 }
 if (document.querySelector(".workspace")) installChrome();
 else if (typeof MutationObserver === "function" && document.documentElement) {
@@ -200,7 +214,7 @@ else if (typeof MutationObserver === "function" && document.documentElement) {
     observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-const workspaceLimits = { count: 500, depth: 20, entries: 10000, file: 262144, total: 16777216 };
+const workspaceLimits = { count: 500, depth: 20, entries: 10000, file: 2 * 1024 * 1024, total: 32 * 1024 * 1024 };
 function validWorkspacePath(path) {
     const parts = path.split("/");
     return !/[\\:\x00-\x1f\x7f]/.test(path) && parts.length <= workspaceLimits.depth

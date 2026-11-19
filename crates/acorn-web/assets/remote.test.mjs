@@ -102,7 +102,7 @@ test("repository parser handles GitHub shortcuts, GitLab groups and slash refs",
 test("GitHub loads bounded supported files at the resolved commit without credentials", async () => {
     const seen = [];
     const result = await context.loadRemoteBucket(context.parseRemoteBucket("a/b"), new AbortController().signal, async (url, options) => {
-        seen.push(url); assert.equal(options.credentials, "omit"); assert.equal(options.redirect, "error");
+        seen.push(url); assert.equal(options.credentials, "omit"); assert.equal(options.redirect, "follow");
         if (url.endsWith("/a/b")) return response({ default_branch: "main" });
         if (url.endsWith("/commits/main")) return response({ sha });
         if (url.includes("/git/trees/")) return response({ tree: [{ type: "blob", path: "rad.json", sha, size: 2 }, { type: "blob", path: "ignored.bin", sha }] });
@@ -126,7 +126,22 @@ test("pinned GitHub and GitLab imports retain image bytes for the catalog", asyn
         assert.equal(result.source.revision, sha);
     }
 });
-test("repository token is header-only and scoped to its selected provider host", async () => {
+test("GitLab requests LFS image content and skips invalid image bytes", async () => {
+    const seen = [];
+    const source = context.parseRemoteBucket("https://code.ornl.gov/group/repo");
+    const result = await context.loadRemoteBucket(source, new AbortController().signal, async (url) => {
+        seen.push(url);
+        if (url.endsWith("/projects/group%2Frepo")) return response({ id: 42, default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("/tree?")) return response([{ type: "blob", path: "bad.png" }, { type: "blob", path: "rad.json" }]);
+        return response(url.includes("bad.png") ? "version https://git-lfs.github.com/spec/v1" : "{}");
+    });
+    assert.deepEqual(Array.from(result.files, (file) => file.path), ["rad.json"]);
+    assert.equal(result.skipped, 1);
+    assert.equal(result.unavailable, 0);
+    assert.ok(seen.filter((url) => url.includes("/repository/files/")).every((url) => url.endsWith(`ref=${sha}&lfs=true`)));
+});
+test("repository token is header-only and redirects can be followed", async () => {
     const source = context.parseRemoteBucket("a/b");
     const seen = [];
     const load = (token) => context.loadRemoteBucket(source, new AbortController().signal, async (url, options) => {
@@ -137,12 +152,12 @@ test("repository token is header-only and scoped to its selected provider host",
         return response({ encoding: "base64", content: "e30=" });
     }, token);
     await load("secret-value");
-    assert.ok(seen.every(({ url, options }) => !url.includes("secret-value") && options.headers.Authorization === "Bearer secret-value" && options.redirect === "error"));
+    assert.ok(seen.every(({ url, options }) => !url.includes("secret-value") && options.headers.Authorization === "Bearer secret-value" && options.redirect === "follow"));
     seen.length = 0;
     await load("");
     assert.ok(seen.every(({ options }) => !Object.hasOwn(options.headers, "Authorization")));
 });
-test("repository credential is tab-only, provider/host-bound and removable", async () => {
+test("repository credential can be saved before a URL and used across repository hosts", async () => {
     const seen = [];
     context.window.acornWorkspace.cancel = () => {};
     context.fetch = async (url, options) => {
@@ -154,8 +169,8 @@ test("repository credential is tab-only, provider/host-bound and removable", asy
         return url.includes("api.github.com") ? response({ encoding: "base64", content: "e30=" }) : response("{}");
     };
     const loader = context.createRemoteLoader();
-    assert.equal(loader.setCredential("a/b", "secret-value"), "api.github.com");
-    assert.equal(context.createRemoteLoader().credentialHost(), "api.github.com", "same-tab reload reads session storage");
+    assert.equal(loader.setCredential("secret-value"), "all repository URLs");
+    assert.equal(context.createRemoteLoader().credentialStatus(), "all repository URLs", "same-tab reload reads session storage");
     await loader.load("a/b", "");
     assert.ok(seen.every(({ options }) => options.headers.Authorization === "Bearer secret-value"));
     seen.length = 0;
@@ -163,19 +178,15 @@ test("repository credential is tab-only, provider/host-bound and removable", asy
     assert.ok(seen.every(({ options }) => options.headers.Authorization === "Bearer secret-value"), "a second GitHub repository shares its provider host token");
     seen.length = 0;
     await loader.load("https://gitlab.com/a/b", "");
-    assert.ok(seen.every(({ options }) => !Object.hasOwn(options.headers, "Authorization") && !Object.hasOwn(options.headers, "PRIVATE-TOKEN")));
-    seen.length = 0;
-    assert.equal(loader.setCredential("https://gitlab.com/a/b", "gitlab-secret"), "gitlab.com");
-    await loader.load("https://gitlab.com/a/b", "");
-    assert.ok(seen.every(({ url, options }) => !url.includes("gitlab-secret") && options.headers["PRIVATE-TOKEN"] === "gitlab-secret" && options.redirect === "error"));
+    assert.ok(seen.every(({ url, options }) => !url.includes("secret-value") && options.headers.Authorization === "Bearer secret-value" && options.redirect === "follow"));
     seen.length = 0;
     await loader.load("https://gitlab.com/a/c", "");
-    assert.ok(seen.every(({ options }) => options.headers["PRIVATE-TOKEN"] === "gitlab-secret"), "a second GitLab repository shares its provider host token");
+    assert.ok(seen.every(({ options }) => options.headers.Authorization === "Bearer secret-value"));
     seen.length = 0;
     await loader.load("https://code.ornl.gov/a/b", "");
-    assert.ok(seen.every(({ options }) => !Object.hasOwn(options.headers, "PRIVATE-TOKEN")), "a token never crosses GitLab hosts");
+    assert.ok(seen.every(({ options }) => options.headers.Authorization === "Bearer secret-value"), "the app token follows the selected repository URL");
     loader.clearCredential();
-    assert.equal(loader.credentialHost(), "");
+    assert.equal(loader.credentialStatus(), "");
     assert.equal(sessionValues.has("acorn.repository-credential.v1"), false);
     assert.equal(loader.history.read().repositories.includes("secret-value"), false);
 });
@@ -186,40 +197,140 @@ test("an existing project-bound tab token stays project-bound until explicitly r
     const seen = [];
     context.fetch = async (url, options) => { seen.push({ url, options }); return response({ message: "401 Unauthorized" }, 401); };
     const loader = context.createRemoteLoader();
-    assert.match(loader.credentialHost(), /code\.ornl\.gov\/group\/first \(repository only/);
+    assert.match(loader.credentialStatus(), /code\.ornl\.gov\/group\/first \(repository only/);
     await assert.rejects(loader.load("https://code.ornl.gov/group/first", ""), /rejected the configured token/);
-    assert.equal(seen[0].options.headers["PRIVATE-TOKEN"], "legacy-token");
+    assert.equal(seen[0].options.headers.Authorization, "Bearer legacy-token");
     seen.length = 0;
-    await assert.rejects(loader.load("https://code.ornl.gov/group/second", ""), /Save a token for this host/);
-    assert.equal(Object.hasOwn(seen[0].options.headers, "PRIVATE-TOKEN"), false);
-    assert.equal(loader.setCredential("https://code.ornl.gov/group/first", "legacy-token"), "code.ornl.gov");
-    assert.equal(loader.credentialHost(), "code.ornl.gov");
+    await assert.rejects(loader.load("https://code.ornl.gov/group/second", ""), /Save a repository token/);
+    assert.equal(Object.hasOwn(seen[0].options.headers, "Authorization"), false);
+    assert.equal(loader.setCredential("legacy-token"), "all repository URLs");
+    assert.equal(loader.credentialStatus(), "all repository URLs");
     seen.length = 0;
     await assert.rejects(loader.load("https://code.ornl.gov/group/second", ""), /rejected the configured token/);
-    assert.equal(seen[0].options.headers["PRIVATE-TOKEN"], "legacy-token");
+    assert.equal(seen[0].options.headers.Authorization, "Bearer legacy-token");
     loader.clearCredential();
 });
 test("repository tokens require secure session storage", () => {
     const credentials = context.createRepositoryCredentials(() => sessionStorage, () => false);
-    assert.throws(() => credentials.set(context.parseRemoteBucket("a/b"), "secret"), /secure browser context/);
+    assert.throws(() => credentials.set("secret"), /secure browser context/);
     assert.equal(credentials.read(), null);
     const unavailable = context.createRepositoryCredentials(() => { throw new Error("denied"); }, () => true);
     assert.equal(unavailable.read(), null);
-    assert.throws(() => unavailable.set(context.parseRemoteBucket("a/b"), "secret"), /Session storage is unavailable/);
+    assert.throws(() => unavailable.set("secret"), /Session storage is unavailable/);
     sessionStorage.setItem("acorn.repository-credential.v1", "{bad json");
     assert.equal(context.createRepositoryCredentials(() => sessionStorage, () => true).read(), null);
     sessionStorage.removeItem("acorn.repository-credential.v1");
 });
 test("GitLab paginates and loads raw files at a pinned commit", async () => {
     const seen = [];
+    const cursor = "eyJmaWxlX25hbWUiOiIuZHZjIiwidHJlZV9vaWQiOiJmNzY1MzYxZDUwZDJhMWE4OTFkOGFiZGFhOGRjYjdjMzBkZjRlOTQxIn0=";
     const result = await context.loadRemoteBucket(context.parseRemoteBucket("https://gitlab.com/a/b/-/tree/main/data"), new AbortController().signal, async (url) => {
         seen.push(url);
         if (url.endsWith("/projects/a%2Fb")) return response({ default_branch: "main" });
         if (url.includes("/commits/")) return response({ id: sha });
-        if (url.includes("/tree?")) return response(url.includes("page_token=") ? [{ type: "blob", path: "data/rad.json" }] : Array.from({ length: 100 }, (_, i) => ({ id: sha, type: "tree", path: `data/${i}` })));
+        if (url.includes("/tree?")) return url.includes("page_token=")
+            ? response([{ type: "blob", path: "data/rad.json" }])
+            : new Response(JSON.stringify(Array.from({ length: 100 }, (_, i) => ({ id: sha, type: "tree", path: `data/${i}` }))), { headers: { Link: `<https://gitlab.com/api/v4/projects/a%2Fb/repository/tree?page_token=${encodeURIComponent(cursor)}&pagination=keyset>; rel="next"` } });
         return response('{}');
     });
-    assert.equal(result.files.length, 1); assert.ok(seen.some((url) => url.includes(`page_token=${sha}`))); assert.ok(seen.at(-1).endsWith(`ref=${sha}`));
+    assert.equal(result.files.length, 1); assert.ok(seen.some((url) => url.includes(`page_token=${encodeURIComponent(cursor)}`))); assert.ok(seen.at(-1).endsWith(`ref=${sha}&lfs=true`));
+});
+test("GitLab uses the resolved numeric project ID for repository requests", async () => {
+    const seen = [];
+    const source = context.parseRemoteBucket("https://code.ornl.gov/research-enablement/buckets/nssd");
+    const result = await context.loadRemoteBucket(source, new AbortController().signal, async (url) => {
+        seen.push(url);
+        if (url.endsWith("/projects/research-enablement%2Fbuckets%2Fnssd")) return response({ id: 42, default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("/tree?")) return response([{ type: "blob", path: "rad.json" }]);
+        return response("{}");
+    });
+    assert.equal(result.files[0].content, "{}");
+    assert.ok(seen.slice(1).every((url) => url.startsWith("https://code.ornl.gov/api/v4/projects/42/")));
+});
+test("repository requests accept same-origin redirects and reject another host", async () => {
+    const source = context.parseRemoteBucket("https://code.ornl.gov/group/repo");
+    const redirected = (url, data) => {
+        const result = response(data);
+        Object.defineProperty(result, "url", { value: url });
+        return result;
+    };
+    const fetcher = async (url, options) => {
+        assert.equal(options.redirect, "follow");
+        if (url.endsWith("/projects/group%2Frepo")) return redirected("https://code.ornl.gov/api/v4/projects/42", { id: 42, default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("/tree?")) return response([{ type: "blob", path: "rad.json" }]);
+        return response("{}");
+    };
+    const result = await context.loadRemoteBucket(source, new AbortController().signal, fetcher, "private-demo-token");
+    assert.equal(result.files[0].content, "{}");
+    await assert.rejects(context.loadRemoteBucket(source, new AbortController().signal, async () => redirected("https://other.example.org/api/v4/projects/42", { id: 42, default_branch: "main" }), "private-demo-token"), /redirected to another host/);
+});
+test("GitLab accepts only same-host tree cursors from the next link", () => {
+    const origin = "https://code.ornl.gov";
+    const next = `<${origin}/api/v4/projects/23285/repository/tree?page_token=opaque%3D>; rel="next"`;
+    assert.equal(context.nextGitLabPageToken(next, origin), "opaque=");
+    assert.equal(context.nextGitLabPageToken(null, origin), "");
+    assert.throws(() => context.nextGitLabPageToken('<https://other.example.org/repository/tree?page_token=opaque>; rel="next"', origin), /invalid listing cursor/);
+    assert.throws(() => context.nextGitLabPageToken(`<${origin}/api/v4/projects/23285/repository/tree>; rel="next"`, origin), /invalid listing cursor/);
+});
+test("GitLab identifies the failing listing page", async () => {
+    const source = context.parseRemoteBucket("https://code.ornl.gov/research-enablement/buckets/nssd");
+    const next = `<https://code.ornl.gov/api/v4/projects/23285/repository/tree?page_token=opaque>; rel="next"`;
+    await assert.rejects(context.loadRemoteBucket(source, new AbortController().signal, async (url) => {
+        if (url.endsWith("/projects/research-enablement%2Fbuckets%2Fnssd")) return response({ default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("page_token=")) throw new TypeError("Failed to fetch");
+        return new Response(JSON.stringify([{ type: "tree", path: "folder" }]), { headers: { Link: next } });
+    }), /file listing.*Listing page 2/);
+});
+test("GitLab loads files above the old limit and skips oversized files", async () => {
+    const result = await context.loadRemoteBucket(context.parseRemoteBucket("https://code.ornl.gov/research-enablement/buckets/nssd"), new AbortController().signal, async (url) => {
+        if (url.endsWith("/projects/research-enablement%2Fbuckets%2Fnssd")) return response({ default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("/tree?")) return response([
+            { type: "blob", path: "data/large.txt" },
+            { type: "blob", path: "data/small.json" },
+            { type: "blob", path: "data/too-large.txt" },
+        ]);
+        if (url.includes("too-large.txt")) return new Response("too large", { headers: { "content-length": String(2 * 1024 * 1024 + 1) } });
+        return response(url.includes("large.txt") ? "x".repeat(300 * 1024) : "{}");
+    });
+    assert.deepEqual(Array.from(result.files, (file) => file.path), ["data/large.txt", "data/small.json"]);
+    assert.equal(result.files[0].content.length, 300 * 1024);
+    assert.equal(result.skipped, 1);
+});
+test("GitLab keeps available files when one raw request fails", async () => {
+    const source = context.parseRemoteBucket("https://code.ornl.gov/research-enablement/buckets/nssd");
+    const result = await context.loadRemoteBucket(source, new AbortController().signal, async (url) => {
+        if (url.endsWith("/projects/research-enablement%2Fbuckets%2Fnssd")) return response({ default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("/tree?")) return response([{ type: "blob", path: "bad.json" }, { type: "blob", path: "good.json" }]);
+        if (url.includes("bad.json")) throw new TypeError("Failed to fetch");
+        return response("{}");
+    }, "private-demo-token");
+    assert.deepEqual(Array.from(result.files, (file) => file.path), ["good.json"]);
+    assert.equal(result.skipped, 1);
+    assert.equal(result.unavailable, 1);
+});
+test("GitLab retries a failed path download through its pinned blob", async () => {
+    const seen = [];
+    const source = context.parseRemoteBucket("https://code.ornl.gov/research-enablement/buckets/nssd");
+    const result = await context.loadRemoteBucket(source, new AbortController().signal, async (url) => {
+        seen.push(url);
+        if (url.endsWith("/projects/research-enablement%2Fbuckets%2Fnssd")) return response({ default_branch: "main" });
+        if (url.includes("/commits/")) return response({ id: sha });
+        if (url.includes("/tree?")) return response([{ id: sha, type: "blob", path: "data/rad.json" }]);
+        if (url.includes("/repository/files/")) throw new TypeError("Failed to fetch");
+        return response("{}");
+    }, "private-demo-token");
+    assert.equal(result.files[0].content, "{}");
+    assert.equal(result.unavailable, 0);
+    assert.ok(seen.some((url) => url.endsWith(`/repository/blobs/${sha}/raw`)));
+});
+test("GitLab identifies the request stage when network access fails", async () => {
+    const source = context.parseRemoteBucket("https://code.ornl.gov/research-enablement/buckets/nssd");
+    await assert.rejects(context.loadRemoteBucket(source, new AbortController().signal, async () => { throw new TypeError("Failed to fetch"); }, "private-demo-token"), /project details.*network or CORS.*saved token was sent/i);
 });
 test("private GitLab load keeps its token on the selected host and redacts failures", async () => {
     context.window.acornWorkspace.cancel = () => {};
@@ -232,11 +343,11 @@ test("private GitLab load keeps its token on the selected host and redacts failu
         return response("{}");
     };
     const loader = context.createRemoteLoader();
-    loader.setCredential("https://gitlab.com/a/b", "private-demo-token");
+    loader.setCredential("private-demo-token");
     const loaded = await loader.load("https://gitlab.com/a/b", "");
     assert.equal(loaded.source.revision, sha);
     assert.equal(loaded.files[0].path, "rad.json");
-    assert.ok(calls.every(({ url, options }) => url.startsWith("https://gitlab.com/api/v4/projects/a%2Fb") && options.headers["PRIVATE-TOKEN"] === "private-demo-token" && options.redirect === "error"));
+    assert.ok(calls.every(({ url, options }) => url.startsWith("https://gitlab.com/api/v4/projects/a%2Fb") && options.headers.Authorization === "Bearer private-demo-token" && options.redirect === "follow"));
     context.fetch = async () => { throw new Error("private-demo-token rejected"); };
     await assert.rejects(loader.load("https://gitlab.com/a/b", ""), (error) => !error.message.includes("private-demo-token") && error.message.includes("[redacted]"));
     loader.clearCredential();
@@ -248,18 +359,18 @@ test("nested GitLab project 401 distinguishes a rejected token from an unmatched
     context.window.acornWorkspace.cancel = () => {};
     context.fetch = async (url, options) => { seen.push({ url, options }); return response({ message: "401 Unauthorized" }, 401); };
     const loader = context.createRemoteLoader();
-    assert.equal(loader.setCredential(project, "  legacy-pat  "), "code.ornl.gov");
+    assert.equal(loader.setCredential("  legacy-pat  "), "all repository URLs");
     await assert.rejects(loader.load(project, ""), /configured token \(401\) while reading project details/);
     assert.equal(seen[0].url, "https://code.ornl.gov/api/v4/projects/research-enablement%2Fbuckets%2Fnssd");
-    assert.equal(seen[0].options.headers["PRIVATE-TOKEN"], "legacy-pat");
+    assert.equal(seen[0].options.headers.Authorization, "Bearer legacy-pat");
     seen.length = 0;
-    await assert.rejects(loader.load("https://other.example.org/research-enablement/buckets/other", ""), /requires authentication \(401\).*this host/);
-    assert.equal(Object.hasOwn(seen[0].options.headers, "PRIVATE-TOKEN"), false);
+    await assert.rejects(loader.load("https://other.example.org/research-enablement/buckets/other", ""), /rejected the configured token \(401\)/);
+    assert.equal(seen[0].options.headers.Authorization, "Bearer legacy-pat");
     loader.clearCredential();
 });
 test("remote failures, truncated trees, oversized streams and cancellation reject atomically", async () => {
     await assert.rejects(context.readRemoteBytes(response("denied", 403), 10), /rate limit/);
-    await assert.rejects(context.readRemoteBytes(response("missing", 404), 10), /save a token for this host/);
+    await assert.rejects(context.readRemoteBytes(response("missing", 404), 10), /save a repository token/);
     await assert.rejects(context.readRemoteBytes(response("12345"), 4), /size limit/);
     await assert.rejects(context.loadRemoteBucket(context.parseRemoteBucket("a/b"), new AbortController().signal, async (url) => response(url.endsWith("/a/b") ? { default_branch: "main" } : url.includes("/commits/") ? { sha } : { truncated: true, tree: [] })), /too large/);
     const controller = new AbortController(); controller.abort();

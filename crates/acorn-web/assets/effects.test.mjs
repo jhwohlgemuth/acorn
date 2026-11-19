@@ -57,7 +57,7 @@ test("a tour import finishing after navigation cannot reopen the tour", async ()
     await pending;
     assert.equal(opened, false);
 });
-test("chrome follows system changes only until an explicit theme choice and resets without persistence", async () => {
+test("chrome follows system changes until an explicit theme choice and resets to system", async () => {
     const { readFile } = await import("node:fs/promises");
     const { runInNewContext } = await import("node:vm");
     const context = { window: {}, document: { getElementById: () => null, querySelector: () => null }, setTimeout, clearTimeout };
@@ -71,6 +71,44 @@ test("chrome follows system changes only until an explicit theme choice and rese
     theme.reset();
     theme.update(true);
     assert.deepEqual(states, [[true, true], [false, true], [true, false], [true, false], [false, true], [true, true]]);
+});
+test("theme choices persist and resetting clears the saved choice", async () => {
+    const context = await effectContext();
+    const values = new Map();
+    const storage = {
+        getItem: (key) => values.get(key) || null,
+        setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
+    };
+    const states = [];
+    const apply = (dark, system) => states.push([dark, system]);
+    const first = context.createTheme(false, apply, () => storage);
+    first.sync();
+    first.choose("dark");
+    assert.equal(values.get("acorn.theme.v1"), "dark");
+    const restored = context.createTheme(false, apply, () => storage);
+    restored.sync();
+    restored.reset();
+    assert.equal(values.has("acorn.theme.v1"), false);
+    context.createTheme(false, apply, () => storage).sync();
+    assert.deepEqual(states, [[false, true], [true, false], [true, false], [false, true], [false, true]]);
+});
+test("URL theme overrides a saved choice without changing storage", async () => {
+    const context = await effectContext();
+    const values = new Map([["acorn.theme.v1", "dark"]]);
+    const storage = {
+        getItem: (key) => values.get(key) || null,
+        setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
+    };
+    const states = [];
+    const theme = context.createTheme(true, (dark, system, fromUrl) => states.push([dark, system, fromUrl]), () => storage, "light");
+    theme.sync();
+    theme.update(false);
+    assert.equal(values.get("acorn.theme.v1"), "dark");
+    theme.choose("dark");
+    assert.deepEqual(states, [[false, false, true], [false, false, true], [true, false, false]]);
+    assert.equal(values.get("acorn.theme.v1"), "dark");
 });
 test("explicit theme tiles remain selected across system changes", async () => {
     const context = await effectContext();
@@ -119,6 +157,7 @@ test("leaving the drawer layout closes an open drawer through its state-owning c
     const context = {
         window, Event,
         document: {
+            documentElement: { dataset: {} },
             getElementById: (id) => id === "nav-toggle" ? toggle : null,
             querySelector: (selector) => selector === ".workspace" ? { dataset: {} } : null,
         },
@@ -298,7 +337,7 @@ test("workspace input enforces UTF-8, size, path, duplicate and partial-success 
     const file = (path, content) => ({ path, file: new Blob([content]) });
     const result = await context.readWorkspaceFiles([
         file("b/valid.json", "{}"), file("a.txt", "hello"), file("a.txt", "duplicate"), file("../escape.json", "{}"),
-        file("binary.json", new Uint8Array([0xff])), file("large.txt", "x".repeat(262145)), file("wrong.exe", "x"),
+        file("binary.json", new Uint8Array([0xff])), file("large.txt", "x".repeat(2 * 1024 * 1024 + 1)), file("wrong.exe", "x"),
         { path: "unreadable.txt", file: { size: 1, arrayBuffer: async () => { throw new Error("denied"); } } },
     ]);
     assert.deepEqual(JSON.parse(JSON.stringify(result)), { files: [{ path: "a.txt", content: "hello" }, { path: "b/valid.json", content: "{}" }], skipped: 6 });
@@ -307,8 +346,8 @@ test("workspace input enforces UTF-8, size, path, duplicate and partial-success 
     const many = await context.readWorkspaceFiles(Array.from({ length: 501 }, (_, i) => file(`${i}.json`, "{}")));
     assert.equal(many.files.length, 500);
     assert.equal(many.skipped, 1);
-    const total = await context.readWorkspaceFiles(Array.from({ length: 65 }, (_, i) => file(`${i}.txt`, "x".repeat(262144))));
-    assert.equal(total.files.length, 64);
+    const total = await context.readWorkspaceFiles(Array.from({ length: 17 }, (_, i) => file(`${i}.txt`, "x".repeat(2 * 1024 * 1024))));
+    assert.equal(total.files.length, 16);
     assert.equal(total.skipped, 1);
 });
 test("workspace input retains only signature-matched raster images", async () => {

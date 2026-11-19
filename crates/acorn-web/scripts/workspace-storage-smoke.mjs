@@ -132,10 +132,10 @@ try {
     await page.locator(".technology-card").filter({ hasText: "WebMCP" }).locator("svg").waitFor();
     await page.locator('nav a[title="Home"]').click();
     await page.locator(".remote-entry > summary").click();
-    await page.getByRole("combobox", { name: "Repository or URL" }).fill("owner/repo");
     await page.locator("#repository-token").fill("browser-test-secret");
-    await page.getByRole("button", { name: "Save token for this host" }).click();
-    await page.getByText("Token •••••••• configured for api.github.com.").waitFor();
+    await page.getByRole("button", { name: "Save token", exact: true }).click();
+    await page.getByText("Token •••••••• configured for all repository URLs.").waitFor();
+    await page.getByRole("combobox", { name: "Repository or URL" }).fill("owner/repo");
     assert.equal(await page.locator("#repository-token").inputValue(), "");
     const requests = [];
     const revision = "a".repeat(40);
@@ -156,7 +156,7 @@ try {
     await page.locator('.bucket-success').getByRole("link", { name: "Explore Portfolio" }).waitFor();
     assert.ok(requests.filter(request => request.method === "GET").every(request => request.headers.authorization === "Bearer browser-test-secret" && !request.url.includes("browser-test-secret")));
     await page.getByRole("button", { name: "Remove token" }).click();
-    assert.equal(await page.evaluate(() => window.acornRemote.credentialHost()), "");
+    assert.equal(await page.evaluate(() => window.acornRemote.credentialStatus()), "");
     requests.length = 0;
     await page.getByRole("button", { name: "Load bucket" }).click();
     await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
@@ -165,9 +165,9 @@ try {
     await page.route("https://code.ornl.gov/api/v4/projects/group%2F**", async route => {
         const request = route.request();
         gitlabRequests.push({ url: request.url(), method: request.method(), headers: request.headers(), redirect: request.redirectedFrom() });
-        const headers = { "Access-Control-Allow-Origin": `http://127.0.0.1:${server.address().port}`, "Access-Control-Allow-Headers": "private-token,accept", "Access-Control-Allow-Methods": "GET,OPTIONS" };
+        const headers = { "Access-Control-Allow-Origin": `http://127.0.0.1:${server.address().port}`, "Access-Control-Allow-Headers": "authorization,accept", "Access-Control-Allow-Methods": "GET,OPTIONS" };
         if (request.method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
-        if (request.headers()["private-token"] !== "gitlab-test-secret") { await route.fulfill({ status: 403, headers }); return; }
+        if (request.headers().authorization !== "Bearer gitlab-test-secret") { await route.fulfill({ status: 403, headers }); return; }
         const url = request.url();
         const body = /\/group%2F(?:repo|other)$/.test(url) ? { default_branch: "main" }
             : url.includes("/repository/commits/") ? { id: revision }
@@ -179,17 +179,17 @@ try {
     await page.getByRole("button", { name: "Load bucket" }).click();
     await page.getByRole("alert").filter({ hasText: /Access denied/ }).waitFor();
     await page.locator("#repository-token").fill("gitlab-test-secret");
-    await page.getByRole("button", { name: "Save token for this host" }).click();
-    await page.getByText("Token •••••••• configured for code.ornl.gov.").waitFor();
+    await page.getByRole("button", { name: "Save token", exact: true }).click();
+    await page.getByText("Token •••••••• configured for all repository URLs.").waitFor();
     await page.getByRole("button", { name: "Load bucket" }).click();
     await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
-    assert.ok(gitlabRequests.some(request => request.method === "GET" && request.headers["private-token"] === "gitlab-test-secret"));
-    assert.ok(gitlabRequests.filter(request => request.method === "GET" && request.headers["private-token"]).every(request => !request.url.includes("gitlab-test-secret") && !request.redirect));
+    assert.ok(gitlabRequests.some(request => request.method === "GET" && request.headers.authorization === "Bearer gitlab-test-secret"));
+    assert.ok(gitlabRequests.filter(request => request.method === "GET" && request.headers.authorization).every(request => !request.url.includes("gitlab-test-secret") && !request.redirect));
     gitlabRequests.length = 0;
     await page.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/other");
     await page.getByRole("button", { name: "Load bucket" }).click();
     await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
-    assert.ok(gitlabRequests.some(request => request.url.includes("group%2Fother") && request.method === "GET" && request.headers["private-token"] === "gitlab-test-secret"), "the same host token loads a second project");
+    assert.ok(gitlabRequests.some(request => request.url.includes("group%2Fother") && request.method === "GET" && request.headers.authorization === "Bearer gitlab-test-secret"), "the app token loads a second project");
     await page.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/repo");
     await page.getByRole("button", { name: "Load bucket" }).click();
     await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
@@ -210,16 +210,15 @@ try {
     await page.locator('nav a[title="Portfolio"]').click();
     await page.getByRole("status").filter({ hasText: "1 activity in 1 project" }).waitFor();
     await page.locator('nav a[title="Settings"]').click();
-    await page.getByText("Token •••••••• configured for code.ornl.gov.").waitFor();
+    await page.getByText("Token •••••••• configured for all repository URLs.").waitFor();
     await page.getByRole("button", { name: "Forget repository token" }).click();
     await page.getByText("No repository token in this tab.").waitFor();
     assert.equal(await page.evaluate(() => sessionStorage.getItem("acorn.repository-credential.v1")), null);
     await page.getByRole("link", { name: "Add or replace token on Home" }).click();
     await page.locator(".remote-entry > summary").click();
-    await page.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/repo");
     await page.locator("#repository-token").fill("settings-test-secret");
-    await page.getByRole("button", { name: "Save token for this host" }).click();
-    await page.getByText("Token •••••••• configured for code.ornl.gov.").waitFor();
+    await page.getByRole("button", { name: "Save token", exact: true }).click();
+    await page.getByText("Token •••••••• configured for all repository URLs.").waitFor();
     assert.equal(await page.locator("#repository-token").inputValue(), "");
     await page.locator('nav a[title="Settings"]').click();
     assert.equal(await page.evaluate(() => localStorage.getItem("acorn.workspace.v1")?.includes("settings-test-secret")), false);
@@ -311,14 +310,14 @@ try {
     await imagePage.waitForFunction(() => !localStorage.getItem("acorn.workspace.v1"));
     await imagePage.locator('nav a[title="Home"]').click();
     await imagePage.locator(".remote-entry > summary").click();
-    await imagePage.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/media");
     await imagePage.locator("#repository-token").fill("fictional-media-token");
-    await imagePage.getByRole("button", { name: "Save token for this host" }).click();
+    await imagePage.getByRole("button", { name: "Save token", exact: true }).click();
+    await imagePage.getByRole("combobox", { name: "Repository or URL" }).fill("https://code.ornl.gov/group/media");
     await imagePage.route("https://code.ornl.gov/api/v4/projects/group%2Fmedia**", async route => {
         const request = route.request();
-        const headers = { "Access-Control-Allow-Origin": `http://127.0.0.1:${server.address().port}`, "Access-Control-Allow-Headers": "private-token,accept", "Access-Control-Allow-Methods": "GET,OPTIONS" };
+        const headers = { "Access-Control-Allow-Origin": `http://127.0.0.1:${server.address().port}`, "Access-Control-Allow-Headers": "authorization,accept", "Access-Control-Allow-Methods": "GET,OPTIONS" };
         if (request.method() === "OPTIONS") { await route.fulfill({ status: 204, headers }); return; }
-        assert.equal(request.headers()["private-token"], "fictional-media-token");
+        assert.equal(request.headers().authorization, "Bearer fictional-media-token");
         const url = request.url();
         const body = url.endsWith("/group%2Fmedia") ? JSON.stringify({ default_branch: "main" })
             : url.includes("/repository/commits/") ? JSON.stringify({ id: revision })

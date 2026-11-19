@@ -1,6 +1,6 @@
 function createWorkspaceStorage(storage = () => window.localStorage) {
     const key = "acorn.workspace.v1";
-    const limit = 17 * 1024 * 1024;
+    const limit = 33 * 1024 * 1024;
     let failed = false;
     return {
         status() { try { return { bytes: storage().getItem(key)?.length || 0, failed }; } catch { return { bytes: 0, failed }; } },

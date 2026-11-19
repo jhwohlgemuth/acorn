@@ -9,15 +9,31 @@
 html{background:#1f2229;color:#abb2bf}
 #main:not([data-styles-ready]){visibility:hidden}
 #main[data-styles-ready]:has(.workspace)+#boot{display:none}
+html[data-loader-preview] #main{visibility:hidden}
+html[data-loader-preview] #main[data-styles-ready]:has(.workspace)+#boot{display:grid}
 #boot{position:fixed;inset:0;display:grid;place-content:center;gap:12px;justify-items:center;font:15px system-ui,sans-serif;background:#1f2229;color:#abb2bf}
-#boot i{width:28px;height:28px;border:3px solid currentColor;border-right-color:transparent;border-radius:50%;animation:boot 0.9s linear infinite}
+#boot img{display:block;width:180px;height:180px;color-scheme:light}
+#boot span{max-width:calc(100vw - 48px);font-size:19px;line-height:1.2;text-align:center}
 #boot button{font:inherit;color:inherit;background:transparent;border:1px solid currentColor;border-radius:5px;padding:7px 12px;cursor:pointer}
-@keyframes boot{to{transform:rotate(1turn)}}
 @media (prefers-color-scheme:light){html,#boot{background:#f7f8fa;color:#242931}}
-@media (prefers-reduced-motion:reduce){#boot i{animation:none}}
+html[data-theme=light],html[data-theme=light] #boot{background:#f7f8fa;color:#242931}
+html[data-theme=dark],html[data-theme=dark] #boot{background:#1f2229;color:#abb2bf}
+html[data-theme=dark] #boot img{color-scheme:dark}
 </style>
 <script>
-window.acornInitialTheme = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+if (new URLSearchParams(location.search).get('preview-loader') === '1') document.documentElement.setAttribute('data-loader-preview', '');
+window.acornThemeOverride = new URLSearchParams(location.search).get('theme');
+if (window.acornThemeOverride !== 'light' && window.acornThemeOverride !== 'dark') window.acornThemeOverride = '';
+window.acornInitialThemeMode = 'system';
+try {
+    const savedTheme = localStorage.getItem('acorn.theme.v1');
+    if (['dark', 'light', 'system'].includes(savedTheme)) window.acornInitialThemeMode = savedTheme;
+} catch {}
+const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+window.acornInitialTheme = 'light';
+if (window.acornInitialThemeMode === 'dark' || (window.acornInitialThemeMode === 'system' && systemDark)) window.acornInitialTheme = 'dark';
+if (window.acornThemeOverride) window.acornInitialTheme = window.acornThemeOverride;
+document.documentElement.dataset.theme = window.acornInitialTheme;
 window.acornInitialReviewFragment = '';
 if (/\/(review|metadata|research-activity|metadata-standard)$/.test(location.pathname)) window.acornInitialReviewFragment = location.hash.slice(1);
 try { window.acornInitialSidebarCollapsed = sessionStorage.getItem('acorn-sidebar-collapsed') === 'true'; }
@@ -34,7 +50,9 @@ const showStylesError = () => {
         return;
     }
     boot.setAttribute('role', 'alert');
-    boot.querySelector('i')?.remove();
+    boot.removeAttribute('aria-label');
+    const loader = boot.querySelector('img');
+    if (loader) loader.remove();
     boot.querySelector('span').textContent = 'ACORN styles could not load.';
     const retry = document.createElement('button');
     retry.textContent = 'Retry';
@@ -63,5 +81,5 @@ if (!watchAppStylesheet()) new MutationObserver((_, observer) => {
 }).observe(document.head, { childList: true, subtree: true });
 </script>
 </head>
-<body><div id="main"></div><div id="boot" role="status"><i aria-hidden="true"></i><span>Loading ACORN Research Intelligence…</span></div><noscript>ACORN Research Intelligence requires JavaScript and WebAssembly.</noscript></body>
+<body><div id="main"></div><div id="boot" role="status" aria-label="Loading ACORN Research Intelligence"><img src="/{base_path}/assets/acorn-loader.svg" alt=""><span>Plant an acorn, grow your science</span></div><noscript>ACORN Research Intelligence requires JavaScript and WebAssembly.</noscript></body>
 </html>

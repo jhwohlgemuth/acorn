@@ -8,9 +8,9 @@ use serde_json::Value;
 /// Maximum accepted files in a session.
 pub const FILE_COUNT: usize = 500;
 /// Largest accepted individual file, in source bytes.
-pub const FILE_LIMIT: usize = 256 * 1024;
+pub const FILE_LIMIT: usize = 2 * 1024 * 1024;
 /// Total encoded content bytes accepted per session.
-pub const TOTAL_LIMIT: usize = 16 * 1024 * 1024;
+pub const TOTAL_LIMIT: usize = 32 * 1024 * 1024;
 /// Result of a user-mediated browser selection.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

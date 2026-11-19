@@ -575,11 +575,11 @@ mod session_tests {
         assert_eq!(many.files.len(), 500);
         assert_eq!(many.skipped, 10);
         let large = Workspace::default().replace(Selection {
-            files: (0..70).map(|i| file(&format!("{i:03}.txt"), &"x".repeat(FILE_LIMIT))).collect(),
+            files: (0..17).map(|i| file(&format!("{i:03}.txt"), &"x".repeat(FILE_LIMIT))).collect(),
             skipped: 0,
         });
         assert_eq!(large.bytes(), TOTAL_LIMIT);
-        assert_eq!(large.skipped, 6);
+        assert_eq!(large.skipped, 1);
     }
     #[test]
     fn test_persisted_workspace_rechecks_bounds_and_keeps_state() {

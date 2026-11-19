@@ -27,8 +27,9 @@ test("a failed automatic save retains the previous snapshot and reports failure"
     quota = false;
     assert.equal(saved.save({ files: [{ path: "new.json", content: "{}" }] }), true);
     assert.equal(saved.status().failed, false);
-    assert.equal(saved.save({ files: [{ path: "oversized.json", content: "x".repeat(17 * 1024 * 1024) }] }), false);
-    assert.equal(create(limited).restore().files[0].path, "new.json");
+    assert.equal(saved.save({ files: [{ path: "expanded.json", content: "x".repeat(17 * 1024 * 1024) }] }), true);
+    assert.equal(saved.save({ files: [{ path: "oversized.json", content: "x".repeat(33 * 1024 * 1024) }] }), false);
+    assert.equal(create(limited).restore().files[0].path, "expanded.json");
 });
 test("loaded workspace saves automatically and survives reload until deleted", () => {
     const { values, storage } = memory();

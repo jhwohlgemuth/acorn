@@ -21,9 +21,52 @@ struct BucketHistory {
     refs: Vec<String>,
 }
 #[component]
-fn Distribution(title: &'static str, counts: alloc::collections::BTreeMap<String, usize>) -> Element {
+fn TopicBars(counts: Vec<(String, usize)>, total: usize) -> Element {
+    rsx! { div { class: "card topic-bars", h2 { "Top topics" }
+        if counts.is_empty() { p { class: "muted", "No keywords in matching activities" } }
+        else {
+            p { class: "small muted", "Activities can appear under more than one topic." }
+            for (label, count) in counts { div { class: "proportion", p { span { "{label}" } span { "{count}" } } progress { value: "{count}", max: "{total}", "aria-label": "{label}: {count} of {total} matching activities" } } }
+        }
+    } }
+}
+#[component]
+fn StatusDonut(counts: BTreeMap<String, usize>) -> Element {
     let total = counts.values().sum::<usize>();
-    rsx! { div { class: "card", h2 { "{title}" } if total == 0 { p { class: "muted", "No matching activities" } } for (label, count) in counts { div { class: "proportion", p { span { "{label}" } span { "{count}" } } progress { value: "{count}", max: "{total}", "aria-label": "{label}: {count} of {total} activities" } } } } }
+    let denominator = total.max(1) as f64;
+    let gradient = counts
+        .iter()
+        .scan(0_usize, |offset, (status, count)| {
+            let start = *offset as f64 * 100.0 / denominator;
+            *offset += *count;
+            let end = *offset as f64 * 100.0 / denominator;
+            Some(format!("{} {start:.2}% {end:.2}%", status_color(status)))
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    rsx! { div { class: "card", h2 { "Statuses" }
+        if total == 0 { p { class: "muted", "No matching activities" } }
+        else { div { class: "status-donut-content",
+            div { class: "status-donut", style: format!("background:conic-gradient({gradient})"), "aria-hidden": "true",
+                div { class: "status-donut-center", strong { "{total}" } small { "activities" } }
+            }
+            div { class: "status-donut-legend", for (status, count) in counts {
+                div { class: "status-donut-legend-row",
+                    span { class: "status-donut-legend-label", span { class: "status-donut-swatch", style: format!("background:{}", status_color(&status)), "aria-hidden": "true" } "{status}" }
+                    strong { "{count}" }
+                }
+            } }
+        } }
+    } }
+}
+fn status_color(status: &str) -> &'static str {
+    match status {
+        | "active" => "var(--status-active)",
+        | "canceled" => "var(--status-canceled)",
+        | "completed" => "var(--status-completed)",
+        | "paused" => "var(--status-paused)",
+        | _ => "var(--muted)",
+    }
 }
 #[component]
 fn ActivityStatus(status: String) -> Element {
@@ -180,7 +223,7 @@ pub(crate) fn Loader() -> Element {
     let mut remote_error = use_signal(String::new);
     let mut remote_success = use_signal(String::new);
     let mut remote_loading = use_signal(|| false);
-    let mut credential_host = use_signal(String::new);
+    let mut credential_status = use_signal(String::new);
     let mut credential_message = use_signal(String::new);
     let mut credential_error = use_signal(String::new);
     let mut history = use_signal(BucketHistory::default);
@@ -190,8 +233,8 @@ pub(crate) fn Loader() -> Element {
         }
     });
     use_future(move || async move {
-        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialHost();").join::<String>().await {
-            credential_host.set(host);
+        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialStatus();").join::<String>().await {
+            credential_status.set(host);
         }
     });
     use_future(move || async move {
@@ -258,7 +301,7 @@ pub(crate) fn Loader() -> Element {
                 input.set(next.content()); workspace.set(next); message.set("File loaded. Choose Portfolio to validate and explore activities.".into()); close_url();
             } }
         } }
-        p { class: "load-limits small muted", "JSON, YAML, Markdown, text, SVG, PNG, JPEG or WebP · 256 KiB per file · 500 files · 16 MiB stored total" }
+        p { class: "load-limits small muted", "JSON, YAML, Markdown, text, SVG, PNG, JPEG or WebP · 2 MiB per file · 500 files · 32 MiB stored total" }
         details { class: "remote-entry", summary {
             "Open a " span { class: "repository-name repository-github", img { src: asset!("/assets/generated/github.svg"), alt: "", width: "16", height: "16" } "GitHub" }
             " or " span { class: "repository-name", img { src: asset!("/assets/generated/gitlab.svg"), alt: "", width: "16", height: "16" } "GitLab" } " bucket"
@@ -276,7 +319,8 @@ pub(crate) fn Loader() -> Element {
                     else {
                         let mut loaded = value.get("ok").cloned().unwrap_or(Value::Null);
                         let source = loaded.get("source").cloned().and_then(|value| serde_json::from_value::<WorkspaceSource>(value).ok());
-                        if let Some(object) = loaded.as_object_mut() { object.remove("source"); }
+                        let unavailable = loaded.get("unavailable").and_then(Value::as_u64).unwrap_or(0);
+                        if let Some(object) = loaded.as_object_mut() { object.remove("source"); object.remove("unavailable"); }
                         match serde_json::from_value::<Selection>(loaded) {
                             Ok(selection) if selection.files.is_empty() => remote_error.set("No supported files were found in this bucket. Your previous session is unchanged.".into()),
                             Ok(selection) => {
@@ -289,7 +333,8 @@ pub(crate) fn Loader() -> Element {
                                     .collect();
                                 let origin = next.source.as_ref().map(|source| format!(" from {}/{}", source.host, source.project)).unwrap_or_default();
                                 let noun = if next.files.len() == 1 { "file" } else { "files" };
-                                remote_success.set(format!("Bucket loaded: {} {noun}{origin}; {} entries skipped.", next.files.len(), next.skipped));
+                                let failed = if unavailable == 0 { String::new() } else { format!(" ({unavailable} could not be downloaded)") };
+                                remote_success.set(format!("Bucket loaded: {} {noun}{origin}; {} entries skipped{failed}.", next.files.len(), next.skipped));
                                 input.set(next.content());
                                 workspace.set(next);
                             },
@@ -301,6 +346,22 @@ pub(crate) fn Loader() -> Element {
             }
             remote_loading.set(false);
         },
+            div { class: "repository-credential", h3 { "Private repository access" }
+                p { class: "small muted", "Save one token for repository loads in this tab. It is sent to the HTTPS host of each GitHub or GitLab repository URL you load; redirects to another host are rejected. GitLab needs read_api; GitHub needs Contents read." }
+                p { class: "small", if credential_status().is_empty() { "No token saved for this tab." } else { "Token •••••••• configured for {credential_status}." } }
+                label { class: "field", "Access token" input { id: "repository-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
+                p { class: "small muted", "The token survives reloads, stays separate from workspace data, and is cleared when the tab session ends." }
+                div { class: "actions credential-actions", button { r#type: "button", class: "primary", onclick: move |_| async move {
+                    let result = document::eval("try { const field = document.getElementById('repository-token'); const status = window.acornRemote.setCredential(field.value); field.value = ''; return {status}; } catch(error) { return {error: error.message}; }").join::<Value>().await;
+                    match result {
+                        Ok(value) => if let Some(status) = value.get("status").and_then(Value::as_str) { credential_status.set(status.to_owned()); credential_message.set("Token saved for repository loads in this tab.".into()); credential_error.set(String::new()); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Enter a valid access token.").to_owned()); credential_message.set(String::new()); },
+                        Err(_) => { credential_error.set("Could not save the repository token. Try again.".into()); credential_message.set(String::new()); },
+                    }
+                }, "Save token" }
+                button { r#type: "button", class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(document::eval("const removed = window.acornRemote?.clearCredential() ?? false; const field = document.getElementById('repository-token'); if (field) field.value = ''; return removed;").join::<bool>().await, Ok(true)) { credential_status.set(String::new()); credential_message.set("Token removed from this tab.".into()); credential_error.set(String::new()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Remove token" } }
+                if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
+                if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
+            }
             label { class: "field", "Repository or URL" input { r#type: "text", required: true, disabled: remote_loading(), value: remote_url(), oninput: move |event| remote_url.set(event.value()), list: "bucket-repositories", autocomplete: "off", placeholder: "owner/repo or https://gitlab.example.org/group/project", spellcheck: "false" } }
             datalist { id: "bucket-repositories", for repository in &history.read().repositories { option { value: repository.clone() } } }
             datalist { id: "bucket-refs", for reference in &history.read().refs { option { value: reference.clone() } } }
@@ -310,23 +371,6 @@ pub(crate) fn Loader() -> Element {
             }
             p { class: "small muted", "Public repositories, folder or file URLs. For branches containing /, enter the full branch above. Loading replaces this session after a successful download." }
             if !remote_success().is_empty() { div { class: "status bucket-success", role: "status", span { "{remote_success}" } Link { to: Route::Page { page: "portfolio".into() }, "Explore Portfolio →" } } }
-            div { class: "repository-credential", h3 { "Private repository access" }
-                p { class: "small muted", "Enter the repository URL above to choose its provider and HTTPS host. A saved token works for repositories you can access on that host, and is never sent to another host. GitLab needs read_api; GitHub needs Contents read. Only one token is kept for this tab." }
-                p { class: "small", if credential_host().is_empty() { "No token saved for this tab." } else { "Token •••••••• configured for {credential_host}." } }
-                label { class: "field", "Access token" input { id: "repository-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
-                p { class: "small muted", "Saving replaces the current tab token. It survives reloads, stays separate from saved workspace data, and is cleared when the tab session ends. Use an expiring token and revoke it at the provider if compromised." }
-                div { class: "actions credential-actions", button { r#type: "button", class: "primary", onclick: move |_| async move {
-                    let input = serde_json::to_string(&remote_url()).unwrap_or_default();
-                    let result = document::eval(&format!("try {{ const field = document.getElementById('repository-token'); const host = window.acornRemote.setCredential({input}, field.value); field.value = ''; return {{host}}; }} catch(error) {{ return {{error: error.message}}; }}")).join::<Value>().await;
-                    match result {
-                        Ok(value) => if let Some(host) = value.get("host").and_then(Value::as_str) { credential_host.set(host.to_owned()); credential_message.set(format!("Token enabled for {host} for this tab.")); credential_error.set(String::new()); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Choose a valid repository URL and enter a token.").to_owned()); credential_message.set(String::new()); },
-                        Err(_) => { credential_error.set("Could not save the repository token. Try again.".into()); credential_message.set(String::new()); },
-                    }
-                }, "Save token for this host" }
-                button { r#type: "button", class: "danger", disabled: credential_host().is_empty(), onclick: move |_| async move { if matches!(document::eval("const removed = window.acornRemote?.clearCredential() ?? false; const field = document.getElementById('repository-token'); if (field) field.value = ''; return removed;").join::<bool>().await, Ok(true)) { credential_host.set(String::new()); credential_message.set("Token removed from this tab.".into()); credential_error.set(String::new()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Remove token" } }
-                if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
-                if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
-            }
             div { class: "actions small muted", span { "Recent inputs are remembered in this browser." }
                 button { r#type: "button", class: "small danger", disabled: remote_loading() || (history.read().repositories.is_empty() && history.read().refs.is_empty()), onclick: move |_| {
                     document::eval("window.acornRemote?.history.clear()"); history.set(BucketHistory::default());
@@ -499,7 +543,7 @@ pub(crate) fn Portfolio() -> Element {
                     div { class: "card metric", strong { "{count}" } small { "{label}" } }
                 }
             }
-            div { class: "distribution-grid", Distribution { title: "Activity types", counts: session::distribution(&filtered, session::activity_type) } Distribution { title: "Statuses", counts: session::distribution(&filtered, session::activity_status) } }
+            div { class: "distribution-grid", TopicBars { counts: top_topics(&filtered), total: filtered.len() } StatusDonut { counts: session::distribution(&filtered, session::activity_status) } }
             table { class: "activity-table", caption { "{filtered.len()} matching {activity_noun}" }
                 thead { tr { for (field, label) in [("title", "Activity"), ("type", "Type"), ("status", "Status")] {
                     th { scope: "col", "aria-sort": if sort() == field { if descending() { "descending" } else { "ascending" } } else { "none" }, button { onclick: move |_| { if sort() == field { descending.toggle(); } else { sort.set(field); descending.set(false); } }, "{label}" } }
@@ -512,6 +556,26 @@ pub(crate) fn Portfolio() -> Element {
 
         }
     }
+}
+fn top_topics(records: &[(&SuppliedFile, &Value)]) -> Vec<(String, usize)> {
+    let counts = records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
+        session::many(&value["meta"]["keywords"])
+            .into_iter()
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .for_each(|keyword| *counts.entry(keyword.to_owned()).or_insert(0_usize) += 1);
+        counts
+    });
+    let mut topics = counts.into_iter().collect::<Vec<_>>();
+    topics.sort_by(|(left, left_count), (right, right_count)| {
+        right_count
+            .cmp(left_count)
+            .then_with(|| left.to_lowercase().cmp(&right.to_lowercase()))
+            .then_with(|| left.cmp(right))
+    });
+    topics.truncate(6);
+    topics
 }
 fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
     projects
@@ -579,6 +643,27 @@ mod tests {
         assert_eq!(colors.values().copied().collect::<BTreeSet<_>>().len(), TAG_COLOR_COUNT);
         assert_eq!(colors.get(first.as_str()), colors.get(wrapped.as_str()));
         assert_eq!(colors, tag_colors(&[projects[1].clone(), projects[0].clone()]));
+    }
+    #[test]
+    fn test_top_topics_counts_activities_once_and_sorts_by_frequency() {
+        let files = (0..4)
+            .map(|index| SuppliedFile {
+                path: format!("{index}.json"),
+                content: String::new(),
+            })
+            .collect::<Vec<_>>();
+        let values = [
+            json!({"meta":{"keywords":["mapping","mapping","visualization"]}}),
+            json!({"meta":{"keywords":["mapping","geospatial"]}}),
+            json!({"meta":{"keywords":["geospatial","visualization"]}}),
+            json!({"meta":{"keywords":["mapping"]}}),
+        ];
+        let records = files.iter().zip(values.iter()).collect::<Vec<_>>();
+        assert_eq!(
+            top_topics(&records),
+            [("mapping".into(), 3), ("geospatial".into(), 2), ("visualization".into(), 2)]
+        );
+        assert!(top_topics(&[]).is_empty());
     }
     #[test]
     fn test_tree_children_keep_folders_first_in_both_directions() {
