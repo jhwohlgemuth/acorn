@@ -197,8 +197,10 @@ mod tests {
             assert!(content.contains("0000-0000-0000-0001"), "missing ORCID in {path}");
             let project_rors = ROR::find_all(content).into_iter().map(|ror| ror.to_string()).collect::<Vec<_>>();
             assert_eq!(project_rors.len(), 2, "two valid ROR fields in {path}");
-            assert_eq!(project_rors[0], project_rors[1], "matching ROR fields in {path}");
-            assert!(rors.insert(project_rors[0].clone()), "unique ROR in {path}");
+            let first_ror = project_rors.first().expect("first ROR");
+            let second_ror = project_rors.get(1).expect("second ROR");
+            assert_eq!(first_ror, second_ror, "matching ROR fields in {path}");
+            assert!(rors.insert(first_ror.clone()), "unique ROR in {path}");
             if path.ends_with(".json") {
                 let value: serde_json::Value = serde_json::from_str(content).expect("valid JSON sample");
                 assert_eq!(

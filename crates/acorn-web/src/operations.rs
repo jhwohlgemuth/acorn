@@ -196,7 +196,7 @@ impl Tool {
             | Self::Readability => "book",
             | Self::Diff => "diff",
             | Self::Discover => "search",
-            | Self::Inspect => "compass",
+            | Self::Inspect => "eye",
             | Self::BigO => "chart",
         }
     }

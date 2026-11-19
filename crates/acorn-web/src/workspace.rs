@@ -1,3 +1,4 @@
+use crate::dashboard::{ChartSegment, DashboardTile, DonutTile, MetricTile};
 use crate::details::{self, Detail};
 use crate::search_ui::SearchField;
 use crate::ui::{validate_files, FileInput, Icon, Route, UrlFileInput};
@@ -14,6 +15,7 @@ use dioxus::prelude::*;
 use serde_json::{json, Value};
 use strum::IntoEnumIterator;
 
+const IDENTIFIER_COLOR_COUNT: usize = 8;
 const TAG_COLOR_COUNT: usize = 8;
 #[derive(Clone, Default, serde::Deserialize)]
 struct BucketHistory {
@@ -22,7 +24,7 @@ struct BucketHistory {
 }
 #[component]
 fn TopicBars(counts: Vec<(String, usize)>, total: usize) -> Element {
-    rsx! { div { class: "card topic-bars", h2 { "Top topics" }
+    rsx! { DashboardTile { class: "topic-bars", h2 { "Top topics" }
         if counts.is_empty() { p { class: "muted", "No keywords in matching activities" } }
         else {
             p { class: "small muted", "Activities can appear under more than one topic." }
@@ -32,32 +34,28 @@ fn TopicBars(counts: Vec<(String, usize)>, total: usize) -> Element {
 }
 #[component]
 fn StatusDonut(counts: BTreeMap<String, usize>) -> Element {
-    let total = counts.values().sum::<usize>();
-    let denominator = total.max(1) as f64;
-    let gradient = counts
-        .iter()
-        .scan(0_usize, |offset, (status, count)| {
-            let start = *offset as f64 * 100.0 / denominator;
-            *offset += *count;
-            let end = *offset as f64 * 100.0 / denominator;
-            Some(format!("{} {start:.2}% {end:.2}%", status_color(status)))
+    let segments = counts
+        .into_iter()
+        .map(|(label, count)| ChartSegment {
+            color: status_color(&label).into(),
+            label,
+            count,
         })
-        .collect::<Vec<_>>()
-        .join(", ");
-    rsx! { div { class: "card", h2 { "Statuses" }
-        if total == 0 { p { class: "muted", "No matching activities" } }
-        else { div { class: "status-donut-content",
-            div { class: "status-donut", style: format!("background:conic-gradient({gradient})"), "aria-hidden": "true",
-                div { class: "status-donut-center", strong { "{total}" } small { "activities" } }
-            }
-            div { class: "status-donut-legend", for (status, count) in counts {
-                div { class: "status-donut-legend-row",
-                    span { class: "status-donut-legend-label", span { class: "status-donut-swatch", style: format!("background:{}", status_color(&status)), "aria-hidden": "true" } "{status}" }
-                    strong { "{count}" }
-                }
-            } }
-        } }
-    } }
+        .collect();
+    rsx! { DonutTile { class: "status-donut", title: "Statuses", center_label: "activities", empty_message: "No matching activities", segments } }
+}
+#[component]
+fn IdentifierDonut(counts: BTreeMap<String, usize>) -> Element {
+    let segments = counts
+        .into_iter()
+        .enumerate()
+        .map(|(index, (label, count))| ChartSegment {
+            color: format!("var(--identifier-{})", index % IDENTIFIER_COLOR_COUNT),
+            label,
+            count,
+        })
+        .collect();
+    rsx! { DonutTile { class: "identifier-donut", title: "Identifiers", center_label: "unique IDs", empty_message: "No identifiers in matching activities", description: Some("Unique values across matching activities."), segments } }
 }
 fn status_color(status: &str) -> &'static str {
     match status {
@@ -202,7 +200,17 @@ fn FileTree(paths: Vec<String>, prefix: String, descending: bool, tool: Option<T
         let thumbnail = workspace.read().image_file(&path);
         let loadable = workspace.read().files.iter().find(|file| file.path == path).is_some_and(|file| tool.is_none_or(|tool| file_loadable(file, tool)));
         rsx! { li {
-            if is_file { button { class: "file-leaf", disabled: !loadable, title: if loadable { "" } else { "This file cannot be loaded into this page" }, "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { if loadable { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { if tool.is_some() { if let Some(onselect) = onselect { onselect.call(file.clone()); } else { input.set(file.content.clone()); } } else { details::open(drawer, Detail::file(file, &snapshot)); } if !MimeType::from(file.path.as_str()).is_image() { workspace.write().selected = Some(path.clone()); } } } }, if let Some(thumbnail) = thumbnail { img { class: "file-thumb", src: thumbnail, alt: "" } } else { Icon { name: "file" } } "{name}" } }
+            if is_file { button { class: "file-leaf", disabled: !loadable, title: if loadable { "" } else { "This file cannot be loaded into this page" }, "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| {
+                if loadable {
+                    let snapshot = workspace();
+                    if let Some(file) = snapshot.files.iter().find(|file| file.path == path) {
+                        if tool.is_some() {
+                            if let Some(onselect) = onselect { onselect.call(file.clone()); } else { input.set(file.content.clone()); }
+                        } else { details::open(drawer, Detail::file(file, &snapshot)); }
+                        if !MimeType::from(file.path.as_str()).is_image() { workspace.write().selected = Some(path.clone()); }
+                    }
+                }
+            }, if let Some(thumbnail) = thumbnail { img { class: "file-thumb", src: thumbnail, alt: "" } } else { Icon { name: "file" } } "{name}" } }
             else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/"), descending, tool, onselect } } }
         }}}
     } } }
@@ -401,8 +409,8 @@ pub(crate) fn Portfolio() -> Element {
     let activities = snapshot.activities();
     let index = ResearchIndex::from(&snapshot);
     let tag_colors = tag_colors(&index.projects);
-    let types = session::distribution(&activities, session::activity_type);
-    let statuses = session::distribution(&activities, session::activity_status);
+    let types = session::distribution(activities.iter().map(|(_, value)| session::activity_type(value)));
+    let statuses = session::distribution(activities.iter().map(|(_, value)| session::activity_status(value)));
     let pattern = SearchPattern::new(&search(), regex(), case_sensitive());
     let matches = pattern
         .as_ref()
@@ -538,12 +546,19 @@ pub(crate) fn Portfolio() -> Element {
                     }
                 } }
             }
-            div { class: "metrics",
-                for (label, count) in [("Activities", filtered.len()), ("Organizations", session::entities(&filtered, "organizations").len()), ("Contributors", session::entities(&filtered, "contributors").len()), ("Identifiers", session::identifiers(&filtered).len())] {
-                    div { class: "card metric", strong { "{count}" } small { "{label}" } }
+            div { class: "portfolio-dashboard",
+                div { class: "metrics",
+                    for (label, count) in [("Activities", filtered.len()), ("Organizations", session::entities(&filtered, "organizations").len()), ("Contributors", session::entities(&filtered, "contributors").len())] {
+                        MetricTile { label, count }
+                    }
+                }
+                div { class: "distribution-grid", TopicBars { counts: top_topics(&filtered), total: filtered.len() }
+                    div { class: "distribution-stack",
+                        StatusDonut { counts: session::distribution(filtered.iter().map(|(_, value)| session::activity_status(value))) }
+                        IdentifierDonut { counts: session::distribution(session::identifier_labels(&filtered)) }
+                    }
                 }
             }
-            div { class: "distribution-grid", TopicBars { counts: top_topics(&filtered), total: filtered.len() } StatusDonut { counts: session::distribution(&filtered, session::activity_status) } }
             table { class: "activity-table", caption { "{filtered.len()} matching {activity_noun}" }
                 thead { tr { for (field, label) in [("title", "Activity"), ("type", "Type"), ("status", "Status")] {
                     th { scope: "col", "aria-sort": if sort() == field { if descending() { "descending" } else { "ascending" } } else { "none" }, button { onclick: move |_| { if sort() == field { descending.toggle(); } else { sort.set(field); descending.set(false); } }, "{label}" } }
@@ -559,12 +574,17 @@ pub(crate) fn Portfolio() -> Element {
 }
 fn top_topics(records: &[(&SuppliedFile, &Value)]) -> Vec<(String, usize)> {
     let counts = records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
-        session::many(&value["meta"]["keywords"])
+        session::many(value.pointer("/meta/keywords").unwrap_or(&Value::Null))
             .into_iter()
             .filter_map(Value::as_str)
             .collect::<BTreeSet<_>>()
             .into_iter()
-            .for_each(|keyword| *counts.entry(keyword.to_owned()).or_insert(0_usize) += 1);
+            .for_each(|keyword| {
+                counts
+                    .entry(keyword.to_owned())
+                    .and_modify(|count: &mut usize| *count = count.saturating_add(1))
+                    .or_insert(1);
+            });
         counts
     });
     let mut topics = counts.into_iter().collect::<Vec<_>>();

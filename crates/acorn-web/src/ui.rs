@@ -153,11 +153,15 @@ pub(crate) fn Icon(name: &'static str) -> Element {
         | "copy" => {
             r#"<rect class="s" x="8" y="8" width="12" height="13" rx="2"/><path class="s" d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>"#
         }
+        | "database" => {
+            r#"<ellipse class="s" cx="12" cy="5" rx="8" ry="3"/><path class="s" d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>"#
+        }
         | "diff" => r#"<path class="s" d="M18 3v18M6 8V3M3 6l3-3 3 3M3 18l3 3 3-3M6 21v-5M15 7h6M15 17h6" />"#,
         | "download" => {
             r#"<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />"#
         }
         | "expand" => r#"<path d="m8 6 4-4 4 4M12 2v7m-4 9 4 4 4-4m-4 4v-7M4 12h16"/>"#,
+        | "eye" => r#"<path class="s" d="M2 12c2.5-4 6-6 10-6s7.5 2 10 6c-2.5 4-6 6-10 6S4.5 16 2 12Z"/><circle class="s" cx="12" cy="12" r="2.5"/>"#,
         | "file" => r#"<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>"#,
         | "filecheck" => {
             r#"<path class="s" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
@@ -249,8 +253,10 @@ fn InfoPage(page: String) -> Element {
         }
     });
     let title = match page.as_str() {
+        | "aspect" => "ASPECT",
         | "portfolio" => "Portfolio",
         | "geospatial" => "Geospatial",
+        | "s3a" => "S3A",
         | "install" => "Install ACORN Research Intelligence",
         | "skill" => "ACORN Skill",
         | "settings" => "Settings",
@@ -269,8 +275,15 @@ fn InfoPage(page: String) -> Element {
         .map(|source| format!("{} · {}/{}", source.kind, source.host, source.project));
     rsx! {
         document::Title { "{document_title}" }
-        section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "portfolio" => "portfolio", "geospatial" => "globe", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } } "{title}" }
+        section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "aspect" => "chart", "portfolio" => "portfolio", "geospatial" => "globe", "s3a" => "database", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } }
+            "{title}"
+        }
             match page.as_str() {
+                "aspect" | "s3a" => rsx! { div { class: "card construction-card", div { class: "construction-copy", h2 { "Under construction" } p { "This page will visualize {title} data." }
+                        if page == "aspect" { p { "Learn more about " a { href: "https://acorn.ornl.gov/concepts/aspect/index.html", "ASPECT" } "." } }
+                    }
+                    img { class: "construction-gif", src: asset!("/assets/my_acorn_is_missing.gif"), alt: "My acorn is missing", width: "400", height: "237" }
+                } },
                 "portfolio" => rsx! { Portfolio {} },
                 "geospatial" => rsx! { Geospatial {} },
                 "install" => rsx! { Install {} },
@@ -487,7 +500,9 @@ fn Shell() -> Element {
                     ] {
                         p { class: "nav-heading", "{heading}" }
                         if heading == "ANALYZE" {
-                            Link { to: Route::Page { page: "geospatial".into() }, class: if current == "geospatial" { "nav-item active" } else { "nav-item" }, title: "Geospatial", "aria-label": "Geospatial", "aria-current": if current == "geospatial" { "page" } else { "false" }, Icon { name: "globe" } span { class: "nav-label", "Geospatial" } }
+                            for (slug, name, icon) in [("geospatial", "Geospatial", "globe"), ("aspect", "ASPECT", "chart"), ("s3a", "S3A", "database")] {
+                                Link { to: Route::Page { page: slug.into() }, class: if current == slug { "nav-item active" } else { "nav-item" }, title: name, "aria-label": name, "aria-current": if current == slug { "page" } else { "false" }, Icon { name: icon } span { class: "nav-label", "{name}" } }
+                            }
                         }
                         for tool in tools.iter().copied() {
                             Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", if tool == Tool::Discover { "Discover" } else if tool == Tool::Inspect { "Inspect" } else { "{tool.to_string()}" } } }
@@ -646,7 +661,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     button { r#type: "button", "aria-pressed": tool == mode, onclick: move |_| {
                         selected_tool.set(mode);
                         if sync_review_url {
-                            let fragment = match mode { Tool::Fair => "fair", Tool::Readability => "readability", _ => "" };
+                            let fragment = match mode { Tool::Fair => "fair", Tool::Readability => "readability", Tool::Activity | Tool::Standard | Tool::Crosswalk | Tool::Diff | Tool::Discover | Tool::Inspect | Tool::BigO => "" };
                             document::eval(&format!("if (!window.acornUrl) await new Promise(resolve => window.addEventListener('acorn-url-ready', resolve, {{once:true}})); window.acornInitialReviewFragment = ''; window.acornUrl.setFragment('{fragment}')"));
                         }
                     }, Icon { name: mode.icon() } "{mode}" }

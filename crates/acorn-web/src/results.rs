@@ -417,9 +417,11 @@ fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
     rsx! {
         h3 { class: "diagnostic-group-title", Icon { name: category_icon } "Local FAIR evidence" }
         for (principle, label) in [("findable", "Findable"), ("accessible", "Accessible"), ("interoperable", "Interoperable"), ("reusable", "Reusable")] {
-            {let (supported, total) = presentation::fair_counts(&value, principle); rsx! {
+            {let (supported, total) = presentation::fair_counts(&value, principle);
+             let tone = if supported * 4 < total { "red" } else if supported * 4 < total * 3 { "yellow" } else { "green" };
+             rsx! {
                 div { class: "proportion", p { strong { "{label}" } span { "{supported} / {total} supported" } }
-                    if total > 0 { progress { value: "{supported}", max: "{total}", "aria-label": "{label}: {supported} of {total} applicable findings supported" } }
+                    if total > 0 { progress { value: "{supported}", max: "{total}", "data-tone": tone, "aria-label": "{label}: {supported} of {total} applicable findings supported" } }
                     else { small { "No applicable findings" } }
                 }
             }}

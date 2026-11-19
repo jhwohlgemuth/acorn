@@ -3,6 +3,7 @@ extern crate alloc;
 pub(crate) use acorn_web::media;
 use dioxus::prelude::*;
 
+mod dashboard;
 mod details;
 mod geospatial_page;
 mod results;

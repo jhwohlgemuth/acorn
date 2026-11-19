@@ -1,9 +1,11 @@
 //! Bounded supplied files and projections of explicitly validated activities.
 use acorn_core::util::{MimeType, StringConversion};
+use acorn_schema::pid::{Identifier, PID};
 use alloc::collections::{BTreeMap, BTreeSet};
 use data_encoding::BASE64;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use strum::IntoEnumIterator;
 
 /// Maximum accepted files in a session.
 pub const FILE_COUNT: usize = 500;
@@ -157,10 +159,10 @@ pub fn activity_status(value: &Value) -> &str {
 pub fn activity_type(value: &Value) -> &str {
     value["@type"].as_str().unwrap_or("Research activity")
 }
-/// Stable distribution for charts and their text equivalents.
-pub fn distribution(records: &[(&SuppliedFile, &Value)], classify: fn(&Value) -> &str) -> BTreeMap<String, usize> {
-    records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
-        let count = counts.entry(classify(value).into()).or_insert(0_usize);
+/// Count labels for charts and their text equivalents.
+pub fn distribution<T: Into<String>>(values: impl IntoIterator<Item = T>) -> BTreeMap<String, usize> {
+    values.into_iter().fold(BTreeMap::new(), |mut counts, value| {
+        let count = counts.entry(value.into()).or_insert(0_usize);
         *count = count.saturating_add(1);
         counts
     })
@@ -196,33 +198,59 @@ pub fn entities(records: &[(&SuppliedFile, &Value)], field: &str) -> BTreeSet<St
         .filter(|value| !value.is_empty())
         .collect()
 }
-/// Persistent identifier counts from explicit schema PID fields and typed identities.
-pub fn identifiers(records: &[(&SuppliedFile, &Value)]) -> BTreeSet<String> {
-    let canonical = |text: &str| {
-        text.trim()
-            .trim_start_matches("https://doi.org/")
-            .trim_start_matches("http://doi.org/")
-            .trim_start_matches("https://ror.org/")
-            .to_lowercase()
-    };
-    records
-        .iter()
-        .flat_map(|(_, value)| {
-            ["doi", "handle", "raid", "swhid", "ror"]
+fn identifier_label(kind: &PID) -> String {
+    match kind {
+        | PID::Handle => "Handle".into(),
+        | PID::RAID => "RAiD".into(),
+        | _ => kind.as_str().to_ascii_uppercase(),
+    }
+}
+fn identifier_types(records: &[(&SuppliedFile, &Value)]) -> BTreeMap<String, PID> {
+    let direct = records.iter().flat_map(|(_, value)| {
+        PID::iter().filter(PID::supports_discovery).flat_map(move |kind| {
+            many(metadata(value, kind.as_str()))
                 .into_iter()
-                .flat_map(move |field| many(metadata(value, field)))
                 .filter_map(Value::as_str)
+                .filter_map(move |value| {
+                    Identifier {
+                        kind: kind.clone(),
+                        value: value.into(),
+                    }
+                    .normalized()
+                })
         })
-        .chain(records.iter().flat_map(|(_, value)| {
-            ["organizations", "contributors"]
-                .into_iter()
-                .flat_map(move |field| many(metadata(value, field)))
-                .flat_map(|entity| many(&entity["identifiers"]))
-                .filter_map(|identifier| identifier["value"].as_str())
-        }))
-        .map(canonical)
-        .filter(|value| !value.is_empty())
-        .collect()
+    });
+    let typed = records.iter().flat_map(|(_, value)| {
+        ["organizations", "contributors"]
+            .into_iter()
+            .flat_map(move |field| many(metadata(value, field)))
+            .flat_map(|entity| many(&entity["identifiers"]))
+            .filter_map(|identifier| {
+                identifier["value"].as_str().map(|value| {
+                    let scheme = identifier["scheme"].as_str().or_else(|| identifier["schemeUri"].as_str());
+                    Identifier {
+                        kind: scheme.map(PID::infer).unwrap_or_default(),
+                        value: value.into(),
+                    }
+                })
+            })
+            .filter_map(|identifier| identifier.normalized())
+    });
+    direct
+        .chain(typed)
+        .map(|identifier| (identifier.identity_key(), identifier.kind))
+        .fold(BTreeMap::new(), |mut types, (key, kind)| {
+            types.entry(key).or_insert(kind);
+            types
+        })
+}
+/// One scheme label for each unique explicit PID in validated records.
+pub fn identifier_labels(records: &[(&SuppliedFile, &Value)]) -> impl Iterator<Item = String> {
+    identifier_types(records).into_values().map(|kind| identifier_label(&kind))
+}
+/// Unique persistent identifiers from explicit schema PID fields and typed identities.
+pub fn identifiers(records: &[(&SuppliedFile, &Value)]) -> BTreeSet<String> {
+    identifier_types(records).into_keys().collect()
 }
 /// Treat the schema's single-or-many representation consistently.
 pub fn many(value: &Value) -> Vec<&Value> {

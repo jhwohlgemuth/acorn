@@ -27,13 +27,13 @@ window.acornCelebrate = (() => {
         burst.setAttribute("aria-hidden", "true");
         const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         for (const index of Array.from({ length: reduced ? 4 : 48 }, (_, index) => index)) {
-            const angle = index * 2.4;
-            const radius = 28 + index % 7 * 8;
+            const angle = (-50 + ((index * 7) % 12) * 4) * Math.PI / 180;
+            const radius = 42 + Math.floor(index / 12) * 27 + (index * 5) % 15;
             const piece = document.createElement("span");
             piece.className = "celebration-piece";
             piece.dataset.shape = ["circle", "square", "triangle", "strip"][index % 4];
-            piece.style.setProperty("--x", `${20 + Math.cos(angle) * radius}px`);
-            piece.style.setProperty("--y", `${Math.sin(angle) * radius * .75 - 18}px`);
+            piece.style.setProperty("--x", `${Math.cos(angle) * radius}px`);
+            piece.style.setProperty("--y", `${Math.sin(angle) * radius}px`);
             piece.style.setProperty("--rotation", `${index * 71}deg`);
             piece.style.setProperty("--delay", `${index % 6 * 20}ms`);
             piece.style.setProperty("--size", `${5 + index % 4}px`);

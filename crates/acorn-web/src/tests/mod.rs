@@ -515,6 +515,26 @@ mod session_tests {
         assert_eq!(next.skipped, 3);
     }
     #[test]
+    fn test_identifier_labels_deduplicate_values_across_fields_and_activities() {
+        let files = [file("a.json", "{}"), file("b.json", "{}")];
+        let values = [
+            json!({"meta":{"doi":"https://doi.org/10.1234/a","ror":"https://ror.org/01qz5mb56","contributors":[{"identifiers":[{"value":"https://orcid.org/0000-0000-0000-0001","scheme":"ORCID"},{"value":"https://isni.org/isni/000000012146438X","schemeUri":"https://isni.org"}]}],"organizations":[{"identifiers":[{"value":"https://ror.org/01qz5mb56","scheme":"ROR"}]}]}}),
+            json!({"meta":{"doi":"10.1234/b","raid":"https://raid.org.au/10.25917/example","contributors":[{"identifiers":[{"value":"https://orcid.org/0000-0000-0000-0001","scheme":"orcid"}]}],"organizations":[{"identifiers":[{"value":"https://ror.org/01qz5mb56"}]}]}}),
+        ];
+        let records = files.iter().zip(values.iter()).collect::<Vec<_>>();
+        let counts = distribution(identifier_labels(&records));
+        assert_eq!(
+            counts,
+            [("DOI", 2), ("ISNI", 1), ("ORCID", 1), ("RAiD", 1), ("ROR", 1)]
+                .into_iter()
+                .map(|(label, count)| (label.to_owned(), count))
+                .collect()
+        );
+        assert_eq!(counts.values().sum::<usize>(), identifiers(&records).len());
+        let first_record = records.iter().take(1).copied().collect::<Vec<_>>();
+        assert_eq!(distribution(identifier_labels(&first_record)).get("DOI"), Some(&1));
+    }
+    #[test]
     fn test_images_require_canonical_raster_bytes_and_do_not_seed_text_tools() {
         let bytes = b"\x89PNG\r\n\x1a\nfixture";
         let image = format!("data:image/png;base64,{}", BASE64.encode(bytes));
@@ -610,7 +630,7 @@ mod session_tests {
             files: vec![file("a.json", "{}"), file("b.json", "{}"), file("invalid.json", "{}")],
             skipped: 0,
         });
-        let value = json!({"title":"A","@type":"Project","meta":{"status":"active","doi":"https://doi.org/10.1/x","organizations":[{"name":"Example","identifiers":[{"value":"https://ror.org/example"}]}]}});
+        let value = json!({"title":"A","@type":"Project","meta":{"status":"active","doi":"https://doi.org/10.1234/x","organizations":[{"name":"Example","identifiers":[{"value":"https://ror.org/01qz5mb56"}]}]}});
         for name in ["a.json", "b.json"] {
             workspace.validations.insert(name.into(), json!({"valid":true,"value":value}));
         }
@@ -619,7 +639,10 @@ mod session_tests {
         assert_eq!(records.len(), 2);
         assert_eq!(entities(&records, "organizations").len(), 1);
         assert_eq!(identifiers(&records).len(), 2);
-        assert_eq!(distribution(&records, activity_type).get("Project"), Some(&2));
+        assert_eq!(
+            distribution(records.iter().map(|(_, value)| activity_type(value))).get("Project"),
+            Some(&2)
+        );
         let replaced = workspace.replace(Selection {
             files: vec![file("new.json", "{}")],
             skipped: 0,

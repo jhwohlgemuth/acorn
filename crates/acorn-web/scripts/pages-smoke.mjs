@@ -107,8 +107,16 @@ try {
     assert.equal(await page.getByRole("heading", { name: "Activity types" }).count(), 0);
     assert.equal(await page.getByRole("heading", { name: "Top topics" }).count(), 1);
     assert.equal(await page.locator(".topic-bars .proportion").count(), 6);
-    assert.equal(await page.locator(".status-donut-legend-row").count(), 4);
-    assert.match(await page.locator(".status-donut").evaluate((donut) => getComputedStyle(donut).backgroundImage), /^conic-gradient\(/);
+    const topicTile = await page.locator(".topic-bars").boundingBox();
+    const donutTiles = await page.locator(".distribution-stack").boundingBox();
+    assert.ok(topicTile && donutTiles && Math.abs(topicTile.height - donutTiles.height) < 1, "Top topics matches the combined donut tile height");
+    assert.equal(await page.locator(".status-donut .donut-legend-row").count(), 4);
+    assert.match(await page.locator(".status-donut .donut-chart").evaluate((donut) => getComputedStyle(donut).backgroundImage), /^conic-gradient\(/);
+    assert.equal(await page.locator(".metrics .metric").count(), 3);
+    assert.deepEqual(await page.locator(".identifier-donut .donut-legend-label").allTextContents(), ["DOI", "ORCID", "ROR"]);
+    assert.match(await page.locator(".identifier-donut .donut-chart").evaluate((donut) => getComputedStyle(donut).backgroundImage), /^conic-gradient\(/);
+    assert.equal(Number(await page.locator(".identifier-donut .donut-center strong").textContent()),
+        (await page.locator(".identifier-donut .donut-legend-row strong").allTextContents()).map(Number).reduce((sum, count) => sum + count, 0));
     await page.locator(".activity-select").first().click();
     const drawer = page.getByRole("dialog");
     await drawer.waitFor();
@@ -259,6 +267,26 @@ try {
     await waitForServices(page);
     await page.getByRole("button", { name: "Readability", exact: true, pressed: true }).waitFor();
     assert.equal(new URL(page.url()).hash, "#readability", "Direct Review links retain their tab fragment");
+    for (const [name, slug] of [["ASPECT", "aspect"], ["S3A", "s3a"]]) {
+        await page.locator(`nav a[title="${name}"]`).click();
+        await page.getByRole("heading", { name, exact: true }).waitFor();
+        await page.getByRole("heading", { name: "Under construction" }).waitFor();
+        const constructionGif = page.locator(`.page[data-page="${slug}"] .construction-gif`);
+        assert.equal(await constructionGif.getAttribute("alt"), "My acorn is missing");
+        await constructionGif.evaluate((image) => image.decode());
+        assert.equal(await constructionGif.evaluate((image) => image.naturalWidth), 400);
+        assert.equal(await constructionGif.evaluate((image) => getComputedStyle(image).objectFit), "cover");
+        assert.equal(Math.round((await constructionGif.boundingBox()).width), await page.locator(`.page[data-page="${slug}"] .construction-card`).evaluate((card) => card.clientWidth));
+        if (slug === "aspect") {
+            assert.equal(await page.getByRole("heading", { name: "ASPECT", exact: true }).getByRole("link").count(), 0);
+            assert.equal(await page.locator('.page[data-page="aspect"] .card').getByRole("link", { name: "ASPECT" }).getAttribute("href"), "https://acorn.ornl.gov/concepts/aspect/index.html");
+        }
+        assert.equal(new URL(page.url()).pathname, `${prefix}/${slug}`);
+        await page.reload();
+        await waitForServices(page);
+        await page.getByRole("heading", { name: "Under construction" }).waitFor();
+        assert.equal(await page.locator(".page[data-page] p").filter({ hasText: `This page will visualize ${name} data.` }).count(), 1);
+    }
     await page.locator('nav a[title="Geospatial"]').click();
     await page.locator("#geospatial-map canvas").waitFor({ timeout: 60000 });
     const layerButton = page.locator(".map-layer-widget > summary");
