@@ -7,6 +7,7 @@ mod details;
 mod geospatial_page;
 mod results;
 mod sample;
+mod search_ui;
 mod skill;
 mod syntax;
 mod ui;
@@ -14,6 +15,11 @@ mod workspace;
 
 fn app() -> Element {
     use_context_provider(|| Signal::new(String::new()));
+    let initially_collapsed = js_sys::Reflect::get(&js_sys::global(), &"acornInitialSidebarCollapsed".into())
+        .ok()
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    use_context_provider(|| Signal::new(initially_collapsed));
     let mut workspace = use_context_provider(|| Signal::new(acorn_web::session::Workspace::default()));
     let mut storage_status = use_context_provider(|| Signal::new((0_usize, false)));
     let mut restored = use_signal(|| false);
@@ -74,7 +80,10 @@ fn app() -> Element {
             "data-light-icon": asset!("/assets/generated/acorn-app-icon-light.svg"),
         }
         document::Link { rel: "license", title: "Lucide icon license", href: asset!("/assets/vendor/lucide.LICENSE") }
+        document::Link { rel: "license", title: "Devicon icon license", href: asset!("/assets/vendor/devicon.LICENSE") }
+        document::Link { rel: "license", title: "Simple Icons license", href: asset!("/assets/vendor/simple-icons.LICENSE") }
         document::Link { id: "app-stylesheet", rel: "stylesheet", href: asset!("/assets/app.css") }
+        document::Script { src: asset!("/assets/url-state.js") }
         document::Script { src: asset!("/assets/effects.js"), "data-worker": asset!("/assets/worker.js") }
         document::Script { src: asset!("/assets/details.js") }
         document::Script { src: asset!("/assets/carousel.js") }

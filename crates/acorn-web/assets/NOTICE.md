@@ -15,6 +15,15 @@ Rust and WebAssembly: repository-held SVG Logos artwork, CC0-1.0, as recorded in
 
 The remote loader uses unchanged GitHub and GitLab SVG Logos artwork from `docs/src/_assets/schema-logos/`, also CC0-1.0. GitHub SHA-256: `e17ceb5b00e9224388100dc9a6771ee639d45ece7e7953e891a971c3f3c549eb`; GitLab SHA-256: `4955556a4d42c2da82c51ebbdd5b11e8155ebfe635fb5bb9bcc4722020d2f239`.
 
+The Install page bundles these unchanged platform and package-manager marks. WinGet and Scoop share the Windows mark. The [Devicon MIT notice](https://github.com/devicons/devicon/blob/master/LICENSE) and [Simple Icons CC0 notice](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md) are bundled locally; individual logos remain subject to their owners' trademark rights and are used only to identify channels.
+
+| Mark | Source | SHA-256 |
+|---|---|---|
+| Windows | [Devicon Windows 11](https://github.com/devicons/devicon/blob/master/icons/windows11/windows11-original.svg) | `11ac9b1e84c8c36c21629d03f26ce699b7d2e56bf702ea2e8eb2637cd2271c56` |
+| Debian | [Simple Icons Debian](https://github.com/simple-icons/simple-icons/blob/develop/icons/debian.svg) | `8835536d63c80990f9c90c935982ba329d163e707c894278ca6bd73258d1962b` |
+| AppImage | [Simple Icons AppImage](https://github.com/simple-icons/simple-icons/blob/develop/icons/appimage.svg) | `b266c50cb379a6cf96360c4cb10174a7b36f1d317c48e2375b7a858253c02a10` |
+| Homebrew | [Simple Icons Homebrew](https://github.com/simple-icons/simple-icons/blob/develop/icons/homebrew.svg) | `59aef3ad19dca4db571725f87312f19ec2633fdedc85831a0d556798c1813549` |
+
 The Home loader uses Lucide 0.562.0 `folder-open` and `upload` icon paths, matching the [OKF Home page](https://www.jasonwohlgemuth.com/okf-plan-browser/home). Paths are reproduced unchanged with 20 px sizing, 2 px strokes, and theme-aware blue/green colors. The upstream ISC/MIT notice is preserved in [`vendor/lucide.LICENSE`](vendor/lucide.LICENSE); [upstream license](https://github.com/lucide-icons/lucide/blob/0.562.0/LICENSE).
 
 ## Dioxus upstream notice

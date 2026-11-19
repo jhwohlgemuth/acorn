@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { Cartographic, Math as CesiumMath } from "cesium";
-import { configureHome, ornlHome } from "../src/home.ts";
+import { configureHome, focusLocation, ornlHome } from "../src/home.ts";
 
 test("initial view and Home center on bundled ORNL coordinates without resetting to the global view", async () => {
     const index = JSON.parse(await readFile(new URL("../../assets/geospatial/ror-locations.json", import.meta.url)));
@@ -26,6 +26,25 @@ test("initial view and Home center on bundled ORNL coordinates without resetting
             assert.equal(event.cancel, true);
             assert.deepEqual(views.at(-1).destination, views[0].destination);
             assert.equal(views.at(-1).duration, reduced ? 0 : 1);
+        }
+    } finally { delete globalThis.window; }
+});
+test("selected ROR focuses its location with reduced motion support", () => {
+    const flights = [];
+    const viewer = { camera: { flyTo: (view) => flights.push(view) } };
+    const location = { latitude: 35.6762, longitude: 139.6503 };
+    try {
+        for (const reduced of [false, true]) {
+            globalThis.window = { matchMedia: () => ({ matches: reduced }) };
+            focusLocation(viewer, location);
+            const flight = flights.at(-1);
+            const destination = Cartographic.fromCartesian(flight.destination);
+            assert.ok(Math.abs(CesiumMath.toDegrees(destination.latitude) - location.latitude) < 1e-8);
+            assert.ok(Math.abs(CesiumMath.toDegrees(destination.longitude) - location.longitude) < 1e-8);
+            assert.ok(Math.abs(destination.height - 500000) < 1e-6);
+            let duration = 1.2;
+            if (reduced) duration = 0;
+            assert.equal(flight.duration, duration);
         }
     } finally { delete globalThis.window; }
 });

@@ -14,3 +14,11 @@ export function configureHome(viewer: Viewer) {
         viewer.camera.flyTo({ ...view, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1 });
     });
 }
+export function focusLocation(viewer: Viewer, location: { latitude: number; longitude: number }) {
+    let duration = 1.2;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) duration = 0;
+    viewer.camera.flyTo({
+        destination: Cartesian3.fromDegrees(location.longitude, location.latitude, 500000),
+        duration,
+    });
+}

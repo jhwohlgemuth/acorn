@@ -79,6 +79,31 @@ fn test_assess_fair_metadata_returns_all_indicators_and_profile() {
     );
 }
 #[test]
+fn test_assess_fair_skips_principles_before_scoring() {
+    let result = assess_fair_with_skip("{}", "datacite", None, &[FairPrinciple::Findable, FairPrinciple::Reusable]).unwrap();
+    assert!(result
+        .findings
+        .iter()
+        .all(|finding| matches!(finding.indicator.principle, FairPrinciple::Accessible | FairPrinciple::Interoperable)));
+    assert_eq!(
+        result.profile.total.indeterminate + result.profile.total.not_applicable + result.profile.total.supported + result.profile.total.unsupported,
+        result.findings.len()
+    );
+    let empty = assess_fair_with_skip(
+        "{}",
+        "datacite",
+        None,
+        &[
+            FairPrinciple::Findable,
+            FairPrinciple::Accessible,
+            FairPrinciple::Interoperable,
+            FairPrinciple::Reusable,
+        ],
+    )
+    .unwrap();
+    assert!(empty.findings.is_empty());
+}
+#[test]
 fn test_check_readability_accepts_every_metric() {
     assert!(["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"]
         .into_iter()
@@ -286,6 +311,20 @@ fn test_inspect_identifier_reports_name_identifier_ambiguity() {
     );
 }
 #[test]
+fn test_parse_activity_metric_ignores_invalid_value_only_when_readability_is_skipped() {
+    let skip = [CheckCategory::Readability];
+    assert_eq!(parse_activity_metric("not-a-metric", &skip), Ok(ReadabilityType::default()));
+    assert!(parse_activity_metric("not-a-metric", &[]).is_err());
+    let result = validate_json_with_readability(
+        VALID_RESEARCH_ACTIVITY,
+        VocabularyFuzzyMode::Off,
+        &skip,
+        parse_activity_metric("not-a-metric", &skip).unwrap(),
+        None,
+    );
+    assert!(result.diagnostics.iter().all(|item| item.category != CheckCategory::Readability));
+}
+#[test]
 fn test_validate_metadata_standard_accepts_portable_text_and_rejects_unknown_options() {
     let result = validate_metadata("A plain metadata document.", "text", "text").unwrap();
     assert!(result.valid);
@@ -361,7 +400,11 @@ fn test_validate_research_activity_returns_valid_value() {
     assert_eq!(result.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Relaxed));
     let off = validate_json_with_fuzzy(VALID_RESEARCH_ACTIVITY, VocabularyFuzzyMode::Off);
     assert!(!off.diagnostics.is_empty());
-    assert!(off.diagnostics.iter().all(|item| item.category == CheckCategory::Fair));
+    assert!(off
+        .diagnostics
+        .iter()
+        .all(|item| matches!(item.category, CheckCategory::Fair | CheckCategory::Readability)));
+    assert!(off.diagnostics.iter().any(|item| item.category == CheckCategory::Readability));
     assert_eq!(off.vocabulary_fuzzy, Some(VocabularyFuzzyMode::Off));
 }
 #[test]

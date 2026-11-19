@@ -29,12 +29,13 @@ try {
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     await page.getByRole("button", { name: "Try Sample Data" }).click();
     await page.locator(".sidebar-session").getByText(sampleSummary, { exact: true }).waitFor();
-    await page.locator('nav a[title="Research Activity"]').click();
+    await page.locator('nav a[title="Review"]').click();
     const selectedSample = JSON.parse(await page.locator("#content").inputValue());
     assert.ok(selectedSample.meta.identifier, "the sample selects a validated RAD record");
     await page.locator('nav a[title="Content diff"]').click();
     await page.locator("#content-editor").fill('{"title":"Before"}');
     await page.locator("#after-editor").fill('{"title":"After","x":2}');
+    await page.locator(".tool-settings > summary").click();
     await page.getByRole("button", { name: "JSON Patch", exact: true }).click();
     await page.getByRole("button", { name: "Compare", exact: true }).click();
     await page.getByText("2 JSON Patch operations", { exact: true }).waitFor();

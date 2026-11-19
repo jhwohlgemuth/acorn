@@ -4,7 +4,7 @@
 
 ## In progress
 
-- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - ABW-40 private GitLab loading/CORS, ABW-42/43 index implementation, and ABW-60–62 catalog images are accepted. ABW-19 hosted initial-index acceptance, ABW-63–65 multiple-bucket loading and acceptance, and ABW-44 project-map work remain. Desktop ABW-45–59 cover the complete host capability matrix, including PDF/PPTX export, local/remote workflows, acornd, agents, protected credentials, protocol servers, trusted extensions, integration provisioning and report publication before ABW-56 and native OS acceptance. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
+- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - ABW-40 private GitLab loading/CORS, ABW-42/43 index implementation, and ABW-60–62 catalog images are accepted. ABW-19 hosted initial-index acceptance, ABW-63–65 multiple-bucket loading and acceptance, and ABW-44 project-map work remain. Desktop ABW-45–59 cover the complete host capability matrix, including every CLI check category (Link included), real skip behavior, PDF/PPTX export, local/remote workflows, acornd, agents, protected credentials, protocol servers, trusted extensions, integration provisioning and report publication before ABW-56 and native OS acceptance. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
 
 ## Planned
 

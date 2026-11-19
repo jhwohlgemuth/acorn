@@ -12,16 +12,17 @@ use crate::pid::{PersistentIdentifierConvert, PID};
 const CONTRACT_CANONICAL: &str = "https://ror.org/01qz5mb56";
 const CONTRACT_INVALID: &str = "01qz5mb55";
 const CONTRACT_VALID: &str = "01qz5mb56";
-const MOD_97_10_CASES: [(&str, [char; 2]); 4] = [
-    ("1wass4", ['8', '0']),
-    ("1qz5mb", ['5', '6']),
-    ("2xn1ny", ['0', '6']),
+const MOD_97_10_CASES: [(&str, [char; 2]); 5] = [
     ("0q6v6102", ['0', '2']),
+    ("1qz5mb", ['5', '6']),
+    ("1sjwvz", ['9', '8']),
+    ("1wass4", ['8', '0']),
+    ("2xn1ny", ['0', '6']),
 ];
 
 #[test]
 fn test_idutils_ror_cases() {
-    ["03yrm5c26", "http://ror.org/03yrm5c26"]
+    ["01sjwvz98", "03yrm5c26", "http://ror.org/03yrm5c26"]
         .into_iter()
         .for_each(|value| assert!(ROR::is_valid(value), "expected valid ROR: {value}"));
 }

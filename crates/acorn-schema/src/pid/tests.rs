@@ -43,9 +43,10 @@ const MOD_11_2_CHECK_DIGIT_CASES: [(&str, Option<&[char]>); 4] = [
     ("0000 0004 9229 9539", Some(&['9'])),
     ("0000-0002-2816-415X", Some(&['X'])),
 ];
-const MOD_97_10_CHECK_DIGIT_CASES: [(&str, Option<&[char]>); 5] = [
+const MOD_97_10_CHECK_DIGIT_CASES: [(&str, Option<&[char]>); 6] = [
     ("0q6v6102", Some(&['0', '2'])),
     ("1qz5mb", Some(&['5', '6'])),
+    ("1sjwvz", Some(&['9', '8'])),
     ("1wass4", Some(&['8', '0'])),
     ("2xn1ny", Some(&['0', '6'])),
     ("******", None),

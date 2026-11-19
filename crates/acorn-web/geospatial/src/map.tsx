@@ -1,8 +1,8 @@
 import { Cartesian3, Color, createOsmBuildingsAsync, EllipsoidTerrainProvider, GeographicTilingScheme, ImageryLayer, Ion, OpenStreetMapImageryProvider, Terrain, UrlTemplateImageryProvider, Viewer as CesiumViewer } from "cesium";
 import { Component, useEffect, useMemo, useRef, useState } from "react";
-import { CameraFlyTo, type CesiumComponentRef, Entity, Scene, Viewer } from "resium";
+import { type CesiumComponentRef, Entity, Scene, Viewer } from "resium";
 import type { State } from "./bridge";
-import { configureHome } from "./home";
+import { configureHome, focusLocation } from "./home";
 
 const layers = [
     { id: "black-marble", label: "Black Marble", detail: "Offline · NASA night imagery" },
@@ -70,6 +70,10 @@ export function MapView({ state, base, select, error }: { state: State; base: st
         };
     }, [buildingsEnabled, ionToken]);
     const chosen = state.markers.find((marker) => marker.id === state.selected)?.location;
+    useEffect(() => {
+        const viewer = viewerRef.current && viewerRef.current.cesiumElement;
+        if (viewer && chosen) focusLocation(viewer, chosen);
+    }, [state.selected, chosen && chosen.latitude, chosen && chosen.longitude]);
     const selectedLayer = layers.find((layer) => layer.id === layerId) ?? layers[0];
     return <><Viewer ref={viewerRef} full extend={configureHome} animation={false} timeline={false} baseLayer={imagery} terrain={ionTerrain} terrainProvider={ionTerrain ? undefined : terrain}
         baseLayerPicker={false} geocoder={false} homeButton={true} sceneModePicker={true} navigationHelpButton={false}
@@ -82,7 +86,6 @@ export function MapView({ state, base, select, error }: { state: State; base: st
             properties={{ ror: marker.id, country: marker.location!.country, latitude: marker.location!.latitude, longitude: marker.location!.longitude, references: marker.references, projectCount: marker.project_ids.length }}
             position={Cartesian3.fromDegrees(marker.location!.longitude, marker.location!.latitude)}
             point={{ pixelSize: marker.id === state.selected ? 15 : Math.min(12, 8 + marker.project_ids.length), color: Color.fromCssColorString(marker.project_ids.length > 1 ? "#f0b84b" : "#39ab68"), outlineColor: Color.WHITE, outlineWidth: 2 }} />)}
-        {chosen && <CameraFlyTo duration={0} destination={Cartesian3.fromDegrees(chosen.longitude, chosen.latitude, 3000000)} />}
     </Viewer>
     {state.markers.some((marker) => marker.location) && <div className="map-project-legend" aria-label="Map marker legend">
         <span><i className="map-marker-single" aria-hidden="true" />One project or added location</span>

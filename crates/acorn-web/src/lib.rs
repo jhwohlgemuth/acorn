@@ -5,6 +5,7 @@ pub mod media;
 pub mod operations;
 pub mod presentation;
 pub mod research_index;
+pub mod search;
 pub mod session;
 
 #[cfg(test)]

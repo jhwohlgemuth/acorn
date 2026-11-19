@@ -526,8 +526,13 @@ impl FairEvidence {
     }
     /// Evaluate all 41 RDA indicators in their canonical order.
     pub fn assess(&self) -> Vec<FairDetails> {
+        self.assess_selected(&[])
+    }
+    /// Evaluate indicators except those belonging to skipped FAIR principles.
+    pub fn assess_selected(&self, skip: &[FairPrinciple]) -> Vec<FairDetails> {
         indicator()
             .into_iter()
+            .filter(|indicator| !skip.contains(&indicator.principle))
             .map(|indicator| FairDetails::from_evidence(indicator, self))
             .collect()
     }

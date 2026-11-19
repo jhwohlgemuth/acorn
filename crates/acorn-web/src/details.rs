@@ -111,6 +111,10 @@ impl From<Project> for Detail {
 }
 #[component]
 fn ActivityOverview(value: Value) -> Element {
+    let has_more = value.get("sections").is_some_and(Value::is_object)
+        || !session::many(metadata(&value, "websites")).is_empty()
+        || !session::many(metadata(&value, "media")).is_empty()
+        || value.get("contact").is_some_and(Value::is_object);
     let identifiers = ["doi", "handle", "raid", "swhid", "ror"]
         .into_iter()
         .flat_map(|field| session::many(metadata(&value, field)))
@@ -146,36 +150,40 @@ fn ActivityOverview(value: Value) -> Element {
                 h3 { class: "details-section-title", "Research focus" }
                 p { class: "details-description", "{focus}" }
             }
-            if let Some(areas) = sections.get("research").and_then(|research| research.get("areas")).and_then(Value::as_array) { if !areas.is_empty() {
-                h3 { class: "details-section-title", "Research areas" }
-                ul { class: "details-entities", for area in areas { if let Some(area) = area.as_str() { li { "{area}" } } } }
-            } }
-            for (name, content) in sections.as_object().into_iter().flatten() {
-                if name != "research" { details { summary { "{acorn_web::presentation::label(name)}" }
-                    for paragraph in session::many(content) { if let Some(paragraph) = paragraph.as_str() { p { class: "details-description", "{paragraph}" } } }
+        }
+        if has_more { details { class: "activity-more", summary { "More activity details" }
+            if let Some(sections) = value.get("sections").filter(|sections| sections.is_object()) {
+                if let Some(areas) = sections.get("research").and_then(|research| research.get("areas")).and_then(Value::as_array) { if !areas.is_empty() {
+                    h3 { class: "details-section-title", "Research areas" }
+                    ul { class: "details-entities", for area in areas { if let Some(area) = area.as_str() { li { "{area}" } } } }
+                } }
+                for (name, content) in sections.as_object().into_iter().flatten() {
+                    if name != "research" { section { h3 { class: "details-section-title", "{acorn_web::presentation::label(name)}" }
+                        for paragraph in session::many(content) { if let Some(paragraph) = paragraph.as_str() { p { class: "details-description", "{paragraph}" } } }
+                    } }
+                }
+            }
+            if !session::many(metadata(&value, "websites")).is_empty() {
+                h3 { class: "details-section-title", "Related links" }
+                ul { class: "details-entities", for website in session::many(metadata(&value, "websites")) {
+                    if let Some(url) = website["url"].as_str().and_then(identifier_href) { li { a { href: url, target: "_blank", rel: "noopener noreferrer", "{website[\"description\"].as_str().unwrap_or(\"Website\")}" } } }
                 } }
             }
-        }
-        if !session::many(metadata(&value, "websites")).is_empty() {
-            h3 { class: "details-section-title", "Related links" }
-            ul { class: "details-entities", for website in session::many(metadata(&value, "websites")) {
-                if let Some(url) = website["url"].as_str().and_then(identifier_href) { li { a { href: url, target: "_blank", rel: "noopener noreferrer", "{website[\"description\"].as_str().unwrap_or(\"Website\")}" } } }
-            } }
-        }
-        if !session::many(metadata(&value, "media")).is_empty() {
-            h3 { class: "details-section-title", "Media" }
-            ul { class: "details-entities", for media in session::many(metadata(&value, "media")) {
-                {let caption = media["caption"].as_str().or_else(|| media["description"].as_str()).unwrap_or("Media item"); rsx! { li {
-                    if let Some(url) = media["contentUrl"].as_str().and_then(identifier_href) { a { href: url, target: "_blank", rel: "noopener noreferrer", "{caption}" } } else { "{caption}" }
-                } }}
-            } }
-        }
-        if let Some(contact) = value.get("contact").filter(|contact| contact.is_object()) {
-            h3 { class: "details-section-title", "Contact" }
-            p { "{contact[\"givenName\"].as_str().unwrap_or(\"\")} {contact[\"familyName\"].as_str().unwrap_or(\"\")}" }
-            if let Some(organization) = contact["organization"].as_str() { p { "{organization}" } }
-            if let Some(email) = contact["email"].as_str() { if !email.is_empty() { p { a { href: "mailto:{email}", "{email}" } } } }
-        }
+            if !session::many(metadata(&value, "media")).is_empty() {
+                h3 { class: "details-section-title", "Media" }
+                ul { class: "details-entities", for media in session::many(metadata(&value, "media")) {
+                    {let caption = media["caption"].as_str().or_else(|| media["description"].as_str()).unwrap_or("Media item"); rsx! { li {
+                        if let Some(url) = media["contentUrl"].as_str().and_then(identifier_href) { a { href: url, target: "_blank", rel: "noopener noreferrer", "{caption}" } } else { "{caption}" }
+                    } }}
+                } }
+            }
+            if let Some(contact) = value.get("contact").filter(|contact| contact.is_object()) {
+                h3 { class: "details-section-title", "Contact" }
+                p { "{contact[\"givenName\"].as_str().unwrap_or(\"\")} {contact[\"familyName\"].as_str().unwrap_or(\"\")}" }
+                if let Some(organization) = contact["organization"].as_str() { p { "{organization}" } }
+                if let Some(email) = contact["email"].as_str() { if !email.is_empty() { p { a { href: "mailto:{email}", "{email}" } } } }
+            }
+        } }
     }
 }
 #[component]
@@ -232,7 +240,7 @@ pub(crate) fn DetailsDrawer() -> Element {
                     p { class: "details-provenance", a { href, target: "_blank", rel: "noopener noreferrer", "View source at loaded revision ↗" } }
                 }
                 if detail.project.is_none() && !image { div { class: "details-tabs", role: "tablist", "aria-label": "Details view",
-                    for (name, label, icon) in [("overview", "Overview", "filecheck"), ("source", "Source", "code"), ("checks", "Checks", "check")] {
+                    for (name, label, icon) in [("overview", "Preview", "filecheck"), ("source", "Source", "code"), ("checks", "Checks", "check")] {
                         button { id: "details-tab-{name}", role: "tab", "aria-selected": tab() == name, "aria-controls": "details-panel", tabindex: if tab() == name { "0" } else { "-1" }, onclick: move |_| tab.set(name), Icon { name: icon } "{label}" }
                     }
                 } }
@@ -250,14 +258,14 @@ pub(crate) fn DetailsDrawer() -> Element {
                             if let Some(checks) = &detail.checks {
                                 ResultView { tool: detail.tool, value: checks.clone() }
                             } else if let Some(marker) = &detail.marker {
-                                p { class: "small muted", "Existing checks for related activities. No new validation is run." }
+                                p { class: "small muted", "Existing checks for activities referencing this organization. No new validation is run." }
                                 for path in &marker.activities {
                                     details { summary { "{path}" }
                                         if let Some(checks) = snapshot.validations.get(path) { ResultView { tool: Tool::Activity, value: checks.clone() } }
                                         else { p { class: "muted", "No checks available for this activity." } }
                                     }
                                 }
-                            } else { div { class: "details-empty", Icon { name: "check" } h3 { "No checks yet" } p { "Open this file in Research Activity to validate it." } } }
+                            } else { div { class: "details-empty", Icon { name: "check" } h3 { "No checks yet" } p { "Open this file in Review to validate it." } } }
                         },
                         _ => rsx! {
                             if let Some(finding) = &detail.finding { FindingOverview { finding: finding.clone(), value: detail.value.clone() } }
@@ -283,7 +291,7 @@ pub(crate) fn DetailsDrawer() -> Element {
                                         div { dt { "Coordinates" } dd { "{location.latitude:.4}, {location.longitude:.4}" } }
                                     }
                                 }
-                                h3 { class: "details-section-title", Icon { name: "portfolio" } "Related activities" }
+                                h3 { class: "details-section-title", Icon { name: "portfolio" } "Activities referencing this organization" }
                                 if marker.activities.is_empty() { p { class: "small muted", "No validated activities in this session reference this organization." } }
                                 for path in &marker.activities {
                                     if let Some(file) = snapshot.files.iter().find(|file| &file.path == path) {
@@ -295,11 +303,9 @@ pub(crate) fn DetailsDrawer() -> Element {
                             } else if let Some(value) = &detail.value {
                                 if let Some(path) = detail.path.as_deref() { ImageCarousel { slides: snapshot.slides(path, value), label: detail.title.clone(), compact: false } }
                                 ActivityOverview { value: value.clone() }
-                                if let Some(project) = index.projects.iter().find(|project| project.paths.iter().any(|path| Some(path) == detail.path.as_ref())) {
-                                    {let next = Detail::from(project); rsx! { button { class: "details-related", onclick: move |_| open(drawer, next.clone()), "View project: {project.title}" } }}
-                                }
                                 if let Some(path) = detail.path.as_deref() { if !index.related(path).is_empty() {
                                     h3 { class: "details-section-title", "Related activities" }
+                                    p { class: "small muted", "Listed in this activity's related metadata." }
                                     for activity in index.related(path) { if let Some(file) = snapshot.files.iter().find(|file| file.path == activity.path) {
                                         {let next = Detail::file(file, &snapshot); rsx! { button { class: "details-related", onclick: move |_| open(drawer, next.clone()), strong { "{activity.title}" } small { "{activity.path}" } } }}
                                     } }
@@ -315,9 +321,9 @@ pub(crate) fn DetailsDrawer() -> Element {
                         input.set(detail.source.clone());
                         if let Some(path) = &detail.path { let mut workspace = workspace; let mut next = workspace(); next.selected = Some(path.clone()); workspace.set(next); }
                         document::eval("window.acornDetails?.close(false)"); drawer.set(None);
-                        nav.push(Route::Page { page: "research-activity".into() });
+                        nav.push(Route::Page { page: "review".into() });
                         document::eval("requestAnimationFrame(() => (document.getElementById('content-editor') || document.getElementById('content'))?.focus())");
-                    }, Icon { name: "code" } "Open in Research Activity" } }
+                    }, Icon { name: "code" } "Open in Review" } }
                 }
             }
         }

@@ -1,6 +1,7 @@
 //! Images associated with loaded research activities.
 use crate::session::{self, Workspace};
 use acorn_core::util::MimeType;
+use data_encoding::BASE64;
 use dioxus::prelude::*;
 use serde_json::Value;
 
@@ -12,6 +13,10 @@ pub struct Slide {
     pub(crate) alt: String,
 }
 impl Slide {
+    /// URL or data URL used to display the slide image.
+    pub fn src(&self) -> &str {
+        &self.src
+    }
     /// Build the single fallback slide or a slide for an explicit missing reference.
     pub fn placeholder(caption: &str) -> Self {
         Self {
@@ -29,9 +34,7 @@ impl Workspace {
             if mime.is_raster_image() {
                 Some(file.content.clone())
             } else if mime.is_svg() {
-                js_sys::encode_uri_component(&file.content)
-                    .as_string()
-                    .map(|encoded| format!("data:{mime},{encoded}"))
+                Some(format!("data:{mime};base64,{}", BASE64.encode(file.content.as_bytes())))
             } else {
                 None
             }
@@ -58,19 +61,15 @@ impl Workspace {
                     .map(|url| (url, item))
             })
             .map(|(url, item)| {
-                let path = if folder.is_empty() { url.to_owned() } else { format!("{folder}/{url}") };
                 let caption = item.get("caption").and_then(Value::as_str).unwrap_or(url);
-                (!url.starts_with('/') && !url.contains("..") && session::valid_path(&path))
-                    .then(|| self.image_file(&path))
-                    .flatten()
-                    .map_or_else(
-                        || Slide::placeholder(caption),
-                        |src| Slide {
-                            src,
-                            alt: caption.to_owned(),
-                            caption: caption.to_owned(),
-                        },
-                    )
+                self.media_path(folder, url).and_then(|path| self.image_file(&path)).map_or_else(
+                    || Slide::placeholder(caption),
+                    |src| Slide {
+                        src,
+                        alt: caption.to_owned(),
+                        caption: caption.to_owned(),
+                    },
+                )
             })
             .collect::<Vec<_>>();
         if referenced.is_empty() {
@@ -88,6 +87,22 @@ impl Workspace {
                 .collect()
         } else {
             referenced
+        }
+    }
+    fn media_path(&self, folder: &str, url: &str) -> Option<String> {
+        let reference = url.split(['?', '#']).next().unwrap_or(url);
+        if reference.starts_with("https://") || reference.starts_with("http://") {
+            self.files
+                .iter()
+                .find(|file| reference.ends_with(&format!("/{}", file.path)) && MimeType::from(file.path.as_str()).is_image())
+                .map(|file| file.path.clone())
+        } else {
+            let path = if folder.is_empty() {
+                reference.to_owned()
+            } else {
+                format!("{folder}/{reference}")
+            };
+            (!reference.starts_with('/') && !reference.contains("..") && session::valid_path(&path)).then_some(path)
         }
     }
     /// Aggregate project images, retaining explicit missing references and one empty fallback.

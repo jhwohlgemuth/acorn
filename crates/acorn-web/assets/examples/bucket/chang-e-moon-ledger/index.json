@@ -5,7 +5,7 @@
     "status": "active",
     "identifier": "chang-e-moon-ledger",
     "doi": "10.5072/acorn-sample-chang-e-moon-ledger",
-    "ror": "https://ror.org/000000001",
+    "ror": "https://ror.org/059yhyy33",
     "contributors": [
       {
         "name": "Sample Person",
@@ -21,10 +21,10 @@
     ],
     "organizations": [
       {
-        "name": "Example Organization",
+        "name": "Japan Aerospace Exploration Agency",
         "identifiers": [
           {
-            "value": "https://ror.org/000000001",
+            "value": "https://ror.org/059yhyy33",
             "scheme": "ROR"
           }
         ],
@@ -70,7 +70,7 @@
     "givenName": "Sample",
     "familyName": "Person",
     "email": "sample.person@example.org",
-    "organization": "Example Organization",
+    "organization": "Japan Aerospace Exploration Agency",
     "telephone": "202-555-0101",
     "url": "https://example.org/sample-person"
   }

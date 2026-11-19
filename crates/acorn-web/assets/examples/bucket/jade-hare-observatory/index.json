@@ -5,7 +5,11 @@
     "status": "active",
     "identifier": "jade-hare-observatory",
     "doi": "10.5072/acorn-sample-jade-hare-observatory",
-    "ror": "https://ror.org/000000001",
+    "related": [
+      "chang-e-moon-ledger",
+      "kaguya-bamboo-signal"
+    ],
+    "ror": "https://ror.org/052rrw050",
     "contributors": [
       {
         "name": "Sample Person",
@@ -21,10 +25,10 @@
     ],
     "organizations": [
       {
-        "name": "Example Organization",
+        "name": "National Astronomical Observatory of Japan",
         "identifiers": [
           {
-            "value": "https://ror.org/000000001",
+            "value": "https://ror.org/052rrw050",
             "scheme": "ROR"
           }
         ],
@@ -70,7 +74,7 @@
     "givenName": "Sample",
     "familyName": "Person",
     "email": "sample.person@example.org",
-    "organization": "Example Organization",
+    "organization": "National Astronomical Observatory of Japan",
     "telephone": "202-555-0101",
     "url": "https://example.org/sample-person"
   }

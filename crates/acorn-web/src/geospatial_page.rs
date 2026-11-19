@@ -1,9 +1,11 @@
 use crate::details::{self, Detail};
+use crate::search_ui::SearchField;
 use crate::ui::{Icon, Route};
 use acorn_core::util::suffix;
 use acorn_web::{
     geospatial::{self, LocationIndex, Marker, MARKER_LIMIT},
     research_index::ResearchIndex,
+    search::SearchPattern,
     session::Workspace,
 };
 use alloc::collections::BTreeSet;
@@ -22,6 +24,8 @@ pub(crate) fn Geospatial() -> Element {
     let drawer = use_context::<Signal<Option<Detail>>>();
     let mut index = use_context::<Signal<Option<Result<LocationIndex, String>>>>();
     let mut search = use_signal(String::new);
+    let regex = use_signal(|| false);
+    let case_sensitive = use_signal(|| false);
     let mut country = use_signal(String::new);
     let mut project = use_signal(String::new);
     let mut selected = use_signal(|| pins().selected);
@@ -96,11 +100,13 @@ pub(crate) fn Geospatial() -> Element {
         .iter()
         .filter_map(|marker| marker.location.as_ref().map(|location| location.country.clone()))
         .collect::<BTreeSet<_>>();
-    let query = search().to_lowercase();
+    let pattern = SearchPattern::new(&search(), regex(), case_sensitive());
     let mut filtered = all
         .iter()
         .filter(|marker| {
-            (query.is_empty() || format!("{} {}", marker.name, marker.id).to_lowercase().contains(&query))
+            pattern
+                .as_ref()
+                .is_ok_and(|pattern| pattern.matches(&format!("{} {}", marker.name, marker.id)))
                 && (country().is_empty() || marker.location.as_ref().is_some_and(|location| location.country == country()))
                 && (active_project.is_empty() || marker.project_ids.contains(&active_project))
         })
@@ -156,7 +162,7 @@ pub(crate) fn Geospatial() -> Element {
         }
         div { class: "options",
             label { class: "field", "Project" select { value: active_project, onchange: move |event| project.set(event.value()), option { value: "", "All projects" } for item in &catalog.projects { option { value: "{item.id}", "{item.title}" } } } }
-            label { class: "field", "Search organizations" input { r#type: "search", placeholder: "Search name or ROR identifier…", value: search(), oninput: move |event| search.set(event.value()) } }
+            SearchField { label: "Search organizations", placeholder: "Search name or ROR identifier…", query: search, regex, case_sensitive, error: pattern.as_ref().err().cloned() }
             label { class: "field", "Country" select { value: country(), onchange: move |event| country.set(event.value()), option { value: "", "All countries" } for name in countries { option { value: "{name}", "{name}" } } } }
         }
         h2 { class: "section-heading", Icon { name: "globe" } "Organization locations" }

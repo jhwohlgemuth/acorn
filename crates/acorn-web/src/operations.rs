@@ -1,4 +1,6 @@
 //! Bounded presentation requests dispatched to the existing WASM bindings.
+#[cfg(target_arch = "wasm32")]
+use acorn_analysis::{CheckCategory, FairPrinciple};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -55,12 +57,21 @@ pub struct Request {
     pub target: String,
     /// Readability metric.
     pub metric: String,
+    /// Readability metric for Research Activity checks.
+    #[serde(default = "default_activity_metric")]
+    pub activity_metric: String,
+    /// Optional Research Activity readability threshold.
+    #[serde(default)]
+    pub activity_max: String,
     /// Diff representation.
     pub mode: String,
     /// Explicit identifier kind, or automatic detection.
     pub kind: String,
     /// Vocabulary matching policy.
     pub fuzzy: String,
+    /// Check categories or FAIR principles omitted before execution.
+    #[serde(default)]
+    pub skip: Vec<String>,
     /// Optional crosswalk contact seed.
     pub contact: String,
     /// Optional local identifier seed.
@@ -77,9 +88,12 @@ impl Default for Request {
             format: "json".into(),
             target: "datacite".into(),
             metric: "fres".into(),
+            activity_metric: default_activity_metric(),
+            activity_max: String::new(),
             mode: "unified".into(),
             kind: String::new(),
             fuzzy: "off".into(),
+            skip: Vec::new(),
             contact: String::new(),
             local_identifier: String::new(),
             assumptions: "{}".into(),
@@ -89,6 +103,13 @@ impl Default for Request {
 impl Request {
     /// Enforce byte limits and require content except for unified diffs.
     pub fn validate(&self, tool: Tool) -> Result<(), String> {
+        let review_activity = tool == Tool::Activity || (tool == Tool::Standard && self.standard == "research-activity-data");
+        let readability_enabled = review_activity && !self.skip.iter().any(|item| item == "readability");
+        let metric = self.activity_metric.as_str();
+        let supported_metric = matches!(metric, "ari" | "cli" | "fkgl" | "fres" | "gfi" | "lix" | "smog");
+        let unsupported_metric = readability_enabled && !supported_metric;
+        let invalid_maximum =
+            readability_enabled && !self.activity_max.trim().is_empty() && !self.activity_max.parse::<f64>().is_ok_and(f64::is_finite);
         if self.input.trim().is_empty() && !(tool == Tool::Diff && self.mode == "unified") {
             Err("Enter content or load a local file first.".into())
         } else if self.input.len() > tool.limit() || (matches!(tool, Tool::Diff | Tool::BigO) && self.after.len() > tool.limit()) {
@@ -96,6 +117,10 @@ impl Request {
                 "Each input is limited to {} UTF-8 bytes. Your editor has been preserved.",
                 tool.limit()
             ))
+        } else if unsupported_metric {
+            Err("Choose a supported Research Activity readability metric.".into())
+        } else if invalid_maximum {
+            Err("Readability threshold must be a finite number.".into())
         } else if self.contact.len() > 262144 || self.local_identifier.len() > 2048 || self.assumptions.len() > 16384 {
             Err("Optional input exceeds its size limit.".into())
         } else {
@@ -103,11 +128,14 @@ impl Request {
         }
     }
 }
+fn default_activity_metric() -> String {
+    "fkgl".into()
+}
 impl fmt::Display for Tool {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
             | Self::Activity => "Research Activity",
-            | Self::Standard => "Metadata standard",
+            | Self::Standard => "Metadata",
             | Self::Crosswalk => "Crosswalk",
             | Self::Fair => "FAIR assessment",
             | Self::Readability => "Readability",
@@ -149,7 +177,7 @@ impl Tool {
     pub fn description(self) -> &'static str {
         match self {
             | Self::Activity => "Validate Research Activity Data and review every diagnostic.",
-            | Self::Standard => "Check a document against its metadata standard.",
+            | Self::Standard => "Validate Research Activity Data or another metadata standard.",
             | Self::Crosswalk => "Convert metadata and review any information lost in translation.",
             | Self::Fair => "Assess supplied metadata against FAIR principles. Identifiers are not resolved.",
             | Self::Readability => "Measure how easy your research text is to read.",
@@ -171,6 +199,10 @@ impl Tool {
             | Self::Inspect => "compass",
             | Self::BigO => "chart",
         }
+    }
+    /// Whether this tool uses the shared Review workspace.
+    pub fn is_review(self) -> bool {
+        matches!(self, Self::Standard | Self::Fair | Self::Readability)
     }
     /// Maximum UTF-8 bytes for the primary editor.
     pub fn limit(self) -> usize {
@@ -201,14 +233,46 @@ pub fn example_request(tool: Tool) -> Request {
         ..Request::default()
     }
 }
+#[cfg(target_arch = "wasm32")]
+fn skipped_categories(skip: &[String]) -> Vec<CheckCategory> {
+    skip.iter()
+        .filter_map(|item| match item.as_str() {
+            | "schema" => Some(CheckCategory::Schema),
+            | "prose" => Some(CheckCategory::Prose),
+            | "fair" => Some(CheckCategory::Fair),
+            | "readability" => Some(CheckCategory::Readability),
+            | _ => None,
+        })
+        .collect()
+}
 /// Execute against the same portable bindings exported for WebMCP.
 #[cfg(target_arch = "wasm32")]
 pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
     let optional = |s: &str| (!s.is_empty()).then(|| s.to_owned());
     request.validate(tool).and_then(|()| {
         let value: Result<JsValue, JsValue> = match tool {
-            | Tool::Activity => acorn_wasm::validate_research_activity(&request.input, Some(request.fuzzy.clone())).map(Into::into),
-            | Tool::Standard => acorn_wasm::validate_metadata_standard(&request.input, &request.standard, &request.format).map(Into::into),
+            | Tool::Activity => {
+                let skip = skipped_categories(&request.skip);
+                let threshold = request.activity_max.trim().parse::<f64>().ok();
+                acorn_wasm::validate_research_activity_with_readability(
+                    &request.input,
+                    Some(request.fuzzy.clone()),
+                    &skip,
+                    &request.activity_metric,
+                    threshold,
+                )
+                .map(Into::into)
+            }
+            | Tool::Standard => acorn_wasm::validate_metadata_standard_with_options(
+                &request.input,
+                &request.standard,
+                &request.format,
+                &request.fuzzy,
+                &skipped_categories(&request.skip),
+                &request.activity_metric,
+                request.activity_max.trim().parse::<f64>().ok(),
+            )
+            .map(Into::into),
             | Tool::Crosswalk => acorn_wasm::crosswalk_metadata(
                 &request.input,
                 &request.format,
@@ -218,7 +282,20 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
                 optional(&request.local_identifier),
             )
             .map(Into::into),
-            | Tool::Fair => acorn_wasm::assess_fair_metadata(&request.input, &request.standard, None).map(Into::into),
+            | Tool::Fair => {
+                let skip = request
+                    .skip
+                    .iter()
+                    .filter_map(|item| match item.as_str() {
+                        | "findable" => Some(FairPrinciple::Findable),
+                        | "accessible" => Some(FairPrinciple::Accessible),
+                        | "interoperable" => Some(FairPrinciple::Interoperable),
+                        | "reusable" => Some(FairPrinciple::Reusable),
+                        | _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                acorn_wasm::assess_fair_metadata_with_skip(&request.input, &request.standard, &skip).map(Into::into)
+            }
             | Tool::Readability => acorn_wasm::check_readability(&request.input, &request.metric, None).map(Into::into),
             | Tool::Diff => acorn_wasm::diff_content(&request.input, &request.after, &request.mode).map(Into::into),
             | Tool::Discover => acorn_wasm::discover_persistent_identifiers(&request.input).map(Into::into),
@@ -235,7 +312,19 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
         value
             .map_err(|e| e.as_string().unwrap_or_else(|| "The operation could not process this input.".into()))
             .and_then(|v| serde_wasm_bindgen::from_value::<Value>(v).map_err(|e| e.to_string()))
-            .and_then(|v| {
+            .and_then(|mut v| {
+                if matches!(tool, Tool::Activity | Tool::Fair) || (tool == Tool::Standard && request.standard == "research-activity-data") {
+                    let skipped = request
+                        .skip
+                        .iter()
+                        .filter(|item| match tool {
+                            | Tool::Activity | Tool::Standard => matches!(item.as_str(), "schema" | "prose" | "fair" | "readability"),
+                            | Tool::Fair => matches!(item.as_str(), "findable" | "accessible" | "interoperable" | "reusable"),
+                            | _ => false,
+                        })
+                        .collect::<Vec<_>>();
+                    v["skippedChecks"] = serde_json::json!(skipped);
+                }
                 if fits(&v, RESULT_LIMIT) {
                     Ok(v)
                 } else {
@@ -342,6 +431,23 @@ mod tests {
     #[test]
     fn test_empty_input_is_rejected() {
         assert!(Request::default().validate(Tool::Activity).is_err());
+    }
+    #[test]
+    fn test_activity_readability_threshold_requires_finite_number_when_enabled() {
+        let request = Request {
+            input: "{}".into(),
+            activity_max: "NaN".into(),
+            ..Request::default()
+        };
+        for tool in [Tool::Activity, Tool::Standard] {
+            assert!(request.validate(tool).is_err());
+            assert!(Request {
+                skip: vec!["readability".into()],
+                ..request.clone()
+            }
+            .validate(tool)
+            .is_ok());
+        }
     }
     #[test]
     fn test_exact_boundary_is_accepted() {
@@ -485,6 +591,50 @@ mod wasm_tests {
             .collect::<alloc::collections::BTreeSet<_>>();
         assert_eq!(unique.len(), identifiers.len(), "aliases should deduplicate");
         assert_eq!(result["truncated"], false);
+    }
+    #[wasm_bindgen_test]
+    fn test_activity_readability_runs_and_can_be_skipped() {
+        let request = Request {
+            input: include_str!("../assets/examples/publications.json").into(),
+            ..Request::default()
+        };
+        let checked = run(Tool::Activity, &request).expect("RAD validation");
+        assert!(checked["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["category"] == "readability"));
+        let custom = Request {
+            activity_metric: "fres".into(),
+            activity_max: "70".into(),
+            ..request.clone()
+        };
+        let customized = run(Tool::Activity, &custom).expect("custom readability");
+        assert!(customized["diagnostics"].as_array().unwrap().iter().any(|issue| {
+            issue["category"] == "readability"
+                && issue["message"]
+                    .as_str()
+                    .is_some_and(|message| message.starts_with("FRES = ") && message.ends_with("/70"))
+        }));
+        let metadata = run(Tool::Standard, &custom).expect("Metadata RAD options");
+        assert!(metadata["diagnostics"].as_array().unwrap().iter().any(|issue| {
+            issue["category"] == "readability"
+                && issue["message"]
+                    .as_str()
+                    .is_some_and(|message| message.starts_with("FRES = ") && message.ends_with("/70"))
+        }));
+        let skipped = Request {
+            skip: vec!["readability".into()],
+            ..request
+        };
+        for tool in [Tool::Activity, Tool::Standard] {
+            let result = run(tool, &skipped).expect("readability skipped");
+            assert!(result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|issue| issue["category"] != "readability"));
+        }
     }
     #[wasm_bindgen_test]
     fn test_invalid_activity_retains_diagnostics() {

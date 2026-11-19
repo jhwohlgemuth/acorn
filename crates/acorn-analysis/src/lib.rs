@@ -10,8 +10,8 @@ pub mod readability;
 pub mod vale;
 
 pub use check::{
-    check_readability_for_text, Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, CheckSummary, Finding, Findings,
-    StandardCheckCapabilities, VocabularyAdvisory, VocabularyAdvisoryCandidate,
+    check_readability_for_text, check_readability_for_text_with_threshold, Check, CheckBatch, CheckCategory, CheckKind, CheckSeverity, CheckSummary,
+    Finding, Findings, StandardCheckCapabilities, VocabularyAdvisory, VocabularyAdvisoryCandidate,
 };
 #[cfg(feature = "analysis")]
 pub use check::{IntoChecks, StandardCrosswalk};

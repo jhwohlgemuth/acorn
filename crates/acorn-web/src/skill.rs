@@ -14,8 +14,20 @@ pub(crate) fn Install() -> Element {
             div { class: "card", h2 { "📖 ACORN Skill" } p { "Local research workflows for a compatible coding agent, matched to this app release." } Link { to: Route::Page { page: "skill".into() }, "Open the skill guide and download →" } }
         }
         h2 { "Desktop channels" }
-        for (name, description) in [("WinGet", "Windows · signed installer"), ("Scoop", "Windows · desktop archive"), ("Debian package", "Debian Linux · .deb"), ("AppImage", "Linux · portable application"), ("Homebrew cask", "macOS · notarized application")] {
-            div { class: "card channel-row", div { h3 { "{name}" } p { class: "small muted", "{description}" } } span { class: "badge", "Pending" } }
+        for (name, description, icon, brand) in [
+            ("WinGet", "Windows · signed installer", asset!("/assets/install/windows.svg"), "windows"),
+            ("Scoop", "Windows · desktop archive", asset!("/assets/install/windows.svg"), "windows"),
+            ("Debian package", "Debian Linux · .deb", asset!("/assets/install/debian.svg"), "debian"),
+            ("AppImage", "Linux · portable application", asset!("/assets/install/appimage.svg"), "appimage"),
+            ("Homebrew cask", "macOS · notarized application", asset!("/assets/install/homebrew.svg"), "homebrew"),
+        ] {
+            div { class: "card channel-row",
+                div { class: "channel-main",
+                    span { class: "channel-mark", "data-brand": brand, img { src: icon, alt: "", width: "26", height: "26" } }
+                    div { h3 { "{name}" } p { class: "small muted", "{description}" } }
+                }
+                span { class: "badge", "Pending" }
+            }
         }
         p { class: "muted small", "No desktop version, architecture, checksum or installation command is advertised until its release is verified. These GUI channels are separate from the ACORN CLI." }
         div { class: "card", h2 { "🔒 Your files remain yours" } p { "App updates replace the bundled skill. Exported skills and research files remain user-managed. Installing or removing the app will not silently change agent directories or the separately installed CLI." } }

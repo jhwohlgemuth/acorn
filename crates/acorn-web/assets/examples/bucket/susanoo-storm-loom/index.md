@@ -5,7 +5,7 @@ meta:
   status: active
   identifier: susanoo-storm-loom
   doi: 10.5072/acorn-sample-susanoo-storm-loom
-  ror: https://ror.org/000000001
+  ror: https://ror.org/01dq60k83
   contributors:
   - name: Sample Person
     identifiers:
@@ -14,9 +14,9 @@ meta:
     affiliations: []
     roles: []
   organizations:
-  - name: Example Organization
+  - name: Tohoku University
     identifiers:
-    - value: https://ror.org/000000001
+    - value: https://ror.org/01dq60k83
       scheme: ROR
     roles: []
   media:
@@ -31,7 +31,7 @@ contact:
   givenName: Sample
   familyName: Person
   email: sample.person@example.org
-  organization: Example Organization
+  organization: Tohoku University
   telephone: 202-555-0101
   url: https://example.org/sample-person
 ---

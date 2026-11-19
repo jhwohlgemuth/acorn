@@ -179,6 +179,7 @@ mod tests {
     use acorn_schema::research_activity::ResearchActivity;
     use acorn_schema::Validate;
     use acorn_web::session::Selection;
+    use alloc::collections::BTreeSet;
 
     #[test]
     fn test_sample_has_fourteen_projects_with_multiple_identifiers() {
@@ -189,12 +190,15 @@ mod tests {
         assert_eq!(records.len(), 14);
         assert_eq!(records.iter().filter(|(path, _)| path.ends_with("/index.json")).count(), 11);
         assert!(ORCID::is_valid("0000-0000-0000-0001"));
-        assert!(ROR::is_valid("000000001"));
+        let mut rors = BTreeSet::new();
         for (path, content) in records {
             let slug = path.split('/').next().expect("project folder");
             assert!(content.contains(&format!("10.5072/acorn-sample-{slug}")), "missing DOI in {path}");
             assert!(content.contains("0000-0000-0000-0001"), "missing ORCID in {path}");
-            assert!(content.contains("000000001"), "missing ROR in {path}");
+            let project_rors = ROR::find_all(content).into_iter().map(|ror| ror.to_string()).collect::<Vec<_>>();
+            assert_eq!(project_rors.len(), 2, "two valid ROR fields in {path}");
+            assert_eq!(project_rors[0], project_rors[1], "matching ROR fields in {path}");
+            assert!(rors.insert(project_rors[0].clone()), "unique ROR in {path}");
             if path.ends_with(".json") {
                 let value: serde_json::Value = serde_json::from_str(content).expect("valid JSON sample");
                 assert_eq!(
@@ -206,6 +210,7 @@ mod tests {
                 assert!(activity.validate().is_ok(), "RAD sample must validate: {path}");
             }
         }
+        assert_eq!(rors.len(), 14);
     }
     #[test]
     fn test_sample_images_support_multiple_slides_and_one_missing_example() {

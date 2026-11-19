@@ -5,7 +5,8 @@
     "status": "active",
     "identifier": "kaguya-bamboo-signal",
     "doi": "10.5072/acorn-sample-kaguya-bamboo-signal",
-    "ror": "https://ror.org/000000001",
+    "related": "jade-hare-observatory",
+    "ror": "https://ror.org/05dqf9946",
     "contributors": [
       {
         "name": "Sample Person",
@@ -21,10 +22,10 @@
     ],
     "organizations": [
       {
-        "name": "Example Organization",
+        "name": "Institute of Science Tokyo",
         "identifiers": [
           {
-            "value": "https://ror.org/000000001",
+            "value": "https://ror.org/05dqf9946",
             "scheme": "ROR"
           }
         ],
@@ -66,7 +67,7 @@
     "givenName": "Sample",
     "familyName": "Person",
     "email": "sample.person@example.org",
-    "organization": "Example Organization",
+    "organization": "Institute of Science Tokyo",
     "telephone": "202-555-0101",
     "url": "https://example.org/sample-person"
   }

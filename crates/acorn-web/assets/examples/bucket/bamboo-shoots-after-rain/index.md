@@ -3,7 +3,7 @@ schema: acorn/research-activity
 meta:
   identifier: bamboo-shoots-after-rain
   doi: 10.5072/acorn-sample-bamboo-shoots-after-rain
-  ror: https://ror.org/000000001
+  ror: https://ror.org/02e16g702
   contributors:
     - name: Sample Person
       identifiers:
@@ -12,9 +12,9 @@ meta:
       affiliations: []
       roles: []
   organizations:
-    - name: Example Organization
+    - name: Hokkaido University
       identifiers:
-        - value: https://ror.org/000000001
+        - value: https://ror.org/02e16g702
           scheme: ROR
       roles: []
   archive: false

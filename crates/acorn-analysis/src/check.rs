@@ -1260,9 +1260,13 @@ impl VocabularyAdvisory {
 /// Portable readability check over supplied text (no filesystem or env)
 #[cfg(feature = "alloc")]
 pub fn check_readability_for_text(text: &str, metric: ReadabilityType, uri: Option<String>) -> CheckBatch {
-    let maximum = metric.maximum_allowed();
+    check_readability_for_text_with_threshold(text, metric, metric.maximum_allowed(), uri)
+}
+/// Portable readability check with a caller-selected threshold.
+#[cfg(feature = "alloc")]
+pub fn check_readability_for_text_with_threshold(text: &str, metric: ReadabilityType, threshold: f64, uri: Option<String>) -> CheckBatch {
     let calculated = metric.calculate(text);
-    let assessment = ReadabilityScore::new(metric, calculated, maximum);
+    let assessment = ReadabilityScore::new(metric, calculated, threshold);
     let message = assessment.to_string();
     CheckBatch::from(if assessment.is_excessive() {
         let severity = match assessment.severity() {

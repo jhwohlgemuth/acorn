@@ -1,5 +1,6 @@
 use crate::details::DiagnosticButton;
 use crate::geospatial_page::RorMapButton;
+use crate::search_ui::SearchField;
 use crate::syntax::{Code, CodeBlock, CopyButton};
 use crate::ui::{Icon, ResultTree, Route};
 use acorn_analysis::{CheckCategory, CheckSeverity};
@@ -7,6 +8,7 @@ use acorn_core::big_o::{Exponent, Expression, Term};
 use acorn_web::{
     operations::Tool,
     presentation::{self, items, text, DiagnosticList, DiagnosticSort},
+    search::SearchPattern,
 };
 use alloc::collections::BTreeSet;
 use alloc::rc::Rc;
@@ -181,16 +183,11 @@ fn DiagnosticSortControls(mut sort: Signal<DiagnosticSort>, mut descending: Sign
     }
 }
 #[component]
-fn ResultSearch(mut query: Signal<String>, label: &'static str) -> Element {
-    rsx! {
-        label { class: "result-search",
-            span { class: "muted", "Filter" }
-            input { r#type: "search", value: query(), placeholder: "Search results", "aria-label": label, oninput: move |event| query.set(event.value()) }
-        }
-    }
+fn ResultSearch(query: Signal<String>, regex: Signal<bool>, case_sensitive: Signal<bool>, label: &'static str, error: Option<String>) -> Element {
+    rsx! { SearchField { label, placeholder: "Search results", query, regex, case_sensitive, error, compact: true } }
 }
-fn matches_query(value: &Value, query: &str) -> bool {
-    query.is_empty() || value.to_string().to_lowercase().contains(query)
+fn matches_query(value: &Value, pattern: &SearchPattern) -> bool {
+    pattern.matches(&value.to_string())
 }
 #[component]
 fn Difference(value: Value) -> Element {
@@ -220,6 +217,8 @@ fn Difference(value: Value) -> Element {
     if descending() && sort() != PatchSort::Original {
         visible.reverse();
     }
+    let all_selected = visible.len() == operations.len();
+    let all_kinds = kinds.clone();
     rsx! {
         p { class: "status", if value.get("changed").unwrap_or(&Value::Null) == true { "Changes found" } else { "Documents are equal" } }
         div { class: "comparison-flow", span { "Before" } span { "→" } span { "After" } }
@@ -231,7 +230,11 @@ fn Difference(value: Value) -> Element {
             if operations.len() > 1 {
                 div { class: "result-controls",
                     div { class: "result-filters", role: "group", "aria-label": "Filter JSON Patch operations",
-                        button { r#type: "button", "aria-pressed": hidden.read().is_empty(), onclick: move |_| hidden.set(BTreeSet::new()), "All" span { class: "filter-count", "{operations.len()}" } }
+                        button { r#type: "button", "aria-pressed": all_selected,
+                            title: if all_selected { "Hide all operation types" } else { "Show all operation types" },
+                            onclick: move |_| hidden.set(if all_selected { all_kinds.clone() } else { BTreeSet::new() }),
+                            "All" span { class: "filter-count", "{operations.len()}" }
+                        }
                         for kind in kinds {
                             {let count = operations.iter().filter(|operation| text(operation, "op") == kind).count(); rsx! {
                                 button { r#type: "button", class: "patch-filter", "data-operation": kind.clone(), "aria-pressed": !hidden.read().contains(&kind),
@@ -398,11 +401,17 @@ fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
     let sort = use_signal(DiagnosticSort::default);
     let descending = use_signal(|| false);
     let query = use_signal(String::new);
-    let normalized_query = query().trim().to_lowercase();
+    let regex = use_signal(|| false);
+    let case_sensitive = use_signal(|| false);
+    let pattern = SearchPattern::new(&query(), regex(), case_sensitive());
     let findings = items(&value, "findings");
+    let skipped_label = value
+        .get("skippedChecks")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "));
     let visible = findings
         .iter()
-        .filter(|finding| matches_query(finding, &normalized_query))
+        .filter(|finding| pattern.as_ref().is_ok_and(|pattern| matches_query(finding, pattern)))
         .collect::<Vec<_>>();
     let (_, category_icon) = presentation::category_style(&CheckCategory::Fair);
     rsx! {
@@ -416,11 +425,14 @@ fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
             }}
         }
         p { class: "small muted", "Based on supplied metadata only. Unknown evidence remains in the denominator; not-applicable findings are excluded. No identifiers are resolved." }
+        if let Some(skipped) = skipped_label.filter(|label| !label.is_empty()) {
+            p { class: "small muted", "Skipped: {skipped}" }
+        }
         details { class: "diagnostic-group", "data-category": "fair", open: true,
             summary { class: "diagnostic-group-summary", h3 { class: "diagnostic-group-title", Icon { name: category_icon } "FAIR findings" span { class: "badge", "{findings.len()}" } } }
-            if findings.len() > 1 { div { class: "result-controls", ResultSearch { query, label: "Filter FAIR findings" } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Fair } }
-            if !normalized_query.is_empty() { p { class: "small muted result-summary", role: "status", "Showing {visible.len()} of {findings.len()} findings" } }
-            if visible.is_empty() { p { class: "muted small", "No findings match this filter." } }
+            if findings.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter FAIR findings", error: pattern.as_ref().err().cloned() } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Fair } }
+            if visible.len() != findings.len() { p { class: "small muted result-summary", role: "status", "Showing {visible.len()} of {findings.len()} findings" } }
+            if visible.is_empty() { p { class: "muted small", if findings.is_empty() { "No FAIR checks were run." } else { "No findings match this filter." } } }
             ol { class: "diagnostics", role: "list", for finding in presentation::sort_diagnostics(visible, DiagnosticList::Fair, sort(), descending()) {
                 {let (severity, tone) = presentation::severity_style(&presentation::finding_severity(finding)); rsx! {
                 li { class: "diagnostic", "data-tone": tone,
@@ -479,7 +491,9 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
     let sort = use_signal(DiagnosticSort::default);
     let descending = use_signal(|| false);
     let query = use_signal(String::new);
-    let normalized_query = query().trim().to_lowercase();
+    let regex = use_signal(|| false);
+    let case_sensitive = use_signal(|| false);
+    let pattern = SearchPattern::new(&query(), regex(), case_sensitive());
     let mut raw = use_signal(|| false);
     // Shared once per result so diagnostic rows hold pointers instead of copies of the source and result.
     let shared = use_memo(use_reactive((&value, &source), |(value, source)| (Rc::new(value), source.map(Rc::new))));
@@ -489,7 +503,7 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
     let visible_warnings = warnings
         .iter()
         .take(100)
-        .filter(|warning| matches_query(warning, &normalized_query))
+        .filter(|warning| pattern.as_ref().is_ok_and(|pattern| matches_query(warning, pattern)))
         .collect::<Vec<_>>();
     let conversion_icon = if warnings.is_empty() { "check" } else { "alert" };
     let (crosswalk_label, crosswalk_icon) = presentation::category_style(&CheckCategory::Crosswalk);
@@ -505,8 +519,8 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
                 if !warnings.is_empty() {
                 details { class: "diagnostic-group", "data-category": "crosswalk", open: true,
                 summary { class: "diagnostic-group-summary", h3 { class: "diagnostic-group-title", Icon { name: crosswalk_icon } "{crosswalk_label}" span { class: "badge", "{warnings.len()}" } } }
-                if warnings.len() > 1 { div { class: "result-controls", ResultSearch { query, label: "Filter crosswalk warnings" } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Crosswalk } }
-                if !normalized_query.is_empty() { p { class: "small muted result-summary", role: "status", "Showing {visible_warnings.len()} of {warnings.len()} warnings" } }
+                if warnings.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter crosswalk warnings", error: pattern.as_ref().err().cloned() } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Crosswalk } }
+                if !query().trim().is_empty() { p { class: "small muted result-summary", role: "status", "Showing {visible_warnings.len()} of {warnings.len()} warnings" } }
                 if visible_warnings.is_empty() { p { class: "muted small", "No warnings match this filter." } }
                 ol { class: "diagnostics", role: "list", for warning in presentation::sort_diagnostics(visible_warnings, DiagnosticList::Crosswalk, sort(), descending()) {
                     li { class: "diagnostic", "data-tone": warning_tone,
@@ -545,27 +559,41 @@ fn Validation(value: Rc<Value>, source: Option<Rc<String>>, tool: Tool) -> Eleme
     let sort = use_signal(DiagnosticSort::default);
     let descending = use_signal(|| false);
     let query = use_signal(String::new);
-    let normalized_query = query().trim().to_lowercase();
+    let regex = use_signal(|| false);
+    let case_sensitive = use_signal(|| false);
+    let pattern = SearchPattern::new(&query(), regex(), case_sensitive());
     let diagnostics = items(&value, "diagnostics");
+    let skipped_label = value
+        .get("skippedChecks")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "));
     let visible_count = diagnostics
         .iter()
-        .filter(|diagnostic| matches_query(diagnostic, &normalized_query))
+        .take(100)
+        .filter(|diagnostic| pattern.as_ref().is_ok_and(|pattern| matches_query(diagnostic, pattern)))
         .count();
     let valid = value.get("valid").unwrap_or(&Value::Null) == true;
+    let schema_skipped = value
+        .get("skippedChecks")
+        .and_then(Value::as_array)
+        .is_some_and(|items| items.iter().any(|item| item == "schema"));
     let status_icon = if valid { "check" } else { "alert" };
     rsx! {
         p { class: if valid { "status diagnostic-status" } else { "status invalid diagnostic-status" },
             Icon { name: status_icon }
-            span { if valid { "Valid" } else { "Review needed" } " · {diagnostics.len()} diagnostics" }
+            span { if schema_skipped { "Schema not checked" } else if valid { "Valid" } else { "Review needed" } " · {diagnostics.len()} diagnostics" }
         }
         if diagnostics.iter().any(|diagnostic| text(diagnostic, "category") == "fair") {
             p { class: "small muted", "Includes local FAIR evidence checks. Suggestions and information do not affect schema validity; identifiers are not resolved." }
         }
-        if diagnostics.len() > 1 { div { class: "result-controls", ResultSearch { query, label: "Filter diagnostics" } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Validation } }
-        if !normalized_query.is_empty() { p { class: "small muted result-summary", role: "status", "Showing {visible_count} of {diagnostics.len()} diagnostics" } }
-        if visible_count == 0 { p { class: "muted small", "No diagnostics match this filter." } }
+        if let Some(skipped) = skipped_label.filter(|label| !label.is_empty()) {
+            p { class: "small muted", "Skipped: {skipped}" }
+        }
+        if diagnostics.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter diagnostics", error: pattern.as_ref().err().cloned() } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Validation } }
+        if visible_count != diagnostics.len() { p { class: "small muted result-summary", role: "status", "Showing {visible_count} of {diagnostics.len()} diagnostics" } }
+        if visible_count == 0 { p { class: "muted small", if diagnostics.is_empty() { "No diagnostics from the selected checks." } else { "No diagnostics match this filter." } } }
         for (category, group) in presentation::diagnostic_groups(&value) {
-            {let group = group.into_iter().filter(|diagnostic| matches_query(diagnostic, &normalized_query)).collect::<Vec<_>>();
+            {let group = group.into_iter().filter(|diagnostic| pattern.as_ref().is_ok_and(|pattern| matches_query(diagnostic, pattern))).collect::<Vec<_>>();
             let (label, icon) = presentation::category_style(&category); rsx! {
             if !group.is_empty() { details { key: "{category}", class: "diagnostic-group", "data-category": category.to_string(), open: true,
                 summary { class: "diagnostic-group-summary",

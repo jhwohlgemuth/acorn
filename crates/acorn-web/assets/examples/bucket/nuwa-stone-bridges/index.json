@@ -5,7 +5,7 @@
     "status": "active",
     "identifier": "nuwa-stone-bridges",
     "doi": "10.5072/acorn-sample-nuwa-stone-bridges",
-    "ror": "https://ror.org/000000001",
+    "ror": "https://ror.org/01703db54",
     "contributors": [
       {
         "name": "Sample Person",
@@ -21,10 +21,10 @@
     ],
     "organizations": [
       {
-        "name": "Example Organization",
+        "name": "National Institute of Advanced Industrial Science and Technology",
         "identifiers": [
           {
-            "value": "https://ror.org/000000001",
+            "value": "https://ror.org/01703db54",
             "scheme": "ROR"
           }
         ],
@@ -70,7 +70,7 @@
     "givenName": "Sample",
     "familyName": "Person",
     "email": "sample.person@example.org",
-    "organization": "Example Organization",
+    "organization": "National Institute of Advanced Industrial Science and Technology",
     "telephone": "202-555-0101",
     "url": "https://example.org/sample-person"
   }

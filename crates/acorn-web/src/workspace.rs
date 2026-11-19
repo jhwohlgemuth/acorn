@@ -1,15 +1,18 @@
 use crate::details::{self, Detail};
-use crate::media::ImageCarousel;
-use crate::ui::{validate_files, Icon, Route, UrlFileInput};
+use crate::search_ui::SearchField;
+use crate::ui::{validate_files, FileInput, Icon, Route, UrlFileInput};
 use acorn_core::util::MimeType;
 use acorn_web::{
+    operations::Tool,
     presentation::text,
     research_index::{CatalogSort, Project, ResearchIndex},
+    search::SearchPattern,
     session::{self, Selection, SuppliedFile, Workspace, WorkspaceSource},
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use dioxus::prelude::*;
 use serde_json::{json, Value};
+use strum::IntoEnumIterator;
 
 const TAG_COLOR_COUNT: usize = 8;
 #[derive(Clone, Default, serde::Deserialize)]
@@ -23,22 +26,141 @@ fn Distribution(title: &'static str, counts: alloc::collections::BTreeMap<String
     rsx! { div { class: "card", h2 { "{title}" } if total == 0 { p { class: "muted", "No matching activities" } } for (label, count) in counts { div { class: "proportion", p { span { "{label}" } span { "{count}" } } progress { value: "{count}", max: "{total}", "aria-label": "{label}: {count} of {total} activities" } } } } }
 }
 #[component]
-pub(crate) fn FileTree(paths: Vec<String>, prefix: String) -> Element {
-    let mut workspace = use_context::<Signal<Workspace>>();
-    let drawer = use_context::<Signal<Option<Detail>>>();
-    let children = paths
+fn ActivityStatus(status: String) -> Element {
+    let (icon, label) = match status.as_str() {
+        | "active" => ("play", "Active"),
+        | "canceled" => ("x", "Canceled"),
+        | "completed" => ("check", "Completed"),
+        | "paused" => ("pause", "Paused"),
+        | _ => ("info", status.as_str()),
+    };
+    rsx! { span { class: "catalog-activity-status", "data-status": status.as_str(), Icon { name: icon } "{label}" } }
+}
+fn file_loadable(file: &SuppliedFile, tool: Tool) -> bool {
+    let mime = MimeType::from(file.path.as_str());
+    !mime.is_image()
+        && file.content.len() <= tool.limit()
+        && match tool {
+            | Tool::Activity | Tool::Fair => matches!(mime, MimeType::Json),
+            | Tool::Standard | Tool::Crosswalk => file_format(&file.path).is_some(),
+            | _ => true,
+        }
+}
+pub(crate) fn file_format(path: &str) -> Option<&'static str> {
+    match MimeType::from(path) {
+        | MimeType::Cff => Some("cff"),
+        | MimeType::Json => Some("json"),
+        | MimeType::Jsonc => Some("jsonc"),
+        | MimeType::LdJson => Some("json-ld"),
+        | MimeType::Markdown => Some("markdown"),
+        | MimeType::RdfXml => Some("rdf-xml"),
+        | MimeType::Text => Some("text"),
+        | MimeType::Turtle => Some("turtle"),
+        | MimeType::Yaml => Some("yaml"),
+        | MimeType::Zon => Some("zon"),
+        | _ => None,
+    }
+}
+fn file_kind(file: &SuppliedFile) -> &'static str {
+    match MimeType::from(file.path.as_str()) {
+        | MimeType::Json => "json",
+        | MimeType::Yaml => "yaml",
+        | MimeType::Markdown => "markdown",
+        | MimeType::Text => "text",
+        | mime if mime.is_image() => "image",
+        | _ => "other",
+    }
+}
+fn route_tool(route: &Route) -> Option<Tool> {
+    match route {
+        | Route::Page { page } => Tool::iter().find(|tool| tool.slug() == page),
+        | Route::Home {} => None,
+    }
+}
+fn tree_children(paths: &[String], prefix: &str, descending: bool) -> Vec<(bool, String)> {
+    let mut children = paths
         .iter()
-        .filter_map(|path| path.strip_prefix(&prefix))
+        .filter_map(|path| path.strip_prefix(prefix))
         .filter_map(|relative| relative.split('/').next())
-        .map(str::to_owned)
-        .collect::<BTreeSet<_>>();
-    rsx! { ul { class: "file-tree", for name in children {
+        .map(|name| (paths.contains(&format!("{prefix}{name}")), name.to_owned()))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    if descending {
+        children.sort_by(|(left_file, left), (right_file, right)| left_file.cmp(right_file).then_with(|| right.cmp(left)));
+    }
+    children
+}
+fn visible_file_paths(files: &[SuppliedFile], pattern: &SearchPattern, kind: &str, tool: Option<Tool>) -> Vec<String> {
+    files
+        .iter()
+        .filter(|file| pattern.matches(&file.path))
+        .filter(|file| match kind {
+            | "all" => true,
+            | "loadable" => tool.is_none_or(|tool| file_loadable(file, tool)),
+            | kind => file_kind(file) == kind,
+        })
+        .map(|file| file.path.clone())
+        .collect()
+}
+#[component]
+pub(crate) fn LoadedFiles(
+    summary: String,
+    #[props(default)] onload: Option<EventHandler<String>>,
+    #[props(default)] onselect: Option<EventHandler<SuppliedFile>>,
+    #[props(default)] selected_tool: Option<Tool>,
+) -> Element {
+    let workspace = use_context::<Signal<Workspace>>();
+    let route = use_route::<Route>();
+    let tool = selected_tool.or_else(|| route_tool(&route));
+    let query = use_signal(String::new);
+    let regex = use_signal(|| false);
+    let case_sensitive = use_signal(|| false);
+    let mut kind = use_signal(|| "all".to_owned());
+    let mut descending = use_signal(|| false);
+    let snapshot = workspace();
+    let pattern = SearchPattern::new(&query(), regex(), case_sensitive());
+    let paths = pattern
+        .as_ref()
+        .map(|pattern| visible_file_paths(&snapshot.files, pattern, &kind(), tool))
+        .unwrap_or_default();
+    rsx! { details { class: "loaded-tree", summary {
+        span { class: "loaded-tree-icon", Icon { name: "folder-open" } }
+        span { class: "loaded-tree-label", "{summary}" }
+    }
+        if let (Some(tool), Some(onload)) = (tool, onload) { FileInput { onload, limit: tool.limit(), tool } }
+        if !snapshot.files.is_empty() {
+            div { class: "loaded-files-controls",
+                SearchField { label: "Find a file", placeholder: "Search paths…", query, regex, case_sensitive, error: pattern.as_ref().err().cloned() }
+                label { class: "field", "Show" select { value: kind(), onchange: move |event| kind.set(event.value()),
+                    option { value: "all", "All files" }
+                    if tool.is_some() { option { value: "loadable", "Available here" } }
+                    for (value, label) in [("json", "JSON"), ("yaml", "YAML"), ("markdown", "Markdown"), ("text", "Text"), ("image", "Images")] { option { value, "{label}" } }
+                } }
+                label { class: "field", "Sort" select { value: if descending() { "descending" } else { "ascending" }, onchange: move |event| descending.set(event.value() == "descending"),
+                    option { value: "ascending", "Name A–Z" }
+                    option { value: "descending", "Name Z–A" }
+                } }
+            }
+            p { class: "loaded-files-count small muted", role: "status", "{paths.len()} of {snapshot.files.len()} files shown" }
+            if paths.is_empty() { p { class: "loaded-files-empty small muted", "No matching files." } }
+            else { FileTree { paths, prefix: String::new(), descending: descending(), tool, onselect } }
+        }
+    } }
+}
+#[component]
+fn FileTree(paths: Vec<String>, prefix: String, descending: bool, tool: Option<Tool>, onselect: Option<EventHandler<SuppliedFile>>) -> Element {
+    let mut workspace = use_context::<Signal<Workspace>>();
+    let mut input = use_context::<Signal<String>>();
+    let drawer = use_context::<Signal<Option<Detail>>>();
+    let children = tree_children(&paths, &prefix, descending);
+    rsx! { ul { class: "file-tree", for (is_file, name) in children {
         {let path = format!("{prefix}{name}");
-        let is_file = paths.contains(&path);
         let thumbnail = workspace.read().image_file(&path);
+        let loadable = workspace.read().files.iter().find(|file| file.path == path).is_some_and(|file| tool.is_none_or(|tool| file_loadable(file, tool)));
         rsx! { li {
-            if is_file { button { class: "file-leaf", "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { details::open(drawer, Detail::file(file, &snapshot)); if !MimeType::from(file.path.as_str()).is_image() { workspace.write().selected = Some(path.clone()); } } }, if let Some(thumbnail) = thumbnail { img { class: "file-thumb", src: thumbnail, alt: "" } } else { Icon { name: "file" } } "{name}" } }
-            else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/") } } }
+            if is_file { button { class: "file-leaf", disabled: !loadable, title: if loadable { "" } else { "This file cannot be loaded into this page" }, "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| { if loadable { let snapshot = workspace(); if let Some(file) = snapshot.files.iter().find(|file| file.path == path) { if tool.is_some() { if let Some(onselect) = onselect { onselect.call(file.clone()); } else { input.set(file.content.clone()); } } else { details::open(drawer, Detail::file(file, &snapshot)); } if !MimeType::from(file.path.as_str()).is_image() { workspace.write().selected = Some(path.clone()); } } } }, if let Some(thumbnail) = thumbnail { img { class: "file-thumb", src: thumbnail, alt: "" } } else { Icon { name: "file" } } "{name}" } }
+            else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/"), descending, tool, onselect } } }
         }}}
     } } }
 }
@@ -82,14 +204,30 @@ pub(crate) fn Loader() -> Element {
                     batch.skipped
                 ));
             } else {
+                message.set("Loading and validating research activities…".into());
                 let next = workspace().replace(batch);
-                message.set(format!(
-                    "{} files loaded; {} entries skipped. Choose Portfolio to validate and explore activities.",
-                    next.files.len(),
-                    next.skipped
-                ));
+                let files = next.files.clone();
                 input.set(next.content());
                 workspace.set(next);
+                let validations = validate_files(
+                    files
+                        .iter()
+                        .filter(|file| matches!(MimeType::from(file.path.as_str()), MimeType::Json))
+                        .cloned()
+                        .collect(),
+                )
+                .await
+                .into_iter()
+                .map(|(path, result)| (path, result.unwrap_or_else(|message| json!({"valid":false,"error":message}))))
+                .collect();
+                if workspace.peek().files == files {
+                    workspace.write().validations = validations;
+                    message.set(format!(
+                        "{} files loaded; {} entries skipped. Explore activities in Portfolio.",
+                        files.len(),
+                        workspace.peek().skipped
+                    ));
+                }
             }
         }
     });
@@ -144,6 +282,11 @@ pub(crate) fn Loader() -> Element {
                             Ok(selection) => {
                                 let mut next = workspace().replace(selection);
                                 next.source = source;
+                                next.validations = validate_files(next.files.iter().filter(|file| matches!(MimeType::from(file.path.as_str()), MimeType::Json)).cloned().collect())
+                                    .await
+                                    .into_iter()
+                                    .map(|(path, result)| (path, result.unwrap_or_else(|message| json!({"valid":false,"error":message}))))
+                                    .collect();
                                 let origin = next.source.as_ref().map(|source| format!(" from {}/{}", source.host, source.project)).unwrap_or_default();
                                 let noun = if next.files.len() == 1 { "file" } else { "files" };
                                 remote_success.set(format!("Bucket loaded: {} {noun}{origin}; {} entries skipped.", next.files.len(), next.skipped));
@@ -194,7 +337,7 @@ pub(crate) fn Loader() -> Element {
         }
         }
         if !message().is_empty() { p { role: "status", class: "small", "{message}" } }
-        if !workspace().files.is_empty() { details { class: "loaded-tree", summary { "{workspace().files.len()} loaded files" } FileTree { paths: workspace.read().files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } } Link { to: Route::Page { page: "portfolio".into() }, "Explore Portfolio →" } }
+        if !workspace().files.is_empty() { LoadedFiles { summary: format!("{} loaded files", workspace().files.len()) } Link { to: Route::Page { page: "portfolio".into() }, "Explore Portfolio →" } }
     }
 }
 #[component]
@@ -202,6 +345,8 @@ pub(crate) fn Portfolio() -> Element {
     let mut workspace = use_context::<Signal<Workspace>>();
     let drawer = use_context::<Signal<Option<Detail>>>();
     let mut search = use_signal(String::new);
+    let regex = use_signal(|| false);
+    let case_sensitive = use_signal(|| false);
     let mut kind = use_signal(String::new);
     let mut status = use_signal(String::new);
     let mut sort = use_signal(|| "title");
@@ -214,15 +359,20 @@ pub(crate) fn Portfolio() -> Element {
     let tag_colors = tag_colors(&index.projects);
     let types = session::distribution(&activities, session::activity_type);
     let statuses = session::distribution(&activities, session::activity_status);
-    let query = search();
-    let matches = index.search(
-        &query,
-        if sort() == "relevance" {
-            CatalogSort::Relevance
-        } else {
-            CatalogSort::Alphabetical
-        },
-    );
+    let pattern = SearchPattern::new(&search(), regex(), case_sensitive());
+    let matches = pattern
+        .as_ref()
+        .map(|pattern| {
+            index.search_with(
+                pattern,
+                if sort() == "relevance" {
+                    CatalogSort::Relevance
+                } else {
+                    CatalogSort::Alphabetical
+                },
+            )
+        })
+        .unwrap_or_default();
     let ranks = matches
         .iter()
         .enumerate()
@@ -254,16 +404,13 @@ pub(crate) fn Portfolio() -> Element {
             order
         }
     });
-    let mut visible_projects = index
+    let project_count = index
         .projects
         .iter()
         .filter(|project| project.paths.iter().any(|path| filtered.iter().any(|(file, _)| &file.path == path)))
-        .collect::<Vec<_>>();
-    if sort() == "relevance" {
-        visible_projects.sort_by_key(|project| project.paths.iter().filter_map(|path| ranks.get(path.as_str())).min().copied());
-    }
+        .count();
     let activity_noun = if filtered.len() == 1 { "activity" } else { "activities" };
-    let project_noun = if visible_projects.len() == 1 { "project" } else { "projects" };
+    let project_noun = if project_count == 1 { "project" } else { "projects" };
     let record_noun = if activities.len() == 1 { "record" } else { "records" };
     let selection = filtered
         .iter()
@@ -276,7 +423,7 @@ pub(crate) fn Portfolio() -> Element {
         if snapshot.files.is_empty() {
             div { class: "card empty", Icon { name: "portfolio" } h2 { "No research activities loaded" } p { "Open local content or try the bundled sample from Home." } Link { to: Route::Home {}, "Open Home →" } }
         } else {
-            details { class: "loaded-tree", summary { "{snapshot.files.len()} loaded files · {snapshot.bytes()} stored bytes" } FileTree { paths: snapshot.files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } }
+            LoadedFiles { summary: format!("{} loaded files · {} stored bytes", snapshot.files.len(), snapshot.bytes()) }
             div { class: "actions", button { class: "primary", disabled: validating(), "aria-busy": validating(), onclick: move |_| async move {
                 validating.set(true);
                 let files = workspace.peek().files.clone();
@@ -288,34 +435,65 @@ pub(crate) fn Portfolio() -> Element {
                 }
             }, if validating() { "Validating…" } else { "Validate loaded activities" } } }
             p { class: "small muted", "Validation reads JSON files only and runs when requested. Other files remain available in the loaded tree. {invalid} invalid or unreadable activities." }
-            if activities.is_empty() { p { class: "status invalid", "No validated activities yet. Validate the loaded JSON files, or inspect a file in Research Activity." } }
-            label { class: "field", "Search activities" input { r#type: "search", value: search(), oninput: move |event| search.set(event.value()), placeholder: "Search titles, people, organizations, identifiers or files…" } }
+            if activities.is_empty() { p { class: "status invalid", "No validated activities yet. Validate the loaded JSON files, or inspect a file in Review." } }
+            SearchField { label: "Search activities", placeholder: "Search titles, people, organizations, identifiers or files…", query: search, regex, case_sensitive, error: pattern.as_ref().err().cloned() }
             div { class: "options",
                 label { class: "field", "Activity type" select { value: kind(), onchange: move |event| kind.set(event.value()), option { value: "", "All activity types" } for name in types.keys() { option { value: "{name}", "{name}" } } } }
                 label { class: "field", "Status" select { value: status(), onchange: move |event| status.set(event.value()), option { value: "", "All statuses" } for name in statuses.keys() { option { value: "{name}", "{name}" } } } }
-                label { class: "field", "Sort results" select { value: sort(), onchange: move |event| { sort.set(match event.value().as_str() { "relevance" => "relevance", "type" => "type", "status" => "status", _ => "title" }); descending.set(false); }, option { value: "title", "Alphabetical" } option { value: "relevance", "Relevance" } option { value: "type", "Type" } option { value: "status", "Status" } } }
             }
-            div { class: "catalog-toolbar", p { role: "status", "{filtered.len()} {activity_noun} in {visible_projects.len()} {project_noun}" }
-                div { class: "actions", role: "group", "aria-label": "Project layout",
-                    button { "aria-label": "List", title: "List view", "aria-pressed": layout() == "list", onclick: move |_| layout.set("list"), Icon { name: "list" } }
-                    button { "aria-label": "Cards", title: "Cards view", "aria-pressed": layout() == "cards", onclick: move |_| layout.set("cards"), Icon { name: "portfolio" } }
+            div { class: "catalog-toolbar", p { role: "status", "{filtered.len()} {activity_noun} in {project_count} {project_noun}" }
+                div { class: "actions catalog-view-controls",
+                    div { class: "catalog-layout", role: "group", "aria-label": "Portfolio layout",
+                        button { "aria-label": "List", title: "List view", "aria-pressed": layout() == "list", onclick: move |_| layout.set("list"), Icon { name: "list" } }
+                        button { "aria-label": "Cards", title: "Cards view", "aria-pressed": layout() == "cards", onclick: move |_| layout.set("cards"), Icon { name: "portfolio" } }
+                    }
+                    div { class: "catalog-sort", role: "group", "aria-label": "Sort activities",
+                        button { r#type: "button", "aria-label": "Sort by title", title: "Sort by title", "aria-pressed": sort() == "title", onclick: move |_| { sort.set("title"); descending.set(false); }, Icon { name: "sort-title" } }
+                        button { r#type: "button", "aria-label": "Sort by relevance", title: "Sort by relevance", "aria-pressed": sort() == "relevance", onclick: move |_| { sort.set("relevance"); descending.set(false); }, Icon { name: "search" } }
+                        button { r#type: "button", "aria-label": "Sort by type", title: "Sort by type", "aria-pressed": sort() == "type", onclick: move |_| { sort.set("type"); descending.set(false); }, Icon { name: "file" } }
+                        button { r#type: "button", "aria-label": "Sort by status", title: "Sort by status", "aria-pressed": sort() == "status", onclick: move |_| { sort.set("status"); descending.set(false); }, Icon { name: "check" } }
+                        button { r#type: "button", "aria-label": "Descending order", title: "Descending order", "aria-pressed": descending(), onclick: move |_| descending.toggle(),
+                            if descending() { Icon { name: "sort-desc" } } else { Icon { name: "sort-asc" } }
+                        }
+                    }
                 }
             }
-            if !visible_projects.is_empty() { section { class: "catalog-projects", "aria-label": "Projects", h2 { "Projects" }
-                div { class: "catalog-project-grid", "data-layout": layout(), for project in visible_projects {
-                    {let detail = Detail::from(project); let project_activity_noun = if project.paths.len() == 1 { "activity" } else { "activities" }; let images = snapshot.project_slides(&project.paths); rsx! { article { class: "card catalog-project",
-                        ImageCarousel { slides: images, label: project.title.clone(), compact: true }
-                        div { class: "catalog-card-body",
-                            h3 { button { onclick: move |_| details::open(drawer, detail.clone()), "{project.title}" } }
-                            p { class: "small muted", "{project.id} · {project.paths.len()} {project_activity_noun}" }
-                            if !project.summary.is_empty() { p { class: "catalog-project-summary", "{project.summary}" } }
-                            if !project.keywords.is_empty() { ul { class: "catalog-keywords", "aria-label": "Project keywords", tabindex: if layout() == "list" { "0" } else { "-1" },
-                                for keyword in &project.keywords { li { class: "catalog-keyword", "data-tag-color": tag_colors.get(keyword.as_str()).copied().unwrap_or_default().to_string(), "{keyword}" } }
-                            } }
+            if !filtered.is_empty() { section { class: "catalog-activity-section", "aria-label": "Activities", h2 { "Activities" }
+                div { class: "catalog-activity-grid", "data-layout": layout(),
+                    if layout() == "list" {
+                        for (file, value) in &filtered {
+                            {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); let slide = snapshot.slides(&file.path, value).into_iter().next(); rsx! {
+                                button { r#type: "button", class: "card catalog-activity-row", onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); },
+                                    if let Some(slide) = slide { img { class: "catalog-activity-thumb", src: slide.src().to_owned(), alt: "" } }
+                                    span { class: "catalog-activity-body",
+                                        strong { class: "catalog-activity-title", "{text(value, \"title\")}" }
+                                        span { class: "small muted", "{file.path}" }
+                                    }
+                                    span { class: "catalog-activity-meta", ActivityStatus { status: session::activity_status(value).to_owned() } }
+                                }
+                            }}
                         }
-                    } }}
+                    } else {
+                        for (file, value) in &filtered {
+                            {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); let slide = snapshot.slides(&file.path, value).into_iter().next(); let project = index.projects.iter().find(|project| project.paths.contains(&file.path)); rsx! {
+                                button { r#type: "button", class: "card catalog-activity-card", onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); },
+                                    if let Some(slide) = slide { img { class: "catalog-activity-cover", src: slide.src().to_owned(), alt: "" } }
+                                    span { class: "catalog-activity-card-body",
+                                        strong { class: "catalog-activity-card-title", "{text(value, \"title\")}" }
+                                        ActivityStatus { status: session::activity_status(value).to_owned() }
+                                        if let Some(project) = project {
+                                            if !project.summary.is_empty() { span { class: "catalog-project-summary", "{project.summary}" } }
+                                            if !project.keywords.is_empty() { span { class: "catalog-keywords", "aria-label": "Keywords",
+                                                for keyword in &project.keywords { span { class: "catalog-keyword", "data-tag-color": tag_colors.get(keyword.as_str()).copied().unwrap_or_default().to_string(), "{keyword}" } }
+                                            } }
+                                        }
+                                    }
+                                }
+                            }}
+                        }
+                    }
                 } }
-            } }
+            }
             div { class: "metrics",
                 for (label, count) in [("Activities", filtered.len()), ("Organizations", session::entities(&filtered, "organizations").len()), ("Contributors", session::entities(&filtered, "contributors").len()), ("Identifiers", session::identifiers(&filtered).len())] {
                     div { class: "card metric", strong { "{count}" } small { "{label}" } }
@@ -351,6 +529,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_file_format_for_loaded_content() {
+        assert_eq!(file_format("record.json"), Some("json"));
+        assert_eq!(file_format("record.yaml"), Some("yaml"));
+        assert_eq!(file_format("record.md"), Some("markdown"));
+        assert_eq!(file_format("record.jsonld"), Some("json-ld"));
+        assert_eq!(file_format("cover.svg"), None);
+    }
+    #[test]
+    fn test_loaded_file_matches_page_input() {
+        let json = SuppliedFile {
+            path: "project/index.json".into(),
+            content: "{}".into(),
+        };
+        let yaml = SuppliedFile {
+            path: "project/index.yaml".into(),
+            content: "title: Test".into(),
+        };
+        let svg = SuppliedFile {
+            path: "project/banner.svg".into(),
+            content: "<svg/>".into(),
+        };
+        let long_text = SuppliedFile {
+            path: "project/notes.txt".into(),
+            content: "x".repeat(Tool::Inspect.limit() + 1),
+        };
+        assert!(file_loadable(&json, Tool::Activity));
+        assert!(!file_loadable(&yaml, Tool::Activity));
+        assert!(file_loadable(&yaml, Tool::Standard));
+        assert!(!file_loadable(&svg, Tool::Standard));
+        assert!(!file_loadable(&long_text, Tool::Inspect));
+    }
+    #[test]
     fn test_tag_colors_repeat_after_palette_and_ignore_project_order() {
         let tags = (0..=TAG_COLOR_COUNT).map(|index| format!("tag-{index:02}")).collect::<Vec<_>>();
         let first = tags.first().expect("first tag");
@@ -369,5 +579,46 @@ mod tests {
         assert_eq!(colors.values().copied().collect::<BTreeSet<_>>().len(), TAG_COLOR_COUNT);
         assert_eq!(colors.get(first.as_str()), colors.get(wrapped.as_str()));
         assert_eq!(colors, tag_colors(&[projects[1].clone(), projects[0].clone()]));
+    }
+    #[test]
+    fn test_tree_children_keep_folders_first_in_both_directions() {
+        let paths = vec!["z.txt".into(), "b/index.json".into(), "a.txt".into(), "a/index.json".into()];
+        assert_eq!(
+            tree_children(&paths, "", false),
+            vec![(false, "a".into()), (false, "b".into()), (true, "a.txt".into()), (true, "z.txt".into())]
+        );
+        assert_eq!(
+            tree_children(&paths, "", true),
+            vec![(false, "b".into()), (false, "a".into()), (true, "z.txt".into()), (true, "a.txt".into())]
+        );
+    }
+    #[test]
+    fn test_visible_file_paths_preserve_matching_hierarchy() {
+        let files = vec![
+            SuppliedFile {
+                path: "Gold/index.json".into(),
+                content: "{}".into(),
+            },
+            SuppliedFile {
+                path: "Gold/banner.svg".into(),
+                content: "<svg/>".into(),
+            },
+            SuppliedFile {
+                path: "Other/notes.txt".into(),
+                content: "notes".into(),
+            },
+        ];
+        let gold = SearchPattern::new("gold", false, false).expect("literal query");
+        let all = SearchPattern::new("", false, false).expect("empty query");
+        assert_eq!(visible_file_paths(&files, &gold, "all", None), vec!["Gold/index.json", "Gold/banner.svg"]);
+        assert_eq!(visible_file_paths(&files, &all, "image", None), vec!["Gold/banner.svg"]);
+        assert_eq!(
+            visible_file_paths(&files, &gold, "loadable", Some(Tool::Activity)),
+            vec!["Gold/index.json"]
+        );
+        let case_sensitive = SearchPattern::new("gold", false, true).expect("literal query");
+        assert!(visible_file_paths(&files, &case_sensitive, "all", None).is_empty());
+        let regex = SearchPattern::new(r"Gold/.*\.svg$", true, true).expect("regex query");
+        assert_eq!(visible_file_paths(&files, &regex, "all", None), vec!["Gold/banner.svg"]);
     }
 }

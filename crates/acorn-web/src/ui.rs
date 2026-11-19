@@ -3,7 +3,8 @@ use crate::results::ResultView;
 use crate::sample;
 use crate::skill::{Install, Skill};
 use crate::syntax::CodeEditor;
-use crate::workspace::{FileTree, Loader, Portfolio};
+use crate::workspace::{file_format, LoadedFiles, Loader, Portfolio};
+use acorn_analysis::readability::ReadabilityType;
 use acorn_core::util::MimeType;
 use acorn_web::operations::{self, Request, Tool};
 use acorn_web::presentation;
@@ -47,44 +48,33 @@ pub(crate) async fn execute(tool: Tool, request: Request) -> Result<Value, Strin
     }
 }
 #[component]
-fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool) -> Element {
+pub(crate) fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool) -> Element {
     let mut error = use_signal(String::new);
-    let mut opened = use_signal(|| false);
     let mut via_url = use_signal(|| false);
-    let mut loaded_name = use_signal(String::new);
     let mut generation = use_signal(|| 0_usize);
     use_effect(use_reactive((&tool,), move |_| {
         let next = generation.peek().wrapping_add(1);
         generation.set(next);
-        opened.set(false);
         via_url.set(false);
         error.set(String::new());
-        loaded_name.set(String::new());
     }));
-    let mut close = move || {
-        let next = generation.peek().wrapping_add(1);
-        generation.set(next);
-        opened.set(false);
-        via_url.set(false);
-        error.set(String::new());
-        document::eval(&format!("document.getElementById('source-trigger-{}')?.focus()", tool.slug()));
-    };
     let mut finish = move |file: SuppliedFile| {
-        loaded_name.set(file.path);
         error.set(String::new());
-        opened.set(false);
         via_url.set(false);
         onload.call(file.content);
         document::eval("requestAnimationFrame(() => document.getElementById('content-editor')?.focus())");
     };
     rsx! {
         div { class: "file-picker",
-            div { class: "source-launcher",
-                button { id: "source-trigger-{tool.slug()}", r#type: "button", class: "source-trigger", "aria-expanded": opened(), "aria-controls": "source-tray-{tool.slug()}",
-                    onclick: move |_| { if opened() { close(); } else { opened.set(true); } },
-                    Icon { name: "folder-open" } "Load content" span { class: "source-chevron", "aria-hidden": "true", "⌄" }
-                }
-                if !loaded_name().is_empty() { span { role: "status", class: "source-loaded", title: loaded_name(), Icon { name: "check" } "Loaded {loaded_name}" } }
+            div { class: "source-choices",
+                button { r#type: "button", class: "source-option", onclick: move |_| {
+                    via_url.set(false); error.set(String::new());
+                    document::eval(&format!("const picker = document.getElementById('source-file-{}'); if (picker) {{ picker.value = ''; picker.click(); }}", tool.slug()));
+                }, span { class: "source-option-icon", Icon { name: "folder-open" } } span { strong { "Choose file" } small { "From your device" } } }
+                button { r#type: "button", class: "source-option source-option-link", "aria-expanded": via_url(), onclick: move |_| {
+                    let next = !via_url(); via_url.set(next); error.set(String::new());
+                    if next { document::eval("requestAnimationFrame(() => { const input = document.querySelector('.file-picker .url-file-loader input'); if (input) input.focus(); })"); }
+                }, span { class: "source-option-icon", Icon { name: "link" } } span { strong { "From URL" } small { "A link from the web" } } }
             }
             input { id: "source-file-{tool.slug()}", r#type: "file", hidden: true, "aria-label": "Choose file", onchange: move |event: FormEvent| async move {
                 document::eval("window.acornRemote?.file.cancel()");
@@ -100,24 +90,8 @@ fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool) -> Element 
                     }
                 }
             } }
-            if opened() {
-                div { id: "source-tray-{tool.slug()}", class: "source-tray", role: "region", "aria-label": "Load content options",
-                    onkeydown: move |event| { if event.key() == Key::Escape { event.prevent_default(); event.stop_propagation(); close(); } },
-                    div { class: "source-choices",
-                        button { r#type: "button", class: "source-option", onclick: move |_| {
-                            via_url.set(false); error.set(String::new());
-                            document::eval(&format!("const picker = document.getElementById('source-file-{}'); if (picker) {{ picker.value = ''; picker.click(); }}", tool.slug()));
-                        }, span { class: "source-option-icon", Icon { name: "folder-open" } } span { strong { "Choose file" } small { "From your device" } } }
-                        button { r#type: "button", class: "source-option source-option-link", "aria-expanded": via_url(), onclick: move |_| {
-                            let next = !via_url(); via_url.set(next); error.set(String::new());
-                            if next { document::eval("requestAnimationFrame(() => document.querySelector('.url-file-loader input')?.focus())"); }
-                        }, span { class: "source-option-icon", Icon { name: "link" } } span { strong { "From URL" } small { "A link from the web" } } }
-                        button { r#type: "button", class: "source-close", "aria-label": "Close content loader", onclick: move |_| close(), "×" }
-                    }
-                    if via_url() { UrlFileInput { limit, reset_key: tool.slug().to_owned(), onload: finish } }
-                    if !error().is_empty() { p { role: "alert", class: "source-feedback", "data-tone": "error", Icon { name: "alert" } "{error}" } }
-                }
-            }
+            if via_url() { UrlFileInput { limit, reset_key: tool.slug().to_owned(), onload: finish } }
+            if !error().is_empty() { p { role: "alert", class: "source-feedback", "data-tone": "error", Icon { name: "alert" } "{error}" } }
         }
     }
 }
@@ -208,6 +182,7 @@ pub(crate) fn Icon(name: &'static str) -> Element {
       <path class="s" d="M9 4v16M14 8l-3 4 3 4" />"#
         }
         | "panel-open" => r#"<rect class="s" x="3" y="4" width="18" height="16" rx="2" /><path class="s" d="M9 4v16m4-12 3 4-3 4" />"#,
+        | "pause" => r#"<rect class="s" x="6" y="4" width="4" height="16" rx="1"/><rect class="s" x="14" y="4" width="4" height="16" rx="1"/>"#,
         | "play" => r#"<path class="s" d="m8 4 12 8-12 8Z" />"#,
         | "portfolio" => {
             r#"<rect class="s" x="3" y="3" width="7" height="7" rx="1" />
@@ -228,10 +203,14 @@ pub(crate) fn Icon(name: &'static str) -> Element {
       <path class="s" d="m9 12 2 2 4-4" />"#
         }
         | "shuffle" => r#"<path class="s" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />"#,
+        | "sort-asc" => r#"<path class="s" d="M7 20V4m-4 4 4-4 4 4M15 7h6m-6 5h5m-5 5h4"/>"#,
+        | "sort-desc" => r#"<path class="s" d="M7 4v16m-4-4 4 4 4-4M15 7h6m-6 5h5m-5 5h4"/>"#,
+        | "sort-title" => r#"<path class="s" d="m3 20 5-16 5 16M5 14h6M16 6h5m-5 6h5m-5 6h5"/>"#,
         | "upload" => r#"<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>"#,
         | "users" => {
             r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>"#
         }
+        | "x" => r#"<path class="s" d="M5 5l14 14M19 5 5 19"/>"#,
         | _ => "",
     };
     rsx! { svg { class: "nav-icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "1.6", stroke_linecap: "round", stroke_linejoin: "round", "aria-hidden": "true", "focusable": "false", dangerous_inner_html: artwork } }
@@ -365,11 +344,32 @@ fn InfoPage(page: String) -> Element {
 fn Page(page: String) -> Element {
     if page == "home" {
         rsx! { Home {} }
+    } else if matches!(page.as_str(), "metadata" | "review" | "research-activity" | "metadata-standard") {
+        rsx! { ToolWorkspace { key: "{page}", initial_tool: Tool::Standard, review: true } }
     } else if let Some(tool) = Tool::iter().find(|tool| tool.slug() == page) {
-        rsx! { ToolWorkspace { key: "{page}", tool } }
+        rsx! { ToolWorkspace { key: "{page}", initial_tool: tool, review: tool.is_review() } }
     } else {
         rsx! { InfoPage { page } }
     }
+}
+fn review_tab(fragment: &str) -> Tool {
+    match fragment {
+        | "fair" => Tool::Fair,
+        | "readability" => Tool::Readability,
+        | _ => Tool::Standard,
+    }
+}
+fn initial_review_tab() -> Tool {
+    let current = js_sys::Reflect::get(&js_sys::global(), &"location".into())
+        .ok()
+        .and_then(|location| js_sys::Reflect::get(&location, &"hash".into()).ok())
+        .and_then(|hash| hash.as_string())
+        .unwrap_or_default();
+    let initial = js_sys::Reflect::get(&js_sys::global(), &"acornInitialReviewFragment".into())
+        .ok()
+        .and_then(|hash| hash.as_string())
+        .unwrap_or_default();
+    review_tab(if current.is_empty() { &initial } else { current.trim_start_matches('#') })
 }
 pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool) {
     (value["bytes"].as_u64().unwrap_or(0) as usize, value["failed"] == true)
@@ -418,11 +418,11 @@ fn sample_activity_path(workspace: &Workspace) -> Option<String> {
 }
 #[component]
 fn SelectField(label: &'static str, value: String, options: Vec<&'static str>, onchange: EventHandler<String>) -> Element {
-    rsx! { label { class: "field", span { "{label}" } select { value, onchange: move |event| onchange.call(event.value()), for option in options { option { value: option, "{presentation::label(option)}" } } } } }
+    rsx! { label { class: if label == "Standard" { "field standard-field" } else { "field" }, span { "{label}" } select { value, onchange: move |event| onchange.call(event.value()), for option in options { option { value: option, "{presentation::label(option)}" } } } } }
 }
 #[component]
 fn Shell() -> Element {
-    let mut collapsed = use_signal(|| false);
+    let mut collapsed = use_context::<Signal<bool>>();
     let mut drawer = use_signal(|| false);
     let initial_theme = js_sys::Reflect::get(&js_sys::global(), &"acornInitialTheme".into())
         .ok()
@@ -434,6 +434,8 @@ fn Shell() -> Element {
         | Route::Home {} => "home".to_owned(),
         | Route::Page { page } => page,
     };
+    let review_active = matches!(current.as_str(), "review" | "metadata" | "research-activity" | "metadata-standard")
+        || Tool::iter().any(|tool| tool.is_review() && current == tool.slug());
     use_effect(use_reactive!(|current| {
         let _ = current;
         document::eval("window.acornChrome?.tour.cancel(); window.acornChrome?.theme.sync(); requestAnimationFrame(() => { const heading = document.querySelector('#content-main h1'); if (heading) { heading.tabIndex = -1; heading.focus(); } window.scrollTo(0, 0); })");
@@ -450,24 +452,32 @@ fn Shell() -> Element {
                         img { class: "brand-icon-light", src: asset!("/assets/generated/acorn-app-icon-light.svg"), alt: "", width: "28", height: "28" }
                         span { class: "sidebar-brand-name", "aria-hidden": "true", "ACORN" }
                     }
-                    button { class: "collapse", onclick: move |_| collapsed.toggle(), title: if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-label": if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-expanded": !collapsed(), "aria-controls": "workspace-navigation", Icon { name: match collapsed() { true => "panel-open", false => "panel" } } }
+                    button { class: "collapse", onclick: move |_| {
+                        let next = !collapsed();
+                        collapsed.set(next);
+                        let _ = js_sys::Reflect::set(&js_sys::global(), &"acornInitialSidebarCollapsed".into(), &next.into());
+                        document::eval(&format!("try {{ sessionStorage.setItem('acorn-sidebar-collapsed', '{next}'); }} catch {{}}"));
+                    }, title: if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-label": if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-expanded": !collapsed(), "aria-controls": "workspace-navigation", Icon { name: match collapsed() { true => "panel-open", false => "panel" } } }
                 }
                 SidebarSession { onopen: move |_| { if drawer() { drawer.set(false); document::eval("requestAnimationFrame(() => document.querySelector('#content-main h1')?.focus())"); } } }
                 nav { "aria-label": "Primary", onclick: move |_| { if drawer() { drawer.set(false); document::eval("requestAnimationFrame(() => document.querySelector('#content-main h1')?.focus())"); } },
                     p { class: "nav-heading", "WORKSPACE" }
                     Link { to: Route::Home {}, class: if current == "home" { "nav-item active" } else { "nav-item" }, title: "Home", "aria-label": "Home", "aria-current": if current == "home" { "page" } else { "false" }, Icon { name: "home" } span { class: "nav-label", "Home" } }
                     Link { to: Route::Page { page: "portfolio".into() }, class: if current == "portfolio" { "nav-item active" } else { "nav-item" }, title: "Portfolio", "aria-label": "Portfolio", "aria-current": if current == "portfolio" { "page" } else { "false" }, Icon { name: "portfolio" } span { class: "nav-label", "Portfolio" } }
+                    Link { to: Route::Page { page: "review".into() }, class: if review_active { "nav-item active" } else { "nav-item" }, title: "Review", "aria-label": "Review", "aria-current": if review_active { "page" } else { "false" }, Icon { name: "filecheck" } span { class: "nav-label", "Review" } }
+                    for (tool, label) in [(Tool::Discover, "Discover"), (Tool::Inspect, "Inspect")] {
+                        Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", "{label}" } }
+                    }
                     for (heading, tools) in [
-                        ("VALIDATE", &[Tool::Activity, Tool::Standard, Tool::Crosswalk][..]),
-                        ("ANALYZE", &[Tool::Fair, Tool::Readability, Tool::Diff, Tool::BigO][..]),
-                        ("IDENTIFIERS", &[Tool::Discover, Tool::Inspect][..]),
+                        ("CONVERT", &[Tool::Crosswalk][..]),
+                        ("ANALYZE", &[Tool::Diff, Tool::BigO][..]),
                     ] {
                         p { class: "nav-heading", "{heading}" }
-                        for tool in tools.iter().copied() {
-                            Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", if tool == Tool::Discover { "Discover" } else if tool == Tool::Inspect { "Inspect" } else { "{tool.to_string()}" } } }
-                        }
                         if heading == "ANALYZE" {
                             Link { to: Route::Page { page: "geospatial".into() }, class: if current == "geospatial" { "nav-item active" } else { "nav-item" }, title: "Geospatial", "aria-label": "Geospatial", "aria-current": if current == "geospatial" { "page" } else { "false" }, Icon { name: "globe" } span { class: "nav-label", "Geospatial" } }
+                        }
+                        for tool in tools.iter().copied() {
+                            Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", if tool == Tool::Discover { "Discover" } else if tool == Tool::Inspect { "Inspect" } else { "{tool.to_string()}" } } }
                         }
                     }
                     p { class: "nav-heading", "APPLICATION" }
@@ -533,9 +543,32 @@ fn Technology() -> Element {
     }
 }
 #[component]
-fn ToolWorkspace(tool: Tool) -> Element {
+fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
+    const ACTIVITY_CHECKS: [(&str, &str, &str, &str); 4] = [
+        ("schema", "Schema", "filecheck", "Schema"),
+        ("prose", "Prose / vocabulary", "book", "Prose"),
+        ("fair", "FAIR", "shield", "FAIR"),
+        ("readability", "Readability", "chart", "Readability"),
+    ];
+    const FAIR_CHECKS: [(&str, &str, &str, &str); 4] = [
+        ("findable", "Findable", "search", "F"),
+        ("accessible", "Accessible", "link", "A"),
+        ("interoperable", "Interoperable", "code", "I"),
+        ("reusable", "Reusable", "shuffle", "R"),
+    ];
     let session = use_context::<Signal<String>>();
     let mut workspace = use_context::<Signal<Workspace>>();
+    let sync_review_url = review && initial_tool == Tool::Standard;
+    let mut selected_tool = use_signal(|| if sync_review_url { initial_review_tab() } else { initial_tool });
+    use_future(move || async move {
+        if sync_review_url {
+            let mut channel = document::eval("if (!window.acornUrl) await new Promise(resolve => window.addEventListener('acorn-url-ready', resolve, {once:true})); const initial = window.acornInitialReviewFragment; if (initial && !window.acornUrl.getFragment()) window.acornUrl.setFragment(initial, true); window.acornInitialReviewFragment = ''; const unsubscribe = window.acornUrl.subscribe(fragment => dioxus.send(fragment)); await dioxus.recv(); unsubscribe();");
+            while let Ok(fragment) = channel.recv::<String>().await {
+                selected_tool.set(review_tab(&fragment));
+            }
+        }
+    });
+    let tool = if review { selected_tool() } else { initial_tool };
     let mut request = use_signal(|| Request {
         input: session(),
         ..Request::default()
@@ -546,10 +579,6 @@ fn ToolWorkspace(tool: Tool) -> Element {
         document::eval("window.acornOperations?.warm()");
     });
     use_effect(use_reactive((&tool,), move |(_tool,)| {
-        request.set(Request {
-            input: session.peek().clone(),
-            ..Request::default()
-        });
         result.set(None);
     }));
     use_effect(move || {
@@ -564,9 +593,26 @@ fn ToolWorkspace(tool: Tool) -> Element {
         let previous = request.peek().clone();
         request.set(Request { input: content, ..previous });
     });
-    let title = tool.to_string();
+    let title = if review { "Review".to_owned() } else { tool.to_string() };
+    let lede = if review {
+        "Validate metadata, assess FAIR principles, or analyze readability."
+    } else {
+        tool.description()
+    };
     let limit = tool.limit();
     let current = request.read();
+    let skip_choices: &[(&str, &str, &str, &str)] = match tool {
+        | Tool::Activity => &ACTIVITY_CHECKS,
+        | Tool::Standard if current.standard == "research-activity-data" => &ACTIVITY_CHECKS,
+        | Tool::Fair => &FAIR_CHECKS,
+        | _ => &[],
+    };
+    let skipped_checks = skip_choices
+        .iter()
+        .filter(|(value, _, _, _)| current.skip.iter().any(|item| item == value))
+        .count();
+    let all_skipped = !skip_choices.is_empty() && skipped_checks == skip_choices.len();
+    let activity_readability_metric = ReadabilityType::from(current.activity_metric.as_str());
     let input = current.input.clone();
     let needs_content = input.trim().is_empty() && !(tool == Tool::Diff && current.mode == "unified");
     let language = match tool {
@@ -578,19 +624,90 @@ fn ToolWorkspace(tool: Tool) -> Element {
     };
     rsx! {
         document::Title { "{title} · {APP_NAME}" }
-        section { class: "page tool-page",
+        section { class: if review { "page tool-page review-page" } else { "page tool-page" },
 
-            h1 { class: "page-title", Icon { name: tool.icon() } "{title}" } p { class: "lede", "{tool.description()}" }
-            if !workspace.read().files.is_empty() { details { summary { "Loaded files" } FileTree { paths: workspace.read().files.iter().map(|file| file.path.clone()).collect(), prefix: String::new() } } }
+            h1 { class: "page-title", Icon { name: if review { "filecheck" } else { tool.icon() } } "{title}" }
+            p { class: "lede", "{lede}" }
+            if review { div { class: "review-modes", role: "group", "aria-label": "Review type",
+                for mode in [Tool::Standard, Tool::Fair, Tool::Readability] {
+                    button { r#type: "button", "aria-pressed": tool == mode, onclick: move |_| {
+                        selected_tool.set(mode);
+                        if sync_review_url {
+                            let fragment = match mode { Tool::Fair => "fair", Tool::Readability => "readability", _ => "" };
+                            document::eval(&format!("if (!window.acornUrl) await new Promise(resolve => window.addEventListener('acorn-url-ready', resolve, {{once:true}})); window.acornInitialReviewFragment = ''; window.acornUrl.setFragment('{fragment}')"));
+                        }
+                    }, Icon { name: mode.icon() } "{mode}" }
+                }
+            } }
+            LoadedFiles {
+                summary: "Select content".to_owned(),
+                selected_tool: Some(tool),
+                onload: move |text: String| { workspace.write().selected = None; request.set(Request { input: text, ..request() }); result.set(None); },
+                onselect: move |file: SuppliedFile| {
+                    let previous = request();
+                    let format = if matches!(tool, Tool::Standard | Tool::Crosswalk) {
+                        file_format(&file.path).unwrap_or(&previous.format).to_owned()
+                    } else {
+                        previous.format.clone()
+                    };
+                    request.set(Request { input: file.content, format, ..previous });
+                    result.set(None);
+                },
+            }
             div { class: "tool-grid",
                 section { class: "card editor",
                     div { class: "input-heading",
                         h2 { class: "section-heading", "Input" }
-                        button { class: "sample-action", title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" }, onclick: move |_| { request.set(operations::example_request(tool)); result.set(None); }, span { "aria-hidden": "true", "✨" } "Use example" }
+                        button { class: "sample-action", title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" }, onclick: move |_| { workspace.write().selected = None; request.set(operations::example_request(tool)); result.set(None); }, span { "aria-hidden": "true", "✨" } "Use example" }
                     }
-                    FileInput { limit, tool, onload: move |text: String| { request.set(Request { input: text, ..request() }); result.set(None); } }
-                    div { class: "options",
-                        if matches!(tool, Tool::Activity) {
+                    if tool != Tool::Discover { details { class: "tool-settings",
+                        summary { Icon { name: "settings" } "Settings"
+                            if skipped_checks > 0 { span { class: "tool-settings-count", "{skipped_checks} skipped" } }
+                        }
+                        div { class: "options",
+                        if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Fair) { SelectField { label: "Standard", value: current.standard.clone(), options: if tool == Tool::Crosswalk { vec!["datacite", "dublin-core", "raid", "research-activity-data"] } else { vec!["citation-file-format", "ckan", "datacite", "document", "dublin-core", "invenio", "kitfile", "modelkit", "raid", "research-activity-data", "text"] }, onchange: move |v| request.set(Request { standard: v, ..request() }) } }
+                        if matches!(tool, Tool::Standard | Tool::Crosswalk) { SelectField { label: "Format", value: current.format.clone(), options: vec!["json", "jsonc", "json-ld", "yaml", "zon", "cff", "markdown", "rdf-xml", "turtle", "text"], onchange: move |v| request.set(Request { format: v, ..request() }) } }
+                        if !skip_choices.is_empty() {
+                            div { class: "check-settings-row",
+                            fieldset { class: "skip-checks", legend { "Skip checks" }
+                                div { class: "skip-check-choices", role: "group", "aria-label": "Skip check types",
+                                    button { r#type: "button", "aria-pressed": all_skipped, title: if all_skipped { "Run all checks" } else { "Skip all checks" },
+                                        onclick: move |_| {
+                                            let mut next = request().skip;
+                                            next.retain(|item| !skip_choices.iter().any(|(value, _, _, _)| item == value));
+                                            if !all_skipped { next.extend(skip_choices.iter().map(|(value, _, _, _)| (*value).to_owned())); }
+                                            request.set(Request { skip: next, ..request() });
+                                        }, Icon { name: "x" } span { "All" } }
+                                    for (value, label, icon, compact) in skip_choices.iter().copied() {
+                                        button { r#type: "button", "aria-label": label, title: if current.skip.iter().any(|item| item == value) { format!("Run {label} checks") } else { format!("Skip {label} checks") }, "aria-pressed": current.skip.iter().any(|item| item == value),
+                                            onclick: move |_| {
+                                                let mut next = request().skip;
+                                                if next.iter().any(|item| item == value) { next.retain(|item| item != value); }
+                                                else { next.push(value.to_owned()); }
+                                                request.set(Request { skip: next, ..request() });
+                                            }, Icon { name: icon } span { class: "skip-check-label", "{compact}" } }
+                                    }
+                                }
+                            }
+                            if matches!(tool, Tool::Activity | Tool::Standard) && current.standard == "research-activity-data" && !current.skip.iter().any(|item| item == "readability") {
+                            div { class: "activity-readability-controls",
+                                label { "Readability metric"
+                                    select { value: current.activity_metric.clone(), onchange: move |event| request.set(Request { activity_metric: event.value(), ..request() }),
+                                        for metric in ["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"] {
+                                            option { value: metric, "{metric.to_uppercase()}" }
+                                        }
+                                    }
+                                }
+                                label { if activity_readability_metric == ReadabilityType::FRES { "Min" } else { "Max" }
+                                    input { r#type: "number", step: "any", value: current.activity_max.clone(), placeholder: "{activity_readability_metric.maximum_allowed()}",
+                                        "aria-label": if activity_readability_metric == ReadabilityType::FRES { "Minimum readability score" } else { "Maximum readability score" },
+                                        oninput: move |event| request.set(Request { activity_max: event.value(), ..request() }) }
+                                }
+                            }
+                            }
+                        }
+                        }
+                        if tool == Tool::Activity || (tool == Tool::Standard && current.standard == "research-activity-data") {
                             fieldset { class: "field vocabulary-field", legend { "Vocabulary matching" }
                                 div { class: "vocabulary-choices",
                                     for (value, label) in [("off", "Off"), ("relaxed", "Relaxed"), ("strict", "Strict")] {
@@ -599,8 +716,6 @@ fn ToolWorkspace(tool: Tool) -> Element {
                                 }
                             }
                         }
-                        if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Fair) { SelectField { label: "Standard / source", value: current.standard.clone(), options: if tool == Tool::Crosswalk { vec!["research-activity-data", "raid", "datacite", "dublin-core"] } else { vec!["research-activity-data", "raid", "datacite", "dublin-core", "citation-file-format", "ckan", "document", "invenio", "kitfile", "modelkit", "text"] }, onchange: move |v| request.set(Request { standard: v, ..request() }) } }
-                        if matches!(tool, Tool::Standard | Tool::Crosswalk) { SelectField { label: "Format", value: current.format.clone(), options: vec!["json", "jsonc", "json-ld", "yaml", "zon", "cff", "markdown", "rdf-xml", "turtle", "text"], onchange: move |v| request.set(Request { format: v, ..request() }) } }
                         if tool == Tool::Crosswalk { SelectField { label: "Destination", value: current.target.clone(), options: vec!["datacite", "dublin-core", "raid", "research-activity-data"], onchange: move |v| request.set(Request { target: v, ..request() }) } }
                         if tool == Tool::Readability { SelectField { label: "Metric", value: current.metric.clone(), options: vec!["fres", "ari", "cli", "fkgl", "gfi", "lix", "smog"], onchange: move |v| request.set(Request { metric: v, ..request() }) } }
                         if tool == Tool::Diff {
@@ -616,6 +731,10 @@ fn ToolWorkspace(tool: Tool) -> Element {
                             }
                         }
                         if tool == Tool::Inspect { SelectField { label: "Identifier kind", value: current.kind.clone(), options: vec!["", "ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "rrid", "swhid"], onchange: move |v| request.set(Request { kind: v, ..request() }) } }
+                        if tool == Tool::BigO { div { class: "field", span { "Symbol assumptions (JSON)" } CodeEditor { id: "assumptions", label: "Symbol assumptions (JSON)", language: "json", rows: 2, value: current.assumptions.clone(), oninput: move |value| request.set(Request { assumptions: value, ..request() }) } } }
+                        if tool == Tool::Crosswalk { div { class: "import-seeds", span { "Import seeds (when required)" } div { class: "field", span { "Contact JSON" } CodeEditor { id: "contact", label: "Contact JSON", language: "json", rows: 3, value: current.contact.clone(), oninput: move |value| request.set(Request { contact: value, ..request() }) } } label { class: "field", "Local identifier" input { value: current.local_identifier.clone(), oninput: move |e| request.set(Request { local_identifier: e.value(), ..request() }) } } } }
+                        }
+                    }
                     }
                     div { class: if matches!(tool, Tool::Diff | Tool::BigO) { "editor-pair" } else { "" },
                         div { class: "field", span { if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" } }
@@ -630,14 +749,12 @@ fn ToolWorkspace(tool: Tool) -> Element {
                         }
                     }
                     if tool == Tool::Readability { p { class: "small muted", "{input.split_whitespace().count()} words · {input.len()} UTF-8 bytes" } }
-                    if tool == Tool::BigO { div { class: "field", span { "Symbol assumptions (JSON)" } CodeEditor { id: "assumptions", label: "Symbol assumptions (JSON)", language: "json", rows: 2, value: current.assumptions.clone(), oninput: move |value| request.set(Request { assumptions: value, ..request() }) } } }
-                    if tool == Tool::Crosswalk { details { summary { "Import seeds (when required)" } div { class: "field", span { "Contact JSON" } CodeEditor { id: "contact", label: "Contact JSON", language: "json", rows: 3, value: current.contact.clone(), oninput: move |value| request.set(Request { contact: value, ..request() }) } } label { class: "field", "Local identifier" input { value: current.local_identifier.clone(), oninput: move |e| request.set(Request { local_identifier: e.value(), ..request() }) } } } }
                     div { class: "actions run-actions", button { class: "primary", disabled: running(), "aria-busy": running(), onclick: move |_| async move {
                         running.set(true);
                         let submitted = request.peek().clone();
                         let output = execute(tool, submitted.clone()).await;
                         running.set(false);
-                        if tool == Tool::Activity {
+                        if tool == Tool::Activity || (tool == Tool::Standard && submitted.standard == "research-activity-data" && submitted.format == "json") {
                             let mut next = workspace();
                             if let Some(file) = next.files.iter().find(|file| Some(&file.path) == next.selected.as_ref() && file.content == submitted.input) {
                                 if let Ok(value) = &output { next.validations.insert(file.path.clone(), value.clone()); }
@@ -646,7 +763,7 @@ fn ToolWorkspace(tool: Tool) -> Element {
                         }
                         let celebrate = matches!(tool, Tool::Activity | Tool::Standard) && output.as_ref().is_ok_and(|value| value["valid"] == true);
                         // Edits made while the operation ran supersede its result.
-                        if *request.peek() == submitted {
+                        if *request.peek() == submitted && (!review || *selected_tool.peek() == tool) {
                             result.set(Some(output)); document::eval(&format!("requestAnimationFrame(() => {{ document.getElementById('result-heading')?.focus(); if ({celebrate}) window.acornCelebrate?.(); }})"));
                         }
                     }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { request.set(Request::default()); result.set(None); }, "Clear" } }

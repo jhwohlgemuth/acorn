@@ -2,7 +2,7 @@
   "meta": {
     "archive": false,
     "draft": true,
-    "status": "active",
+    "status": "canceled",
     "identifier": "thousand-mile-wayfinder",
     "media": [
       {
@@ -16,7 +16,7 @@
       "modeling"
     ],
     "doi": "10.5072/acorn-sample-thousand-mile-wayfinder",
-    "ror": "https://ror.org/000000001",
+    "ror": "https://ror.org/02qg15b79",
     "contributors": [
       {
         "name": "Sample Person",
@@ -32,10 +32,10 @@
     ],
     "organizations": [
       {
-        "name": "Example Organization",
+        "name": "Okinawa Institute of Science and Technology Graduate University",
         "identifiers": [
           {
-            "value": "https://ror.org/000000001",
+            "value": "https://ror.org/02qg15b79",
             "scheme": "ROR"
           }
         ],
@@ -66,7 +66,7 @@
     "givenName": "Sample",
     "familyName": "Person",
     "email": "sample.person@example.org",
-    "organization": "Example Organization",
+    "organization": "Okinawa Institute of Science and Technology Graduate University",
     "telephone": "202-555-0101",
     "url": "https://example.org/sample-person"
   }

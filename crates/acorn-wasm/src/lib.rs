@@ -117,7 +117,7 @@
 //! ```
 extern crate alloc;
 use acorn_analysis::readability::ReadabilityType;
-use acorn_analysis::{CheckCategory, CheckSeverity, FairDetails, FairEvidence, FairProfile};
+use acorn_analysis::{CheckCategory, CheckSeverity, FairDetails, FairEvidence, FairPrinciple, FairProfile};
 use acorn_core::big_o::{compare_notation, ComparisonInput, ComparisonOutput, Expression};
 use acorn_core::util::MimeType;
 use acorn_diff::{unified_diff, DiffValue, JsonPatch};
@@ -488,13 +488,16 @@ fn analyze_readability(text: &str, metric: &str, uri: Option<String>) -> Result<
     })
 }
 fn assess_fair(json: &str, standard: &str, resource: Option<&str>) -> Result<FairAssessmentResult, String> {
+    assess_fair_with_skip(json, standard, resource, &[])
+}
+fn assess_fair_with_skip(json: &str, standard: &str, resource: Option<&str>, skip: &[FairPrinciple]) -> Result<FairAssessmentResult, String> {
     parse_standard(standard).and_then(|standard| {
         serde_json::from_str::<Value>(json)
             .map_err(|_| "FAIR assessment requires valid JSON metadata".to_string())
             .map(|value| {
                 let resource = resource.unwrap_or("memory://metadata");
                 let evidence = FairEvidence::from_value(resource, standard.to_string(), &value);
-                let findings = evidence.assess();
+                let findings = evidence.assess_selected(skip);
                 let profile = FairProfile::from_findings(evidence.resource, &findings);
                 FairAssessmentResult { findings, profile }
             })
@@ -504,6 +507,13 @@ fn assess_fair(json: &str, standard: &str, resource: Option<&str>) -> Result<Fai
 #[wasm_bindgen(js_name = assessFairMetadata)]
 pub fn assess_fair_metadata(json: &str, standard: &str, resource: Option<String>) -> Result<JsFairAssessmentResult, JsValue> {
     assess_fair(json, standard, resource.as_deref())
+        .map_err(|why| JsValue::from_str(&why))
+        .and_then(|result| serialize_json_compatible(&result))
+        .map(JsValue::unchecked_into)
+}
+/// Assess only FAIR principles that the caller has not skipped.
+pub fn assess_fair_metadata_with_skip(json: &str, standard: &str, skip: &[FairPrinciple]) -> Result<JsFairAssessmentResult, JsValue> {
+    assess_fair_with_skip(json, standard, None, skip)
         .map_err(|why| JsValue::from_str(&why))
         .and_then(|result| serialize_json_compatible(&result))
         .map(JsValue::unchecked_into)
@@ -846,6 +856,13 @@ fn parse_metric(metric: &str) -> Result<ReadabilityType, String> {
         | _ => Err(format!("Unsupported readability metric '{metric}'")),
     }
 }
+fn parse_activity_metric(metric: &str, skip: &[CheckCategory]) -> Result<ReadabilityType, String> {
+    if skip.contains(&CheckCategory::Readability) {
+        Ok(ReadabilityType::default())
+    } else {
+        parse_metric(metric)
+    }
+}
 fn parse_standard(standard: &str) -> Result<Standard, String> {
     match standard {
         | "citation-file-format" => Ok(Standard::CitationFileFormat),
@@ -927,12 +944,29 @@ fn validate_json(json: &str) -> ValidationResult {
     validate_json_with_fuzzy(json, VocabularyFuzzyMode::Relaxed)
 }
 fn validate_json_with_fuzzy(json: &str, vocabulary_fuzzy: VocabularyFuzzyMode) -> ValidationResult {
-    let response = AcornService.validate_research_activity(ValidateResearchActivityRequest {
-        content: json.to_string(),
-        format: MimeType::Json,
-        source_uri: None,
-        vocabulary_fuzzy,
-    });
+    validate_json_with_fuzzy_and_skip(json, vocabulary_fuzzy, &[])
+}
+fn validate_json_with_fuzzy_and_skip(json: &str, vocabulary_fuzzy: VocabularyFuzzyMode, skip: &[CheckCategory]) -> ValidationResult {
+    validate_json_with_readability(json, vocabulary_fuzzy, skip, ReadabilityType::default(), None)
+}
+fn validate_json_with_readability(
+    json: &str,
+    vocabulary_fuzzy: VocabularyFuzzyMode,
+    skip: &[CheckCategory],
+    metric: ReadabilityType,
+    threshold: Option<f64>,
+) -> ValidationResult {
+    let response = AcornService.validate_research_activity_with_readability(
+        ValidateResearchActivityRequest {
+            content: json.to_string(),
+            format: MimeType::Json,
+            source_uri: None,
+            vocabulary_fuzzy,
+        },
+        skip,
+        metric,
+        threshold,
+    );
     match response {
         | Ok(response) if response.valid => ValidationResult {
             diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
@@ -955,15 +989,21 @@ fn validate_json_with_fuzzy(json: &str, vocabulary_fuzzy: VocabularyFuzzyMode) -
     }
 }
 fn validate_metadata(content: &str, standard: &str, format: &str) -> Result<ValidationResult, String> {
+    validate_metadata_with_skip(content, standard, format, &[])
+}
+fn validate_metadata_with_skip(content: &str, standard: &str, format: &str, skip: &[CheckCategory]) -> Result<ValidationResult, String> {
     parse_standard(standard).and_then(|standard| {
         parse_format(format).map(|format| {
             AcornService
-                .validate_standard(ValidateStandardRequest {
-                    content: content.to_string(),
-                    format,
-                    source_uri: None,
-                    standard,
-                })
+                .validate_standard_with_skip(
+                    ValidateStandardRequest {
+                        content: content.to_string(),
+                        format,
+                        source_uri: None,
+                        standard,
+                    },
+                    skip,
+                )
                 .map(|response| ValidationResult {
                     diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
                     valid: response.valid,
@@ -987,12 +1027,91 @@ pub fn validate_metadata_standard(content: &str, standard: &str, format: &str) -
         .and_then(|result| serialize(&result))
         .map(JsValue::unchecked_into)
 }
+/// Validate metadata while omitting selected Research Activity check categories.
+pub fn validate_metadata_standard_with_skip(
+    content: &str,
+    standard: &str,
+    format: &str,
+    skip: &[CheckCategory],
+) -> Result<JsValidationResult, JsValue> {
+    validate_metadata_with_skip(content, standard, format, skip)
+        .map_err(|why| JsValue::from_str(&why))
+        .and_then(|result| serialize(&result))
+        .map(JsValue::unchecked_into)
+}
+/// Validate metadata with Research Activity check options when RAD is selected.
+pub fn validate_metadata_standard_with_options(
+    content: &str,
+    standard: &str,
+    format: &str,
+    fuzzy: &str,
+    skip: &[CheckCategory],
+    metric: &str,
+    threshold: Option<f64>,
+) -> Result<JsValidationResult, JsValue> {
+    if standard != "research-activity-data" {
+        validate_metadata_standard_with_skip(content, standard, format, skip)
+    } else {
+        parse_format(format)
+            .and_then(|format| parse_vocabulary_fuzzy(Some(fuzzy)).map(|fuzzy| (format, fuzzy)))
+            .and_then(|(format, fuzzy)| parse_activity_metric(metric, skip).map(|metric| (format, fuzzy, metric)))
+            .map_err(|why| JsValue::from_str(&why))
+            .and_then(|(format, fuzzy, metric)| {
+                let response = AcornService.validate_research_activity_with_readability(
+                    ValidateResearchActivityRequest {
+                        content: content.to_string(),
+                        format,
+                        source_uri: None,
+                        vocabulary_fuzzy: fuzzy,
+                    },
+                    skip,
+                    metric,
+                    threshold,
+                );
+                let result = response
+                    .map(|response| ValidationResult {
+                        diagnostics: response.diagnostics.into_iter().map(Diagnostic::from).collect(),
+                        valid: response.valid,
+                        value: None,
+                        vocabulary_fuzzy: response.vocabulary_fuzzy,
+                    })
+                    .unwrap_or_else(|error| ValidationResult {
+                        diagnostics: vec![Diagnostic::parse(error.path, error.message)],
+                        valid: false,
+                        value: None,
+                        vocabulary_fuzzy: None,
+                    });
+                serialize(&result).map(JsValue::unchecked_into)
+            })
+    }
+}
 /// Parse and validate Research Activity JSON without filesystem or network access.
 #[wasm_bindgen(js_name = validateResearchActivity)]
 pub fn validate_research_activity(json: &str, fuzzy: Option<String>) -> Result<JsValidationResult, JsValue> {
     parse_vocabulary_fuzzy(fuzzy.as_deref())
         .map_err(|why| JsValue::from_str(&why))
         .and_then(|mode| serialize(&validate_json_with_fuzzy(json, mode)))
+        .map(JsValue::unchecked_into)
+}
+/// Validate Research Activity JSON while omitting selected check categories.
+pub fn validate_research_activity_with_skip(json: &str, fuzzy: Option<String>, skip: &[CheckCategory]) -> Result<JsValidationResult, JsValue> {
+    parse_vocabulary_fuzzy(fuzzy.as_deref())
+        .map_err(|why| JsValue::from_str(&why))
+        .and_then(|mode| serialize(&validate_json_with_fuzzy_and_skip(json, mode, skip)))
+        .map(JsValue::unchecked_into)
+}
+/// Validate Research Activity JSON using a selected readability metric and threshold.
+pub fn validate_research_activity_with_readability(
+    json: &str,
+    fuzzy: Option<String>,
+    skip: &[CheckCategory],
+    metric: &str,
+    threshold: Option<f64>,
+) -> Result<JsValidationResult, JsValue> {
+    parse_vocabulary_fuzzy(fuzzy.as_deref())
+        .and_then(|mode| parse_activity_metric(metric, skip).map(|metric| (mode, metric)))
+        .map_err(|why| JsValue::from_str(&why))
+        .and_then(|(mode, metric)| serialize(&validate_json_with_readability(json, mode, skip, metric, threshold)))
         .map(JsValue::unchecked_into)
 }
 
@@ -1002,6 +1121,13 @@ mod tests;
 mod wasm_tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn test_skipped_readability_ignores_metric_in_both_bindings() {
+        let skip = [CheckCategory::Readability];
+        assert!(validate_research_activity_with_readability("{}", None, &skip, "unsupported", None).is_ok());
+        assert!(validate_metadata_standard_with_options("{}", "research-activity-data", "json", "off", &skip, "unsupported", None).is_ok());
+    }
 
     #[wasm_bindgen_test]
     fn test_javascript_big_o_binding_accepts_objects_and_rejects_invalid_requests() {

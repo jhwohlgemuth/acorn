@@ -1050,7 +1050,6 @@ where
         .and_then(|value| value.checked_mul(100))
         .and_then(|value| value.checked_rem(MODULUS))
         .and_then(|remainder| COMPLEMENT.checked_sub(remainder))
-        .and_then(|complement| complement.checked_rem(MODULUS))
         .map(|checksum| format!("{checksum:02}").chars().collect())
 }
 /// Calculates a NOID check character using the NCDA beta-numeric alphabet.

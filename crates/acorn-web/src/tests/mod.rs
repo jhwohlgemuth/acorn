@@ -1,5 +1,6 @@
 //! Cross-module browser workspace and research index tests.
 use crate::research_index::{CatalogSort, ResearchIndex};
+use crate::search::SearchPattern;
 use crate::session::{Selection, SuppliedFile, Workspace, WorkspaceSource};
 use serde_json::json;
 
@@ -46,7 +47,7 @@ fn test_index_normalizes_pid_relations() {
     });
     workspace.validations.insert(
         "a.json".into(),
-        json!({"valid":true,"value":{"title":"Alpha","meta":{"identifier":"alpha","doi":"https://doi.org/10.1000/EXAMPLE"}}}),
+        json!({"valid":true,"value":{"title":"Alpha","meta":{"identifier":"alpha","doi":"10.1000/alpha","related":["https://doi.org/10.1000/EXAMPLE"]}}}),
     );
     workspace.validations.insert(
         "b.json".into(),
@@ -57,6 +58,7 @@ fn test_index_normalizes_pid_relations() {
         index.related("a.json").iter().map(|activity| activity.path.as_str()).collect::<Vec<_>>(),
         ["b.json"]
     );
+    assert!(index.related("b.json").is_empty());
 }
 #[test]
 fn test_index_search_and_identity_survive_restore() {
@@ -96,6 +98,27 @@ fn test_index_search_and_identity_survive_restore() {
     assert_eq!(index, ResearchIndex::from(restored));
 }
 #[test]
+fn test_index_search_respects_regex_and_case() {
+    let mut workspace = Workspace::default().replace(Selection {
+        files: vec![SuppliedFile {
+            path: "gold/index.json".into(),
+            content: "{}".into(),
+        }],
+        skipped: 0,
+    });
+    workspace.validations.insert(
+        "gold/index.json".into(),
+        json!({"valid":true,"value":{"title":"Gold project banner","meta":{"identifier":"gold"}}}),
+    );
+    let index = ResearchIndex::from(&workspace);
+    let regex = SearchPattern::new("Gold.*banner", true, true).expect("valid regex");
+    assert_eq!(index.search_with(&regex, CatalogSort::Alphabetical).len(), 1);
+    let sensitive = SearchPattern::new("GOLD", false, true).expect("literal query");
+    assert!(index.search_with(&sensitive, CatalogSort::Alphabetical).is_empty());
+    let insensitive = SearchPattern::new("GOLD", false, false).expect("literal query");
+    assert_eq!(index.search_with(&insensitive, CatalogSort::Alphabetical).len(), 1);
+}
+#[test]
 fn test_maximum_workspace_projects_are_deterministic() {
     let files = (0..500)
         .map(|index| SuppliedFile {
@@ -132,7 +155,7 @@ fn test_related_activities_and_source_links() {
             .collect(),
         skipped: 0,
     });
-    workspace.validations.insert("a.json".into(), json!({"valid":true,"value":{"title":"Alpha","meta":{"identifier":"alpha","organizations":[{"name":"Lab"}],"doi":"https://doi.org/10.1000/example"}}}));
+    workspace.validations.insert("a.json".into(), json!({"valid":true,"value":{"title":"Alpha","meta":{"identifier":"alpha","organizations":[{"name":"Lab"}],"doi":"https://doi.org/10.1000/example","relatedResources":[{"identifier":{"value":"gamma"},"relationType":"Related"},{"identifier":{"value":"beta"},"relationType":"Related","category":"sponsors"}]}}}));
     workspace.validations.insert(
         "b.json".into(),
         json!({"valid":true,"value":{"title":"Beta","meta":{"identifier":"beta","organizations":[{"name":"Lab"}],"doi":"10.1000/example"}}}),
@@ -144,8 +167,9 @@ fn test_related_activities_and_source_links() {
     let index = ResearchIndex::from(&workspace);
     assert_eq!(
         index.related("a.json").iter().map(|activity| activity.path.as_str()).collect::<Vec<_>>(),
-        ["b.json"]
+        ["c.json"]
     );
+    assert!(index.related("b.json").is_empty());
     let source = WorkspaceSource {
         kind: "gitlab".into(),
         host: "gitlab.com".into(),
@@ -164,7 +188,6 @@ fn test_related_activities_and_source_links() {
     .link("a.json")
     .is_none());
 }
-
 mod geospatial_tests {
     use crate::geospatial::*;
     use crate::research_index::ResearchIndex;
@@ -342,11 +365,37 @@ mod geospatial_tests {
         assert!(!unresolved.resolved);
     }
 }
-
 mod media_tests {
     use crate::session::{SuppliedFile, Workspace};
     use serde_json::json;
 
+    #[test]
+    fn test_absolute_media_reference_uses_loaded_file() {
+        let workspace = Workspace {
+            files: vec![SuppliedFile {
+                path: "gold/banner.png".into(),
+                content: "data:image/png;base64,cover".into(),
+            }],
+            ..Workspace::default()
+        };
+        let value =
+            json!({"meta":{"media":[{"caption":"Banner","contentUrl":"https://raw.githubusercontent.com/example/bucket/main/gold/banner.png"}]}});
+        let slides = workspace.slides("gold/index.json", &value);
+        assert_eq!(slides.first().map(|slide| slide.src.as_str()), Some("data:image/png;base64,cover"));
+    }
+    #[test]
+    fn test_absolute_svg_reference_resolves_loaded_path() {
+        let workspace = Workspace {
+            files: vec![SuppliedFile {
+                path: "gold/banner.svg".into(),
+                content: "<svg/>".into(),
+            }],
+            ..Workspace::default()
+        };
+        let value = json!({"meta":{"media":[{"caption":"Gold project banner","contentUrl":"https://raw.githubusercontent.com/jhwohlgemuth/bucket/main/gold/banner.svg"}]}});
+        let slides = workspace.slides("gold/index.json", &value);
+        assert_eq!(slides.first().map(|slide| slide.src.as_str()), Some("data:image/svg+xml;base64,PHN2Zy8+"));
+    }
     #[test]
     fn test_project_slides_keep_explicit_missing_references() {
         let workspace = Workspace {
@@ -422,7 +471,25 @@ mod media_tests {
         assert_eq!(fallback.first().map(|slide| slide.caption.as_str()), Some("No image available"));
     }
 }
+mod search_tests {
+    use crate::search::SearchPattern;
 
+    #[test]
+    fn test_invalid_regex_reports_error() {
+        assert!(SearchPattern::new("[", true, false).is_err());
+    }
+    #[test]
+    fn test_literal_and_regex_case_modes() {
+        let literal = SearchPattern::new("Gold banner", false, false).expect("literal query");
+        assert!(literal.matches_terms("Gold project banner"));
+        assert!(!literal.matches("Gold project banner"));
+        let sensitive = SearchPattern::new("Gold", false, true).expect("literal query");
+        assert!(!sensitive.matches("gold"));
+        let regex = SearchPattern::new("Gold.*banner", true, true).expect("regex query");
+        assert!(regex.matches("Gold project banner"));
+        assert!(!regex.matches("gold project banner"));
+    }
+}
 mod session_tests {
     use crate::session::*;
     use data_encoding::BASE64;

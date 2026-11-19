@@ -95,6 +95,7 @@ dprint-core = "0.69.1"
 dprint-plugin-json = "0.25.0"
 duckdb = { version = "~1.10505.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
+regex = "1.12"
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }
 glob = { version = "0.3.1", default-features = false }
 handlebars = { version = "6.4.4", default-features = false }

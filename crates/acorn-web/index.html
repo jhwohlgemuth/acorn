@@ -18,6 +18,10 @@ html{background:#1f2229;color:#abb2bf}
 </style>
 <script>
 window.acornInitialTheme = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+window.acornInitialReviewFragment = '';
+if (/\/(review|metadata|research-activity|metadata-standard)$/.test(location.pathname)) window.acornInitialReviewFragment = location.hash.slice(1);
+try { window.acornInitialSidebarCollapsed = sessionStorage.getItem('acorn-sidebar-collapsed') === 'true'; }
+catch { window.acornInitialSidebarCollapsed = false; }
 const markStylesReady = () => {
     const main = document.getElementById('main');
     if (main) main.setAttribute('data-styles-ready', '');

@@ -4,7 +4,7 @@ meta:
   status: active
   identifier: kitsune-lantern-atlas
   doi: 10.5072/acorn-sample-kitsune-lantern-atlas
-  ror: https://ror.org/000000001
+  ror: https://ror.org/057zh3y96
   contributors:
   - name: Sample Person
     identifiers:
@@ -13,9 +13,9 @@ meta:
     affiliations: []
     roles: []
   organizations:
-  - name: Example Organization
+  - name: The University of Tokyo
     identifiers:
-    - value: https://ror.org/000000001
+    - value: https://ror.org/057zh3y96
       scheme: ROR
     roles: []
   media:
@@ -41,6 +41,6 @@ contact:
   givenName: Sample
   familyName: Person
   email: sample.person@example.org
-  organization: Example Organization
+  organization: The University of Tokyo
   telephone: 202-555-0101
   url: https://example.org/sample-person

@@ -1,4 +1,5 @@
 //! Deterministic catalog projection of validated research activities in one workspace.
+use crate::search::SearchPattern;
 use crate::session::{many, Workspace};
 use acorn_schema::pid::{Identifier, PID};
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -39,6 +40,8 @@ pub struct Activity {
     pub identifiers: Vec<String>,
     /// Controlled vocabulary keywords assigned to the activity.
     pub keywords: Vec<String>,
+    related: Vec<String>,
+    relation_keys: Vec<String>,
     search_text: String,
 }
 /// A project groups validated activities by their RAD metadata identifier.
@@ -102,6 +105,36 @@ impl Activity {
             .into_iter()
             .collect::<Vec<_>>();
         let project_id = string(&meta["identifier"]).map(str::to_lowercase).unwrap_or_else(|| path.to_lowercase());
+        let related = ["related", "relatedResources"]
+            .into_iter()
+            .flat_map(|field| many(&meta[field]))
+            .filter(|resource| {
+                resource
+                    .get("category")
+                    .and_then(Value::as_str)
+                    .is_none_or(|category| category == "related")
+            })
+            .filter_map(|resource| {
+                string(resource)
+                    .or_else(|| string(&resource["identifier"]))
+                    .or_else(|| resource.get("identifier").and_then(|identifier| identifier.get("value")).and_then(string))
+            })
+            .map(relation_key)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let relation_keys = [path, project_id.as_str()]
+            .into_iter()
+            .chain(
+                ["doi", "handle", "raid"]
+                    .into_iter()
+                    .flat_map(|field| many(&meta[field]))
+                    .filter_map(string),
+            )
+            .map(relation_key)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         let source = workspace
             .source
             .as_ref()
@@ -116,7 +149,7 @@ impl Activity {
             meta["keywords"],
             value["contact"]
         );
-        let text = format!("{} {}", search_text.to_lowercase(), value["sections"].to_string().to_lowercase());
+        let text = format!("{search_text} {} {}", value["meta"], value["sections"]);
         Self {
             id: format!("{source}{path}"),
             path: path.to_string(),
@@ -130,10 +163,12 @@ impl Activity {
             contributors,
             identifiers,
             keywords,
+            related,
+            relation_keys,
         }
     }
-    fn relevance(&self, terms: &[String]) -> usize {
-        let title = self.title.to_lowercase();
+    fn relevance(&self, terms: &[String], case_sensitive: bool) -> usize {
+        let title = if case_sensitive { self.title.clone() } else { self.title.to_lowercase() };
         let score = |term| {
             if title.starts_with(term) {
                 3
@@ -195,7 +230,7 @@ impl From<Workspace> for ResearchIndex {
     }
 }
 impl ResearchIndex {
-    /// Return other activities sharing an organization, contributor, or identifier.
+    /// Return validated activities explicitly referenced by this activity's related metadata.
     pub fn related(&self, path: &str) -> Vec<&Activity> {
         self.activities
             .iter()
@@ -204,28 +239,30 @@ impl ResearchIndex {
                 self.activities
                     .iter()
                     .filter(|activity| activity.path != path)
-                    .filter(|activity| {
-                        activity.project_id == selected.project_id
-                            || activity.organizations.iter().any(|name| selected.organizations.contains(name))
-                            || activity.contributors.iter().any(|name| selected.contributors.contains(name))
-                            || activity.identifiers.iter().any(|id| selected.identifiers.contains(id))
-                    })
+                    .filter(|activity| selected.related.iter().any(|reference| activity.relation_keys.contains(reference)))
                     .collect()
             })
     }
     /// Return matching activities with stable alphabetical or relevance ordering.
     pub fn search<'a>(&'a self, query: &str, sort: CatalogSort) -> Vec<&'a Activity> {
-        let terms = query.split_whitespace().map(str::to_lowercase).collect::<Vec<_>>();
+        SearchPattern::new(query, false, false).map_or_else(|_| Vec::new(), |pattern| self.search_with(&pattern, sort))
+    }
+    /// Return activities matching a configured literal or regular expression search.
+    pub fn search_with<'a>(&'a self, pattern: &SearchPattern, sort: CatalogSort) -> Vec<&'a Activity> {
+        let terms = pattern.relevance_terms();
         let mut matches = self
             .activities
             .iter()
-            .filter(|activity| terms.iter().all(|term| activity.search_text.contains(term)))
+            .filter(|activity| pattern.matches_terms(&activity.search_text))
             .collect::<Vec<_>>();
         matches.sort_by(|left, right| {
             let alphabetical = left.title.to_lowercase().cmp(&right.title.to_lowercase()).then(left.id.cmp(&right.id));
             match sort {
                 | CatalogSort::Alphabetical => alphabetical,
-                | CatalogSort::Relevance => right.relevance(&terms).cmp(&left.relevance(&terms)).then(alphabetical),
+                | CatalogSort::Relevance => right
+                    .relevance(&terms, pattern.case_sensitive())
+                    .cmp(&left.relevance(&terms, pattern.case_sensitive()))
+                    .then(alphabetical),
             }
         });
         matches
@@ -248,4 +285,9 @@ fn entities(value: &Value) -> Vec<String> {
 }
 fn string(value: &Value) -> Option<&str> {
     value.as_str().filter(|value| !value.trim().is_empty())
+}
+fn relation_key(value: &str) -> String {
+    Identifier::new(value)
+        .normalized()
+        .map_or_else(|| value.trim().to_lowercase(), |identifier| identifier.identity_key())
 }

@@ -5,10 +5,10 @@ use crate::model::{
 };
 use crate::repository::process_repository;
 use crate::{ServiceError, ServiceErrorKind, ServiceResult};
-use acorn_analysis::readability::score::ReadabilityScore;
-use acorn_analysis::{Check, CheckBatch, CheckCategory, CheckSeverity, FairEvidence};
+use acorn_analysis::readability::{score::ReadabilityScore, ReadabilityType};
+use acorn_analysis::{check_readability_for_text_with_threshold, Check, CheckBatch, CheckCategory, CheckSeverity, FairEvidence};
 use acorn_core::prelude::{format, ToString, Vec};
-use acorn_core::util::MimeType;
+use acorn_core::util::{MimeType, ToProse};
 use acorn_schema::codec::{CodecDiagnostic, DocumentCodec};
 use acorn_schema::modelkit::kitfile::Kitfile;
 use acorn_schema::pid::raid;
@@ -25,44 +25,112 @@ pub struct AcornService;
 impl AcornService {
     /// Validate caller-supplied research activity data and return every diagnostic.
     pub fn validate_research_activity(&self, request: ValidateResearchActivityRequest) -> ServiceResult<ValidateResearchActivityResponse> {
-        let source = request.source_uri.as_deref();
-        match ResearchActivity::decode(&request.content, &request.format) {
-            | Ok(value) => serde_json::to_value(&value).map_err(ServiceError::from).map(|metadata| {
-                let validation = value.validate();
-                let valid = validation.is_ok();
-                let schema = validation.err().map(validation_diagnostics).unwrap_or_default();
-                let vocabulary = CheckBatch::resolve_research_activity_vocabulary(
-                    &value,
-                    request.vocabulary_fuzzy,
-                    source.unwrap_or("input"),
-                    VocabularyResolver::embedded,
-                );
-                let fair = FairEvidence::from_value(
-                    source.unwrap_or("memory://metadata"),
-                    Standard::ResearchActivityData.to_string(),
-                    &metadata,
-                );
-                let diagnostics = schema
-                    .into_iter()
-                    .chain(vocabulary.into_iter().map(Diagnostic::from))
-                    .chain(fair.assess().into_iter().map(Check::from).map(Diagnostic::from))
-                    .collect();
-                ValidateResearchActivityResponse {
-                    diagnostics: with_source(diagnostics, source),
-                    valid,
-                    vocabulary_fuzzy: Some(request.vocabulary_fuzzy),
+        self.validate_research_activity_with_skip(request, &[])
+    }
+    /// Validate research activity data while omitting selected check categories.
+    pub fn validate_research_activity_with_skip(
+        &self,
+        request: ValidateResearchActivityRequest,
+        skip: &[CheckCategory],
+    ) -> ServiceResult<ValidateResearchActivityResponse> {
+        self.validate_research_activity_with_readability(request, skip, ReadabilityType::default(), None)
+    }
+    /// Validate research activity data with selected readability metric and threshold.
+    pub fn validate_research_activity_with_readability(
+        &self,
+        request: ValidateResearchActivityRequest,
+        skip: &[CheckCategory],
+        metric: ReadabilityType,
+        threshold: Option<f64>,
+    ) -> ServiceResult<ValidateResearchActivityResponse> {
+        let threshold_validation = if !skip.contains(&CheckCategory::Readability) && threshold.is_some_and(|value| !value.is_finite()) {
+            Err(ServiceError::new(ServiceErrorKind::InvalidInput, "Readability threshold must be finite").with_path("readabilityThreshold"))
+        } else {
+            Ok(())
+        };
+        threshold_validation.and_then(|()| {
+            let source = request.source_uri.as_deref();
+            match ResearchActivity::decode(&request.content, &request.format) {
+                | Ok(value) => {
+                    let schema = if skip.contains(&CheckCategory::Schema) {
+                        None
+                    } else {
+                        Some(value.validate())
+                    };
+                    let valid = schema.as_ref().is_some_and(Result::is_ok);
+                    let schema = schema.and_then(Result::err).map(validation_diagnostics).unwrap_or_default();
+                    let vocabulary = if skip.contains(&CheckCategory::Prose) {
+                        CheckBatch::empty()
+                    } else {
+                        CheckBatch::resolve_research_activity_vocabulary(
+                            &value,
+                            request.vocabulary_fuzzy,
+                            source.unwrap_or("input"),
+                            VocabularyResolver::embedded,
+                        )
+                    };
+                    let fair = if skip.contains(&CheckCategory::Fair) {
+                        Ok(Vec::new())
+                    } else {
+                        serde_json::to_value(&value).map_err(ServiceError::from).map(|metadata| {
+                            FairEvidence::from_value(
+                                source.unwrap_or("memory://metadata"),
+                                Standard::ResearchActivityData.to_string(),
+                                &metadata,
+                            )
+                            .assess()
+                            .into_iter()
+                            .map(Check::from)
+                            .map(Diagnostic::from)
+                            .collect()
+                        })
+                    };
+                    fair.map(|fair| {
+                        let readability = if skip.contains(&CheckCategory::Readability) {
+                            CheckBatch::empty()
+                        } else {
+                            check_readability_for_text_with_threshold(
+                                &value.to_prose(),
+                                metric,
+                                threshold.unwrap_or_else(|| metric.maximum_allowed()),
+                                None,
+                            )
+                        };
+                        let diagnostics = schema
+                            .into_iter()
+                            .chain(vocabulary.into_iter().map(Diagnostic::from))
+                            .chain(fair)
+                            .chain(readability.into_iter().map(|check| Diagnostic {
+                                path: Some("prose".to_string()),
+                                ..Diagnostic::from(check)
+                            }))
+                            .collect();
+                        ValidateResearchActivityResponse {
+                            diagnostics: with_source(diagnostics, source),
+                            valid,
+                            vocabulary_fuzzy: Some(request.vocabulary_fuzzy),
+                        }
+                    })
                 }
-            }),
-            | Err(diagnostics) => Ok(ValidateResearchActivityResponse {
-                diagnostics: with_source(diagnostics.into_iter().map(Diagnostic::from).collect(), source),
-                valid: false,
-                vocabulary_fuzzy: None,
-            }),
-        }
+                | Err(diagnostics) => Ok(ValidateResearchActivityResponse {
+                    diagnostics: with_source(diagnostics.into_iter().map(Diagnostic::from).collect(), source),
+                    valid: false,
+                    vocabulary_fuzzy: None,
+                }),
+            }
+        })
     }
 
     /// Validate caller-supplied data against a selected portable metadata standard.
     pub fn validate_standard(&self, request: ValidateStandardRequest) -> ServiceResult<ValidateResearchActivityResponse> {
+        self.validate_standard_with_skip(request, &[])
+    }
+    /// Validate metadata while omitting selected Research Activity check categories.
+    pub fn validate_standard_with_skip(
+        &self,
+        request: ValidateStandardRequest,
+        skip: &[CheckCategory],
+    ) -> ServiceResult<ValidateResearchActivityResponse> {
         let source = request.source_uri.as_deref();
         match request.standard {
             | Standard::CitationFileFormat => validate_decoded::<Cff>(&request.content, &request.format, source),
@@ -77,12 +145,15 @@ impl AcornService {
             | Standard::Invenio => validate_decoded::<invenio::Record>(&request.content, &request.format, source),
             | Standard::Kitfile | Standard::ModelKit => validate_decoded::<Kitfile>(&request.content, &request.format, source),
             | Standard::Raid => validate_decoded::<raid::Metadata>(&request.content, &request.format, source),
-            | Standard::ResearchActivityData => self.validate_research_activity(ValidateResearchActivityRequest {
-                content: request.content,
-                format: request.format,
-                source_uri: request.source_uri,
-                vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
-            }),
+            | Standard::ResearchActivityData => self.validate_research_activity_with_skip(
+                ValidateResearchActivityRequest {
+                    content: request.content,
+                    format: request.format,
+                    source_uri: request.source_uri,
+                    vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+                },
+                skip,
+            ),
             | standard => Err(ServiceError::new(
                 ServiceErrorKind::Unsupported,
                 format!("Validation is not available for '{standard}' at the portable service boundary"),

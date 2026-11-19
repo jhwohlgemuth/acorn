@@ -171,8 +171,7 @@ try {
     await projectDrawer.locator(".details-related").first().focus();
     await projectDrawer.locator(".details-related").first().press("Enter");
     await projectDrawer.getByRole("heading", { name: "Research focus", exact: true }).waitFor();
-    await projectDrawer.getByRole("button", { name: /View project:/ }).press("Enter");
-    await projectDrawer.getByRole("heading", { name: "Activities", exact: true }).waitFor();
+    assert.equal(await projectDrawer.getByRole("button", { name: /View project:/ }).count(), 0);
     await page.keyboard.press("Escape");
     await page.getByRole("dialog").waitFor({ state: "hidden" });
     checks.push("Index project details, result count, relevance sort and card/list layouts work with validated sample data");
