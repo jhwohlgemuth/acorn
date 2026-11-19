@@ -43,6 +43,10 @@ pub trait CheckRender {
     fn report(&self, document: Option<&DocumentIndex>);
     /// Resolve a portable locator against a concrete source document.
     fn resolve_locator(self, document: &DocumentIndex) -> Self;
+    /// Write this check as aligned table rows.
+    fn write(&self, f: &mut impl fmt::Write) -> fmt::Result;
+    /// Render this check as aligned table rows.
+    fn row(&self) -> String;
     /// Render this check as one compact line.
     fn terse(&self, document: Option<&DocumentIndex>) -> String;
 }
@@ -78,7 +82,6 @@ pub struct RenderContext<'a> {
     /// Output and failure-reporting policy.
     pub options: &'a ReportOptions,
 }
-pub(crate) struct RenderedCheck<'a>(pub(crate) &'a Check);
 impl Render for [Check] {
     fn render(&self, context: RenderContext<'_>) {
         let RenderContext { documents, options } = context;
@@ -110,13 +113,155 @@ impl Render for [Check] {
                 check.with_index(index).report(document);
             }),
             | (false, OutputFormat::Raw, _) if options.extension.verbosity.is_some_and(|level| level > 1) => {
-                sorted_checks.iter().for_each(|check| eprintln!("{}", RenderedCheck(check)));
+                sorted_checks.iter().for_each(|check| eprintln!("{}", check.row()));
             }
             | _ => {}
         }
     }
 }
 impl CheckRender for Check {
+    fn row(&self) -> String {
+        let mut out = String::new();
+        self.write(&mut out).map_or_else(|_| String::new(), |()| out)
+    }
+    fn write(&self, f: &mut impl fmt::Write) -> fmt::Result {
+        let check = self;
+        const INDENT: &str = " ";
+        const COL_ONE_WIDTH: usize = 28;
+        const COL_TWO_WIDTH: usize = 29;
+        let format_row = |first: String, second: String, third: String| format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}");
+        match check.category {
+            | CheckCategory::Link => {
+                let (locator, severity, details) = check.kind.link_row(check);
+                f.write_str(&format_row(locator, severity, details))
+            }
+            | CheckCategory::Fair => match check.fair_details() {
+                | Some(finding) => {
+                    let location = finding
+                        .locator
+                        .clone()
+                        .filter(|value| !value.is_empty())
+                        .unwrap_or_else(|| finding.resource.clone());
+                    let metadata = finding.metadata();
+                    let details = format!("{} {}", finding.remediation, metadata.dimmed());
+                    f.write_str(&format_row(location, check.severity.colored(), details))
+                }
+                | None => {
+                    let location = check.uri.clone().or_else(|| check.locator.clone()).unwrap_or_default();
+                    f.write_str(&format_row(location, check.severity.colored(), check.message.clone()))
+                }
+            },
+            | CheckCategory::Prose => {
+                #[cfg(any(feature = "analysis", feature = "std"))]
+                {
+                    match &check.errors {
+                        | Some(ErrorKind::Vale(values)) => {
+                            let last = values.len().saturating_sub(1);
+                            values.iter().enumerate().try_for_each(|(index, item)| {
+                                let ValeOutputItem {
+                                    check: rule,
+                                    message,
+                                    severity,
+                                    ..
+                                } = item;
+                                let location = check
+                                    .prose_locators
+                                    .get(index)
+                                    .cloned()
+                                    .flatten()
+                                    .or_else(|| check.locator.clone())
+                                    .unwrap_or_else(|| "Unlocated".to_string());
+                                let severity = CheckSeverity::from(severity.clone());
+                                let details = format!("{} {}{}", message, "rule=".dimmed(), rule.dimmed());
+                                f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
+                                    .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
+                            })
+                        }
+                        | None | Some(_) => write!(f, ""),
+                    }
+                }
+                #[cfg(not(any(feature = "analysis", feature = "std")))]
+                {
+                    let details = check.message.clone();
+                    f.write_str(&format_row(check.locator.clone().unwrap_or_default(), check.severity.colored(), details))
+                }
+            }
+            | CheckCategory::Compute | CheckCategory::Quality => {
+                let location = check.uri.clone().or_else(|| check.locator.clone()).unwrap_or_default();
+                let severity = match check.success {
+                    | true => CheckSeverity::Info,
+                    | false => check.severity.clone(),
+                };
+                let details = check
+                    .context
+                    .as_ref()
+                    .filter(|value| !value.is_empty())
+                    .or_else(|| (!check.message.is_empty()).then_some(&check.message))
+                    .map_or_else(|| format!("No {} issues", check.category), Clone::clone);
+                f.write_str(&format_row(location, severity.colored(), details))
+            }
+            | CheckCategory::Readability => {
+                let Check {
+                    errors, message, severity, ..
+                } = check;
+                match &errors {
+                    | Some(ErrorKind::Readability(_)) => {
+                        let details = format!("Simplify language for a general audience {}", message.dimmed());
+                        f.write_fmt(format_args!(
+                            "{}",
+                            format_row("Overall reading level".to_string(), severity.colored(), details)
+                        ))
+                    }
+                    | None | Some(_) => write!(f, ""),
+                }
+            }
+            | CheckCategory::Schema => match &check.errors {
+                | Some(ErrorKind::Validator(report)) => {
+                    let Check {
+                        context,
+                        locator,
+                        message,
+                        severity,
+                        ..
+                    } = check;
+                    let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(message.as_str());
+                    let rows = ValidatorIssues::from(report.clone()).with_prefix(prefix);
+                    let last = rows.len().saturating_sub(1);
+                    rows.iter().enumerate().try_for_each(|(index, issue)| {
+                        let location = issue.locator();
+                        let details = format!(
+                            "{} {}{}",
+                            issue.message(),
+                            "code=".dimmed(),
+                            issue.code().to_string().to_uppercase().dimmed()
+                        );
+                        f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
+                            .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
+                    })
+                }
+                | None if !check.success => {
+                    let error_text = check.context.as_deref().unwrap_or(&check.message);
+                    write!(
+                        f,
+                        "{}",
+                        format_row(
+                            "Deserialization error".to_string(),
+                            check.severity.colored(),
+                            error_text.to_string().dimmed().to_string()
+                        )
+                    )
+                }
+                | None | Some(_) => write!(f, ""),
+            },
+            | CheckCategory::Crosswalk => {
+                let details = check.message.dimmed().to_string();
+                f.write_fmt(format_args!(
+                    "{}",
+                    format_row(check.locator.clone().unwrap_or_default(), check.severity.colored(), details)
+                ))
+            }
+        }
+    }
     #[cfg(any(feature = "analysis", feature = "std"))]
     fn document_from<'a>(&self, documents: Option<&'a DocumentIndexes>) -> Option<&'a DocumentIndex> {
         self.uri
@@ -378,8 +523,7 @@ impl CheckRender for Check {
             }
             | _ => Vec::new(),
         });
-        RenderedCheck(self)
-            .to_string()
+        self.row()
             .split('\n')
             .enumerate()
             .map(|(index, row)| {
@@ -494,148 +638,6 @@ impl<'a> RenderContext<'a> {
         Self {
             documents: Some(documents),
             options,
-        }
-    }
-}
-impl core::ops::Deref for RenderedCheck<'_> {
-    type Target = Check;
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-impl fmt::Display for RenderedCheck<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const INDENT: &str = " ";
-        const COL_ONE_WIDTH: usize = 28;
-        const COL_TWO_WIDTH: usize = 29;
-        let format_row = |first: String, second: String, third: String| format!("{INDENT}{first:<COL_ONE_WIDTH$} {second:<COL_TWO_WIDTH$} {third}");
-        match self.category {
-            | CheckCategory::Link => {
-                let (locator, severity, details) = self.kind.link_row(self);
-                f.write_str(&format_row(locator, severity, details))
-            }
-            | CheckCategory::Fair => match self.fair_details() {
-                | Some(finding) => {
-                    let location = finding
-                        .locator
-                        .clone()
-                        .filter(|value| !value.is_empty())
-                        .unwrap_or_else(|| finding.resource.clone());
-                    let metadata = finding.metadata();
-                    let details = format!("{} {}", finding.remediation, metadata.dimmed());
-                    f.write_str(&format_row(location, self.severity.colored(), details))
-                }
-                | None => {
-                    let location = self.uri.clone().or_else(|| self.locator.clone()).unwrap_or_default();
-                    f.write_str(&format_row(location, self.severity.colored(), self.message.clone()))
-                }
-            },
-            | CheckCategory::Prose => {
-                #[cfg(any(feature = "analysis", feature = "std"))]
-                {
-                    match &self.errors {
-                        | Some(ErrorKind::Vale(values)) => {
-                            let last = values.len().saturating_sub(1);
-                            values.iter().enumerate().try_for_each(|(index, item)| {
-                                let ValeOutputItem {
-                                    check, message, severity, ..
-                                } = item;
-                                let location = self
-                                    .prose_locators
-                                    .get(index)
-                                    .cloned()
-                                    .flatten()
-                                    .or_else(|| self.locator.clone())
-                                    .unwrap_or_else(|| "Unlocated".to_string());
-                                let severity = CheckSeverity::from(severity.clone());
-                                let details = format!("{} {}{}", message, "rule=".dimmed(), check.dimmed());
-                                f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
-                                    .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
-                            })
-                        }
-                        | None | Some(_) => write!(f, ""),
-                    }
-                }
-                #[cfg(not(any(feature = "analysis", feature = "std")))]
-                {
-                    let details = self.message.clone();
-                    f.write_str(&format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details))
-                }
-            }
-            | CheckCategory::Compute | CheckCategory::Quality => {
-                let location = self.uri.clone().or_else(|| self.locator.clone()).unwrap_or_default();
-                let severity = match self.success {
-                    | true => CheckSeverity::Info,
-                    | false => self.severity.clone(),
-                };
-                let details = self
-                    .context
-                    .as_ref()
-                    .filter(|value| !value.is_empty())
-                    .or_else(|| (!self.message.is_empty()).then_some(&self.message))
-                    .map_or_else(|| format!("No {} issues", self.category), Clone::clone);
-                f.write_str(&format_row(location, severity.colored(), details))
-            }
-            | CheckCategory::Readability => {
-                let Check {
-                    errors, message, severity, ..
-                } = self.0;
-                match &errors {
-                    | Some(ErrorKind::Readability(_)) => {
-                        let details = format!("Simplify language for a general audience {}", message.dimmed());
-                        f.write_fmt(format_args!(
-                            "{}",
-                            format_row("Overall reading level".to_string(), severity.colored(), details)
-                        ))
-                    }
-                    | None | Some(_) => write!(f, ""),
-                }
-            }
-            | CheckCategory::Schema => match &self.errors {
-                | Some(ErrorKind::Validator(report)) => {
-                    let Check {
-                        context,
-                        locator,
-                        message,
-                        severity,
-                        ..
-                    } = self.0;
-                    let prefix = context.as_deref().or(locator.as_deref()).unwrap_or(message.as_str());
-                    let rows = ValidatorIssues::from(report.clone()).with_prefix(prefix);
-                    let last = rows.len().saturating_sub(1);
-                    rows.iter().enumerate().try_for_each(|(index, issue)| {
-                        let location = issue.locator();
-                        let details = format!(
-                            "{} {}{}",
-                            issue.message(),
-                            "code=".dimmed(),
-                            issue.code().to_string().to_uppercase().dimmed()
-                        );
-                        f.write_fmt(format_args!("{}", format_row(location, severity.colored(), details)))
-                            .and_then(|_| if index < last { writeln!(f) } else { Ok(()) })
-                    })
-                }
-                | None if !self.success => {
-                    let error_text = self.context.as_deref().unwrap_or(&self.message);
-                    write!(
-                        f,
-                        "{}",
-                        format_row(
-                            "Deserialization error".to_string(),
-                            self.severity.colored(),
-                            error_text.to_string().dimmed().to_string()
-                        )
-                    )
-                }
-                | None | Some(_) => write!(f, ""),
-            },
-            | CheckCategory::Crosswalk => {
-                let details = self.message.dimmed().to_string();
-                f.write_fmt(format_args!(
-                    "{}",
-                    format_row(self.locator.clone().unwrap_or_default(), self.severity.colored(), details)
-                ))
-            }
         }
     }
 }

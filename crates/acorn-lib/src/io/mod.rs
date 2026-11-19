@@ -43,7 +43,7 @@ pub use archive::{
     archive, extract, zip_entries, ArchiveCandidate, ArchiveCreation, ArchiveExtraction, ArchiveFormat, DeterministicZipEntry, ZipEntrySource,
 };
 #[cfg(feature = "exec")]
-pub use bytes::Bytes;
+pub use bytes::ContentDigest;
 use color_eyre::eyre::{eyre, Report};
 #[cfg(any(feature = "analysis", feature = "std"))]
 use console::{measure_text_width, strip_ansi_codes};
@@ -399,7 +399,9 @@ pub struct CommandTemplate {
     /// Ordered command arguments.
     pub args: Vec<String>,
 }
-pub(crate) struct CstValue<'a>(pub(crate) &'a Value);
+pub(crate) trait ToCstInput {
+    fn to_cst_input(&self) -> CstInputValue;
+}
 /// Struct for parsing GitLab API merge request diff responses
 ///
 /// Used by [`files_from_gitlab_merge_request`]
@@ -451,8 +453,6 @@ pub struct GitlabMergeRequestDiffResponse {
 /// SSH endpoint for a remote Docker daemon.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Remote(Location);
-/// Struct for adding ToStringList functionality
-pub struct StringList<'a>(pub &'a Vec<PathBuf>);
 impl PathConversion for &Path {
     fn cross_platform_display(&self) -> String {
         <Path as PathConversion>::cross_platform_display(*self)
@@ -562,15 +562,15 @@ impl fmt::Display for ContainerTarget {
         }
     }
 }
-impl From<CstValue<'_>> for CstInputValue {
-    fn from(value: CstValue<'_>) -> Self {
-        match value.0 {
-            | Value::Null => Self::Null,
-            | Value::Bool(value) => Self::Bool(*value),
-            | Value::Number(value) => Self::Number(value.to_string()),
-            | Value::String(value) => Self::String(value.clone()),
-            | Value::Array(values) => Self::Array(values.iter().map(|value| CstValue(value).into()).collect()),
-            | Value::Object(values) => Self::Object(values.iter().map(|(key, value)| (key.clone(), CstValue(value).into())).collect()),
+impl ToCstInput for Value {
+    fn to_cst_input(&self) -> CstInputValue {
+        match self {
+            | Value::Null => CstInputValue::Null,
+            | Value::Bool(value) => CstInputValue::Bool(*value),
+            | Value::Number(value) => CstInputValue::Number(value.to_string()),
+            | Value::String(value) => CstInputValue::String(value.clone()),
+            | Value::Array(values) => CstInputValue::Array(values.iter().map(ToCstInput::to_cst_input).collect()),
+            | Value::Object(values) => CstInputValue::Object(values.iter().map(|(key, value)| (key.clone(), value.to_cst_input())).collect()),
         }
     }
 }

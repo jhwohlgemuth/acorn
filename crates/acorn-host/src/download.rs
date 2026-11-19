@@ -62,7 +62,6 @@ pub enum DownloadError {
         source: std::io::Error,
     },
 }
-struct Algorithm(&'static RingAlgorithm);
 /// Optional download integrity and size expectations.
 #[derive(Clone, Debug, Default)]
 pub struct DownloadExpectation {
@@ -78,16 +77,13 @@ pub struct DownloadReceipt {
     pub path: PathBuf,
 }
 struct PartialCleanup(PathBuf);
-impl TryFrom<ChecksumAlgorithm> for Algorithm {
-    type Error = DownloadError;
-    fn try_from(algorithm: ChecksumAlgorithm) -> Result<Self, Self::Error> {
-        match algorithm {
-            | ChecksumAlgorithm::Sha1 => Ok(Self(&SHA1_FOR_LEGACY_USE_ONLY)),
-            | ChecksumAlgorithm::Sha256 => Ok(Self(&SHA256)),
-            | ChecksumAlgorithm::Sha384 => Ok(Self(&SHA384)),
-            | ChecksumAlgorithm::Sha512 => Ok(Self(&SHA512)),
-            | unsupported => Err(DownloadError::UnsupportedChecksum(unsupported)),
-        }
+fn ring_algorithm(algorithm: ChecksumAlgorithm) -> Result<&'static RingAlgorithm, DownloadError> {
+    match algorithm {
+        | ChecksumAlgorithm::Sha1 => Ok(&SHA1_FOR_LEGACY_USE_ONLY),
+        | ChecksumAlgorithm::Sha256 => Ok(&SHA256),
+        | ChecksumAlgorithm::Sha384 => Ok(&SHA384),
+        | ChecksumAlgorithm::Sha512 => Ok(&SHA512),
+        | unsupported => Err(DownloadError::UnsupportedChecksum(unsupported)),
     }
 }
 impl DownloadExpectation {
@@ -243,8 +239,8 @@ fn validate_download_response(response: Response, diagnostic: &str, maximum: Opt
 }
 fn verify_checksum(partial: &Path, expectation: Option<Checksum>) -> Result<(), DownloadError> {
     match expectation {
-        | Some(expected) => Algorithm::try_from(expected.algorithm.clone())
-            .and_then(|algorithm| file_checksum(partial, Some(algorithm.0)).map_err(Into::into))
+        | Some(expected) => ring_algorithm(expected.algorithm.clone())
+            .and_then(|algorithm| file_checksum(partial, Some(algorithm)).map_err(Into::into))
             .and_then(|actual| match actual.checksum_value.eq_ignore_ascii_case(&expected.checksum_value) {
                 | true => Ok(()),
                 | false => Err(DownloadError::ChecksumMismatch {

@@ -15,7 +15,7 @@ use crate::{
         mcp::{config::McpServerConfiguration, ExecutorBindingConfiguration},
         read_file, sync,
         sync::ConfigExt,
-        write_file, ApiResult, CstRootNode, CstValue, EmailAddress, FromPath, InputOutput,
+        write_file, ApiResult, CstRootNode, EmailAddress, FromPath, InputOutput, ToCstInput,
     },
     util::{
         constants::app::{
@@ -1118,9 +1118,9 @@ impl ApplicationConfiguration {
                         .map(|models| {
                             let root = cst.object_value_or_set();
                             match root.get("models") {
-                                | Some(property) => property.set_value(CstValue(&models).into()),
+                                | Some(property) => property.set_value(models.to_cst_input()),
                                 | None => {
-                                    root.append("models", CstValue(&models).into());
+                                    root.append("models", models.to_cst_input());
                                 }
                             }
                             root.array_value_or_set("models").ensure_multiline();

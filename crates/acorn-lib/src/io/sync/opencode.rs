@@ -5,7 +5,7 @@
 //! Each model is registered as a keyed entry in the provider's model map.
 use super::{McpSync, Options, RenderedOutput, SyncTarget};
 use crate::{
-    io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, CstValue, PathConversion},
+    io::{home_directory, parse_jsonc_cst, read_file, ApiResult, CstRootNode, PathConversion, ToCstInput},
     util::constants::app::{APPLICATION, DEFAULT_OPENCODE_CONFIG_PATH},
 };
 use acorn_core::options::{SyncInner, TargetConfig};
@@ -104,9 +104,9 @@ impl Inner {
                     if let Some(provider) = config.provider.as_ref().and_then(|providers| providers.get(&self.provider_id)) {
                         let providers = root.object_value_or_set("provider");
                         match providers.get(&self.provider_id) {
-                            | Some(property) => property.set_value(CstValue(provider).into()),
+                            | Some(property) => property.set_value(provider.to_cst_input()),
                             | None => {
-                                providers.append(&self.provider_id, CstValue(provider).into());
+                                providers.append(&self.provider_id, provider.to_cst_input());
                             }
                         }
                     }
@@ -125,9 +125,9 @@ impl Inner {
                         .and_then(|server| serde_json::to_value(server).ok());
                     match (root.object_value("mcp"), managed_mcp.as_ref()) {
                         | (Some(servers), Some(server)) => match servers.get(APPLICATION) {
-                            | Some(property) => property.set_value(CstValue(server).into()),
+                            | Some(property) => property.set_value(server.to_cst_input()),
                             | None => {
-                                servers.append(APPLICATION, CstValue(server).into());
+                                servers.append(APPLICATION, server.to_cst_input());
                             }
                         },
                         | (Some(servers), None) => {
@@ -136,7 +136,7 @@ impl Inner {
                             }
                         }
                         | (None, Some(server)) => {
-                            root.object_value_or_set("mcp").append(APPLICATION, CstValue(server).into());
+                            root.object_value_or_set("mcp").append(APPLICATION, server.to_cst_input());
                         }
                         | (None, None) => {}
                     }

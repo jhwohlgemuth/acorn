@@ -2,7 +2,7 @@ use super::super::script::*;
 use crate::io::config::application::Hook;
 use crate::io::mcp::tools::{CapabilitySelectionContext, ExecutionContext, ExecutionOutcome};
 use crate::io::mcp::ToolRegistry;
-use crate::io::Bytes;
+use crate::io::ContentDigest;
 use serde_json::json;
 use std::fs;
 #[cfg(unix)]
@@ -67,7 +67,7 @@ async fn test_hook_check_requires_digest_authorization_and_applies_no_proposals(
     secure_file(&script);
     fs::write(root.path().join("input.txt"), "hello").expect("input document");
     let source = fs::read_to_string(&script).expect("script source");
-    let digest = Bytes::from(&source).digest();
+    let digest = source.digest();
     let manifest = json!({
         "version":"1.0.0",
         "scripts":[{
@@ -145,7 +145,7 @@ async fn test_hook_check_requires_digest_authorization_and_applies_no_proposals(
     let network_source = "// @acorn-exec-v0.2.0\nfn evaluate(context) { http_get(\"https://example.org\"); #{findings: []} }";
     fs::write(&script, network_source).expect("network script");
     let network_manifest = json!({"version":"1.0.0","scripts":[{
-        "id":"network","version":"0.2.0","entry":"evaluate","digest":Bytes::from(network_source).digest(),
+        "id":"network","version":"0.2.0","entry":"evaluate","digest":network_source.digest(),
         "hooks":["check"],"capabilities":{"read":null,"write":null,"network":{"hosts":"example.org"}}
     }]});
     fs::write(

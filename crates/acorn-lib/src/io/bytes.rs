@@ -3,21 +3,17 @@ use acorn_core::prelude::String;
 use data_encoding::HEXLOWER;
 use ring::digest::{digest, SHA256};
 
-/// Borrowed bytes with content-identity operations.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Bytes<'a>(&'a [u8]);
-impl Bytes<'_> {
+/// Content-identity operations for anything viewable as bytes.
+pub trait ContentDigest {
     /// Compute the lowercase SHA-256 content digest.
-    pub fn digest(&self) -> String {
-        format!("sha256:{}", HEXLOWER.encode(digest(&SHA256, self.0).as_ref()))
-    }
+    fn digest(&self) -> String;
 }
-impl<'a, T> From<&'a T> for Bytes<'a>
+impl<T> ContentDigest for T
 where
     T: AsRef<[u8]> + ?Sized,
 {
-    fn from(value: &'a T) -> Self {
-        Self(value.as_ref())
+    fn digest(&self) -> String {
+        format!("sha256:{}", HEXLOWER.encode(digest(&SHA256, self.as_ref()).as_ref()))
     }
 }
 

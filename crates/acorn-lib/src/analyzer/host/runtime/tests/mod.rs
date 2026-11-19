@@ -10,7 +10,7 @@ use crate::analyzer::host::tabular::checks_to_dataframe;
 #[cfg(windows)]
 use crate::analyzer::host::vale::ValeOutput;
 use crate::analyzer::host::{
-    render::{CheckRender, CheckSeverityRender, RenderedCheck},
+    render::{CheckRender, CheckSeverityRender},
     runtime::CheckBatchExt,
     DocumentTargetQuery,
 };
@@ -259,7 +259,7 @@ async fn test_collect_validation_checks_avoids_duplicate_wrapper_field_paths_in_
         .iter()
         .find(|check| check.category == CheckCategory::Schema)
         .expect("expected schema check");
-    let rendered = RenderedCheck(schema_check).to_string();
+    let rendered = schema_check.row();
     assert_eq!(schema_check.context.as_deref(), Some("license"));
     assert!(rendered.contains("license"), "expected license path in display output: {rendered}");
     assert!(
@@ -331,7 +331,7 @@ async fn test_collect_validation_checks_preserves_nested_indexed_paths_in_displa
     };
     let checks = collect_validation_checks(&value).await;
     assert_eq!(checks.len(), 1);
-    let rendered = RenderedCheck(&checks.as_slice()[0]).to_string();
+    let rendered = checks.as_slice()[0].row();
     assert!(
         rendered.contains("children[1].email"),
         "expected nested indexed path in display output: {rendered}"
@@ -872,7 +872,7 @@ fn test_prose_location_maps_structured_prose_to_full_source() {
         ),
     );
     assert_eq!(check.locator.as_deref(), Some("Line 3, Character 19"));
-    assert!(RenderedCheck(&check).to_string().contains("Line 3, Character 19"));
+    assert!(check.row().contains("Line 3, Character 19"));
     assert!(check.terse(Some(&document)).contains("path=index.json:3:19"));
 }
 #[test]
@@ -885,7 +885,7 @@ fn test_prose_location_omits_ambiguous_structured_match() {
         ValeOutputItem::new("Vale.Spelling", 3, "Prose issue", ValeOutputItemSeverity::Error, vec![1, 6], "repeat"),
     );
     assert_eq!(check.locator, None);
-    assert!(RenderedCheck(&check).to_string().contains("Unlocated"));
+    assert!(check.row().contains("Unlocated"));
     assert!(check.terse(Some(&document)).contains("path=index.json"));
     assert!(!check.terse(Some(&document)).contains("path=index.json:"));
 }
@@ -895,7 +895,7 @@ fn test_prose_location_omits_invalid_analyzer_span() {
     let item = ValeOutputItem::new("Vale.Spelling", 9, "Prose issue", ValeOutputItemSeverity::Error, vec![1, 3], "bad");
     let (check, document) = prose_check("notes.md", content, content, item);
     assert_eq!(check.locator, None);
-    assert!(RenderedCheck(&check).to_string().contains("Unlocated"));
+    assert!(check.row().contains("Unlocated"));
     assert!(!check.terse(Some(&document)).contains("path=notes.md:"));
 }
 #[test]

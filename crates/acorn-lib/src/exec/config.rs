@@ -6,7 +6,7 @@ use crate::exec::result::RhaiExt;
 use crate::exec::runtime::{RhaiRuntime, Runtime};
 use crate::io::config::application::{ApplicationConfiguration, Entry, Hook};
 use crate::io::workflow::WorkflowAction;
-use crate::io::{read_file_snapshot, ApiResult, Bytes};
+use crate::io::{read_file_snapshot, ApiResult, ContentDigest};
 use crate::util::constants::app::APPLICATION;
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::constants::app::{MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
@@ -150,7 +150,7 @@ impl Entry {
                         | false => Err(eyre!("script `{}` escapes project `.acorn/` directory", self.path)),
                     }
                     .and_then(|(canonical, source)| {
-                        let digest = Bytes::from(&source).digest();
+                        let digest = source.digest();
                         RhaiRuntime::compile_source(&canonical, &source).map(|ast| (canonical, digest, ast))
                     })
                     .map(|(canonical, digest, ast)| {
@@ -214,7 +214,7 @@ impl Resolved {
             .map_err(|why| eyre!("Failed to read script `{}` — {why}", path.display()))
             .and_then(|(canonical, source, metadata)| validate_permissions(path, &metadata, true).map(|()| (canonical, source)))
             .and_then(|(canonical, source)| {
-                let digest = Bytes::from(&source).digest();
+                let digest = source.digest();
                 RhaiRuntime::compile_source(&canonical, &source).map(|ast| {
                     caution!(
                         "Explicit script `{}` → canonical `{}` (digest {digest}) — non-portable trust exception",

@@ -13,7 +13,7 @@ use crate::OneOrMany;
 use acorn_core::prelude::alloc::{format, vec, Box, String, ToString, Vec};
 #[cfg(feature = "std")]
 use acorn_core::util::{frontmatter_and_body, longest_character_run};
-use acorn_core::util::{strip_suffixes, MarkdownSupport, SemanticVersion, StringInterpolation};
+use acorn_core::util::{strip_suffixes, MarkdownLabel, MarkdownSupport, SemanticVersion, StringInterpolation};
 use acorn_core::validation::ValidationError;
 use acorn_core::{AcornError, AcornResult, Location, Noul};
 use bon::Builder;
@@ -396,10 +396,6 @@ pub struct Benchmark {
     /// Version of the benchmark or harness
     pub version: Option<String>,
 }
-/// Markdown rendering for a one-or-many benchmark list.
-///
-/// This is a local newtype because [`OneOrMany`] is defined in `acorn-core`, so a direct `MarkdownSupport` impl for it would violate the orphan rule.
-pub struct BenchmarkList(pub OneOrMany<Benchmark>);
 /// Pricing details for a model
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 pub struct CostDetails {
@@ -747,17 +743,8 @@ impl MarkdownSupport for Benchmark {
         .to_string()
     }
 }
-impl MarkdownSupport for BenchmarkList {
-    fn to_markdown(&self) -> String {
-        match &self.0 {
-            | OneOrMany::One(value) => format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)),
-            | OneOrMany::Many(values) => values
-                .iter()
-                .map(|value| format!("- Benchmark\n{}", value.to_markdown().with_additional_indent(2)))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        }
-    }
+impl MarkdownLabel for Benchmark {
+    const LABEL: &'static str = "Benchmark";
 }
 impl MarkdownSupport for CostDetails {
     fn to_markdown(&self) -> String {
@@ -939,7 +926,7 @@ impl MarkdownSupport for ModelDetails {
             self.attachment.map(|value| format!("- Attachment: {value}")),
             self.benchmarks
                 .as_ref()
-                .map(|value| format!("- Benchmarks\n{}", BenchmarkList(value.clone()).to_markdown().with_additional_indent(2))),
+                .map(|value| format!("- Benchmarks\n{}", value.to_markdown().with_additional_indent(2))),
             self.family.as_ref().map(|value| format!("- Family: {value}")),
             self.id.as_ref().map(|value| format!("- ID: {value}")),
             self.knowledge.as_ref().map(|value| format!("- Knowledge: {value}")),

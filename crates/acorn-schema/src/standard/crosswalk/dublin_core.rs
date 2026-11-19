@@ -30,7 +30,6 @@ pub struct DublinCoreImportOptions {
     /// Required local RAD identifier.
     pub identifier: Option<String>,
 }
-struct DublinCoreResourceType<'a>(&'a ResourceTypeGeneral);
 impl ConversionWarning {
     fn dublin_core_import(document: &DublinCoreDocument, primary: &DublinCoreDescription) -> Vec<Self> {
         let additional = (document.descriptions.len() > 1).then(|| {
@@ -305,9 +304,9 @@ impl From<ResearchOutput> for DublinCoreResource {
             .unwrap_or_else(|| Self::blank_node("resource"))
     }
 }
-impl fmt::Display for DublinCoreResourceType<'_> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = match self.0 {
+impl ResourceTypeGeneral {
+    fn dublin_core_term(&self) -> &'static str {
+        match self {
             | ResourceTypeGeneral::Audiovisual => "MovingImage",
             | ResourceTypeGeneral::Collection => "Collection",
             | ResourceTypeGeneral::Dataset => "Dataset",
@@ -319,8 +318,7 @@ impl fmt::Display for DublinCoreResourceType<'_> {
             | ResourceTypeGeneral::Software | ResourceTypeGeneral::Workflow => "Software",
             | ResourceTypeGeneral::Sound => "Sound",
             | _ => "Text",
-        };
-        formatter.write_str(value)
+        }
     }
 }
 impl Crosswalk<DublinCoreDocument> for ResearchActivity {
@@ -431,7 +429,7 @@ impl Crosswalk<DublinCoreDocument> for ResearchOutput {
                 let types = self
                     .resource_type_general
                     .as_ref()
-                    .map(DublinCoreResourceType)
+                    .map(ResourceTypeGeneral::dublin_core_term)
                     .into_iter()
                     .map(|value| format!("{TYPE_NAMESPACE}{value}"))
                     .collect();

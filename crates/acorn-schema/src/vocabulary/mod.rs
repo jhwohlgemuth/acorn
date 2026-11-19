@@ -83,7 +83,7 @@ impl VocabularyResolver {
             })
     }
     /// Return a deterministic digest of the prepared vocabulary content.
-    pub fn content_digest(&self) -> String {
+    pub fn digest(&self) -> String {
         let hash = self.entries.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, entry| {
             core::iter::once(entry.canonical.as_str())
                 .chain(entry.aliases.iter().map(String::as_str))

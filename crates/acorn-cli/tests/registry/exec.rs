@@ -2,7 +2,7 @@
 #![cfg(feature = "exec")]
 use acorn::io::config::application::Hook;
 use acorn::io::mcp::{ScriptCheckInput, ScriptHookInput, ScriptManifestInput, ScriptSafeInput};
-use acorn::io::Bytes;
+use acorn::io::ContentDigest;
 use serde_json::json;
 use serde_json::Value;
 use std::fs;
@@ -44,7 +44,7 @@ fn test_manifest_authorized_hook_matches_direct_command() {
     let source = fs::read_to_string(&script).expect("script source");
     let manifest = root.path().join("manifest.json");
     let authorization = json!({"version":"1.0.0","scripts":[{
-        "id":"quality","version":"0.2.0","entry":"evaluate","digest":Bytes::from(&source).digest(),
+        "id":"quality","version":"0.2.0","entry":"evaluate","digest":source.digest(),
         "hooks":["check"],"capabilities":{"read":null,"write":null,"network":null}
     }]});
     fs::write(&manifest, serde_json::to_vec(&authorization).expect("manifest JSON")).expect("write manifest");

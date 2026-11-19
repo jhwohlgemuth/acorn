@@ -23,12 +23,6 @@ pub struct Server {
     registry: ToolRegistry,
     context: ToolCallContext,
 }
-struct Tool(model::Tool);
-impl From<Tool> for model::Tool {
-    fn from(tool: Tool) -> Self {
-        tool.0
-    }
-}
 impl Server {
     /// Construct a server from ACORN's built-in tool registry
     pub fn acorn() -> ApiResult<Self> {
@@ -47,13 +41,7 @@ impl Server {
     }
     /// Return MCP tool declarations in deterministic order
     pub fn tools(&self) -> ApiResult<Vec<model::Tool>> {
-        Ok(self
-            .registry
-            .available_definitions(self.context)
-            .into_iter()
-            .map(Tool::from)
-            .map(model::Tool::from)
-            .collect())
+        Ok(self.registry.available_definitions(self.context).into_iter().map(mcp_tool).collect())
     }
     pub(crate) async fn invoke(&self, name: &str, arguments: JsonObject) -> CallToolResult {
         let result = self.registry.call_with_context(name, Value::Object(arguments), self.context).await;
@@ -95,47 +83,44 @@ impl ServerHandler for Server {
             .available_definitions(self.context)
             .into_iter()
             .find(|definition| definition.name == name)
-            .map(Tool::from)
-            .map(model::Tool::from)
+            .map(mcp_tool)
     }
 }
-impl From<ToolDefinition> for Tool {
-    fn from(definition: ToolDefinition) -> Self {
-        let ToolDefinition {
-            name,
-            title,
-            description,
-            input_schema,
-            output_schema,
-            effects,
-            ..
-        } = definition;
-        let input_schema = match input_schema {
-            | Value::Object(schema) => schema,
-            | _ => JsonObject::new(),
-        };
-        let output_schema = output_schema.and_then(|schema| match schema {
-            | Value::Object(schema) => Some(schema),
-            | _ => None,
-        });
-        let ToolEffects {
-            read_only,
-            destructive,
-            idempotent,
-            open_world,
-        } = effects;
-        let annotations = ToolAnnotations::new()
-            .read_only(read_only)
-            .destructive(destructive)
-            .idempotent(idempotent)
-            .open_world(open_world);
-        let tool = model::Tool::new(Cow::Owned(name), Cow::Owned(description), Arc::new(input_schema))
-            .with_title(title)
-            .with_annotations(annotations);
-        Self(match output_schema {
-            | Some(schema) => tool.with_raw_output_schema(Arc::new(schema)),
-            | None => tool,
-        })
+fn mcp_tool(definition: ToolDefinition) -> model::Tool {
+    let ToolDefinition {
+        name,
+        title,
+        description,
+        input_schema,
+        output_schema,
+        effects,
+        ..
+    } = definition;
+    let input_schema = match input_schema {
+        | Value::Object(schema) => schema,
+        | _ => JsonObject::new(),
+    };
+    let output_schema = output_schema.and_then(|schema| match schema {
+        | Value::Object(schema) => Some(schema),
+        | _ => None,
+    });
+    let ToolEffects {
+        read_only,
+        destructive,
+        idempotent,
+        open_world,
+    } = effects;
+    let annotations = ToolAnnotations::new()
+        .read_only(read_only)
+        .destructive(destructive)
+        .idempotent(idempotent)
+        .open_world(open_world);
+    let tool = model::Tool::new(Cow::Owned(name), Cow::Owned(description), Arc::new(input_schema))
+        .with_title(title)
+        .with_annotations(annotations);
+    match output_schema {
+        | Some(schema) => tool.with_raw_output_schema(Arc::new(schema)),
+        | None => tool,
     }
 }
 /// Serve ACORN tools over MCP's standard-input/standard-output transport

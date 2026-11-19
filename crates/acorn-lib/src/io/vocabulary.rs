@@ -21,7 +21,7 @@ const UNICODE_DATA_VERSION: &str = "icu4x-2.2.0";
 pub(super) struct CachedVocabulary {
     pub(super) asset_digest: String,
     pub(super) cache_schema_version: u8,
-    pub(super) content_digest: String,
+    pub(super) digest: String,
     pub(super) kind: VocabularyKind,
     pub(super) policy_revision: String,
     pub(super) resolver: VocabularyResolver,
@@ -95,7 +95,7 @@ pub(super) fn cache_record(resolver: VocabularyResolver) -> Option<CachedVocabul
         .map(|asset_digest| CachedVocabulary {
             asset_digest,
             cache_schema_version: CACHE_SCHEMA_VERSION,
-            content_digest: resolver.content_digest(),
+            digest: resolver.digest(),
             kind: resolver.kind(),
             policy_revision: resolver.policy_revision().to_string(),
             unicode_data_version: UNICODE_DATA_VERSION.to_string(),
@@ -175,7 +175,7 @@ pub(super) fn read_cached(path: &Path, kind: VocabularyKind) -> Option<Vocabular
                     && cached.policy_revision == cached.resolver.policy_revision()
                     && cached.unicode_data_version == UNICODE_DATA_VERSION
                     && cached.vocabulary_revision == cached.resolver.revision()
-                    && cached.resolver.content_digest() == cached.content_digest
+                    && cached.resolver.digest() == cached.digest
                     && cached.resolver.kind() == cached.kind
             })
             .map(|cached| cached.resolver)

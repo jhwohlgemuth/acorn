@@ -7,7 +7,7 @@ use super::runtime::{RhaiRuntime, Runtime};
 use crate::analyzer::Check;
 use crate::io::config::application::Hook;
 use crate::io::workflow::WorkflowAction;
-use crate::io::{jsonc_parse_value, ApiResult, Bytes, FromPath};
+use crate::io::{jsonc_parse_value, ApiResult, ContentDigest, FromPath};
 use acorn_core::prelude::{String, Vec};
 use acorn_core::util::MimeType;
 use acorn_host::fs::read_text;
@@ -176,8 +176,8 @@ impl Resolved {
                                 let granted_effects = authorization.map_or_else(Vec::new, ScriptAuthorization::granted_effects);
                                 let proposal_digests = document
                                     .iter()
-                                    .map(|content| Bytes::from(content).digest())
-                                    .chain(files.iter().map(|file| Bytes::from(&file.content).digest()))
+                                    .map(|content| content.digest())
+                                    .chain(files.iter().map(|file| file.content.digest()))
                                     .collect::<Vec<_>>();
                                 let audit = HookAuditRecord {
                                     digest: self.digest.clone(),

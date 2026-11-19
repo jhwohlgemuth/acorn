@@ -16,6 +16,7 @@
 #[cfg(feature = "std")]
 use super::constants::app::{EXEC_HEADER_PREFIX, MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
+use super::types::OneOrMany;
 use crate::error::{AcornError, AcornResult};
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
 use crate::validation::ValidationError;
@@ -103,6 +104,23 @@ pub trait MarkdownSupport {
             .replace('&', "and")
             .trim()
             .to_string()
+    }
+}
+/// Heading used when an item is rendered as one entry of a Markdown list.
+pub trait MarkdownLabel {
+    /// Heading rendered above each item.
+    const LABEL: &'static str;
+}
+impl<T: MarkdownSupport + MarkdownLabel> MarkdownSupport for OneOrMany<T> {
+    fn to_markdown(&self) -> String {
+        match self {
+            | Self::One(value) => format!("- {}\n{}", T::LABEL, value.to_markdown().with_additional_indent(2)),
+            | Self::Many(values) => values
+                .iter()
+                .map(|value| format!("- {}\n{}", T::LABEL, value.to_markdown().with_additional_indent(2)))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
     }
 }
 /// Shared parsing policies for JSON-with-comments options.
