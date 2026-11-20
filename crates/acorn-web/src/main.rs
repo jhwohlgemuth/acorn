@@ -6,6 +6,7 @@ use dioxus::prelude::*;
 mod dashboard;
 mod details;
 mod geospatial_page;
+mod location;
 mod results;
 mod sample;
 mod search_ui;

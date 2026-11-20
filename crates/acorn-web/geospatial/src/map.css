@@ -45,7 +45,7 @@ details.map-layer-widget > summary {
     border-radius: 4px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
 }
-details.map-layer-widget > summary:hover { background: #3f4854; border-color: #aef; }
+details.map-layer-widget > summary:hover { color: #fff; background: #48b; border-color: #aef; box-shadow: 0 0 8px #fff; }
 details.map-layer-widget > summary::-webkit-details-marker { display: none; }
 details.map-layer-widget > summary svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .map-layer-panel { position: absolute; top: 0; right: 38px; width: min(230px, calc(100vw - 64px)); background: rgba(23, 28, 34, .96); border: 1px solid rgba(255, 255, 255, .35); border-radius: 5px; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); }

@@ -224,6 +224,10 @@ try {
     assert.equal(await readFile(await (await previewDownload).path(), "utf8"), previewText);
     await drawer.getByRole("tab", { name: "Checks", exact: true }).click();
     await drawer.getByRole("button", { name: "Copy result", exact: true }).waitFor();
+    await drawer.locator(".diagnostic-location").first().click();
+    await drawer.locator("#drawer-source-editor").waitFor();
+    assert.equal(await drawer.getByRole("tab", { name: "Source", exact: true }).getAttribute("aria-selected"), "true");
+    assert.ok((await page.evaluate(() => window.getSelection().toString())).length > 0, "check location selects source text");
     await page.keyboard.press("Escape");
     await drawer.waitFor({ state: "hidden" });
     assert.equal(await activityButton.evaluate(node => node === document.activeElement), true);
@@ -525,6 +529,8 @@ try {
         if (name === "Content diff") assert.equal(await page.getByRole("button", { name: "JSON Patch", exact: true }).getAttribute("aria-pressed"), "true");
         if (["Research Activity", "Metadata standard", "Crosswalk", "FAIR assessment"].includes(name)) {
             const controls = page.getByRole("group", { name: "Sort diagnostics", exact: true });
+            const defaultOrder = name === "Crosswalk" ? "Original" : "Severity";
+            assert.equal(await controls.getByRole("button", { name: defaultOrder, exact: true }).getAttribute("aria-pressed"), "true");
             const initial = await page.locator(".diagnostics").allTextContents();
             const field = name === "FAIR assessment" ? "Indicator" : "Field";
             await controls.getByRole("button", { name: field, exact: true }).click();
@@ -544,6 +550,7 @@ try {
             await controls.getByRole("button", { name: rule, exact: true }).click();
             assert.equal(await controls.getByRole("button", { name: rule, exact: true }).getAttribute("aria-pressed"), "true");
             await controls.getByRole("button", { name: "Original", exact: true }).click();
+            if (name !== "Crosswalk") await controls.getByRole("button", { name: "Severity", exact: true }).click();
             assert.deepEqual(await page.locator(".diagnostics").allTextContents(), initial);
             assert.ok(await page.locator("details.diagnostic-group").count() > 0);
             for (const category of await page.locator("details.diagnostic-group").all()) {

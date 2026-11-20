@@ -268,17 +268,20 @@ test("tour handles reduced motion, completion, route teardown and missing target
     let focused = 0;
     let driven = 0;
     let missing = false;
+    let sampleLoaded = false;
+    let mobile = false;
     const notices = [];
     const trigger = { isConnected: true, focus: () => { focused += 1; } };
     const tour = context.createTour(async () => ({ driver: (options) => {
         config = options;
         return { drive: () => { driven += 1; }, destroy: () => options.onDestroyed(null, null, { reason: "api" }) };
-    } }), { find: (selector) => missing && selector === "#local-entry" ? null : trigger, notify: (message) => notices.push(message), reducedMotion: () => true, theme: () => "light" });
+    } }), { find: (selector) => missing && selector === "#local-entry" || sampleLoaded && selector === "#sample-data" ? null : trigger, notify: (message) => notices.push(message), reducedMotion: () => true, mobile: () => mobile, theme: () => "light" });
     await tour.start();
     assert.equal(config.animate, false);
     assert.equal(config.allowKeyboardControl, true);
     assert.equal(config.closeBtnLabel, "Close tour");
     assert.equal(config.showProgress, true);
+    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Start with an example", "Open your data", "Load a repository bucket", "Use the ACORN Skill", "Explore your portfolio", "Review metadata", "Find and inspect identifiers", "Convert metadata", "Compare and analyze", "Manage your workspace", "Switch appearance"]);
     config.onDestroyed(null, null, { reason: "done" });
     assert.equal(focused, 1);
     assert.match(notices.at(-1), /Tour complete/);
@@ -286,9 +289,14 @@ test("tour handles reduced motion, completion, route teardown and missing target
     tour.cancel();
     assert.equal(focused, 1, "route teardown must not steal heading focus");
     assert.equal(notices.length, 1);
+    sampleLoaded = true;
+    mobile = true;
+    await tour.start();
+    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Open your data", "Load a repository bucket", "Use the ACORN Skill", "Explore the workspace", "Switch appearance"]);
+    tour.cancel();
     missing = true;
     await tour.start();
-    assert.equal(driven, 2);
+    assert.equal(driven, 3);
     assert.match(notices.at(-1), /unavailable/);
 });
 test("WebMCP survives cached navigation and disposes on final unload", async (t) => {

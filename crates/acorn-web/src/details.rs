@@ -62,7 +62,10 @@ impl Detail {
             .into(),
             path: Some(file.path.clone()),
             value,
-            checks: workspace.validations.get(&file.path).cloned(),
+            checks: workspace.validations.get(&file.path).cloned().map(|mut checks| {
+                crate::location::annotate(&mut checks, &file.content, "json");
+                checks
+            }),
             tool: Tool::Activity,
             finding: None,
             marker: None,
@@ -248,7 +251,7 @@ pub(crate) fn DetailsDrawer() -> Element {
                     match tab() {
                         "source" => rsx! {
                             p { class: "small muted", "Read-only preview · {detail.source.len()} UTF-8 bytes" }
-                            CodeEditor { id: "drawer-source", label: "Source preview", value: detail.source.clone(), language: detail.language.clone(), rows: 24, readonly: true, oninput: |_| {} }
+                            CodeEditor { id: "drawer-source", label: "Source preview", value: detail.source.clone(), language: detail.language.clone(), rows: 24, readonly: true, diagnostics: detail.checks.as_ref().and_then(|checks| checks["diagnostics"].as_array().cloned()).unwrap_or_default(), oninput: |_| {} }
                             button { class: "copy-code details-download", onclick: { let content = detail.source.clone(); let filename = detail.filename.clone(); move |_| {
                                 let args = serde_json::to_string(&(content.clone(), filename.clone(), "text/plain;charset=utf-8")).unwrap_or_default();
                                 document::eval(&format!("window.acornDownload(...{args})"));

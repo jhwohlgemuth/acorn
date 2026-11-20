@@ -51,6 +51,7 @@
         });
         panel.addEventListener("close", () => {
             if (panel.open) return;
+            delete window.acornPendingEditorReveal;
             if (previousOverflow !== undefined) document.body.style.overflow = previousOverflow;
             previousOverflow = undefined;
             if (trigger?.isConnected) trigger.focus({ preventScroll: true });

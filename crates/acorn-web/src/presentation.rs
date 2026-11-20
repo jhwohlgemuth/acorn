@@ -21,11 +21,11 @@ pub enum DiagnosticSort {
     /// Field path or FAIR indicator.
     Field,
     /// Preserve the operation's original order.
-    #[default]
     Original,
     /// Rule code, conversion loss type or FAIR state.
     Rule,
     /// Error, warning, suggestion, then information.
+    #[default]
     Severity,
 }
 /// A content-only export; it carries no filesystem authority.
@@ -51,16 +51,16 @@ pub fn category_style(category: &CheckCategory) -> (&'static str, &'static str) 
         | CheckCategory::Crosswalk => ("Crosswalk", "shuffle"),
     }
 }
-/// Partition the first 100 diagnostics by analyzer category, retaining order within each group.
-pub fn diagnostic_groups(value: &Value) -> Vec<(CheckCategory, Vec<&Value>)> {
+/// Partition supplied diagnostics by analyzer category, retaining order within each group.
+pub fn diagnostic_groups<'a>(diagnostics: &[&'a Value]) -> Vec<(CheckCategory, Vec<&'a Value>)> {
     CheckCategory::iter()
         .filter_map(|category| {
-            let diagnostics = items(value, "diagnostics")
+            let group = diagnostics
                 .iter()
-                .take(100)
+                .copied()
                 .filter(|diagnostic| CheckCategory::from(text(diagnostic, "category")) == category)
                 .collect::<Vec<_>>();
-            (!diagnostics.is_empty()).then_some((category, diagnostics))
+            (!group.is_empty()).then_some((category, group))
         })
         .collect()
 }
@@ -223,7 +223,8 @@ mod tests {
             {"category": "prose", "severity": "warning", "path": "meta.keywords[1]"},
             {"category": "schema", "severity": "error", "path": "contact.email"}
         ]});
-        let groups = diagnostic_groups(&value);
+        let diagnostics = items(&value, "diagnostics").iter().collect::<Vec<_>>();
+        let groups = diagnostic_groups(&diagnostics);
         assert_eq!(groups.len(), 2);
         let schema = groups.first().unwrap();
         let prose = groups.get(1).unwrap();
@@ -235,9 +236,10 @@ mod tests {
         );
         assert_eq!(diagnostic_severity(prose.1.first().unwrap()), CheckSeverity::Info);
         assert_eq!(diagnostic_severity(prose.1.get(1).unwrap()), CheckSeverity::Warning);
-        assert!(diagnostic_groups(&json!({"diagnostics": []})).is_empty());
+        assert!(diagnostic_groups(&[]).is_empty());
         let many = json!({"diagnostics": vec![json!({"category": "schema", "severity": "error"}); 101]});
-        assert_eq!(diagnostic_groups(&many).first().unwrap().1.len(), 100);
+        let many_diagnostics = items(&many, "diagnostics").iter().collect::<Vec<_>>();
+        assert_eq!(diagnostic_groups(&many_diagnostics).first().unwrap().1.len(), 101);
     }
     #[test]
     fn test_diff_counts_distinguish_headers_from_changed_separators() {

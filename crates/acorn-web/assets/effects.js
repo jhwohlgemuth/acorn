@@ -115,18 +115,30 @@ function createTour(loadDriver, environment) {
             cancel();
             const request = generation;
             const trigger = environment.find("#tour-start");
-            const steps = [
-                ["#sample-data", "Start with an example", "Try Sample Data to explore the tools without opening a file."],
-                ["#skill-entry", "Use the ACORN Skill", "Read the release's workflows for your coding agent."],
-                ["#local-entry", "Open your data", "Choose local UTF-8 files or a folder. Loading keeps tools under your control."],
-            ].map(([element, title, description]) => ({ element, popover: { title, description } }));
             try {
                 const { driver } = await loadDriver();
                 if (request !== generation) return;
-                if (!trigger?.isConnected || steps.some((step) => !environment.find(step.element))) {
+                if (!trigger?.isConnected || !environment.find("#skill-entry") || !environment.find("#local-entry")) {
                     environment.notify("The tour is unavailable on this page. Return Home and try again.");
                     return;
                 }
+                const steps = [
+                    ["#sample-data", "Start with an example", "Load a fictional research bucket to try Portfolio and the review tools."],
+                    ["#local-entry", "Open your data", "Choose files or a folder, or drop them here. Supported files stay in this browser workspace."],
+                    [".remote-entry > summary", "Load a repository bucket", "Open a GitHub or GitLab bucket by URL. Private repositories can use a token saved for this tab."],
+                    ["#skill-entry", "Use the ACORN Skill", "Find workflows and installation guidance for using ACORN with a coding agent."],
+                    ...(environment.mobile() ? [
+                        ["#nav-toggle", "Explore the workspace", "Open this menu to reach Portfolio, Review, discovery, conversion, analysis, and app settings."],
+                    ] : [
+                        ['#workspace-navigation a[aria-label="Portfolio"]', "Explore your portfolio", "Browse loaded files and validated research activities, then select an item to inspect."],
+                        ['#workspace-navigation a[aria-label="Review"]', "Review metadata", "Validate Research Activity Data, check other standards, assess FAIR principles, or measure readability."],
+                        ['#workspace-navigation a[aria-label="Discover identifiers"]', "Find and inspect identifiers", "Discover persistent identifiers for research outputs, then inspect a known identifier."],
+                        ['#workspace-navigation a[aria-label="Crosswalk"]', "Convert metadata", "Map metadata between supported standards and review conversion warnings."],
+                        ['#workspace-navigation a[aria-label="Content diff"]', "Compare and analyze", "Compare content changes, estimate algorithm complexity, or explore geospatial and research data tools."],
+                        ['#workspace-navigation a[aria-label="Settings"]', "Manage your workspace", "Choose a theme, check saved workspace status, or clear data when you are finished."],
+                    ]),
+                    ["#theme-toggle", "Switch appearance", "Toggle between light and dark themes at any time."],
+                ].filter(([element]) => environment.find(element)).map(([element, title, description]) => ({ element, popover: { title, description } }));
                 silent = false;
                 active = driver({
                     steps,
@@ -192,6 +204,7 @@ function installChrome() {
         find: (selector) => document.querySelector(selector),
         notify: notifications.notify,
         reducedMotion: () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        mobile: () => window.getComputedStyle(document.getElementById("workspace-navigation")).display === "none",
         theme: () => workspace.dataset.theme,
     });
     window.acornChrome = { theme, notifications, tour };

@@ -126,7 +126,7 @@ pub enum CheckKind {
     Lifecycle,
 }
 /// Severity level of a check result
-#[derive(Clone, Debug, Default, Deserialize, Display, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Display, EnumIter, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CheckSeverity {
     /// Hard error requiring immediate attention
@@ -304,13 +304,6 @@ pub struct VocabularyAdvisoryCandidate {
     pub score: Noul,
     /// Stable algorithm or typed-lookup variant.
     pub variant: String,
-}
-impl<'a> IntoIterator for &'a CheckBatch {
-    type Item = &'a Check;
-    type IntoIter = core::slice::Iter<'a, Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
 }
 impl Check {
     /// Convert one controlled-vocabulary resolution into an advisory check when action is warranted.
@@ -638,6 +631,13 @@ impl IntoIterator for CheckBatch {
     type IntoIter = alloc::vec::IntoIter<Check>;
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+impl<'a> IntoIterator for &'a CheckBatch {
+    type Item = &'a Check;
+    type IntoIter = core::slice::Iter<'a, Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 impl CheckCategory {

@@ -183,6 +183,7 @@ pub(crate) fn Icon(name: &'static str) -> Element {
         }
         | "link" => r#"<path d="m10 13 4-4m-6 6-2 2a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m4 1 2-2a3.5 3.5 0 0 1 5 5l-4 4a3.5 3.5 0 0 1-5 0"/>"#,
         | "list" => r#"<path class="s" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />"#,
+        | "maximize" => r#"<path class="s" d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />"#,
         | "panel" => {
             r#"<rect class="s" x="3" y="4" width="18" height="16" rx="2" />
       <path class="s" d="M9 4v16M14 8l-3 4 3 4" />"#
@@ -366,25 +367,6 @@ fn InfoPage(page: String) -> Element {
         }
     }
 }
-#[component]
-fn Page(page: String) -> Element {
-    if page == "home" {
-        rsx! { Home {} }
-    } else if matches!(page.as_str(), "metadata" | "review" | "research-activity" | "metadata-standard") {
-        rsx! { ToolWorkspace { key: "{page}", initial_tool: Tool::Standard, review: true } }
-    } else if let Some(tool) = Tool::iter().find(|tool| tool.slug() == page) {
-        rsx! { ToolWorkspace { key: "{page}", initial_tool: tool, review: tool.is_review() } }
-    } else {
-        rsx! { InfoPage { page } }
-    }
-}
-fn review_tab(fragment: &str) -> Tool {
-    match fragment {
-        | "fair" => Tool::Fair,
-        | "readability" => Tool::Readability,
-        | _ => Tool::Standard,
-    }
-}
 fn initial_review_tab() -> Tool {
     let current = js_sys::Reflect::get(&js_sys::global(), &"location".into())
         .ok()
@@ -396,6 +378,18 @@ fn initial_review_tab() -> Tool {
         .and_then(|hash| hash.as_string())
         .unwrap_or_default();
     review_tab(if current.is_empty() { &initial } else { current.trim_start_matches('#') })
+}
+#[component]
+fn Page(page: String) -> Element {
+    if page == "home" {
+        rsx! { Home {} }
+    } else if matches!(page.as_str(), "metadata" | "review" | "research-activity" | "metadata-standard") {
+        rsx! { ToolWorkspace { key: "{page}", initial_tool: Tool::Standard, review: true } }
+    } else if let Some(tool) = Tool::iter().find(|tool| tool.slug() == page) {
+        rsx! { ToolWorkspace { key: "{page}", initial_tool: tool, review: tool.is_review() } }
+    } else {
+        rsx! { InfoPage { page } }
+    }
 }
 pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool) {
     (value["bytes"].as_u64().unwrap_or(0) as usize, value["failed"] == true)
@@ -433,6 +427,13 @@ pub(crate) fn ResultTree(value: Value, depth: usize) -> Element {
         | Value::String(text) => rsx! { span { class: "result-text", "{text}" } },
         | Value::Null => rsx! { span { class: "muted", "Not provided" } },
         | other => rsx! { span { "{other}" } },
+    }
+}
+fn review_tab(fragment: &str) -> Tool {
+    match fragment {
+        | "fair" => Tool::Fair,
+        | "readability" => Tool::Readability,
+        | _ => Tool::Standard,
     }
 }
 fn sample_activity_path(workspace: &Workspace) -> Option<String> {
@@ -650,6 +651,10 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         | Tool::Activity | Tool::Fair => "json".to_owned(),
         | _ => "auto".to_owned(),
     };
+    let diagnostics = result()
+        .and_then(Result::ok)
+        .and_then(|value| value.get("diagnostics").and_then(Value::as_array).cloned())
+        .unwrap_or_default();
     rsx! {
         document::Title { "{title} · {APP_NAME}" }
         section { class: if review { "page tool-page review-page" } else { "page tool-page" },
@@ -766,7 +771,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     }
                     div { class: if matches!(tool, Tool::Diff | Tool::BigO) { "editor-pair" } else { "" },
                         div { class: "field", span { if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" } }
-                            CodeEditor { id: "content", label: if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" }, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), oninput: move |value| { request.set(Request { input: value, ..request() }); result.set(None); } }
+                            CodeEditor { id: "content", label: if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" }, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, oninput: move |value| { request.set(Request { input: value, ..request() }); result.set(None); } }
                             small { class: if input.len() > limit { "error" } else { "muted" }, "{input.len()} / {limit} UTF-8 bytes" }
                         }
                         if matches!(tool, Tool::Diff | Tool::BigO) {
@@ -780,7 +785,10 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     div { class: "actions run-actions", button { class: "primary", disabled: running(), "aria-busy": running(), onclick: move |_| async move {
                         running.set(true);
                         let submitted = request.peek().clone();
-                        let output = execute(tool, submitted.clone()).await;
+                        let output = execute(tool, submitted.clone()).await.map(|mut value| {
+                            crate::location::annotate(&mut value, &submitted.input, &submitted.format);
+                            value
+                        });
                         running.set(false);
                         if tool == Tool::Activity || (tool == Tool::Standard && submitted.standard == "research-activity-data" && submitted.format == "json") {
                             let mut next = workspace();

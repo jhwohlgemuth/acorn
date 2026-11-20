@@ -15,7 +15,29 @@ use alloc::rc::Rc;
 use case::CaseExt;
 use dioxus::prelude::*;
 use serde_json::Value;
+use strum::IntoEnumIterator;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum IdentifierSort {
+    Original,
+    Type,
+    Value,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PatchSort {
+    Original,
+    Operation,
+    Path,
+}
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ComplexitySample {
+    n: u32,
+    left: f64,
+    right: f64,
+}
+fn chart_x(index: usize, count: usize) -> f64 {
+    46.0 + 454.0 * index as f64 / count.saturating_sub(1).max(1) as f64
+}
 #[component]
 fn Complexity(value: Value) -> Element {
     let dominance = text(&value, "dominance");
@@ -70,11 +92,16 @@ fn Complexity(value: Value) -> Element {
         details { summary { "Applied assumptions" } ResultTree { value: assumptions.clone(), depth: 0 } }
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct ComplexitySample {
-    n: u32,
-    left: f64,
-    right: f64,
+fn complexity_path(samples: &[ComplexitySample], maximum: f64, value: impl Fn(&ComplexitySample) -> f64) -> String {
+    samples
+        .iter()
+        .enumerate()
+        .map(|(index, sample)| {
+            let x = chart_x(index, samples.len());
+            let y = 190.0 - 160.0 * value(sample).ln_1p() / maximum.max(f64::EPSILON);
+            format!("{}{x:.1},{y:.1}", if index == 0 { "M" } else { "L" })
+        })
+        .collect()
 }
 fn complexity_samples(left: &str, right: &str, assumptions: &Value) -> Option<Vec<ComplexitySample>> {
     Expression::parse(left).ok().zip(Expression::parse(right).ok()).and_then(|(left, right)| {
@@ -88,66 +115,6 @@ fn complexity_samples(left: &str, right: &str, assumptions: &Value) -> Option<Ve
             .collect::<Vec<_>>();
         (samples.len() >= 2).then_some(samples)
     })
-}
-fn evaluate_complexity(term: &Term, n: f64, assumptions: &Value) -> Option<f64> {
-    match term {
-        | Term::Add(terms) => terms
-            .iter()
-            .try_fold(0.0, |sum, term| evaluate_complexity(term, n, assumptions).map(|value| sum + value)),
-        | Term::Constant(value) => Some(*value as f64),
-        | Term::Divide(numerator, denominator) => evaluate_complexity(numerator, n, assumptions)
-            .zip(evaluate_complexity(denominator, n, assumptions))
-            .and_then(|(numerator, denominator)| (denominator > 0.0).then_some(numerator / denominator)),
-        | Term::Log(argument) => evaluate_complexity(argument, n, assumptions).map(|value| value.max(1.0).ln()),
-        | Term::LogBase { argument, .. } => evaluate_complexity(argument, n, assumptions).map(|value| value.max(1.0).log2()),
-        | Term::Multiply(terms) => terms.iter().try_fold(1.0, |product, term| {
-            evaluate_complexity(term, n, assumptions).map(|value| product * value)
-        }),
-        | Term::OutputWork(argument) => evaluate_complexity(argument, n, assumptions),
-        | Term::Polylog(_) => None,
-        | Term::Power { base, exponent } => evaluate_complexity(base, n, assumptions)
-            .zip(evaluate_exponent(exponent, n, assumptions))
-            .map(|(base, exponent)| base.powf(exponent)),
-        | Term::Variable(name) => Some(symbol_value(name, n, assumptions)),
-    }
-}
-fn evaluate_exponent(exponent: &Exponent, n: f64, assumptions: &Value) -> Option<f64> {
-    match exponent {
-        | Exponent::Integer(value) => Some(*value as f64),
-        | Exponent::Rational(numerator, denominator) => Some(*numerator as f64 / *denominator as f64),
-        | Exponent::Variable(name) => Some(symbol_value(name, n, assumptions)),
-        | Exponent::Difference(left, right) => Some(symbol_value(left, n, assumptions) - symbol_value(right, n, assumptions)),
-    }
-}
-fn symbol_value(name: &str, n: f64, assumptions: &Value) -> f64 {
-    match assumptions.get(name).and_then(Value::as_str) {
-        | Some("fixed-positive" | "fixed-log-base") => 2.0,
-        | Some("shrinking-positive") => n.recip(),
-        | _ => n,
-    }
-}
-fn chart_x(index: usize, count: usize) -> f64 {
-    46.0 + 454.0 * index as f64 / count.saturating_sub(1).max(1) as f64
-}
-fn complexity_path(samples: &[ComplexitySample], maximum: f64, value: impl Fn(&ComplexitySample) -> f64) -> String {
-    samples
-        .iter()
-        .enumerate()
-        .map(|(index, sample)| {
-            let x = chart_x(index, samples.len());
-            let y = 190.0 - 160.0 * value(sample).ln_1p() / maximum.max(f64::EPSILON);
-            format!("{}{x:.1},{y:.1}", if index == 0 { "M" } else { "L" })
-        })
-        .collect()
-}
-fn format_sample(value: f64) -> String {
-    if value >= 1_000_000.0 {
-        format!("{value:.2e}")
-    } else if value.fract().abs() < 0.001 {
-        format!("{value:.0}")
-    } else {
-        format!("{value:.2}")
-    }
 }
 #[component]
 fn DiagnosticSortControls(mut sort: Signal<DiagnosticSort>, mut descending: Signal<bool>, list: DiagnosticList) -> Element {
@@ -181,13 +148,6 @@ fn DiagnosticSortControls(mut sort: Signal<DiagnosticSort>, mut descending: Sign
             }
         }
     }
-}
-#[component]
-fn ResultSearch(query: Signal<String>, regex: Signal<bool>, case_sensitive: Signal<bool>, label: &'static str, error: Option<String>) -> Element {
-    rsx! { SearchField { label, placeholder: "Search results", query, regex, case_sensitive, error, compact: true } }
-}
-fn matches_query(value: &Value, pattern: &SearchPattern) -> bool {
-    pattern.matches(&value.to_string())
 }
 #[component]
 fn Difference(value: Value) -> Element {
@@ -263,41 +223,6 @@ fn Difference(value: Value) -> Element {
             if visible.is_empty() { p { class: "muted small", "No operation types selected. Choose a type or All to show results." } }
             ol { class: "patch-operations",
                 for (index, operation) in visible { PatchOperation { index, operation: (*operation).clone() } }
-            }
-        }
-    }
-}
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum PatchSort {
-    Original,
-    Operation,
-    Path,
-}
-#[component]
-fn PatchOperation(index: usize, operation: Value) -> Element {
-    let position = index.saturating_add(1);
-    let kind = text(&operation, "op").to_owned();
-    let path = text(&operation, "path").to_owned();
-    let from = operation.get("from").and_then(Value::as_str).map(str::to_owned);
-    let value = operation.get("value").cloned();
-    rsx! {
-        li { class: "patch-operation", "data-operation": kind.clone(),
-            div { class: "patch-operation-heading",
-                span { class: "patch-operation-index", title: "Operation {position}", "{position}" }
-                strong { class: "patch-operation-kind", "{kind}" }
-                code { class: "patch-operation-path", "{path}" }
-            }
-            if let Some(from) = from {
-                div { class: "patch-operation-detail",
-                    span { class: "patch-operation-label", "From" }
-                    code { class: "patch-operation-path", "{from}" }
-                }
-            }
-            if let Some(value) = value {
-                div { class: "patch-operation-detail",
-                    span { class: "patch-operation-label", "Value" }
-                    div { class: "patch-operation-value", ResultTree { value, depth: 0 } }
-                }
             }
         }
     }
@@ -390,11 +315,35 @@ fn Discovery(value: Value) -> Element {
         if value.get("truncated").unwrap_or(&Value::Null) == true { p { class: "status invalid", "Results were truncated at the 100-identifier limit. Narrow your input to discover additional identifiers." } }
     }
 }
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum IdentifierSort {
-    Original,
-    Type,
-    Value,
+fn evaluate_complexity(term: &Term, n: f64, assumptions: &Value) -> Option<f64> {
+    match term {
+        | Term::Add(terms) => terms
+            .iter()
+            .try_fold(0.0, |sum, term| evaluate_complexity(term, n, assumptions).map(|value| sum + value)),
+        | Term::Constant(value) => Some(*value as f64),
+        | Term::Divide(numerator, denominator) => evaluate_complexity(numerator, n, assumptions)
+            .zip(evaluate_complexity(denominator, n, assumptions))
+            .and_then(|(numerator, denominator)| (denominator > 0.0).then_some(numerator / denominator)),
+        | Term::Log(argument) => evaluate_complexity(argument, n, assumptions).map(|value| value.max(1.0).ln()),
+        | Term::LogBase { argument, .. } => evaluate_complexity(argument, n, assumptions).map(|value| value.max(1.0).log2()),
+        | Term::Multiply(terms) => terms.iter().try_fold(1.0, |product, term| {
+            evaluate_complexity(term, n, assumptions).map(|value| product * value)
+        }),
+        | Term::OutputWork(argument) => evaluate_complexity(argument, n, assumptions),
+        | Term::Polylog(_) => None,
+        | Term::Power { base, exponent } => evaluate_complexity(base, n, assumptions)
+            .zip(evaluate_exponent(exponent, n, assumptions))
+            .map(|(base, exponent)| base.powf(exponent)),
+        | Term::Variable(name) => Some(symbol_value(name, n, assumptions)),
+    }
+}
+fn evaluate_exponent(exponent: &Exponent, n: f64, assumptions: &Value) -> Option<f64> {
+    match exponent {
+        | Exponent::Integer(value) => Some(*value as f64),
+        | Exponent::Rational(numerator, denominator) => Some(*numerator as f64 / *denominator as f64),
+        | Exponent::Variable(name) => Some(symbol_value(name, n, assumptions)),
+        | Exponent::Difference(left, right) => Some(symbol_value(left, n, assumptions) - symbol_value(right, n, assumptions)),
+    }
 }
 #[component]
 fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
@@ -403,15 +352,32 @@ fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
     let query = use_signal(String::new);
     let regex = use_signal(|| false);
     let case_sensitive = use_signal(|| false);
+    let hidden = use_signal(BTreeSet::<String>::new);
     let pattern = SearchPattern::new(&query(), regex(), case_sensitive());
     let findings = items(&value, "findings");
+    let mut counts = CheckSeverity::iter()
+        .map(|severity| {
+            let count = findings
+                .iter()
+                .filter(|finding| presentation::finding_severity(finding) == severity)
+                .count();
+            (severity, count)
+        })
+        .collect::<Vec<_>>();
+    counts.sort_by_key(|(severity, _)| u8::from(severity));
+    let hidden_now = hidden();
     let skipped_label = value
         .get("skippedChecks")
         .and_then(Value::as_array)
         .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "));
     let visible = findings
         .iter()
-        .filter(|finding| pattern.as_ref().is_ok_and(|pattern| matches_query(finding, pattern)))
+        .filter(|finding| {
+            let severity = presentation::finding_severity(finding).to_string();
+            let selected = !hidden_now.contains(&severity);
+            let matches = pattern.as_ref().is_ok_and(|pattern| matches_query(finding, pattern));
+            selected && matches
+        })
         .collect::<Vec<_>>();
     let (_, category_icon) = presentation::category_style(&CheckCategory::Fair);
     rsx! {
@@ -432,7 +398,7 @@ fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
         }
         details { class: "diagnostic-group", "data-category": "fair", open: true,
             summary { class: "diagnostic-group-summary", h3 { class: "diagnostic-group-title", Icon { name: category_icon } "FAIR findings" span { class: "badge", "{findings.len()}" } } }
-            if findings.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter FAIR findings", error: pattern.as_ref().err().cloned() } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Fair } }
+            if findings.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter FAIR findings", error: pattern.as_ref().err().cloned() } SeverityFilters { hidden, counts, label: "Filter FAIR findings by severity" } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Fair } }
             if visible.len() != findings.len() { p { class: "small muted result-summary", role: "status", "Showing {visible.len()} of {findings.len()} findings" } }
             if visible.is_empty() { p { class: "muted small", if findings.is_empty() { "No FAIR checks were run." } else { "No findings match this filter." } } }
             ol { class: "diagnostics", role: "list", for finding in presentation::sort_diagnostics(visible, DiagnosticList::Fair, sort(), descending()) {
@@ -449,6 +415,21 @@ fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
         }
     }
 }
+fn format_sample(value: f64) -> String {
+    if value >= 1_000_000.0 {
+        format!("{value:.2e}")
+    } else if value.fract().abs() < 0.001 {
+        format!("{value:.0}")
+    } else {
+        format!("{value:.2}")
+    }
+}
+fn has_source_location(diagnostic: &Value) -> bool {
+    diagnostic["line"]
+        .as_u64()
+        .zip(diagnostic["character"].as_u64())
+        .is_some_and(|(line, character)| line > 0 && character > 0)
+}
 #[component]
 fn Inspection(value: Value) -> Element {
     rsx! {
@@ -458,6 +439,38 @@ fn Inspection(value: Value) -> Element {
         if value.get("normalized").unwrap_or(&Value::Null).is_string() { dl { class: "result-fields", dt { "Normalized identifier" } dd { Code { text: text(&value, "normalized").to_owned(), language: "identifier", copyable: true } } } }
         if text(&value, "kind").eq_ignore_ascii_case("ror") && text(&value, "status") == "valid" { RorMapButton { identifier: text(&value, "normalized").to_owned() } }
         p { class: "small muted", "Local syntax inspection only. This does not establish that the identifier exists or resolves." }
+    }
+}
+fn matches_query(value: &Value, pattern: &SearchPattern) -> bool {
+    pattern.matches(&value.to_string())
+}
+#[component]
+fn PatchOperation(index: usize, operation: Value) -> Element {
+    let position = index.saturating_add(1);
+    let kind = text(&operation, "op").to_owned();
+    let path = text(&operation, "path").to_owned();
+    let from = operation.get("from").and_then(Value::as_str).map(str::to_owned);
+    let value = operation.get("value").cloned();
+    rsx! {
+        li { class: "patch-operation", "data-operation": kind.clone(),
+            div { class: "patch-operation-heading",
+                span { class: "patch-operation-index", title: "Operation {position}", "{position}" }
+                strong { class: "patch-operation-kind", "{kind}" }
+                code { class: "patch-operation-path", "{path}" }
+            }
+            if let Some(from) = from {
+                div { class: "patch-operation-detail",
+                    span { class: "patch-operation-label", "From" }
+                    code { class: "patch-operation-path", "{from}" }
+                }
+            }
+            if let Some(value) = value {
+                div { class: "patch-operation-detail",
+                    span { class: "patch-operation-label", "Value" }
+                    div { class: "patch-operation-value", ResultTree { value, depth: 0 } }
+                }
+            }
+        }
     }
 }
 #[component]
@@ -489,8 +502,12 @@ fn Readability(value: Value) -> Element {
     }
 }
 #[component]
+fn ResultSearch(query: Signal<String>, regex: Signal<bool>, case_sensitive: Signal<bool>, label: &'static str, error: Option<String>) -> Element {
+    rsx! { SearchField { label, placeholder: "Search results", query, regex, case_sensitive, error, compact: true } }
+}
+#[component]
 pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Option<String>) -> Element {
-    let sort = use_signal(DiagnosticSort::default);
+    let sort = use_signal(|| DiagnosticSort::Original);
     let descending = use_signal(|| false);
     let query = use_signal(String::new);
     let regex = use_signal(|| false);
@@ -557,23 +574,98 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
     }
 }
 #[component]
+fn SeverityFilters(mut hidden: Signal<BTreeSet<String>>, counts: Vec<(CheckSeverity, usize)>, label: &'static str) -> Element {
+    let all_hidden = counts
+        .iter()
+        .filter(|(_, count)| *count > 0)
+        .map(|(severity, _)| severity.to_string())
+        .collect::<BTreeSet<_>>();
+    let all_selected = all_hidden.iter().all(|key| !hidden.read().contains(key));
+    let total = counts.iter().map(|(_, count)| count).sum::<usize>();
+    rsx! {
+        div { class: "result-filters severity-filters", role: "group", "aria-label": label,
+            span { class: "muted", "Filter" }
+            button { r#type: "button", "aria-pressed": all_selected,
+                title: if all_selected { "Hide all severities" } else { "Show all severities" },
+                onclick: move |_| hidden.set(if all_selected { all_hidden.clone() } else { BTreeSet::new() }),
+                "All" span { class: "filter-count", "{total}" }
+            }
+            for (severity, count) in counts {
+                {let key = severity.to_string();
+                let name = key.to_capitalized();
+                rsx! { if count > 0 { button { r#type: "button", "aria-pressed": !hidden.read().contains(&key),
+                    onclick: move |_| {
+                        let mut next = hidden();
+                        if !next.insert(key.clone()) { next.remove(&key); }
+                        hidden.set(next);
+                    },
+                    "{name}" span { class: "filter-count", "{count}" }
+                } }} }
+            }
+        }
+    }
+}
+fn symbol_value(name: &str, n: f64, assumptions: &Value) -> f64 {
+    match assumptions.get(name).and_then(Value::as_str) {
+        | Some("fixed-positive" | "fixed-log-base") => 2.0,
+        | Some("shrinking-positive") => n.recip(),
+        | _ => n,
+    }
+}
+#[component]
 fn Validation(value: Rc<Value>, source: Option<Rc<String>>, tool: Tool) -> Element {
     let sort = use_signal(DiagnosticSort::default);
     let descending = use_signal(|| false);
     let query = use_signal(String::new);
     let regex = use_signal(|| false);
     let case_sensitive = use_signal(|| false);
+    let hidden = use_signal(BTreeSet::<String>::new);
     let pattern = SearchPattern::new(&query(), regex(), case_sensitive());
     let diagnostics = items(&value, "diagnostics");
+    let mut counts = CheckSeverity::iter()
+        .map(|severity| {
+            let count = diagnostics
+                .iter()
+                .filter(|diagnostic| presentation::diagnostic_severity(diagnostic) == severity)
+                .count();
+            (severity, count)
+        })
+        .collect::<Vec<_>>();
+    counts.sort_by_key(|(severity, _)| u8::from(severity));
+    let hidden_now = hidden();
+    let visible = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            !hidden_now.contains(&presentation::diagnostic_severity(diagnostic).to_string())
+                && pattern.as_ref().is_ok_and(|pattern| matches_query(diagnostic, pattern))
+        })
+        .collect::<Vec<_>>();
+    let displayed = visible.iter().copied().take(100).collect::<Vec<_>>();
+    let groups = core::iter::once((
+        String::from("document"),
+        "Document checks",
+        "filecheck",
+        displayed
+            .iter()
+            .copied()
+            .filter(|diagnostic| !has_source_location(diagnostic))
+            .collect::<Vec<_>>(),
+    ))
+    .chain(presentation::diagnostic_groups(&displayed).into_iter().map(|(category, group)| {
+        let (label, icon) = presentation::category_style(&category);
+        (
+            category.to_string(),
+            label,
+            icon,
+            group.into_iter().filter(|diagnostic| has_source_location(diagnostic)).collect::<Vec<_>>(),
+        )
+    }))
+    .collect::<Vec<_>>();
     let skipped_label = value
         .get("skippedChecks")
         .and_then(Value::as_array)
         .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "));
-    let visible_count = diagnostics
-        .iter()
-        .take(100)
-        .filter(|diagnostic| pattern.as_ref().is_ok_and(|pattern| matches_query(diagnostic, pattern)))
-        .count();
+    let visible_count = visible.len();
     let valid = value.get("valid").unwrap_or(&Value::Null) == true;
     let schema_skipped = value
         .get("skippedChecks")
@@ -591,88 +683,44 @@ fn Validation(value: Rc<Value>, source: Option<Rc<String>>, tool: Tool) -> Eleme
         if let Some(skipped) = skipped_label.filter(|label| !label.is_empty()) {
             p { class: "small muted", "Skipped: {skipped}" }
         }
-        if diagnostics.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter diagnostics", error: pattern.as_ref().err().cloned() } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Validation } }
+        if diagnostics.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter diagnostics", error: pattern.as_ref().err().cloned() } SeverityFilters { hidden, counts, label: "Filter diagnostics by severity" } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Validation } }
         if visible_count != diagnostics.len() { p { class: "small muted result-summary", role: "status", "Showing {visible_count} of {diagnostics.len()} diagnostics" } }
         if visible_count == 0 { p { class: "muted small", if diagnostics.is_empty() { "No diagnostics from the selected checks." } else { "No diagnostics match this filter." } } }
-        for (category, group) in presentation::diagnostic_groups(&value) {
-            {let group = group.into_iter().filter(|diagnostic| pattern.as_ref().is_ok_and(|pattern| matches_query(diagnostic, pattern))).collect::<Vec<_>>();
-            let (label, icon) = presentation::category_style(&category); rsx! {
+        for (category, label, icon, group) in groups {
+            {rsx! {
             if !group.is_empty() { details { key: "{category}", class: "diagnostic-group", "data-category": category.to_string(), open: true,
                 summary { class: "diagnostic-group-summary",
                     h3 { class: "diagnostic-group-title", Icon { name: icon } "{label}" span { class: "badge", "{group.len()}" } }
                 }
                 ol { class: "diagnostics", role: "list", for diagnostic in presentation::sort_diagnostics(group, DiagnosticList::Validation, sort(), descending()) {
-                    {let (severity, tone) = presentation::severity_style(&presentation::diagnostic_severity(diagnostic)); rsx! {
+                    {let (severity, tone) = presentation::severity_style(&presentation::diagnostic_severity(diagnostic));
+                    let location = diagnostic["line"].as_u64().zip(diagnostic["character"].as_u64());
+                    let end_line = diagnostic["endLine"].as_u64().unwrap_or(0);
+                    let end_character = diagnostic["endCharacter"].as_u64().unwrap_or(0);
+                    let path = diagnostic["path"]
+                        .as_str()
+                        .filter(|path| !path.is_empty() && !(category == "document" && matches!(*path, "." | "$")))
+                        .unwrap_or(if category == "document" { "Document" } else { "root" });
+                    rsx! {
                     li { class: "diagnostic", "data-tone": tone,
                         div { class: "diagnostic-heading", Icon { name: icon }
-                            strong { "{diagnostic[\"path\"].as_str().filter(|path| !path.is_empty()).unwrap_or(\"root\")}" }
+                            strong { "{path}" }
                             span { class: "badge diagnostic-badge", "{severity}" }
                         }
                         p { "{text(diagnostic, \"message\")}" }
-                        small { class: "diagnostic-meta", "{text(diagnostic, \"kind\")}" if diagnostic["code"].is_string() { " · Code: {text(diagnostic, \"code\")}" } }
+                        small { class: "diagnostic-meta", "{text(diagnostic, \"kind\")}" if diagnostic["code"].is_string() { " · Code: {text(diagnostic, \"code\")}" }
+                            if let Some((line, character)) = location { " · " button { class: "diagnostic-location", r#type: "button", title: "Highlight this value in the source", onclick: move |_| {
+                                    document::eval(&format!("const tab = document.getElementById('details-tab-source'); if (tab?.closest('dialog')?.open) {{ window.acornPendingEditorReveal = {{ id: 'drawer-source', line: {line}, character: {character}, endLine: {end_line}, endCharacter: {end_character} }}; tab.click(); }} else window.acornEditors?.reveal('content', {line}, {character}, {end_line}, {end_character});"));
+                            }, "Line {line}, character {character}" } }
+                        }
                         if let Some(source) = &source { DiagnosticButton { finding: diagnostic.clone(), source: source.clone(), checks: value.clone(), tool } }
                     }}}
                 } }
             } }}}
         }
-        if diagnostics.len() > 100 { p { "Showing the first 100 diagnostics, grouped by category. Download the result for all diagnostics." } }
+        if visible_count > 100 { p { "Showing the first 100 matching diagnostics, grouped by category. Download the result for all diagnostics." } }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use dioxus::core::Mutation;
-    use serde_json::json;
-
-    #[test]
-    fn test_json_patch_hierarchy_preserves_operation_details() {
-        let value = json!({
-            "changed": true,
-            "mode": "json-patch",
-            "operations": [
-                {"op": "add", "path": "/authors/0", "value": {"name": "Ada"}},
-                {"op": "move", "from": "/draft", "path": "/published"}
-            ]
-        });
-        let mut dom = VirtualDom::new_with_props(Difference, DifferenceProps { value });
-        let mutations = dom.rebuild_to_vec();
-        let text = mutations
-            .edits
-            .iter()
-            .filter_map(|edit| match edit {
-                | Mutation::CreateTextNode { value, .. } | Mutation::SetText { value, .. } => Some(value.as_str()),
-                | _ => None,
-            })
-            .collect::<Vec<_>>();
-        for expected in ["1", "add", "/authors/0", "Ada", "2", "move", "/draft", "/published"] {
-            assert!(text.contains(&expected), "missing {expected:?}: {text:?}");
-        }
-    }
-
-    #[test]
-    fn test_complexity_samples_plot_submitted_expressions_and_assumptions() {
-        let assumptions = json!({"n": "growing", "k": "fixed-positive"});
-        let samples = complexity_samples("O(n log n + k)", "O(n^2)", &assumptions).expect("supported expressions should produce samples");
-        assert_eq!(samples.len(), 13);
-        assert_eq!(samples.first().copied(), Some(ComplexitySample { n: 1, left: 2.0, right: 1.0 }));
-        assert_eq!(
-            samples.last().copied(),
-            Some(ComplexitySample {
-                n: 4096,
-                left: 4096.0 * 4096.0_f64.ln() + 2.0,
-                right: 16_777_216.0
-            })
-        );
-        let path = complexity_path(
-            &samples,
-            samples.iter().map(|sample| sample.right.ln_1p()).fold(0.0_f64, f64::max),
-            |sample| sample.left,
-        );
-        assert!(path.starts_with('M'), "path must begin with a move: {path}");
-        assert_eq!(path.matches('L').count(), 12, "path must connect every sample: {path}");
-        let fast = complexity_samples("O(n^n)", "O(n^2)", &assumptions).expect("finite prefix should remain graphable");
-        assert_eq!(fast.last().map(|sample| sample.n), Some(128));
-        assert!(complexity_samples("O(polylog(n))", "O(n)", &assumptions).is_none());
-    }
-}
+mod tests;
