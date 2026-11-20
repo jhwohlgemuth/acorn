@@ -11,7 +11,7 @@ use crate::io::sidecar::{
 };
 use acorn_core::Noul;
 use acorn_schema::agent::tools::{NeedleToolDefinition, ToolDefinition, ToolEffects};
-use acorn_schema::modelkit::kitfile::MANIFEST_VERSION;
+use acorn_schema::standard::modelkit::kitfile::MANIFEST_VERSION;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicUsize, Ordering};

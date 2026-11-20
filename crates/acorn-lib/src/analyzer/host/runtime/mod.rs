@@ -46,7 +46,6 @@ use acorn_host::{
     terminal::Label,
 };
 use acorn_schema::{
-    modelkit::kitfile::{Kitfile, ModelKitError},
     pid::{raid, Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, PID},
     research_activity::ResearchActivity,
     standard::{
@@ -54,6 +53,7 @@ use acorn_schema::{
         ckan, datacite, dcat,
         dublin_core::{self, DublinCoreDocument, DublinCoreRelationshipKind, DublinCoreResource, DublinCoreValue},
         huwise, invenio,
+        modelkit::kitfile::{Kitfile, ModelKitError},
         text::{Document, Text},
         Standard,
     },

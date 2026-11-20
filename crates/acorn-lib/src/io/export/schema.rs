@@ -3,10 +3,9 @@ use crate::io::config::application::ApplicationConfiguration;
 use crate::io::ApiResult;
 use acorn_core::util::MimeType;
 use acorn_schema::{
-    modelkit::kitfile,
     pid::raid::Metadata,
     research_activity::ResearchActivity,
-    standard::{cff, ckan, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, text, Standard},
+    standard::{cff, ckan, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile, text, Standard},
 };
 use color_eyre::eyre::eyre;
 use schemars::{schema_for, JsonSchema};

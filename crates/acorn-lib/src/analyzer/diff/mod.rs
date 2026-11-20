@@ -3,10 +3,9 @@ use acorn_core::util::{MarkdownDecode, MarkdownSupport, MimeType};
 use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::{
     codec::DocumentCodec,
-    modelkit::kitfile::Kitfile,
     pid::raid,
     research_activity::ResearchActivity,
-    standard::{cff, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, zon, Standard},
+    standard::{cff, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile::Kitfile, zon, Standard},
 };
 use core::{error::Error, fmt};
 use serde::{de::DeserializeOwned, Serialize};

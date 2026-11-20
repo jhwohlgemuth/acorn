@@ -39,13 +39,13 @@ use acorn_core::{
 };
 use acorn_host::fs::make_executable;
 use acorn_schema::{
-    modelkit::kitfile::Kitfile,
     research_activity::output::Funding,
     research_activity::ResearchActivity,
     standard::{
         cff::Cff,
         crosswalk::ConversionWarning,
         dublin_core::{DublinCoreDescription, DublinCoreDocument, DublinCoreLiteral, DublinCoreResource, DublinCoreValue, DCTERMS_NAMESPACE},
+        modelkit::kitfile::Kitfile,
         Standard,
     },
     validation::{Validate, ValidationReport},

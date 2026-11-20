@@ -17,7 +17,7 @@ use crate::{
 use acorn_core::prelude::{canonicalize, Component, Path, PathBuf, String, Vec};
 use acorn_core::util::assets::EmbeddedAssets;
 use acorn_host::fs::{make_executable, SafePath};
-use acorn_schema::modelkit::kitfile::MANIFEST_VERSION;
+use acorn_schema::standard::modelkit::kitfile::MANIFEST_VERSION;
 use alloc::collections::BTreeMap;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;

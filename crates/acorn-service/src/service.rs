@@ -10,9 +10,9 @@ use acorn_analysis::{check_readability_for_text_with_threshold, Check, CheckBatc
 use acorn_core::prelude::{format, ToString, Vec};
 use acorn_core::util::{MimeType, ToProse};
 use acorn_schema::codec::{CodecDiagnostic, DocumentCodec};
-use acorn_schema::modelkit::kitfile::Kitfile;
 use acorn_schema::pid::raid;
 use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::modelkit::kitfile::Kitfile;
 use acorn_schema::standard::{cff::Cff, ckan, datacite, dublin_core::DublinCoreDocument, invenio, text, Standard};
 #[cfg(feature = "std")]
 use acorn_schema::standard::{dcat, huwise};

@@ -31,8 +31,8 @@ use acorn_core::{
 use acorn_host::fs::{file_checksum, SafePath};
 use acorn_schema::{
     agent::Quantization,
-    modelkit::kitfile::Kitfile,
     oci::{ModelArtifactKind, ModelInventoryStatus, ModelLayerRole, ModelPackConfig, ModelPackFileMetadata},
+    standard::modelkit::kitfile::Kitfile,
     validation::{rules, IntoValidationReport, Validate, ValidationReport},
 };
 use alloc::collections::BTreeSet;

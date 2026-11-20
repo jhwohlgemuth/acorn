@@ -57,7 +57,7 @@ use acorn_host::fs::{file_checksum, file_uri_to_path, FsError, SafePath};
 #[cfg(unix)]
 use acorn_schema::agent::Quantization;
 #[cfg(unix)]
-use acorn_schema::modelkit;
+use acorn_schema::standard::modelkit;
 use acorn_schema::{enrichment::Provider, oci::ModelLayerRole, validation::Validate};
 use axum::http::{header::RETRY_AFTER, HeaderMap, HeaderValue};
 use color_eyre::Report;

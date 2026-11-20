@@ -1,8 +1,7 @@
 //! Portable content codecs for schema-owned document types.
-use crate::modelkit::kitfile::Kitfile;
 use crate::pid::raid;
 use crate::research_activity::ResearchActivity;
-use crate::standard::{cff::Cff, ckan, datacite, invenio, text, zon};
+use crate::standard::{cff::Cff, ckan, datacite, invenio, modelkit::kitfile::Kitfile, text, zon};
 #[cfg(feature = "std")]
 use crate::standard::{dcat, huwise};
 use crate::types::OneOrMany;

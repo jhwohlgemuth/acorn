@@ -26,10 +26,17 @@ use acorn_schema::standard::zon;
 use acorn_schema::{
     agent::{opencode, Weights},
     codec::{CodecDiagnostic, DocumentCodec},
-    modelkit::kitfile::{Kitfile, LayerInfo, McpServer},
     pid::raid::Metadata,
     research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata},
-    standard::{cff::Cff, ckan, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, text, text::Text},
+    standard::{
+        cff::Cff,
+        ckan, datacite, dcat,
+        dublin_core::DublinCoreDocument,
+        huwise, invenio,
+        modelkit::kitfile::{Kitfile, LayerInfo, McpServer},
+        text,
+        text::Text,
+    },
     vocabulary::{VocabularyFormat, VocabularyFuzzyMode},
     ImageObject, MediaObject, OneOrMany, OneOrManyCodec,
 };

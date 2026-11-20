@@ -8,7 +8,7 @@ use acorn::io::{
     InputOutput, Platform,
 };
 use acorn_host::terminal::Label;
-use acorn_schema::modelkit::kitfile::Kitfile;
+use acorn_schema::standard::modelkit::kitfile::Kitfile;
 use color_eyre::eyre::eyre;
 use owo_colors::OwoColorize;
 use std::env::current_exe;

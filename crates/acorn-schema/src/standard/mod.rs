@@ -27,6 +27,7 @@ pub mod dublin_core;
 #[cfg(feature = "std")]
 pub mod huwise;
 pub mod invenio;
+pub mod modelkit;
 pub mod ocp;
 pub mod rdf;
 pub mod relation;

@@ -3,7 +3,7 @@ use super::secret::deliver;
 use crate::cli::arguments;
 use crate::test::util::{temp_test_dir, TestCleanup};
 use acorn::io::Platform;
-use acorn_schema::modelkit::kitfile::Kitfile;
+use acorn_schema::standard::modelkit::kitfile::Kitfile;
 use core::cell::RefCell;
 use std::fs::{read_to_string, write};
 

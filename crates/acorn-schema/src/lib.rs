@@ -27,7 +27,6 @@ pub mod geonames;
 pub mod graph;
 pub mod hardware;
 pub mod infrastructure;
-pub mod modelkit;
 pub mod namespaces;
 pub mod oci;
 pub mod pid;

@@ -122,8 +122,8 @@ fn test_codecs_reject_duplicate_keys_trailing_data_and_yaml_only_values() {
 }
 #[test]
 fn test_complete_kitfile_and_modelkit_fixtures_validate() {
-    let kitfile = Kitfile::from_yaml(include_str!("../../../../tests/fixtures/modelkit/Kitfile")).unwrap();
-    let modelkit = Kitfile::from_resolved_json(include_bytes!("../../../../tests/fixtures/modelkit/modelkit.json")).unwrap();
+    let kitfile = Kitfile::from_yaml(include_str!("../../../../../tests/fixtures/modelkit/Kitfile")).unwrap();
+    let modelkit = Kitfile::from_resolved_json(include_bytes!("../../../../../tests/fixtures/modelkit/modelkit.json")).unwrap();
     assert!(!kitfile.is_empty());
     assert_eq!(kitfile.model.as_ref().unwrap().parts.len(), 1);
     assert_eq!(kitfile.code.len(), 1);
