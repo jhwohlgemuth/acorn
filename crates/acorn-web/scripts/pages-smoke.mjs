@@ -202,14 +202,14 @@ try {
     await page.getByRole("button", { name: "Validate", exact: true }).click();
     await page.getByText("Skipped: fair").waitFor();
     assert.equal(await page.locator('.diagnostic-group[data-category="fair"]').count(), 0);
-    assert.ok(await page.locator('.diagnostic-group[data-category="readability"]').count());
-    await page.locator('.diagnostic-group[data-category="readability"]').getByText(/FRES = .*\/70/).waitFor();
+    const readabilityDiagnostic = page.locator('.diagnostic-group[data-category="document"]').getByText(/FRES = .*\/70/);
+    await readabilityDiagnostic.waitFor();
     await validationTypes.getByRole("button", { name: "Readability", exact: true }).click();
     assert.equal((await settingsHeader.boundingBox()).height, headerHeight, "Additional skipped checks keep Settings height");
     assert.equal(await readabilityControls.count(), 0);
     await page.getByRole("button", { name: "Validate", exact: true }).click();
     await page.getByText("Skipped: fair, readability").waitFor();
-    assert.equal(await page.locator('.diagnostic-group[data-category="readability"]').count(), 0);
+    assert.equal(await readabilityDiagnostic.count(), 0);
     await validationTypes.getByRole("button", { name: /^All/ }).click();
     await page.getByRole("button", { name: "Validate", exact: true }).click();
     await page.getByText("Schema not checked").waitFor();
