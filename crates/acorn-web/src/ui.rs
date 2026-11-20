@@ -228,7 +228,7 @@ fn InfoPage(page: String) -> Element {
     let mut map_pins = use_context::<Signal<MapPins>>();
     let mut session = use_context::<Signal<String>>();
     let mut workspace = use_context::<Signal<Workspace>>();
-    let mut storage_status = use_context::<Signal<(usize, bool)>>();
+    let mut storage_status = use_context::<Signal<(usize, bool, usize, usize)>>();
     let mut storage_error = use_signal(String::new);
     let mut settings_message = use_signal(String::new);
     let mut credential_status = use_signal(String::new);
@@ -236,7 +236,7 @@ fn InfoPage(page: String) -> Element {
     let mut credential_message = use_signal(String::new);
     let mut recent_inputs = use_signal(|| (0_usize, 0_usize));
     use_future(move || async move {
-        if let Ok(value) = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); return window.acornWorkspaceStorage.status()")
+        if let Ok(value) = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); return await window.acornWorkspaceStorage.status()")
             .join::<Value>()
             .await
         {
@@ -308,11 +308,11 @@ fn InfoPage(page: String) -> Element {
                         if !settings_message().is_empty() { p { role: "status", class: "status", "{settings_message}" } }
                     }
                     div { class: "card", h2 { class: "section-heading", Icon { name: "folder-open" } "Your data" }
-                        dl { class: "result-fields", dt { "Loaded now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } dt { "Saved for reload" } dd { if storage_status().1 { "Latest save failed" } else if storage_status().0 > 0 { "On this device" } else { "Nothing saved" } } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
-                        p { class: "small muted", "Loaded files and the selected activity are saved automatically in this browser and restored after reload." }
+                        dl { class: "result-fields", dt { "Loaded now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } dt { "Saved for reload" } dd { if storage_status().1 { "Latest save failed" } else if storage_status().0 > 0 { "On this device" } else { "Nothing saved" } } dt { "Saved content" } dd { "{storage_status().0 / 1024} KiB" } if storage_status().3 > 0 { dt { "Site storage" } dd { "{storage_status().2 / (1024 * 1024)} of about {storage_status().3 / (1024 * 1024)} MiB used" } } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
+                        p { class: "small muted", "Loaded files and the selected activity are saved automatically on this device and restored after reload. Browser storage is shared with other app data and limits vary." }
                         div { class: "actions",
                             button { class: "danger", onclick: move |_| async move {
-                                let deleted = document::eval("window.acornWorkspace?.cancel(); window.acornRemote?.cancel(); let workspaceDeleted = false; let remoteDeleted = false; try { workspaceDeleted = window.acornWorkspaceStorage?.delete() ?? false; } catch {} try { remoteDeleted = window.acornRemote?.clearData() ?? false; } catch {} return [workspaceDeleted, remoteDeleted]")
+                                let deleted = document::eval("window.acornWorkspace?.cancel(); window.acornRemote?.cancel(); let workspaceDeleted = false; let remoteDeleted = false; try { workspaceDeleted = await window.acornWorkspaceStorage?.delete() ?? false; } catch {} try { remoteDeleted = window.acornRemote?.clearData() ?? false; } catch {} return [workspaceDeleted, remoteDeleted]")
                                     .join::<(bool, bool)>()
                                     .await;
                                 workspace.set(Workspace::default());
@@ -321,7 +321,7 @@ fn InfoPage(page: String) -> Element {
                                 credential_error.set(String::new());
                                 credential_message.set(String::new());
                                 if let Ok((workspace_deleted, remote_deleted)) = deleted {
-                                    if workspace_deleted { storage_status.set((0, false)); }
+                                    if workspace_deleted { storage_status.set((0, false, 0, 0)); }
                                     if remote_deleted { recent_inputs.set((0, 0)); credential_status.set(String::new()); }
                                     if workspace_deleted && remote_deleted {
                                         storage_error.set(String::new());
@@ -335,7 +335,7 @@ fn InfoPage(page: String) -> Element {
                             }, "Delete all data" }
                         }
                         if !storage_error().is_empty() { p { role: "alert", class: "error", "{storage_error}" } }
-                        if storage_status().1 { p { role: "alert", class: "error", "Workspace saving failed. The last saved copy remains on this device. Reduce the workspace size or free browser storage; the app will retry on the next workspace change." } }
+                        if storage_status().1 { p { role: "alert", class: "error", "Workspace saving failed. Your current session remains open, but the saved copy was not updated. Free browser storage or reload if another tab changed this workspace." } }
                         p { class: "small muted", "Deletes loaded and saved files, tool input, map pins, recent bucket inputs, and the repository token in this tab." } }
                     div { class: "card", h2 { "Repository access" }
                         p { class: "small muted", "One token is available in this tab for repositories on its provider and HTTPS host. Add or replace it beside the repository loader on Home." }
@@ -391,8 +391,13 @@ fn Page(page: String) -> Element {
         rsx! { InfoPage { page } }
     }
 }
-pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool) {
-    (value["bytes"].as_u64().unwrap_or(0) as usize, value["failed"] == true)
+pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool, usize, usize) {
+    (
+        value["bytes"].as_u64().unwrap_or(0) as usize,
+        value["failed"] == true,
+        value["usage"].as_u64().unwrap_or(0) as usize,
+        value["quota"].as_u64().unwrap_or(0) as usize,
+    )
 }
 async fn read_local_file(file: FileData, limit: usize) -> Result<String, String> {
     if file.size() > limit as u64 {

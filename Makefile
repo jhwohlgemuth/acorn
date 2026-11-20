@@ -554,6 +554,7 @@ web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and pla
 	@node crates/acorn-web/scripts/pages-smoke.mjs "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
 	@node crates/acorn-web/scripts/syntax-smoke.mjs
 	@node crates/acorn-web/scripts/editor-smoke.mjs
+	@node --test crates/acorn-web/scripts/workspace-storage-browser.test.mjs
 
 web-test-wasm: web-prepare ## Run all nine browser operations in the real WASM runtime.
 	@python3 crates/acorn-web/scripts/rust.py wasm-pack test --node crates/acorn-web --lib

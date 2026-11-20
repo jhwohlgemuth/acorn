@@ -8,57 +8,54 @@ const memory = () => {
     const values = new Map();
     return { values, storage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) } };
 };
-const create = storage => {
-    const context = { window: {}, JSON, Event };
+const create = (storage, indexedDB = () => undefined) => {
+    const context = { window: {}, JSON, Event, Promise, Map };
     runInNewContext(script, context);
-    return context.createWorkspaceStorage(() => storage);
+    return context.createWorkspaceStorage(() => storage, indexedDB, () => undefined);
 };
-test("a failed automatic save retains the previous snapshot and reports failure", () => {
+test("a blocked IndexedDB open saves to the local fallback", async () => {
+    const { values, storage } = memory();
+    const blocked = () => ({ open() { throw Error("blocked"); } });
+    values.set("acorn.workspace.v1", JSON.stringify({ schema: 1, workspace: { files: [{ path: "old.json", content: "{}" }] } }));
+    const saved = create(storage, blocked);
+    assert.equal((await saved.restore()).files[0].path, "old.json");
+    assert.equal(await saved.save({ files: [{ path: "new.json", content: "{}" }] }), true);
+    assert.equal(values.has("acorn.workspace.v1"), false);
+    assert.equal((await create(storage, blocked).restore()).files[0].path, "new.json");
+    assert.equal((await saved.status()).failed, false);
+    assert.equal(await saved.delete(), false, "IndexedDB deletion cannot be verified while blocked");
+    assert.equal(values.size, 0, "local fallback still clears");
+});
+test("localStorage fallback retains the previous copy on quota failure", async () => {
     const { values, storage } = memory();
     let quota = false;
-    const limited = { ...storage, setItem(key, value) { if (quota && key === "acorn.workspace.v1") throw Error("quota"); storage.setItem(key, value); } };
+    const limited = { ...storage, setItem(key, value) { if (quota) throw Error("quota"); storage.setItem(key, value); } };
     const saved = create(limited);
-    assert.equal(saved.save({ files: [{ path: "old.json", content: "{}" }] }), true);
+    assert.equal(await saved.save({ files: [{ path: "old.json", content: "{}" }] }), true);
     quota = true;
-    assert.equal(saved.save({ files: [{ path: "new.json", content: "{}" }] }), false);
-    assert.equal(saved.status().failed, true);
-    assert.ok(saved.status().bytes > 0);
-    assert.equal(create(limited).restore().files[0].path, "old.json");
+    assert.equal(await saved.save({ files: [{ path: "new.json", content: "{}" }] }), false);
+    assert.equal((await saved.status()).failed, true);
+    assert.equal((await create(limited).restore()).files[0].path, "old.json");
     quota = false;
-    assert.equal(saved.save({ files: [{ path: "new.json", content: "{}" }] }), true);
-    assert.equal(saved.status().failed, false);
-    assert.equal(saved.save({ files: [{ path: "expanded.json", content: "x".repeat(17 * 1024 * 1024) }] }), true);
-    assert.equal(saved.save({ files: [{ path: "oversized.json", content: "x".repeat(33 * 1024 * 1024) }] }), false);
-    assert.equal(create(limited).restore().files[0].path, "expanded.json");
-});
-test("loaded workspace saves automatically and survives reload until deleted", () => {
-    const { values, storage } = memory();
-    const saved = create(storage);
-    assert.equal(saved.save({ files: [] }), true);
+    assert.equal(await saved.save({ files: [{ path: "new.json", content: "{}" }] }), true);
+    assert.equal((await create(limited).restore()).files[0].path, "new.json");
+    assert.equal(await saved.save({ files: [{ path: "expanded.json", content: "x".repeat(17 * 1024 * 1024) }] }), true);
+    assert.equal(await saved.save({ files: [{ path: "oversized.json", content: "x".repeat(33 * 1024 * 1024) }] }), false);
+    assert.equal((await create(limited).restore()).files[0].path, "expanded.json");
+    assert.equal(await saved.delete(), true);
     assert.equal(values.size, 0);
-    assert.equal(saved.restore(), null);
-    const image = "data:image/png;base64,iVBORw0KGgo=";
-    assert.equal(saved.save({ files: [{ path: "a.json", content: "{}" }, { path: "cover.png", content: image }], selected: "a.json", validations: { "a.json": { valid: true } } }), true);
-    assert.ok(saved.status().bytes > 0);
-    assert.equal(create(storage).restore().files[0].path, "a.json");
-    assert.equal(create(storage).restore().selected, "a.json");
-    assert.equal(create(storage).restore().files[1].content, image);
-    assert.equal(Object.keys(create(storage).restore().validations).length, 1);
-    assert.equal(saved.save({ files: [] }), true);
-    assert.equal(create(storage).restore().files[0].path, "a.json");
-    values.set("other", "keep");
-    assert.equal(saved.delete(), true);
-    assert.equal(saved.restore(), null);
-    assert.equal(values.get("other"), "keep");
 });
-test("workspace storage tolerates corruption and unavailable storage", () => {
+test("fallback ignores corrupt snapshots and unavailable storage", async () => {
     const { values, storage } = memory();
     const saved = create(storage);
     values.set("acorn.workspace.v1", "{");
-    assert.equal(saved.restore(), null);
+    assert.equal(await saved.restore(), null);
     values.set("acorn.workspace.v1", JSON.stringify({ schema: 2, workspace: { files: [] } }));
-    assert.equal(saved.restore(), null);
-    assert.equal(create({ getItem() { throw Error("disabled"); } }).restore(), null);
-    const full = create({ getItem: () => null, setItem() { throw Error("quota"); }, removeItem() {} });
-    assert.equal(full.save({ files: [{ path: "a.json", content: "{}" }] }), false);
+    assert.equal(await saved.restore(), null);
+    values.set("acorn.workspace.fallback.v1", "{");
+    assert.equal(await saved.restore(), null);
+    const unavailable = create({ getItem() { throw Error("disabled"); }, setItem() { throw Error("disabled"); }, removeItem() { throw Error("disabled"); } });
+    assert.equal(await unavailable.restore(), null);
+    assert.equal(await unavailable.save({ files: [{ path: "a.json", content: "{}" }] }), false);
+    assert.equal(await unavailable.delete(), false);
 });

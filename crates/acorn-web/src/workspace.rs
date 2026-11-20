@@ -328,7 +328,8 @@ pub(crate) fn Loader() -> Element {
                         let mut loaded = value.get("ok").cloned().unwrap_or(Value::Null);
                         let source = loaded.get("source").cloned().and_then(|value| serde_json::from_value::<WorkspaceSource>(value).ok());
                         let unavailable = loaded.get("unavailable").and_then(Value::as_u64).unwrap_or(0);
-                        if let Some(object) = loaded.as_object_mut() { object.remove("source"); object.remove("unavailable"); }
+                        let reasons = loaded.get("reasons").cloned().unwrap_or(Value::Null);
+                        if let Some(object) = loaded.as_object_mut() { object.remove("source"); object.remove("unavailable"); object.remove("reasons"); }
                         match serde_json::from_value::<Selection>(loaded) {
                             Ok(selection) if selection.files.is_empty() => remote_error.set("No supported files were found in this bucket. Your previous session is unchanged.".into()),
                             Ok(selection) => {
@@ -342,7 +343,19 @@ pub(crate) fn Loader() -> Element {
                                 let origin = next.source.as_ref().map(|source| format!(" from {}/{}", source.host, source.project)).unwrap_or_default();
                                 let noun = if next.files.len() == 1 { "file" } else { "files" };
                                 let failed = if unavailable == 0 { String::new() } else { format!(" ({unavailable} could not be downloaded)") };
-                                remote_success.set(format!("Bucket loaded: {} {noun}{origin}; {} entries skipped{failed}.", next.files.len(), next.skipped));
+                                let details = [
+                                    ("unsupported", "unsupported paths or formats"),
+                                    ("fileLimit", "over the file limit"),
+                                    ("invalidContent", "invalid content"),
+                                    ("unavailable", "download failures"),
+                                    ("totalLimit", "over the total limit"),
+                                ]
+                                .into_iter()
+                                .filter_map(|(key, label)| reasons.get(key).and_then(Value::as_u64).filter(|count| *count > 0).map(|count| format!("{count} {label}")))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                                let explanation = if details.is_empty() { failed } else { format!(" ({details})") };
+                                remote_success.set(format!("Bucket loaded: {} {noun}{origin}; {} entries skipped{explanation}.", next.files.len(), next.skipped));
                                 input.set(next.content());
                                 workspace.set(next);
                             },

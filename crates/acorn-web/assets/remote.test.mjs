@@ -109,6 +109,7 @@ test("GitHub loads bounded supported files at the resolved commit without creden
         return response({ encoding: "base64", content: "e30=" });
     });
     assert.equal(result.files[0].content, "{}"); assert.equal(result.skipped, 1); assert.ok(seen[2].includes(sha));
+    assert.equal(result.reasons.unsupported, 1);
 });
 test("pinned GitHub and GitLab imports retain image bytes for the catalog", async () => {
     const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/RZkAAAAASUVORK5CYII=", "base64");
@@ -139,6 +140,7 @@ test("GitLab requests LFS image content and skips invalid image bytes", async ()
     assert.deepEqual(Array.from(result.files, (file) => file.path), ["rad.json"]);
     assert.equal(result.skipped, 1);
     assert.equal(result.unavailable, 0);
+    assert.equal(result.reasons.invalidContent, 1);
     assert.ok(seen.filter((url) => url.includes("/repository/files/")).every((url) => url.endsWith(`ref=${sha}&lfs=true`)));
 });
 test("repository token is header-only and redirects can be followed", async () => {
@@ -299,6 +301,7 @@ test("GitLab loads files above the old limit and skips oversized files", async (
     assert.deepEqual(Array.from(result.files, (file) => file.path), ["data/large.txt", "data/small.json"]);
     assert.equal(result.files[0].content.length, 300 * 1024);
     assert.equal(result.skipped, 1);
+    assert.equal(result.reasons.fileLimit, 1);
 });
 test("GitLab keeps available files when one raw request fails", async () => {
     const source = context.parseRemoteBucket("https://code.ornl.gov/research-enablement/buckets/nssd");
@@ -312,6 +315,7 @@ test("GitLab keeps available files when one raw request fails", async () => {
     assert.deepEqual(Array.from(result.files, (file) => file.path), ["good.json"]);
     assert.equal(result.skipped, 1);
     assert.equal(result.unavailable, 1);
+    assert.equal(result.reasons.unavailable, 1);
 });
 test("GitLab retries a failed path download through its pinned blob", async () => {
     const seen = [];

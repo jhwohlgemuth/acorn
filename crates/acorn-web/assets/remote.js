@@ -167,7 +167,12 @@ async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
     }
     const inside = (path) => !source.path || path === source.path || (!source.file && path.startsWith(source.path + "/"));
     const candidates = entries.filter((entry) => entry.type === "blob" && entry.mode !== "120000" && typeof entry.path === "string" && inside(entry.path));
-    const accepted = candidates.filter((entry) => window.acornWorkspace.validPath(entry.path) && (entry.size === undefined || entry.size <= remoteLimits.file)).sort((a, b) => a.path.localeCompare(b.path));
+    const reasons = { unsupported: 0, fileLimit: 0, invalidContent: 0, unavailable: 0, totalLimit: 0 };
+    const accepted = candidates.filter((entry) => {
+        if (!window.acornWorkspace.validPath(entry.path)) { reasons.unsupported += 1; return false; }
+        if (entry.size !== undefined && entry.size > remoteLimits.file) { reasons.fileLimit += 1; return false; }
+        return true;
+    }).sort((a, b) => a.path.localeCompare(b.path));
     if (accepted.length > remoteLimits.files) throw new Error("More than 500 supported files. Choose a smaller folder.");
     const files = [];
     let skipped = candidates.length - accepted.length;
@@ -195,7 +200,7 @@ async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
             const image = window.acornWorkspace.imageMime(entry.path);
             let content;
             try { content = image ? window.acornWorkspace.imageContent(entry.path, bytes) : new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
-            catch { skipped += 1; continue; }
+            catch { skipped += 1; reasons.invalidContent += 1; continue; }
             const storedBytes = image ? content.length : bytes.byteLength;
             if (total + storedBytes > remoteLimits.total) throw new RemoteSizeError("Repository exceeds the stored total size limit.");
             total += storedBytes;
@@ -203,14 +208,16 @@ async function loadRemoteBucket(source, signal, fetcher = fetch, token = "") {
         } catch (error) {
             if (error instanceof RemoteSizeError || error instanceof RemoteTransportError) {
                 skipped += 1;
-                if (error instanceof RemoteTransportError) { unavailable += 1; failedRequest ??= error; }
+                if (error instanceof RemoteTransportError) { unavailable += 1; reasons.unavailable += 1; failedRequest ??= error; }
+                else if (error.message.includes("stored total")) reasons.totalLimit += 1;
+                else reasons.fileLimit += 1;
             }
             else throw error;
         }
     }
     signal.throwIfAborted();
     if (!files.length) throw failedRequest || new Error("No supported research files found at this location.");
-    return { files, skipped, unavailable, source: { kind: source.kind, host: new URL(source.origin).host, project: source.project, path: source.path, revision } };
+    return { files, skipped, unavailable, reasons, source: { kind: source.kind, host: new URL(source.origin).host, project: source.project, path: source.path, revision } };
 }
 async function loadRemoteFile(input, maximum, signal, fetcher = fetch, workspaceFile = false) {
     const url = parseFileUrl(input);
