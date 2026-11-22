@@ -7,7 +7,7 @@ example domains. The browser checks syntax locally without resolving identifiers
 | Example | What it exercises |
 | --- | --- |
 | `summary.json` | Valid multi-site research, methods, outcomes, contributors, dates and datasets. |
-| `publications.json` | Valid multi-institution RAD with project and output DOIs, authors, affiliations, funding, languages, rights, geography and logbook milestones. Also the Crosswalk and FAIR input. |
+| `publications.json` | Valid multi-institution RAD with project and output DOIs, authors, affiliations, funding, languages, rights, geography and logbook milestones. Also the Convert and FAIR input. |
 | `computing.json` | Valid heterogeneous CPU/GPU/TPU/FPGA resources, multiple compute environments, software provenance, real and synthetic data. |
 | `validation-review.json` | Intentionally invalid RAD for Research Activity and Metadata standard. A focused set of issues covers PIDs, required text, contact details, dates, chronology, languages, rights, geography, hardware/vendor consistency, duplicate IDs, data licenses and logbook ownership. Other records contain corrected values for comparison. It parses successfully so schema errors and local FAIR suggestions and information appear together. |
 | `discovery.txt` | Multiple distinct examples of all 12 supported PID kinds, varied forms, duplicate aliases, and malformed lookalikes. |

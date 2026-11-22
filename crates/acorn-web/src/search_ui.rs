@@ -17,8 +17,8 @@ pub(crate) fn SearchField(
             div { class: "search-input",
                 input { r#type: "search", value: query(), placeholder, "aria-label": label, oninput: move |event| query.set(event.value()) }
                 div { class: "search-modes", role: "group", "aria-label": "{label} options",
-                    button { r#type: "button", "aria-label": "Regular expression", title: "Use a regular expression", "aria-pressed": regex(), onclick: move |_| regex.toggle(), span { class: "search-mode-check", "aria-hidden": "true", "✔️" } "Regex" }
-                    button { r#type: "button", "aria-label": "Case sensitive", title: "Match uppercase and lowercase exactly", "aria-pressed": case_sensitive(), onclick: move |_| case_sensitive.toggle(), span { class: "search-mode-check", "aria-hidden": "true", "✔️" } "Aa" }
+                    button { r#type: "button", "aria-label": "Regular expression", title: "Use a regular expression", "aria-pressed": regex(), onclick: move |_| { case_sensitive.set(false); regex.toggle(); }, span { class: "search-mode-check", "aria-hidden": "true", "✓" } "Regex" }
+                    button { r#type: "button", "aria-label": "Case sensitive", title: "Match uppercase and lowercase exactly", "aria-pressed": case_sensitive(), onclick: move |_| { regex.set(false); case_sensitive.toggle(); }, span { class: "search-mode-check", "aria-hidden": "true", "✓" } "Aa" }
                 }
             }
         }

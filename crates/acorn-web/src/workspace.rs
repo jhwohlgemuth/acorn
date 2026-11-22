@@ -134,17 +134,22 @@ pub(crate) fn LoadedFiles(
     }
         if let (Some(tool), Some(onload)) = (tool, onload) { FileInput { onload, limit: tool.limit(), tool } }
         if !snapshot.files.is_empty() {
-            div { class: "loaded-files-controls",
+            div { class: "loaded-files-controls result-controls",
                 SearchField { label: "Find a file", placeholder: "Search paths…", query, regex, case_sensitive, error: pattern.as_ref().err().cloned() }
-                label { class: "field", "Show" select { value: kind(), onchange: move |event| kind.set(event.value()),
-                    option { value: "all", "All files" }
-                    if tool.is_some() { option { value: "loadable", "Available here" } }
-                    for (value, label) in [("json", "JSON"), ("yaml", "YAML"), ("markdown", "Markdown"), ("text", "Text"), ("image", "Images")] { option { value, "{label}" } }
-                } }
-                label { class: "field", "Sort" select { value: if descending() { "descending" } else { "ascending" }, onchange: move |event| descending.set(event.value() == "descending"),
-                    option { value: "ascending", "Name A–Z" }
-                    option { value: "descending", "Name Z–A" }
-                } }
+                div { class: "result-filters", role: "group", "aria-label": "Show files",
+                    span { class: "muted", "Show" }
+                    for (value, label, title) in [("all", "All", "All files"), ("loadable", "Available", "Available here"), ("json", "JSON", "JSON files"), ("yaml", "YAML", "YAML files"), ("markdown", "Markdown", "Markdown files"), ("text", "Text", "Text files"), ("image", "Images", "Image files")] {
+                        if value != "loadable" || tool.is_some() {
+                            button { r#type: "button", title, "aria-pressed": kind() == value, onclick: move |_| kind.set(value.to_owned()), "{label}" }
+                        }
+                    }
+                }
+                div { class: "result-filters", role: "group", "aria-label": "Sort files",
+                    span { class: "muted", "Sort" }
+                    for (reverse, label, title) in [(false, "A–Z", "Name A–Z"), (true, "Z–A", "Name Z–A")] {
+                        button { r#type: "button", title, "aria-pressed": descending() == reverse, onclick: move |_| descending.set(reverse), "{label}" }
+                    }
+                }
             }
             p { class: "loaded-files-count small muted", role: "status", "{paths.len()} of {snapshot.files.len()} files shown" }
             if paths.is_empty() { p { class: "loaded-files-empty small muted", "No matching files." } }

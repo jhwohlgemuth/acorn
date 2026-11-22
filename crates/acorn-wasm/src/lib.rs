@@ -447,14 +447,14 @@ impl IdentifierInspectionResult {
         }
     }
 }
-fn analyze_readability(text: &str, metric: &str, uri: Option<String>) -> Result<ReadabilityResult, String> {
+fn analyze_readability(text: &str, metric: &str, uri: Option<String>, threshold: Option<f64>) -> Result<ReadabilityResult, String> {
     parse_metric(metric).and_then(|metric| {
         AcornService
             .check_readability(CheckReadabilityRequest {
                 metric,
                 source_uri: uri,
                 text: text.to_string(),
-                threshold: None,
+                threshold,
             })
             .map_err(|error| error.to_string())
             .map(|response| {
@@ -521,7 +521,15 @@ pub fn assess_fair_metadata_with_skip(json: &str, standard: &str, skip: &[FairPr
 /// Analyze supplied text with one of ACORN's portable readability metrics.
 #[wasm_bindgen(js_name = checkReadability)]
 pub fn check_readability(text: &str, metric: &str, uri: Option<String>) -> Result<JsReadabilityResult, JsValue> {
-    analyze_readability(text, metric, uri)
+    analyze_readability(text, metric, uri, None)
+        .map_err(|why| JsValue::from_str(&why))
+        .and_then(|result| serialize(&result))
+        .map(JsValue::unchecked_into)
+}
+/// Analyze text with an explicit readability score threshold.
+#[wasm_bindgen(js_name = checkReadabilityWithThreshold)]
+pub fn check_readability_with_threshold(text: &str, metric: &str, threshold: Option<f64>) -> Result<JsReadabilityResult, JsValue> {
+    analyze_readability(text, metric, None, threshold)
         .map_err(|why| JsValue::from_str(&why))
         .and_then(|result| serialize(&result))
         .map(JsValue::unchecked_into)

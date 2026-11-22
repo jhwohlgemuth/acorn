@@ -8,6 +8,7 @@ use derive_more::Display;
 use itertools::Itertools;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::EnumIter;
 
 pub mod score;
 use crate::constants::readability::{
@@ -26,7 +27,7 @@ const MAX_ALLOWED_LIX: f64 = 50.0;
 const MAX_ALLOWED_SMOG: f64 = 13.0;
 
 /// Readability Type
-#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, EnumIter, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ReadabilityType {
     /// Automated Readability Index (ARI)
@@ -100,6 +101,18 @@ impl ReadabilityType {
             | "lix" => ReadabilityType::Lix,
             | "smog" | "simple measure of gobbledygook" => ReadabilityType::SMOG,
             | _ => ReadabilityType::default(),
+        }
+    }
+    /// Return the full metric name for display and accessibility labels.
+    pub fn full_name(self) -> &'static str {
+        match self {
+            | Self::ARI => "Automated Readability Index",
+            | Self::CLI => "Coleman–Liau Index",
+            | Self::FKGL => "Flesch–Kincaid Grade Level",
+            | Self::FRES => "Flesch Reading Ease",
+            | Self::GFI => "Gunning Fog Index",
+            | Self::Lix => "Läsbarhetsindex (Readability Index)",
+            | Self::SMOG => "Simple Measure of Gobbledygook",
         }
     }
     /// Get maximum allowed value for a given readability type

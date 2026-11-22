@@ -81,6 +81,22 @@ fn test_mime_type_infers_rhai_from_abi_header() {
     assert_eq!(MimeType::infer(source), Some(MimeType::Rhai));
 }
 #[test]
+fn test_mime_type_metadata_format_key_matches_web_parser() {
+    let choices = [
+        (MimeType::Json, "json"),
+        (MimeType::Jsonc, "jsonc"),
+        (MimeType::LdJson, "json-ld"),
+        (MimeType::Yaml, "yaml"),
+        (MimeType::Zon, "zon"),
+        (MimeType::Cff, "cff"),
+        (MimeType::Markdown, "markdown"),
+        (MimeType::RdfXml, "rdf-xml"),
+        (MimeType::Turtle, "turtle"),
+        (MimeType::Text, "text"),
+    ];
+    choices.into_iter().for_each(|(mime, key)| assert_eq!(mime.metadata_format_key(), key));
+}
+#[test]
 fn test_mime_type_parse_rejects_unsupported_file_types() {
     assert_eq!("json".parse::<MimeType>(), Ok(MimeType::Json));
     assert_eq!(

@@ -6,16 +6,44 @@ use crate::syntax::CodeEditor;
 use crate::workspace::{file_format, LoadedFiles, Loader, Portfolio};
 use acorn_analysis::readability::ReadabilityType;
 use acorn_core::util::MimeType;
+use acorn_schema::{pid::PID, standard::Standard};
 use acorn_web::operations::{self, Request, Tool};
 use acorn_web::presentation;
 use acorn_web::session::{Selection, SuppliedFile, Workspace};
+use core::iter::once;
 use dioxus::html::FileData;
 use dioxus::prelude::*;
 use serde_json::Value;
 use strum::IntoEnumIterator;
 
 const APP_NAME: &str = "ACORN Research Intelligence";
+const FORMAT_CHOICES: [(MimeType, &str, &str); 10] = [
+    (MimeType::Json, "JSON", "JavaScript Object Notation"),
+    (MimeType::Jsonc, "JSONC", "JavaScript Object Notation with Comments"),
+    (MimeType::LdJson, "JSON-LD", "JavaScript Object Notation for Linked Data"),
+    (MimeType::Yaml, "YAML", "YAML Ain't Markup Language"),
+    (MimeType::Zon, "ZON", "Zig Object Notation"),
+    (MimeType::Cff, "CFF", "Citation File Format"),
+    (MimeType::Markdown, "MD", "Markdown"),
+    (MimeType::RdfXml, "RDF", "Resource Description Framework XML"),
+    (MimeType::Turtle, "TTL", "Turtle"),
+    (MimeType::Text, "TXT", "Plain text"),
+];
+const FORMAT_WIDTHS: [usize; 10] = [42, 46, 60, 44, 37, 35, 32, 37, 34, 35];
 const RAD_TITLE: &str = "Research Activity Data";
+const STANDARD_CHOICES: [(Standard, &str, &str); 11] = [
+    (Standard::CitationFileFormat, "CFF", "Citation File Format"),
+    (Standard::Ckan, "CKAN", "Comprehensive Knowledge Archive Network"),
+    (Standard::Datacite, "DCITE", "DataCite Metadata Schema"),
+    (Standard::Document, "DOC", "Document"),
+    (Standard::DublinCore, "DC", "Dublin Core"),
+    (Standard::Invenio, "INV", "Invenio"),
+    (Standard::Kitfile, "KIT", "Kitfile"),
+    (Standard::ModelKit, "MK", "ModelKit"),
+    (Standard::Raid, "RAiD", "Research Activity Identifier"),
+    (Standard::ResearchActivityData, "RADS", "Research Activity Data"),
+    (Standard::Text, "TXT", "Plain text"),
+];
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Clone, Debug, PartialEq, Routable)]
 pub(crate) enum Route {
@@ -548,9 +576,104 @@ fn sample_activity_path(workspace: &Workspace) -> Option<String> {
         .find(|(file, _)| file.path.ends_with("/index.json"))
         .map(|(file, _)| file.path.clone())
 }
+fn identifier_choices() -> Vec<(String, &'static str, &'static str)> {
+    once((String::new(), "AUTO", "Auto-detect identifier kind"))
+        .chain(PID::iter().filter_map(|kind| {
+            let label = match &kind {
+                | PID::ARK => Some(("ARK", "Archival Resource Key")),
+                | PID::Arxiv => Some(("ARXIV", "arXiv identifier")),
+                | PID::DOI => Some(("DOI", "Digital Object Identifier")),
+                | PID::Handle => Some(("HDL", "Handle identifier")),
+                | PID::ISBN => Some(("ISBN", "International Standard Book Number")),
+                | PID::ISNI => Some(("ISNI", "International Standard Name Identifier")),
+                | PID::ORCID => Some(("ORCID", "Open Researcher and Contributor ID")),
+                | PID::Patent => Some(("PAT", "Patent number")),
+                | PID::RAID => Some(("RAiD", "Research Activity Identifier")),
+                | PID::ROR => Some(("ROR", "Research Organization Registry")),
+                | PID::RRID => Some(("RRID", "Research Resource Identifier")),
+                | PID::SWHID => Some(("SWHID", "Software Heritage Identifier")),
+                | _ => None,
+            };
+            label.map(|(abbreviation, title)| (kind.to_string(), abbreviation, title))
+        }))
+        .collect()
+}
 #[component]
-fn SelectField(label: &'static str, value: String, options: Vec<&'static str>, onchange: EventHandler<String>) -> Element {
-    rsx! { label { class: if label == "Standard" { "field standard-field" } else { "field" }, span { "{label}" } select { value, onchange: move |event| onchange.call(event.value()), for option in options { option { value: option, "{presentation::label(option)}" } } } } }
+fn ChoiceField(
+    label: &'static str,
+    value: String,
+    choices: Vec<(String, &'static str, &'static str)>,
+    width: usize,
+    widths: Vec<usize>,
+    onchange: EventHandler<String>,
+) -> Element {
+    let widths: Vec<_> = (0..choices.len()).map(|index| widths.get(index).copied().unwrap_or(width)).collect();
+    let selected = choices.iter().position(|(option, _, _)| option == &value).unwrap_or_default();
+    let offset = widths.iter().take(selected).sum::<usize>().saturating_add(selected);
+    let selected_width = widths.get(selected).copied().unwrap_or(width);
+    let columns = widths.iter().map(|width| format!("{width}px")).collect::<Vec<_>>().join(" ");
+    use_effect(move || {
+        document::eval(&format!(
+            "requestAnimationFrame(() => {{ const bar = document.querySelector('.choice-scroll[data-choice-group=\"{label}\"]'); const selected = bar?.querySelector('[aria-pressed=\"true\"]'); if (selected) bar.scrollLeft = selected.offsetLeft - (bar.clientWidth - selected.clientWidth) / 2; }})"
+        ));
+    });
+    rsx! {
+        fieldset { class: "field vocabulary-field choice-field", legend { "{label}" }
+            div { class: "choice-scroll", "data-choice-group": label,
+                div { class: if label == "Format" { "choice-bar format-choice-bar" } else { "choice-bar" }, style: "grid-template-columns:{columns};--choice-offset:{offset}px;--choice-width:{selected_width}px", role: "group", "aria-label": "{label}",
+                    for (option, abbreviation, title) in choices {
+                        button { r#type: "button", title, "aria-pressed": value.as_str() == option.as_str(),
+                            onclick: move |_| onchange.call(option.clone()), "{abbreviation}" }
+                    }
+                }
+            }
+        }
+    }
+}
+#[component]
+fn StandardField(label: &'static str, value: String, crosswalk: bool, onchange: EventHandler<String>) -> Element {
+    let choices = STANDARD_CHOICES
+        .iter()
+        .copied()
+        .filter(|(standard, _, _)| {
+            !crosswalk
+                || matches!(
+                    standard,
+                    Standard::Datacite | Standard::DublinCore | Standard::Raid | Standard::ResearchActivityData
+                )
+        })
+        .map(|(standard, abbreviation, title)| (standard.to_string(), abbreviation, title))
+        .collect();
+    rsx! { ChoiceField { label, value, choices, width: 37, widths: Vec::new(), onchange } }
+}
+#[component]
+fn ReadabilityControls(
+    label: &'static str,
+    metric: String,
+    threshold: String,
+    onmetric: EventHandler<String>,
+    onthreshold: EventHandler<String>,
+) -> Element {
+    let selected_metric = ReadabilityType::from(metric.as_str());
+    rsx! {
+        div { class: "readability-controls",
+            fieldset { class: "field vocabulary-field readability-metric-field", legend { "{label}" }
+                div { class: "metric-choices", "data-selected": metric.as_str(), role: "group", "aria-label": "Readability metric",
+                    for choice in ReadabilityType::iter() {
+                        {let value = choice.to_string(); rsx! {
+                            button { r#type: "button", title: choice.full_name(), "aria-pressed": metric == value,
+                                onclick: move |_| onmetric.call(choice.to_string()), "{value.to_uppercase()}" }
+                        }}
+                    }
+                }
+            }
+            label { if selected_metric == ReadabilityType::FRES { "Min" } else { "Max" }
+                input { r#type: "number", step: "any", value: threshold, placeholder: "{selected_metric.maximum_allowed()}",
+                    "aria-label": if selected_metric == ReadabilityType::FRES { "Minimum readability score" } else { "Maximum readability score" },
+                    oninput: move |event| onthreshold.call(event.value()) }
+            }
+        }
+    }
 }
 #[component]
 fn Shell() -> Element {
@@ -597,22 +720,15 @@ fn Shell() -> Element {
                     Link { to: Route::Home {}, class: if current == "home" { "nav-item active" } else { "nav-item" }, title: "Home", "aria-label": "Home", "aria-current": if current == "home" { "page" } else { "false" }, Icon { name: "home" } span { class: "nav-label", "Home" } }
                     Link { to: Route::Page { page: "portfolio".into() }, class: if current == "portfolio" { "nav-item active" } else { "nav-item" }, title: "Portfolio", "aria-label": "Portfolio", "aria-current": if current == "portfolio" { "page" } else { "false" }, Icon { name: "portfolio" } span { class: "nav-label", "Portfolio" } }
                     Link { to: Route::Page { page: "review".into() }, class: if review_active { "nav-item active" } else { "nav-item" }, title: "Review", "aria-label": "Review", "aria-current": if review_active { "page" } else { "false" }, Icon { name: "filecheck" } span { class: "nav-label", "Review" } }
-                    for (tool, label) in [(Tool::Discover, "Discover"), (Tool::Inspect, "Inspect")] {
+                    for (tool, label) in [(Tool::Discover, "Discover"), (Tool::Inspect, "Inspect"), (Tool::Crosswalk, "Convert")] {
                         Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", "{label}" } }
                     }
-                    for (heading, tools) in [
-                        ("CONVERT", &[Tool::Crosswalk][..]),
-                        ("ANALYZE", &[Tool::Diff, Tool::BigO][..]),
-                    ] {
-                        p { class: "nav-heading", "{heading}" }
-                        if heading == "ANALYZE" {
-                            for (slug, name, icon) in [("geospatial", "Geospatial", "globe"), ("aspect", "ASPECT", "chart"), ("s3a", "S3A", "database")] {
-                                Link { to: Route::Page { page: slug.into() }, class: if current == slug { "nav-item active" } else { "nav-item" }, title: name, "aria-label": name, "aria-current": if current == slug { "page" } else { "false" }, Icon { name: icon } span { class: "nav-label", "{name}" } }
-                            }
-                        }
-                        for tool in tools.iter().copied() {
-                            Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", if tool == Tool::Discover { "Discover" } else if tool == Tool::Inspect { "Inspect" } else { "{tool.to_string()}" } } }
-                        }
+                    p { class: "nav-heading", "ANALYZE" }
+                    for (slug, name, icon) in [("geospatial", "Geospatial", "globe"), ("aspect", "ASPECT", "chart"), ("s3a", "S3A", "database")] {
+                        Link { to: Route::Page { page: slug.into() }, class: if current == slug { "nav-item active" } else { "nav-item" }, title: name, "aria-label": name, "aria-current": if current == slug { "page" } else { "false" }, Icon { name: icon } span { class: "nav-label", "{name}" } }
+                    }
+                    for tool in [Tool::Diff, Tool::BigO] {
+                        Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", "{tool.to_string()}" } }
                     }
                     p { class: "nav-heading", "APPLICATION" }
                     for (slug, name, icon) in [("install", "Install", "download"), ("skill", "ACORN Skill", "book"), ("settings", "Settings", "settings"), ("about", "About", "info")] {
@@ -759,7 +875,6 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         .filter(|(value, _, _, _)| current.skip.iter().any(|item| item == value))
         .count();
     let all_skipped = !skip_choices.is_empty() && skipped_checks == skip_choices.len();
-    let activity_readability_metric = ReadabilityType::from(current.activity_metric.as_str());
     let input = current.input.clone();
     let needs_content = input.trim().is_empty() && !(tool == Tool::Diff && current.mode == "unified");
     let language = match tool {
@@ -790,22 +905,23 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     }, Icon { name: mode.icon() } "{mode}" }
                 }
             } }
-            LoadedFiles {
-                summary: "Select content".to_owned(),
-                selected_tool: Some(tool),
-                onload: move |text: String| { workspace.write().selected = None; request.set(Request { input: text, ..request() }); result.set(None); },
-                onselect: move |file: SuppliedFile| {
-                    let previous = request();
-                    let format = if matches!(tool, Tool::Standard | Tool::Crosswalk) {
-                        file_format(&file.path).unwrap_or(&previous.format).to_owned()
-                    } else {
-                        previous.format.clone()
-                    };
-                    request.set(Request { input: file.content, format, ..previous });
-                    result.set(None);
-                },
-            }
             div { class: "tool-grid",
+                div { class: "tool-input-column",
+                LoadedFiles {
+                    summary: "Select content".to_owned(),
+                    selected_tool: Some(tool),
+                    onload: move |text: String| { workspace.write().selected = None; request.set(Request { input: text, ..request() }); result.set(None); },
+                    onselect: move |file: SuppliedFile| {
+                        let previous = request();
+                        let format = if matches!(tool, Tool::Standard | Tool::Crosswalk) {
+                            file_format(&file.path).unwrap_or(&previous.format).to_owned()
+                        } else {
+                            previous.format.clone()
+                        };
+                        request.set(Request { input: file.content, format, ..previous });
+                        result.set(None);
+                    },
+                }
                 section { class: "card editor",
                     div { class: "input-heading",
                         h2 { class: "section-heading", "Input" }
@@ -816,8 +932,10 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             if skipped_checks > 0 { span { class: "tool-settings-count", "{skipped_checks} skipped" } }
                         }
                         div { class: "options",
-                        if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Fair) { SelectField { label: "Standard", value: current.standard.clone(), options: if tool == Tool::Crosswalk { vec!["datacite", "dublin-core", "raid", "research-activity-data"] } else { vec!["citation-file-format", "ckan", "datacite", "document", "dublin-core", "invenio", "kitfile", "modelkit", "raid", "research-activity-data", "text"] }, onchange: move |v| request.set(Request { standard: v, ..request() }) } }
-                        if matches!(tool, Tool::Standard | Tool::Crosswalk) { SelectField { label: "Format", value: current.format.clone(), options: vec!["json", "jsonc", "json-ld", "yaml", "zon", "cff", "markdown", "rdf-xml", "turtle", "text"], onchange: move |v| request.set(Request { format: v, ..request() }) } }
+                        if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Fair) { StandardField { label: "Standard", value: current.standard.clone(), crosswalk: tool == Tool::Crosswalk, onchange: move |v| request.set(Request { standard: v, ..request() }) } }
+                        if matches!(tool, Tool::Standard | Tool::Crosswalk) {
+                            ChoiceField { label: "Format", value: current.format.clone(), choices: FORMAT_CHOICES.into_iter().map(|(format, abbreviation, title)| (format.metadata_format_key().into(), abbreviation, title)).collect(), width: 42, widths: FORMAT_WIDTHS.to_vec(), onchange: move |v| request.set(Request { format: v, ..request() }) }
+                        }
                         if !skip_choices.is_empty() {
                             div { class: "check-settings-row",
                             fieldset { class: "skip-checks", legend { "Skip checks" }
@@ -841,20 +959,9 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                                 }
                             }
                             if matches!(tool, Tool::Activity | Tool::Standard) && current.standard == "research-activity-data" && !current.skip.iter().any(|item| item == "readability") {
-                            div { class: "activity-readability-controls",
-                                label { "Readability metric"
-                                    select { value: current.activity_metric.clone(), onchange: move |event| request.set(Request { activity_metric: event.value(), ..request() }),
-                                        for metric in ["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"] {
-                                            option { value: metric, "{metric.to_uppercase()}" }
-                                        }
-                                    }
-                                }
-                                label { if activity_readability_metric == ReadabilityType::FRES { "Min" } else { "Max" }
-                                    input { r#type: "number", step: "any", value: current.activity_max.clone(), placeholder: "{activity_readability_metric.maximum_allowed()}",
-                                        "aria-label": if activity_readability_metric == ReadabilityType::FRES { "Minimum readability score" } else { "Maximum readability score" },
-                                        oninput: move |event| request.set(Request { activity_max: event.value(), ..request() }) }
-                                }
-                            }
+                                ReadabilityControls { label: "Readability metric", metric: current.activity_metric.clone(), threshold: current.activity_max.clone(),
+                                    onmetric: move |v| request.set(Request { activity_metric: v, ..request() }),
+                                    onthreshold: move |v| request.set(Request { activity_max: v, ..request() }) }
                             }
                         }
                         }
@@ -867,23 +974,29 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                                 }
                             }
                         }
-                        if tool == Tool::Crosswalk { SelectField { label: "Destination", value: current.target.clone(), options: vec!["datacite", "dublin-core", "raid", "research-activity-data"], onchange: move |v| request.set(Request { target: v, ..request() }) } }
-                        if tool == Tool::Readability { SelectField { label: "Metric", value: current.metric.clone(), options: vec!["fres", "ari", "cli", "fkgl", "gfi", "lix", "smog"], onchange: move |v| request.set(Request { metric: v, ..request() }) } }
+                        if tool == Tool::Crosswalk { StandardField { label: "Destination", value: current.target.clone(), crosswalk: true, onchange: move |v| request.set(Request { target: v, ..request() }) } }
+                        if tool == Tool::Readability {
+                            ReadabilityControls { label: "Metric", metric: current.metric.clone(), threshold: current.threshold.clone(),
+                                onmetric: move |v| request.set(Request { metric: v, ..request() }),
+                                onthreshold: move |v| request.set(Request { threshold: v, ..request() }) }
+                        }
                         if tool == Tool::Diff {
-                            fieldset { class: "field vocabulary-field", legend { "Diff format" }
-                                div { class: "diff-choices",
-                                    for (value, icon, label) in [("unified", "±", "Unified diff"), ("json-patch", "{}", "JSON Patch")] {
-                                        button { r#type: "button", "data-format": value, "aria-pressed": current.mode == value,
-                                            onclick: move |_| request.set(Request { mode: value.into(), ..request() }),
-                                            span { class: "diff-format-icon", "aria-hidden": "true", "{icon}" } "{label}"
-                                        }
-                                    }
+                            ChoiceField { label: "Diff format", value: current.mode.clone(), choices: vec![("unified".into(), "Unified", "Unified diff"), ("json-patch".into(), "JSON Patch", "JSON Patch")], width: 76, widths: Vec::new(), onchange: move |v| request.set(Request { mode: v, ..request() }) }
+                        }
+                        if tool == Tool::Inspect {
+                            ChoiceField { label: "Identifier", value: current.kind.clone(), choices: identifier_choices(), width: 40, widths: Vec::new(), onchange: move |v| request.set(Request { kind: v, ..request() }) }
+                        }
+                        if tool == Tool::BigO { div { class: "field", span { "Symbol assumptions (JSON)" } CodeEditor { id: "assumptions", label: "Symbol assumptions (JSON)", language: "json", rows: 2, value: current.assumptions.clone(), oninput: move |value| request.set(Request { assumptions: value, ..request() }) } } }
+                        if tool == Tool::Crosswalk {
+                            section { class: "import-seeds", "aria-labelledby": "import-seeds-title",
+                                header { class: "import-seeds-heading",
+                                    h3 { id: "import-seeds-title", "Import seeds" }
+                                    span { "When required" }
                                 }
+                                div { class: "field", span { "Contact JSON" } CodeEditor { id: "contact", label: "Contact JSON", language: "json", rows: 3, value: current.contact.clone(), oninput: move |value| request.set(Request { contact: value, ..request() }) } }
+                                label { class: "field", "Local identifier" input { value: current.local_identifier.clone(), oninput: move |e| request.set(Request { local_identifier: e.value(), ..request() }) } }
                             }
                         }
-                        if tool == Tool::Inspect { SelectField { label: "Identifier kind", value: current.kind.clone(), options: vec!["", "ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "rrid", "swhid"], onchange: move |v| request.set(Request { kind: v, ..request() }) } }
-                        if tool == Tool::BigO { div { class: "field", span { "Symbol assumptions (JSON)" } CodeEditor { id: "assumptions", label: "Symbol assumptions (JSON)", language: "json", rows: 2, value: current.assumptions.clone(), oninput: move |value| request.set(Request { assumptions: value, ..request() }) } } }
-                        if tool == Tool::Crosswalk { div { class: "import-seeds", span { "Import seeds (when required)" } div { class: "field", span { "Contact JSON" } CodeEditor { id: "contact", label: "Contact JSON", language: "json", rows: 3, value: current.contact.clone(), oninput: move |value| request.set(Request { contact: value, ..request() }) } } label { class: "field", "Local identifier" input { value: current.local_identifier.clone(), oninput: move |e| request.set(Request { local_identifier: e.value(), ..request() }) } } } }
                         }
                     }
                     }
@@ -922,6 +1035,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         }
                     }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
+                }
                 }
                 section { class: "card results", "aria-live": "polite", h2 { id: "result-heading", class: "section-heading", tabindex: "-1", "Results" }
                     match result() {

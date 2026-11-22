@@ -1,6 +1,12 @@
 //! Bounded presentation requests dispatched to the existing WASM bindings.
 #[cfg(target_arch = "wasm32")]
 use acorn_analysis::{CheckCategory, FairPrinciple};
+#[cfg(target_arch = "wasm32")]
+use acorn_wasm::{
+    assess_fair_metadata_with_skip, check_readability_with_threshold, compare_big_o, crosswalk_metadata, diff_content,
+    discover_persistent_identifiers, inspect_persistent_identifier, validate_metadata_standard_with_options,
+    validate_research_activity_with_readability,
+};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -70,6 +76,9 @@ pub struct Request {
     pub target: String,
     /// Readability metric.
     pub metric: String,
+    /// Optional threshold for standalone readability analysis.
+    #[serde(default)]
+    pub threshold: String,
     /// Readability metric for Research Activity checks.
     #[serde(default = "default_activity_metric")]
     pub activity_metric: String,
@@ -113,6 +122,7 @@ impl Default for Request {
             format: "json".into(),
             target: "datacite".into(),
             metric: "fres".into(),
+            threshold: String::new(),
             activity_metric: default_activity_metric(),
             activity_max: String::new(),
             mode: "unified".into(),
@@ -133,8 +143,12 @@ impl Request {
         let metric = self.activity_metric.as_str();
         let supported_metric = matches!(metric, "ari" | "cli" | "fkgl" | "fres" | "gfi" | "lix" | "smog");
         let unsupported_metric = readability_enabled && !supported_metric;
-        let invalid_maximum =
-            readability_enabled && !self.activity_max.trim().is_empty() && !self.activity_max.parse::<f64>().is_ok_and(f64::is_finite);
+        let invalid_number = |value: &str| {
+            let value = value.trim();
+            !value.is_empty() && !value.parse::<f64>().is_ok_and(f64::is_finite)
+        };
+        let invalid_maximum = readability_enabled && invalid_number(&self.activity_max);
+        let invalid_threshold = tool == Tool::Readability && invalid_number(&self.threshold);
         if self.input.trim().is_empty() && !(tool == Tool::Diff && self.mode == "unified") {
             Err("Enter content or load a local file first.".into())
         } else if self.input.len() > tool.limit() || (matches!(tool, Tool::Diff | Tool::BigO) && self.after.len() > tool.limit()) {
@@ -144,7 +158,7 @@ impl Request {
             ))
         } else if unsupported_metric {
             Err("Choose a supported Research Activity readability metric.".into())
-        } else if invalid_maximum {
+        } else if invalid_maximum || invalid_threshold {
             Err("Readability threshold must be a finite number.".into())
         } else if self.contact.len() > 262144 || self.local_identifier.len() > 2048 || self.assumptions.len() > 16384 {
             Err("Optional input exceeds its size limit.".into())
@@ -158,7 +172,7 @@ impl fmt::Display for Tool {
         formatter.write_str(match self {
             | Self::Activity => "Research Activity",
             | Self::Standard => "Metadata",
-            | Self::Crosswalk => "Crosswalk",
+            | Self::Crosswalk => "Convert",
             | Self::Fair => "FAIR assessment",
             | Self::Readability => "Readability",
             | Self::Diff => "Content diff",
@@ -288,16 +302,10 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
             | Tool::Activity => {
                 let skip = skipped_categories(&request.skip);
                 let threshold = request.activity_max.trim().parse::<f64>().ok();
-                acorn_wasm::validate_research_activity_with_readability(
-                    &request.input,
-                    Some(request.fuzzy.clone()),
-                    &skip,
-                    &request.activity_metric,
-                    threshold,
-                )
-                .map(Into::into)
+                validate_research_activity_with_readability(&request.input, Some(request.fuzzy.clone()), &skip, &request.activity_metric, threshold)
+                    .map(Into::into)
             }
-            | Tool::Standard => acorn_wasm::validate_metadata_standard_with_options(
+            | Tool::Standard => validate_metadata_standard_with_options(
                 &request.input,
                 &request.standard,
                 &request.format,
@@ -307,7 +315,7 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
                 request.activity_max.trim().parse::<f64>().ok(),
             )
             .map(Into::into),
-            | Tool::Crosswalk => acorn_wasm::crosswalk_metadata(
+            | Tool::Crosswalk => crosswalk_metadata(
                 &request.input,
                 &request.format,
                 &request.standard,
@@ -328,12 +336,14 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
                         | _ => None,
                     })
                     .collect::<Vec<_>>();
-                acorn_wasm::assess_fair_metadata_with_skip(&request.input, &request.standard, &skip).map(Into::into)
+                assess_fair_metadata_with_skip(&request.input, &request.standard, &skip).map(Into::into)
             }
-            | Tool::Readability => acorn_wasm::check_readability(&request.input, &request.metric, None).map(Into::into),
-            | Tool::Diff => acorn_wasm::diff_content(&request.input, &request.after, &request.mode).map(Into::into),
-            | Tool::Discover => acorn_wasm::discover_persistent_identifiers(&request.input).map(Into::into),
-            | Tool::Inspect => acorn_wasm::inspect_persistent_identifier(&request.input, optional(&request.kind)).map(Into::into),
+            | Tool::Readability => {
+                check_readability_with_threshold(&request.input, &request.metric, request.threshold.trim().parse::<f64>().ok()).map(Into::into)
+            }
+            | Tool::Diff => diff_content(&request.input, &request.after, &request.mode).map(Into::into),
+            | Tool::Discover => discover_persistent_identifiers(&request.input).map(Into::into),
+            | Tool::Inspect => inspect_persistent_identifier(&request.input, optional(&request.kind)).map(Into::into),
             | Tool::BigO => serde_json::from_str::<Value>(&request.assumptions)
                 .map_err(|e| JsValue::from_str(&e.to_string()))
                 .and_then(|assumptions| {
@@ -341,7 +351,7 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
                         .serialize(&serde_wasm_bindgen::Serializer::json_compatible())
                         .map_err(|e| JsValue::from_str(&e.to_string()))
                 })
-                .and_then(|input| acorn_wasm::compare_big_o(input.unchecked_into()).map(Into::into)),
+                .and_then(|input| compare_big_o(input.unchecked_into()).map(Into::into)),
         };
         value
             .map_err(|e| e.as_string().unwrap_or_else(|| "The operation could not process this input.".into()))
@@ -470,6 +480,30 @@ mod tests {
             let message = serde_json::to_string(&(tool, &request)).unwrap();
             assert_eq!(serde_json::from_str::<(Tool, Request)>(&message).unwrap(), (tool, request));
         }
+    }
+    #[test]
+    fn test_readability_threshold_requires_finite_number() {
+        let request = Request {
+            input: "Readable text.".into(),
+            threshold: "NaN".into(),
+            ..Request::default()
+        };
+        assert_eq!(
+            request.validate(Tool::Readability),
+            Err("Readability threshold must be a finite number.".into())
+        );
+        assert!(Request {
+            threshold: "70".into(),
+            ..request.clone()
+        }
+        .validate(Tool::Readability)
+        .is_ok());
+        assert!(Request {
+            threshold: String::new(),
+            ..request
+        }
+        .validate(Tool::Readability)
+        .is_ok());
     }
     #[test]
     fn test_result_budget_matches_compact_json_length() {

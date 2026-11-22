@@ -9,7 +9,7 @@ import { chromium } from "playwright";
 const actionLabels = {
     "Big-O comparison": "Compare",
     "Content diff": "Compare",
-    "Crosswalk": "Convert",
+    "Convert": "Convert",
     "Discover identifiers": "Discover identifiers",
     "FAIR assessment": "Assess FAIR",
     "Inspect identifier": "Inspect identifier",
@@ -255,12 +255,12 @@ try {
     assert.equal(await page.locator("#content").inputValue(), previewText);
     checks.push("RAD drawer previews, folds, copies and downloads read-only source; resizing, mobile layout, checks and focus return work");
     if (process.env.ACORN_PARITY_SCOPE !== "index") {
-    const tools = ["Research Activity", "Metadata standard", "Crosswalk", "FAIR assessment", "Readability", "Content diff", "Big-O comparison", "Discover identifiers", "Inspect identifier"];
+    const tools = ["Research Activity", "Metadata standard", "Convert", "FAIR assessment", "Readability", "Content diff", "Big-O comparison", "Discover identifiers", "Inspect identifier"];
     for (const name of tools) {
         await nav(name);
-        if (name === "Research Activity" || name === "Crosswalk") {
+        if (name === "Research Activity" || name === "Convert") {
             await page.getByRole("button", { name: "Clear", exact: true }).click();
-            if (name === "Crosswalk") await page.locator("#content-editor").fill("{");
+            if (name === "Convert") await page.locator("#content-editor").fill("{");
             await page.getByRole("button", { name: actionLabels[name], exact: true }).click();
             const error = page.locator(".operation-error");
             await error.waitFor();
@@ -492,10 +492,10 @@ try {
             checks.push("All PID labels have distinct accents and readable text contrast in both themes");
         }
         if (name === "Content diff") assert.equal(await page.getByRole("button", { name: "JSON Patch", exact: true }).getAttribute("aria-pressed"), "true");
-        if (["Research Activity", "Metadata standard", "Crosswalk", "FAIR assessment"].includes(name)) {
+        if (["Research Activity", "Metadata standard", "Convert", "FAIR assessment"].includes(name)) {
             await page.locator(".results .result-settings > summary").first().click();
             const controls = page.getByRole("group", { name: "Sort diagnostics", exact: true });
-            const defaultOrder = name === "Crosswalk" ? "Original" : "Severity";
+            const defaultOrder = name === "Convert" ? "Original" : "Severity";
             assert.equal(await controls.getByRole("button", { name: defaultOrder, exact: true }).getAttribute("aria-pressed"), "true");
             const initial = await page.locator(".diagnostics").allTextContents();
             const field = name === "FAIR assessment" ? "Indicator" : "Field";
@@ -505,18 +505,18 @@ try {
             for (const values of await orderedFields()) assert.deepEqual(values, [...values].sort());
             await controls.getByRole("button", { name: "Sort direction: A–Z", exact: true }).click();
             for (const values of await orderedFields()) assert.deepEqual(values, [...values].sort().reverse());
-            if (name !== "Crosswalk") {
+            if (name !== "Convert") {
                 await controls.getByRole("button", { name: "Severity", exact: true }).click();
                 const severities = () => page.locator(".diagnostics").evaluateAll(lists => lists.map(list => Array.from(list.querySelectorAll(".diagnostic"), node => ({ danger: 0, warning: 1, suggestion: 2, info: 3 })[node.dataset.tone])));
                 for (const values of await severities()) assert.deepEqual(values, [...values].sort((a,b) => a-b));
                 await controls.getByRole("button", { name: "Sort direction: Highest first", exact: true }).click();
                 for (const values of await severities()) assert.deepEqual(values, [...values].sort((a,b) => b-a));
             }
-            const rule = name === "Crosswalk" ? "Loss type" : name === "FAIR assessment" ? "State" : "Rule";
+            const rule = name === "Convert" ? "Loss type" : name === "FAIR assessment" ? "State" : "Rule";
             await controls.getByRole("button", { name: rule, exact: true }).click();
             assert.equal(await controls.getByRole("button", { name: rule, exact: true }).getAttribute("aria-pressed"), "true");
             await controls.getByRole("button", { name: "Original", exact: true }).click();
-            if (name !== "Crosswalk") await controls.getByRole("button", { name: "Severity", exact: true }).click();
+            if (name !== "Convert") await controls.getByRole("button", { name: "Severity", exact: true }).click();
             assert.deepEqual(await page.locator(".diagnostics").allTextContents(), initial);
             assert.ok(await page.locator("details.diagnostic-group").count() > 0);
             for (const category of await page.locator("details.diagnostic-group").all()) {

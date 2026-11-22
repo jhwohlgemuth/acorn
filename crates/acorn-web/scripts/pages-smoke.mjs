@@ -401,8 +401,8 @@ try {
     await page.getByRole("heading", { name: "Review", exact: true }).waitFor();
     await waitForServices(page);
     assert.equal(new URL(page.url()).pathname, `${prefix}/review`);
-    assert.deepEqual(await page.locator("#workspace-navigation nav > .nav-heading").allTextContents(), ["WORKSPACE", "CONVERT", "ANALYZE", "APPLICATION"]);
-    assert.deepEqual(await page.locator("#workspace-navigation nav > a.nav-item .nav-label").evaluateAll((labels) => labels.slice(0, 5).map((label) => label.textContent)), ["Home", "Portfolio", "Review", "Discover", "Inspect"]);
+    assert.deepEqual(await page.locator("#workspace-navigation nav > .nav-heading").allTextContents(), ["WORKSPACE", "ANALYZE", "APPLICATION"]);
+    assert.deepEqual(await page.locator("#workspace-navigation nav > a.nav-item .nav-label").evaluateAll((labels) => labels.slice(0, 6).map((label) => label.textContent)), ["Home", "Portfolio", "Review", "Discover", "Inspect", "Convert"]);
     const editorLicense = await page.locator('link[title="CodeMirror dependency licenses"]').first().getAttribute("href");
     assert.ok(editorLicense, "The bundled editor exposes its dependency licenses");
     const licenseResponse = await page.request.get(new URL(editorLicense, page.url()).href);

@@ -822,6 +822,18 @@ impl MimeType {
     pub fn file_type(&self) -> String {
         self.file_type_ref().to_string()
     }
+    /// Return the short format key used by metadata operations.
+    pub fn metadata_format_key(&self) -> &str {
+        match self {
+            | Self::LdJson => "json-ld",
+            | Self::Markdown => "markdown",
+            | Self::RdfXml => "rdf-xml",
+            | Self::Text => "text",
+            | Self::Turtle => "turtle",
+            | Self::Zon => "zon",
+            | other => other.file_type_ref(),
+        }
+    }
     pub(super) fn file_type_ref(&self) -> &str {
         match self {
             | MimeType::Cff => "cff",

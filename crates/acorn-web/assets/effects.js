@@ -147,7 +147,7 @@ function createTour(loadDriver, environment) {
                         ['#workspace-navigation a[aria-label="Portfolio"]', "Explore your portfolio", "Browse loaded files and validated research activities, then select an item to inspect."],
                         ['#workspace-navigation a[aria-label="Review"]', "Review metadata", "Validate Research Activity Data, check other standards, assess FAIR principles, or measure readability."],
                         ['#workspace-navigation a[aria-label="Discover identifiers"]', "Find and inspect identifiers", "Discover persistent identifiers for research outputs, then inspect a known identifier."],
-                        ['#workspace-navigation a[aria-label="Crosswalk"]', "Convert metadata", "Map metadata between supported standards and review conversion warnings."],
+                        ['#workspace-navigation a[aria-label="Convert"]', "Convert metadata", "Map metadata between supported standards and review conversion warnings."],
                         ['#workspace-navigation a[aria-label="Content diff"]', "Compare and analyze", "Compare content changes, estimate algorithm complexity, or explore geospatial and research data tools."],
                         ['#workspace-navigation a[aria-label="Settings"]', "Manage your workspace", "Choose a theme, check saved workspace status, or clear data when you are finished."],
                     ]),

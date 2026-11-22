@@ -107,15 +107,20 @@ fn test_assess_fair_skips_principles_before_scoring() {
 fn test_check_readability_accepts_every_metric() {
     assert!(["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"]
         .into_iter()
-        .all(|metric| analyze_readability("This is a short sentence.", metric, None).is_ok()));
+        .all(|metric| analyze_readability("This is a short sentence.", metric, None, None).is_ok()));
+}
+#[test]
+fn test_check_readability_applies_threshold() {
+    let result = analyze_readability("This is a short sentence.", "fres", None, Some(70.0)).unwrap();
+    assert_eq!(result.checks.first().map(|check| check.threshold), Some(70.0));
 }
 #[test]
 fn test_check_readability_rejects_unknown_metrics() {
-    assert!(analyze_readability("Readable text.", "unknown", None).is_err());
+    assert!(analyze_readability("Readable text.", "unknown", None, None).is_err());
 }
 #[test]
 fn test_check_readability_returns_checks_and_summary() {
-    let result = analyze_readability("This is a short sentence.", "fkgl", Some("memory://sample".to_string())).unwrap();
+    let result = analyze_readability("This is a short sentence.", "fkgl", Some("memory://sample".to_string()), None).unwrap();
     assert_eq!(result.checks.len(), 1);
     assert_eq!(result.checks.first().and_then(|check| check.uri.as_deref()), Some("memory://sample"));
     assert_eq!(

@@ -99,11 +99,15 @@ try {
         assert.notEqual(await regex.evaluate((button) => getComputedStyle(button).color), unselectedRegex.color);
         assert.equal(await regex.evaluate((button) => getComputedStyle(button).boxShadow), "none");
         assert.equal(await caseSensitive.evaluate((button) => button.getBoundingClientRect().left), inlinePosition, "Inline search controls stay in place when selected");
-        await regex.click();
         await caseSensitive.click();
+        assert.equal(await regex.getAttribute("aria-pressed"), "false", "Selecting Aa turns Regex off");
+        assert.equal(await caseSensitive.getAttribute("aria-pressed"), "true");
         assert.equal(await caseSensitive.evaluate((button) => getComputedStyle(button).fontWeight), "700");
         assert.equal(await caseSensitive.locator(".search-mode-check").isVisible(), true);
-        await caseSensitive.click();
+        await regex.click();
+        assert.equal(await regex.getAttribute("aria-pressed"), "true");
+        assert.equal(await caseSensitive.getAttribute("aria-pressed"), "false", "Selecting Regex turns Aa off");
+        await regex.click();
         await page.locator("#theme-toggle").click();
         const darkAppearance = await all.evaluate(selectedStyle);
         assert.equal(darkAppearance.border, "rgb(152, 195, 121)", `${tool}: dark theme keeps a green selected border`);
