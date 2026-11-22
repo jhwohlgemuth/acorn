@@ -9,12 +9,12 @@ window.acornDownload = (text, filename = "acorn-result.json", mime = "applicatio
 };
 window.acornCopy = async (text) => {
     const status = document.getElementById("output-status");
-    const report = (message) => {
+    const report = (message, kind) => {
         if (status) status.textContent = message;
-        window.acornChrome?.notifications.notify(message);
+        window.acornChrome?.notifications.notify(message, kind);
     };
-    try { await navigator.clipboard.writeText(text); report("Copied to clipboard."); }
-    catch { report("Clipboard unavailable. Select and copy the code manually."); }
+    try { await navigator.clipboard.writeText(text); report("Copied to clipboard.", "success"); }
+    catch { report("Clipboard unavailable. Select and copy the code manually.", "warning"); }
 };
 window.acornCelebrate = (() => {
     let celebrated = false;
@@ -72,11 +72,24 @@ else if (typeof MutationObserver === "function" && document.documentElement) {
 }
 
 function createNotifier(show, schedule = setTimeout, cancel = clearTimeout) {
-    let timer;
-    const dismiss = () => { cancel(timer); timer = undefined; show(""); };
+    const timers = new Map();
+    let nextId = 0;
+    const dismiss = (id) => {
+        for (const [key, timer] of timers) {
+            if (id !== undefined && key !== id) continue;
+            cancel(timer);
+            timers.delete(key);
+            show("", "info", key);
+        }
+    };
     return {
         dismiss,
-        notify(message) { dismiss(); show(message); timer = schedule(dismiss, 6000); },
+        notify(message, kind = "info") {
+            const id = ++nextId;
+            show(message, kind, id);
+            timers.set(id, schedule(() => dismiss(id), 6000));
+            return id;
+        },
     };
 }
 function createTheme(preference, apply, storage = () => window.localStorage, override = "") {
@@ -89,12 +102,12 @@ function createTheme(preference, apply, storage = () => window.localStorage, ove
     let fromUrl = ["dark", "light"].includes(override);
     if (fromUrl) mode = override;
     const currentDark = () => (mode === "system" && systemDark) || mode === "dark";
-    const sync = () => apply(currentDark(), mode === "system", fromUrl);
     const save = () => { try { storage().setItem("acorn.theme.v1", mode); } catch {} };
+    const sync = () => apply(currentDark(), mode === "system", fromUrl);
     return {
-        sync,
         choose(choice) { if (["dark", "light", "system"].includes(choice)) { mode = choice; fromUrl = false; save(); sync(); } },
         reset() { mode = "system"; fromUrl = false; try { storage().removeItem("acorn.theme.v1"); } catch {} sync(); },
+        sync,
         toggle() { const dark = currentDark(); mode = "dark"; if (dark) mode = "light"; fromUrl = false; save(); sync(); },
         update(dark) { systemDark = dark; sync(); },
     };
@@ -111,6 +124,7 @@ function createTour(loadDriver, environment) {
     };
     return {
         cancel,
+        reset() { return environment.reset?.() ?? false; },
         async start() {
             cancel();
             const request = generation;
@@ -119,7 +133,7 @@ function createTour(loadDriver, environment) {
                 const { driver } = await loadDriver();
                 if (request !== generation) return;
                 if (!trigger?.isConnected || !environment.find("#skill-entry") || !environment.find("#local-entry")) {
-                    environment.notify("The tour is unavailable on this page. Return Home and try again.");
+                    environment.notify("The tour is unavailable on this page. Return Home and try again.", "warning");
                     return;
                 }
                 const steps = [
@@ -154,17 +168,21 @@ function createTour(loadDriver, environment) {
                     doneBtnText: "Done",
                     closeBtnLabel: "Close tour",
                     popoverClass: `acorn-tour ${environment.theme()}`,
-                    onDestroyed(_element, _step, { reason }) {
+                    onDestroyStarted(_element, _step, { reason }) {
+                        active?.destroy();
                         active = undefined;
                         if (!silent) {
-                            if (trigger.isConnected) trigger.focus();
-                            environment.notify(reason === "done" ? "Tour complete. Choose sample data or open a file." : "Tour closed. You can restart it from Home.");
+                            if (reason === "done") {
+                                environment.complete?.();
+                                (environment.find("#sample-data") ?? environment.find("#home-source-trigger"))?.focus();
+                            } else if (trigger.isConnected) trigger.focus();
+                            environment.notify(reason === "done" ? "Tour complete. Choose sample data or open a file." : "Tour closed. You can restart it from Home.", reason === "done" ? "success" : "info");
                         }
                     },
                 });
                 active.drive();
             } catch {
-                if (request === generation) environment.notify("The tour could not load. All research tools remain available.");
+                if (request === generation) environment.notify("The tour could not load. All research tools remain available.", "warning");
             }
         },
     };
@@ -194,20 +212,41 @@ function installChrome() {
             if (fromUrl) mode.textContent = "Using the theme from this URL.";
         }
     }, () => window.localStorage, window.acornThemeOverride);
-    const notifications = createNotifier((message) => {
-        const region = document.getElementById("notification");
-        const text = document.getElementById("notification-text");
-        if (region) region.hidden = !message;
-        if (text) text.textContent = message;
+    const notifications = createNotifier((message, kind, id) => {
+        const stack = document.getElementById("notifications");
+        const template = document.getElementById("notification-template");
+        if (!stack || !template) return;
+        if (!message) { stack.querySelector(`[data-notification-id="${id}"]`)?.remove(); return; }
+        const region = template.cloneNode(true);
+        region.removeAttribute("id");
+        region.hidden = false;
+        region.dataset.notificationId = String(id);
+        region.dataset.kind = ["success", "warning"].includes(kind) ? kind : "info";
+        region.querySelector(".notification-text").textContent = message;
+        region.querySelector("button").addEventListener("click", () => notifications.dismiss(id));
+        stack.append(region);
     });
+    const tourKey = "acorn.tour.completed.v1";
+    const setTourCompleted = (completed) => {
+        document.documentElement.dataset.acornTourComplete = String(completed);
+        try {
+            if (completed) window.localStorage.setItem(tourKey, "true");
+            else window.localStorage.removeItem(tourKey);
+            return true;
+        } catch { return false; }
+    };
+    try { document.documentElement.dataset.acornTourComplete = String(window.localStorage.getItem(tourKey) === "true"); }
+    catch { document.documentElement.dataset.acornTourComplete = "false"; }
     const tour = createTour(() => import(document.getElementById("tour-start").dataset.driver), {
+        complete: () => setTourCompleted(true),
         find: (selector) => document.querySelector(selector),
+        mobile: () => window.getComputedStyle(document.getElementById("workspace-navigation")).display === "none",
         notify: notifications.notify,
         reducedMotion: () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-        mobile: () => window.getComputedStyle(document.getElementById("workspace-navigation")).display === "none",
+        reset: () => setTourCompleted(false),
         theme: () => workspace.dataset.theme,
     });
-    window.acornChrome = { theme, notifications, tour };
+    window.acornChrome = { notifications, theme, tour };
     theme.sync();
     preference.addEventListener("change", (event) => theme.update(event.matches));
     window.addEventListener("resize", () => {
@@ -320,7 +359,7 @@ function createWorkspaceInput() {
             const input = document.createElement("input");
             input.type = "file"; input.multiple = true; input.accept = ".json,.yaml,.yml,.md,.txt,.svg,.png,.jpg,.jpeg,.webp";
             if (mode === "folder") {
-                if (!("webkitdirectory" in input)) { window.acornChrome?.notifications.notify("Folder selection is unavailable in this browser. Choose files instead."); return; }
+                if (!("webkitdirectory" in input)) { window.acornChrome?.notifications.notify("Folder selection is unavailable in this browser. Choose files instead.", "warning"); return; }
                 input.webkitdirectory = true;
             }
             input.hidden = true; document.body.append(input); picker = input;
@@ -397,8 +436,8 @@ window.acornSkill = {
             const objectUrl = URL.createObjectURL(new Blob([archive], { type: "application/zip" }));
             const link = document.createElement("a"); link.href = objectUrl; link.download = `acorn-skill-${version}.zip`; link.click();
             setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-            window.acornChrome?.notifications.notify("Skill archive downloaded. Review it before adding it to your agent environment.");
-        } catch (error) { window.acornChrome?.notifications.notify(error.message); }
+            window.acornChrome?.notifications.notify("Skill archive downloaded. Review it before adding it to your agent environment.", "success");
+        } catch (error) { window.acornChrome?.notifications.notify(error.message, "warning"); }
     },
 };
 

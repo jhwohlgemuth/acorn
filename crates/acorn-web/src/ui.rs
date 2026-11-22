@@ -25,6 +25,96 @@ pub(crate) enum Route {
     #[route("/:page")]
     Page { page: String },
 }
+/// In-memory tool forms and results retained while navigating between tools.
+#[derive(Clone, Copy)]
+pub(crate) struct ToolSessions {
+    activity: ToolSignals,
+    big_o: ToolSignals,
+    crosswalk: ToolSignals,
+    diff: ToolSignals,
+    discover: ToolSignals,
+    fair: ToolSignals,
+    inspect: ToolSignals,
+    readability: ToolSignals,
+    standard: ToolSignals,
+}
+#[derive(Clone, Copy)]
+struct ToolSignals {
+    last_request: Signal<Request>,
+    request: Signal<Request>,
+    result: Signal<Option<Result<Value, String>>>,
+    running: Signal<bool>,
+    seen_session: Signal<String>,
+}
+impl ToolSessions {
+    pub(crate) fn new() -> Self {
+        let review_request = Signal::new(Request::default());
+        let review_last_request = Signal::new(Request::default());
+        let review_seen_session = Signal::new(String::new());
+        Self {
+            activity: ToolSignals::isolated(),
+            big_o: ToolSignals::isolated(),
+            crosswalk: ToolSignals::isolated(),
+            diff: ToolSignals::isolated(),
+            discover: ToolSignals::isolated(),
+            fair: ToolSignals::new(review_request, review_last_request, review_seen_session),
+            inspect: ToolSignals::isolated(),
+            readability: ToolSignals::new(review_request, review_last_request, review_seen_session),
+            standard: ToolSignals::new(review_request, review_last_request, review_seen_session),
+        }
+    }
+    fn for_tool(self, tool: Tool) -> ToolSignals {
+        match tool {
+            | Tool::Activity => self.activity,
+            | Tool::BigO => self.big_o,
+            | Tool::Crosswalk => self.crosswalk,
+            | Tool::Diff => self.diff,
+            | Tool::Discover => self.discover,
+            | Tool::Fair => self.fair,
+            | Tool::Inspect => self.inspect,
+            | Tool::Readability => self.readability,
+            | Tool::Standard => self.standard,
+        }
+    }
+    fn clear_review_results(mut self) {
+        self.fair.result.set(None);
+        self.readability.result.set(None);
+        self.standard.result.set(None);
+    }
+    fn clear_running(self) {
+        for mut signals in [
+            self.activity,
+            self.big_o,
+            self.crosswalk,
+            self.diff,
+            self.discover,
+            self.fair,
+            self.inspect,
+            self.readability,
+            self.standard,
+        ] {
+            signals.running.set(false);
+        }
+    }
+}
+impl ToolSignals {
+    fn new(request: Signal<Request>, last_request: Signal<Request>, seen_session: Signal<String>) -> Self {
+        Self {
+            last_request,
+            request,
+            result: Signal::new(None),
+            running: Signal::new(false),
+            seen_session,
+        }
+    }
+    fn isolated() -> Self {
+        Self::new(
+            Signal::new(Request::default()),
+            Signal::new(Request::default()),
+            Signal::new(String::new()),
+        )
+    }
+}
 #[component]
 fn AppName() -> Element {
     rsx! { "{APP_NAME}" }
@@ -97,7 +187,7 @@ pub(crate) fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool) 
 }
 #[component]
 fn Footer() -> Element {
-    rsx! { footer { p { class: "acronym-note", "RAD = Research Activity Data." } div { class: "credit-line", "Made with ❤️ by " a { href: "https://github.com/jhwohlgemuth", target: "_blank", rel: "noopener noreferrer", strong { "jhwohlgemuth" } } } } }
+    rsx! { footer { div { class: "credit-line", "Made with ❤️ by " a { href: "https://github.com/jhwohlgemuth", target: "_blank", rel: "noopener noreferrer", strong { "jhwohlgemuth" } } } } }
 }
 #[component]
 fn Home() -> Element {
@@ -114,7 +204,7 @@ fn Home() -> Element {
                 h1 { class: "home-subtitle", "Research Intelligence" }
             }
             div { class: "home-cta",
-                p { class: "home-tagline", "Plant an acorn, grow your science" }
+                p { class: "home-tagline", "Plant an acorn, grow your science 🌱" }
                 div { id: "home-actions", class: "actions centered",
                     button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { document::eval("window.acornChrome?.tour.start()"); }, Icon { name: "compass" } "Take a tour" }
                     if !sample_loaded { button { id: "sample-data", class: "sample-action", disabled: loading(), "aria-busy": loading(), onclick: move |_| async move {
@@ -124,7 +214,7 @@ fn Home() -> Element {
                         loaded.selected = sample_activity_path(&loaded);
                         loading.set(false);
                         session.set(loaded.content()); workspace.set(loaded); nav.push(Route::Page { page: "portfolio".into() });
-                        document::eval("window.acornChrome?.notifications.notify('Synthetic research bucket loaded.')");
+                        document::eval("window.acornChrome?.notifications.notify('Synthetic research bucket loaded.', 'success')");
                     }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } } }
                 }
             }
@@ -184,6 +274,7 @@ pub(crate) fn Icon(name: &'static str) -> Element {
         | "link" => r#"<path d="m10 13 4-4m-6 6-2 2a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m4 1 2-2a3.5 3.5 0 0 1 5 5l-4 4a3.5 3.5 0 0 1-5 0"/>"#,
         | "list" => r#"<path class="s" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />"#,
         | "maximize" => r#"<path class="s" d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />"#,
+        | "minimize" => r#"<path class="s" d="M3 8h5V3m13 5h-5V3M3 16h5v5m13-5h-5v5" />"#,
         | "panel" => {
             r#"<rect class="s" x="3" y="4" width="18" height="16" rx="2" />
       <path class="s" d="M9 4v16M14 8l-3 4 3 4" />"#
@@ -256,6 +347,7 @@ fn InfoPage(page: String) -> Element {
     let title = match page.as_str() {
         | "aspect" => "ASPECT",
         | "portfolio" => "Portfolio",
+        | "dashboard" => "Dashboard",
         | "geospatial" => "Geospatial",
         | "s3a" => "S3A",
         | "install" => "Install ACORN Research Intelligence",
@@ -276,7 +368,7 @@ fn InfoPage(page: String) -> Element {
         .map(|source| format!("{} · {}/{}", source.kind, source.host, source.project));
     rsx! {
         document::Title { "{document_title}" }
-        section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "aspect" => "chart", "portfolio" => "portfolio", "geospatial" => "globe", "s3a" => "database", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } }
+        section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "aspect" => "chart", "portfolio" | "dashboard" => "portfolio", "geospatial" => "globe", "s3a" => "database", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } }
             "{title}"
         }
             match page.as_str() {
@@ -285,7 +377,8 @@ fn InfoPage(page: String) -> Element {
                     }
                     img { class: "construction-gif", src: asset!("/assets/my_acorn_is_missing.gif"), alt: "My acorn is missing", width: "400", height: "237" }
                 } },
-                "portfolio" => rsx! { Portfolio {} },
+                "portfolio" => rsx! { Portfolio { dashboard_only: false } },
+                "dashboard" => rsx! { Portfolio { dashboard_only: true } },
                 "geospatial" => rsx! { Geospatial {} },
                 "install" => rsx! { Install {} },
                 "skill" => rsx! { Skill { compact: false } },
@@ -298,11 +391,18 @@ fn InfoPage(page: String) -> Element {
                         }
                         p { id: "theme-mode", class: "small muted", "Following your system preference." }
                         div { class: "actions",
-                            button { onclick: move |_| {
+                            button { onclick: move |_| async move {
                                 collapsed.set(false);
                                 let _ = js_sys::Reflect::set(&js_sys::global(), &"acornInitialSidebarCollapsed".into(), &false.into());
-                                document::eval("if (window.acornChrome) window.acornChrome.theme.reset(); try { sessionStorage.removeItem('acorn-sidebar-collapsed'); } catch {}");
-                                settings_message.set("Saved appearance and sidebar settings cleared.".into());
+                                let cleared = document::eval("if (window.acornChrome) window.acornChrome.theme.reset(); try { sessionStorage.removeItem('acorn-sidebar-collapsed'); } catch {} const tourCleared = window.acornChrome?.tour.reset() ?? false; const layoutCleared = window.acornDashboardLayout?.clear() ?? false; return tourCleared && layoutCleared")
+                                    .join::<bool>()
+                                    .await
+                                    .unwrap_or(false);
+                                settings_message.set(if cleared {
+                                    "Saved appearance, sidebar, tour, and dashboard settings cleared."
+                                } else {
+                                    "Some saved settings could not be cleared. Check browser storage and retry."
+                                }.into());
                             }, "Clear saved settings" }
                         }
                         if !settings_message().is_empty() { p { role: "status", class: "status", "{settings_message}" } }
@@ -312,20 +412,20 @@ fn InfoPage(page: String) -> Element {
                         p { class: "small muted", "Loaded files and the selected activity are saved automatically on this device and restored after reload. Browser storage is shared with other app data and limits vary." }
                         div { class: "actions",
                             button { class: "danger", onclick: move |_| async move {
-                                let deleted = document::eval("window.acornWorkspace?.cancel(); window.acornRemote?.cancel(); let workspaceDeleted = false; let remoteDeleted = false; try { workspaceDeleted = await window.acornWorkspaceStorage?.delete() ?? false; } catch {} try { remoteDeleted = window.acornRemote?.clearData() ?? false; } catch {} return [workspaceDeleted, remoteDeleted]")
-                                    .join::<(bool, bool)>()
+                                let deleted = document::eval("window.acornWorkspace?.cancel(); window.acornRemote?.cancel(); let workspaceDeleted = false; let remoteDeleted = false; let layoutDeleted = false; let tourDeleted = false; try { workspaceDeleted = await window.acornWorkspaceStorage?.delete() ?? false; } catch {} try { remoteDeleted = window.acornRemote?.clearData() ?? false; } catch {} try { layoutDeleted = window.acornDashboardLayout?.clear() ?? false; } catch {} try { tourDeleted = window.acornChrome?.tour.reset() ?? false; } catch {} return [workspaceDeleted, remoteDeleted, layoutDeleted, tourDeleted]")
+                                    .join::<(bool, bool, bool, bool)>()
                                     .await;
                                 workspace.set(Workspace::default());
                                 session.set(String::new());
                                 map_pins.set(MapPins::default());
                                 credential_error.set(String::new());
                                 credential_message.set(String::new());
-                                if let Ok((workspace_deleted, remote_deleted)) = deleted {
+                                if let Ok((workspace_deleted, remote_deleted, layout_deleted, tour_deleted)) = deleted {
                                     if workspace_deleted { storage_status.set((0, false, 0, 0)); }
                                     if remote_deleted { recent_inputs.set((0, 0)); credential_status.set(String::new()); }
-                                    if workspace_deleted && remote_deleted {
+                                    if workspace_deleted && remote_deleted && layout_deleted && tour_deleted {
                                         storage_error.set(String::new());
-                                        document::eval("window.acornChrome?.theme.reset(); window.acornChrome?.notifications.notify('All app data deleted.')");
+                                        document::eval("window.acornChrome?.theme.reset(); window.acornChrome?.notifications.notify('All app data deleted.', 'success')");
                                     } else {
                                         storage_error.set("Open session cleared, but some saved browser data could not be deleted. Clear this site's data in your browser and retry.".into());
                                     }
@@ -336,7 +436,7 @@ fn InfoPage(page: String) -> Element {
                         }
                         if !storage_error().is_empty() { p { role: "alert", class: "error", "{storage_error}" } }
                         if storage_status().1 { p { role: "alert", class: "error", "Workspace saving failed. Your current session remains open, but the saved copy was not updated. Free browser storage or reload if another tab changed this workspace." } }
-                        p { class: "small muted", "Deletes loaded and saved files, tool input, map pins, recent bucket inputs, and the repository token in this tab." } }
+                        p { class: "small muted", "Deletes loaded and saved files, tool input, map pins, dashboard layout, tour completion, recent bucket inputs, and the repository token in this tab." } }
                     div { class: "card", h2 { "Repository access" }
                         p { class: "small muted", "One token is available in this tab for repositories on its provider and HTTPS host. Add or replace it beside the repository loader on Home." }
                         p { class: "small", if credential_status().is_empty() { "No repository token in this tab." } else { "Token •••••••• configured for {credential_status}." } }
@@ -525,7 +625,13 @@ fn Shell() -> Element {
                     small { id: "webmcp-status", "data-adapter": asset!("/assets/generated/webmcp.js"), "WebMCP: initializing" }
                 }
             }
-            div { id: "notification", class: "notification", hidden: true, span { id: "notification-text", role: "status", "aria-live": "polite" } button { "aria-label": "Dismiss notification", onclick: move |_| { document::eval("window.acornChrome?.notifications.dismiss()"); }, "Dismiss" } }
+            div { id: "notifications", class: "notifications", "aria-live": "polite", "aria-relevant": "additions" }
+            div { id: "notification-template", class: "notification", "data-kind": "info", hidden: true,
+                span { class: "notification-icon notification-icon-success", Icon { name: "check" } }
+                span { class: "notification-icon notification-icon-warning", Icon { name: "alert" } }
+                span { class: "notification-icon notification-icon-info", Icon { name: "info" } }
+                span { class: "notification-text" }
+                button { "aria-label": "Dismiss notification", "Dismiss" } }
             main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": if initially_dark { "Dark theme" } else { "Light theme" }, title: "Toggle dark or light theme", "aria-pressed": initially_dark, onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", if initially_dark { "Dark" } else { "Light" } } } } Outlet::<Route> {} }
             crate::details::DetailsDrawer {}
         }
@@ -603,29 +709,36 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         }
     });
     let tool = if review { selected_tool() } else { initial_tool };
-    let mut request = use_signal(|| Request {
-        input: session(),
-        ..Request::default()
-    });
-    let mut result = use_signal(|| None::<Result<Value, String>>);
-    let mut running = use_signal(|| false);
+    let sessions = use_context::<ToolSessions>();
+    use_drop(move || sessions.clear_running());
+    let signals = sessions.for_tool(tool);
+    let mut request = signals.request;
+    let mut result = signals.result;
+    let mut running = signals.running;
+    let mut last_request = signals.last_request;
+    let mut seen_session = signals.seen_session;
     use_hook(|| {
         document::eval("window.acornOperations?.warm()");
     });
-    use_effect(use_reactive((&tool,), move |(_tool,)| {
-        result.set(None);
-    }));
     use_effect(move || {
-        let _ = request.read();
-        if result.peek().is_some() {
-            result.set(None);
+        let current = request();
+        if *last_request.peek() != current {
+            last_request.set(current);
+            if review {
+                sessions.clear_review_results();
+            } else {
+                result.set(None);
+            }
+            document::eval("window.acornRemote?.file.cancel()");
         }
-        document::eval("window.acornRemote?.file.cancel()");
     });
     use_effect(move || {
         let content = session();
-        let previous = request.peek().clone();
-        request.set(Request { input: content, ..previous });
+        if *seen_session.peek() != content {
+            seen_session.set(content.clone());
+            let previous = request.peek().clone();
+            request.set(Request { input: content, ..previous });
+        }
     });
     let title = if review { "Review".to_owned() } else { tool.to_string() };
     let lede = if review {
@@ -662,7 +775,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         .unwrap_or_default();
     rsx! {
         document::Title { "{title} · {APP_NAME}" }
-        section { class: if review { "page tool-page review-page" } else { "page tool-page" },
+        section { class: if review { "page tool-page review-page" } else { "page tool-page" }, "data-tool": tool.slug(),
 
             h1 { class: "page-title", Icon { name: if review { "filecheck" } else { tool.icon() } } "{title}" }
             p { class: "lede", "{lede}" }
@@ -747,7 +860,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         }
                         if tool == Tool::Activity || (tool == Tool::Standard && current.standard == "research-activity-data") {
                             fieldset { class: "field vocabulary-field", legend { "Vocabulary matching" }
-                                div { class: "vocabulary-choices",
+                                div { class: "vocabulary-choices", "data-selected": current.fuzzy.as_str(),
                                     for (value, label) in [("off", "Off"), ("relaxed", "Relaxed"), ("strict", "Strict")] {
                                         button { r#type: "button", "aria-pressed": current.fuzzy == value, title: presentation::label(value), onclick: move |_| request.set(Request { fuzzy: value.into(), ..request() }), "{label}" }
                                     }
@@ -804,8 +917,8 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         }
                         let celebrate = matches!(tool, Tool::Activity | Tool::Standard) && output.as_ref().is_ok_and(|value| value["valid"] == true);
                         // Edits made while the operation ran supersede its result.
-                        if *request.peek() == submitted && (!review || *selected_tool.peek() == tool) {
-                            result.set(Some(output)); document::eval(&format!("requestAnimationFrame(() => {{ document.getElementById('result-heading')?.focus(); if ({celebrate}) window.acornCelebrate?.(); }})"));
+                        if *request.peek() == submitted {
+                            result.set(Some(output)); document::eval(&format!("requestAnimationFrame(() => {{ const heading = document.querySelector('[data-tool=\"{}\"] #result-heading'); heading?.focus(); if (heading && {celebrate}) window.acornCelebrate?.(); }})", tool.slug()));
                         }
                     }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }

@@ -41,13 +41,13 @@ class WebDevTests(unittest.TestCase):
             else:
                 self.assertTrue(launch.call_args.kwargs["start_new_session"])
 
-    def test_cli_setup_runs_only_for_missing_local_executable(self):
+    def test_cli_setup_runs_for_missing_or_stale_local_executable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             executable = root / "target/tools/dioxus/bin/dx"
             marker = root / "setup-ran"
             overlay = root / "Makefile"
-            overlay.write_text(f"include {SCRIPTS.parents[2] / 'Makefile'}\n" + "web-setup:\n\t@mkdir -p target/tools/dioxus/bin\n\t@printf '#!/bin/sh\\nexit 0\\n' > target/tools/dioxus/bin/dx\n\t@chmod +x target/tools/dioxus/bin/dx\n\t@touch setup-ran\n")
+            overlay.write_text(f"include {SCRIPTS.parents[2] / 'Makefile'}\n" + "web-setup:\n\t@mkdir -p target/tools/dioxus/bin\n\t@printf '#!/bin/sh\\necho dioxus 0.7.10\\n' > target/tools/dioxus/bin/dx\n\t@chmod +x target/tools/dioxus/bin/dx\n\t@touch setup-ran\n")
             command = ["make", "--no-print-directory", "-s", "web-cli"]
             first = subprocess.run(command, cwd=root, text=True, capture_output=True)
             self.assertEqual(first.returncode, 0, first.stderr)
@@ -57,6 +57,11 @@ class WebDevTests(unittest.TestCase):
             repeated = subprocess.run(command, cwd=root, text=True, capture_output=True)
             self.assertEqual(repeated.returncode, 0, repeated.stderr)
             self.assertFalse(marker.exists())
+            executable.write_text("#!/bin/sh\necho dioxus 0.7.3\n")
+            stale = subprocess.run(command, cwd=root, text=True, capture_output=True)
+            self.assertEqual(stale.returncode, 0, stale.stderr)
+            self.assertTrue(marker.exists())
+            marker.unlink()
             custom = root / "custom-dx"
             executable.rename(custom)
             overridden = subprocess.run(command + [f"DIOXUS={custom}"], cwd=root, text=True, capture_output=True)

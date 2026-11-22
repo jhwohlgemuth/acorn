@@ -27,15 +27,25 @@ try {
         throw error;
     });
     for (const [tool, action, label] of [
-        ["Metadata", "Validate", "Filter diagnostics by severity"],
-        ["FAIR assessment", "Assess FAIR", "Filter FAIR findings by severity"],
+        ["Metadata", "Validate", "Show diagnostics by severity"],
+        ["FAIR assessment", "Assess FAIR", "Show FAIR findings by severity"],
     ]) {
         await page.locator('nav a[title="Review"]').click();
         await page.getByRole("group", { name: "Review type" }).getByRole("button", { name: tool, exact: true }).click();
         await page.getByRole("button", { name: "Use example", exact: true }).click();
         await page.getByRole("button", { name: action, exact: true }).click();
+        const settings = page.locator(".results .result-settings").first();
+        assert.equal(await settings.getAttribute("open"), null, `${tool}: Settings start collapsed`);
+        await settings.locator("summary").click();
         const filters = page.getByRole("group", { name: label });
         await filters.waitFor();
+        if (tool === "FAIR assessment") {
+            const positions = await filters.evaluate(node => ({
+                showTop: node.getBoundingClientRect().top,
+                searchBottom: node.parentElement.querySelector(".search-control").getBoundingClientRect().bottom,
+            }));
+            assert.ok(positions.showTop >= positions.searchBottom, "FAIR Show controls start below the search field");
+        }
         const all = filters.getByRole("button", { name: /^All/ });
         const selectedStyle = node => {
             const style = getComputedStyle(node);
@@ -59,30 +69,55 @@ try {
         const diagnostics = page.locator(".diagnostics .diagnostic");
         const initial = await diagnostics.count();
         assert.ok(initial > 1, `${tool}: expected multiple findings`);
+        const summary = page.locator(".results .result-summary").first();
+        const summaryBox = await summary.evaluate((element) => ({ gap: element.getBoundingClientRect().top - element.previousElementSibling.getBoundingClientRect().bottom, height: element.getBoundingClientRect().height }));
+        assert.ok(summaryBox.height > 0, `${tool}: result count reserves space before filtering`);
+        assert.equal(await summary.evaluate((element) => getComputedStyle(element).visibility), "hidden");
         assert.equal(await all.getAttribute("aria-pressed"), "true");
         const appearance = await all.evaluate(selectedStyle);
         assert.equal(appearance.border, "rgb(23, 109, 57)", `${tool}: selected toggle has a green border`);
-        assert.equal(appearance.shadow, "none");
-        assert.equal(appearance.transform, "matrix(1, 0, 0, 1, 2, 0)");
+        assert.match(appearance.shadow, /inset/);
+        assert.equal(appearance.transform, "matrix(1, 0, 0, 1, 2, 2)");
         const sort = page.getByRole("group", { name: "Sort diagnostics" }).getByRole("button", { name: "Severity", exact: true });
-        assert.deepEqual(await sort.evaluate(selectedStyle), appearance, `${tool}: Sort matches Filter when selected`);
+        await sort.click();
+        assert.equal(await sort.evaluate((button) => getComputedStyle(button).borderColor), await all.evaluate((button) => getComputedStyle(button).borderColor), `${tool}: selected Sort and Filter have the same border`);
+        assert.equal(await sort.evaluate((button) => getComputedStyle(button).borderWidth), "1px", `${tool}: selected Sort has a single border`);
+        assert.equal(await sort.evaluate((button) => getComputedStyle(button).outlineStyle), "none", `${tool}: selected Sort has no persistent outline`);
+        assert.match((await sort.evaluate(selectedStyle)).shadow, /inset/);
         const review = page.getByRole("group", { name: "Review type" }).getByRole("button", { pressed: true });
-        assert.deepEqual(await review.evaluate(selectedStyle), appearance, `${tool}: Review mode matches Filter when selected`);
+        assert.match((await review.evaluate(selectedStyle)).shadow, /inset/);
         const regex = page.getByRole("button", { name: "Regular expression" });
+        const caseSensitive = page.getByRole("button", { name: "Case sensitive" });
+        const inlinePosition = await caseSensitive.evaluate((button) => button.getBoundingClientRect().left);
+        const unselectedRegex = await regex.evaluate((button) => ({ color: getComputedStyle(button).color, weight: getComputedStyle(button).fontWeight }));
+        assert.equal(unselectedRegex.weight, "400");
+        assert.equal(await regex.locator(".search-mode-check").isVisible(), false);
         await regex.click();
-        assert.deepEqual(await regex.evaluate(selectedStyle), appearance, `${tool}: Search toggle matches Filter when selected`);
+        assert.equal(await regex.getAttribute("aria-pressed"), "true");
+        assert.equal(await regex.locator(".search-mode-check").isVisible(), true);
+        assert.equal(await regex.evaluate((button) => getComputedStyle(button).fontWeight), "700");
+        assert.notEqual(await regex.evaluate((button) => getComputedStyle(button).color), unselectedRegex.color);
+        assert.equal(await regex.evaluate((button) => getComputedStyle(button).boxShadow), "none");
+        assert.equal(await caseSensitive.evaluate((button) => button.getBoundingClientRect().left), inlinePosition, "Inline search controls stay in place when selected");
         await regex.click();
+        await caseSensitive.click();
+        assert.equal(await caseSensitive.evaluate((button) => getComputedStyle(button).fontWeight), "700");
+        assert.equal(await caseSensitive.locator(".search-mode-check").isVisible(), true);
+        await caseSensitive.click();
         await page.locator("#theme-toggle").click();
         const darkAppearance = await all.evaluate(selectedStyle);
         assert.equal(darkAppearance.border, "rgb(152, 195, 121)", `${tool}: dark theme keeps a green selected border`);
-        assert.deepEqual(await sort.evaluate(selectedStyle), darkAppearance);
-        assert.deepEqual(await review.evaluate(selectedStyle), darkAppearance);
-        assert.deepEqual(await page.locator("#theme-toggle").evaluate(selectedStyle), darkAppearance);
+        assert.equal(await sort.evaluate((button) => getComputedStyle(button).borderColor), darkAppearance.border);
         await page.locator("#theme-toggle").click();
         await all.click();
         assert.equal(await diagnostics.count(), 0, `${tool}: All hides findings`);
+        assert.equal(await summary.evaluate((element) => getComputedStyle(element).visibility), "visible");
+        const filteredSummaryBox = await summary.evaluate((element) => ({ gap: element.getBoundingClientRect().top - element.previousElementSibling.getBoundingClientRect().bottom, height: element.getBoundingClientRect().height }));
+        assert.equal(filteredSummaryBox.gap, summaryBox.gap, `${tool}: filtering keeps the gap below Settings`);
+        assert.equal(filteredSummaryBox.height, summaryBox.height, `${tool}: filtering keeps the count row height`);
         await all.click();
         assert.equal(await diagnostics.count(), initial, `${tool}: All restores findings`);
+        assert.equal(await summary.evaluate((element) => getComputedStyle(element).visibility), "hidden");
         await all.click();
         for (const button of (await filters.getByRole("button").all()).slice(1)) await button.click();
         assert.equal(await all.getAttribute("aria-pressed"), "true", `${tool}: reselecting every available severity restores All`);

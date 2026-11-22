@@ -8,6 +8,17 @@ use strum::EnumIter;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::{JsCast, JsValue};
 
+/// Largest serialized result, in bytes, the browser renders.
+pub const RESULT_LIMIT: usize = 262144;
+/// Outcome of one operation as it crosses the worker message boundary.
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Reply {
+    /// Operation result.
+    Ok(Value),
+    /// User-facing failure message.
+    Error(String),
+}
 /// Browser tool selection and presentation metadata, declared in navigation order.
 ///
 /// Serialized names equal [`Tool::slug`] so an operation can cross a worker message boundary.
@@ -41,6 +52,8 @@ pub enum Tool {
     #[serde(rename = "big-o")]
     BigO,
 }
+/// Byte budget that fails as soon as serialization exceeds it.
+struct Budget(usize);
 /// User-owned form state; no operation runs while editing.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -78,6 +91,18 @@ pub struct Request {
     pub local_identifier: String,
     /// Big-O symbol-growth assumptions as JSON.
     pub assumptions: String,
+}
+impl std::io::Write for Budget {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 = self
+            .0
+            .checked_sub(bytes.len())
+            .ok_or_else(|| std::io::Error::other("result exceeds limit"))?;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 impl Default for Request {
     fn default() -> Self {
@@ -127,9 +152,6 @@ impl Request {
             Ok(())
         }
     }
-}
-fn default_activity_metric() -> String {
-    "fkgl".into()
 }
 impl fmt::Display for Tool {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -215,6 +237,18 @@ impl Tool {
         }
     }
 }
+/// Decode a serialized [`Reply`] into the result shown by the workspace.
+pub fn decode(reply: &str) -> Result<Value, String> {
+    serde_json::from_str::<Reply>(reply)
+        .map_err(|_| "The operation returned an unreadable result.".to_owned())
+        .and_then(|reply| match reply {
+            | Reply::Ok(value) => Ok(value),
+            | Reply::Error(message) => Err(message),
+        })
+}
+fn default_activity_metric() -> String {
+    "fkgl".into()
+}
 /// Load a substantive, illustrative request for a browser tool.
 pub fn example_request(tool: Tool) -> Request {
     let (input, after) = match tool {
@@ -233,17 +267,17 @@ pub fn example_request(tool: Tool) -> Request {
         ..Request::default()
     }
 }
-#[cfg(target_arch = "wasm32")]
-fn skipped_categories(skip: &[String]) -> Vec<CheckCategory> {
-    skip.iter()
-        .filter_map(|item| match item.as_str() {
-            | "schema" => Some(CheckCategory::Schema),
-            | "prose" => Some(CheckCategory::Prose),
-            | "fair" => Some(CheckCategory::Fair),
-            | "readability" => Some(CheckCategory::Readability),
-            | _ => None,
-        })
-        .collect()
+/// Whether the compact JSON form of `value` fits in `limit` bytes, without allocating it.
+pub fn fits(value: &Value, limit: usize) -> bool {
+    serde_json::to_writer(Budget(limit), value).is_ok()
+}
+/// Run one serialized `(Tool, Request)` message and serialize its [`Reply`].
+pub fn handle(message: &str) -> String {
+    let reply = match serde_json::from_str::<(Tool, Request)>(message) {
+        | Ok((tool, request)) => run(tool, &request).map_or_else(Reply::Error, Reply::Ok),
+        | Err(_) => Reply::Error("The operation request was malformed.".into()),
+    };
+    serde_json::to_string(&reply).unwrap_or_default()
 }
 /// Execute against the same portable bindings exported for WebMCP.
 #[cfg(target_arch = "wasm32")]
@@ -318,12 +352,14 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
                         .skip
                         .iter()
                         .filter(|item| match tool {
-                            | Tool::Activity | Tool::Standard => matches!(item.as_str(), "schema" | "prose" | "fair" | "readability"),
+                            | Tool::Activity | Tool::Standard => CheckCategory::is_supported_skip_name(item),
                             | Tool::Fair => matches!(item.as_str(), "findable" | "accessible" | "interoperable" | "reusable"),
                             | _ => false,
                         })
                         .collect::<Vec<_>>();
-                    v["skippedChecks"] = serde_json::json!(skipped);
+                    if let Some(object) = v.as_object_mut() {
+                        object.insert("skippedChecks".into(), serde_json::json!(skipped));
+                    }
                 }
                 if fits(&v, RESULT_LIMIT) {
                     Ok(v)
@@ -333,105 +369,30 @@ pub fn run(tool: Tool, request: &Request) -> Result<Value, String> {
             })
     })
 }
-/// Largest serialized result, in bytes, the browser renders.
-pub const RESULT_LIMIT: usize = 262144;
-/// Byte budget that fails as soon as serialization exceeds it.
-struct Budget(usize);
-impl std::io::Write for Budget {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0 = self
-            .0
-            .checked_sub(bytes.len())
-            .ok_or_else(|| std::io::Error::other("result exceeds limit"))?;
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-/// Whether the compact JSON form of `value` fits in `limit` bytes, without allocating it.
-pub fn fits(value: &Value, limit: usize) -> bool {
-    serde_json::to_writer(Budget(limit), value).is_ok()
-}
-/// Outcome of one operation as it crosses the worker message boundary.
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Reply {
-    /// Operation result.
-    Ok(Value),
-    /// User-facing failure message.
-    Error(String),
-}
-/// Run one serialized `(Tool, Request)` message and serialize its [`Reply`].
-pub fn handle(message: &str) -> String {
-    let reply = match serde_json::from_str::<(Tool, Request)>(message) {
-        | Ok((tool, request)) => run(tool, &request).map_or_else(Reply::Error, Reply::Ok),
-        | Err(_) => Reply::Error("The operation request was malformed.".into()),
-    };
-    serde_json::to_string(&reply).unwrap_or_default()
-}
-/// Decode a serialized [`Reply`] into the result shown by the workspace.
-pub fn decode(reply: &str) -> Result<Value, String> {
-    serde_json::from_str::<Reply>(reply)
-        .map_err(|_| "The operation returned an unreadable result.".to_owned())
-        .and_then(|reply| match reply {
-            | Reply::Ok(value) => Ok(value),
-            | Reply::Error(message) => Err(message),
-        })
-}
-/// Worker entry point over the same validation, dispatch and display limits as [`run`].
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen::prelude::wasm_bindgen(js_name = runOperation)]
-pub fn run_operation(message: &str) -> String {
-    handle(message)
-}
 /// Native builds test presentation contracts; computation runs in the browser.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(_tool: Tool, _request: &Request) -> Result<Value, String> {
     Err("Open ACORN Research Intelligence to run this operation.".into())
 }
 
+/// Worker entry point over the same validation, dispatch and display limits as [`run`].
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen(js_name = runOperation)]
+pub fn run_operation(message: &str) -> String {
+    handle(message)
+}
+#[cfg(target_arch = "wasm32")]
+fn skipped_categories(skip: &[String]) -> Vec<CheckCategory> {
+    skip.iter()
+        .filter(CheckCategory::is_supported_skip_name)
+        .map(CheckCategory::from)
+        .collect()
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use strum::IntoEnumIterator;
 
-    #[test]
-    fn test_all_routes_unique() {
-        let mut routes = Tool::iter().map(Tool::slug).collect::<Vec<_>>();
-        routes.sort();
-        routes.dedup();
-        assert_eq!(routes.len(), 9);
-    }
-    #[test]
-    fn test_operation_messages_round_trip_with_route_names() {
-        for tool in Tool::iter() {
-            assert_eq!(serde_json::to_value(tool).unwrap(), tool.slug());
-            let request = example_request(tool);
-            let message = serde_json::to_string(&(tool, &request)).unwrap();
-            assert_eq!(serde_json::from_str::<(Tool, Request)>(&message).unwrap(), (tool, request));
-        }
-    }
-    #[test]
-    fn test_worker_replies_round_trip_results_and_failures() {
-        assert_eq!(decode(&handle("not json")), Err("The operation request was malformed.".into()));
-        let message = serde_json::to_string(&(Tool::Discover, example_request(Tool::Discover))).unwrap();
-        assert_eq!(decode(&handle(&message)), run(Tool::Discover, &example_request(Tool::Discover)));
-        let ok = serde_json::to_string(&Reply::Ok(serde_json::json!({"count": 1}))).unwrap();
-        assert_eq!(decode(&ok), Ok(serde_json::json!({"count": 1})));
-        assert!(decode("{}").is_err());
-    }
-    #[test]
-    fn test_result_budget_matches_compact_json_length() {
-        let value = serde_json::json!({"text": "a".repeat(100)});
-        let length = value.to_string().len();
-        assert!(fits(&value, length));
-        assert!(!fits(&value, length - 1));
-    }
-    #[test]
-    fn test_empty_input_is_rejected() {
-        assert!(Request::default().validate(Tool::Activity).is_err());
-    }
     #[test]
     fn test_activity_readability_threshold_requires_finite_number_when_enabled() {
         let request = Request {
@@ -448,6 +409,17 @@ mod tests {
             .validate(tool)
             .is_ok());
         }
+    }
+    #[test]
+    fn test_all_routes_unique() {
+        let mut routes = Tool::iter().map(Tool::slug).collect::<Vec<_>>();
+        routes.sort();
+        routes.dedup();
+        assert_eq!(routes.len(), 9);
+    }
+    #[test]
+    fn test_empty_input_is_rejected() {
+        assert!(Request::default().validate(Tool::Activity).is_err());
     }
     #[test]
     fn test_exact_boundary_is_accepted() {
@@ -491,6 +463,22 @@ mod tests {
         assert!(request.validate(Tool::Diff).is_err());
     }
     #[test]
+    fn test_operation_messages_round_trip_with_route_names() {
+        for tool in Tool::iter() {
+            assert_eq!(serde_json::to_value(tool).unwrap(), tool.slug());
+            let request = example_request(tool);
+            let message = serde_json::to_string(&(tool, &request)).unwrap();
+            assert_eq!(serde_json::from_str::<(Tool, Request)>(&message).unwrap(), (tool, request));
+        }
+    }
+    #[test]
+    fn test_result_budget_matches_compact_json_length() {
+        let value = serde_json::json!({"text": "a".repeat(100)});
+        let length = value.to_string().len();
+        assert!(fits(&value, length));
+        assert!(!fits(&value, length - 1));
+    }
+    #[test]
     fn test_unified_diff_accepts_blank_inputs_within_both_byte_limits() {
         for input in ["", " \n\t"] {
             let request = Request {
@@ -514,12 +502,65 @@ mod tests {
         .is_err());
         assert!(Request::default().validate(Tool::Diff).is_ok());
     }
+    #[test]
+    fn test_worker_replies_round_trip_results_and_failures() {
+        assert_eq!(decode(&handle("not json")), Err("The operation request was malformed.".into()));
+        let message = serde_json::to_string(&(Tool::Discover, example_request(Tool::Discover))).unwrap();
+        assert_eq!(decode(&handle(&message)), run(Tool::Discover, &example_request(Tool::Discover)));
+        let ok = serde_json::to_string(&Reply::Ok(serde_json::json!({"count": 1}))).unwrap();
+        assert_eq!(decode(&ok), Ok(serde_json::json!({"count": 1})));
+        assert!(decode("{}").is_err());
+    }
 }
 #[cfg(all(test, target_arch = "wasm32"))]
 mod wasm_tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[wasm_bindgen_test]
+    fn test_activity_readability_runs_and_can_be_skipped() {
+        let request = Request {
+            input: include_str!("../assets/examples/publications.json").into(),
+            ..Request::default()
+        };
+        let checked = run(Tool::Activity, &request).expect("RAD validation");
+        assert!(checked["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|issue| issue["category"] == "readability"));
+        let custom = Request {
+            activity_metric: "fres".into(),
+            activity_max: "70".into(),
+            ..request.clone()
+        };
+        let customized = run(Tool::Activity, &custom).expect("custom readability");
+        assert!(customized["diagnostics"].as_array().unwrap().iter().any(|issue| {
+            issue["category"] == "readability"
+                && issue["message"]
+                    .as_str()
+                    .is_some_and(|message| message.starts_with("FRES = ") && message.ends_with("/70"))
+        }));
+        let metadata = run(Tool::Standard, &custom).expect("Metadata RAD options");
+        assert!(metadata["diagnostics"].as_array().unwrap().iter().any(|issue| {
+            issue["category"] == "readability"
+                && issue["message"]
+                    .as_str()
+                    .is_some_and(|message| message.starts_with("FRES = ") && message.ends_with("/70"))
+        }));
+        let skipped = Request {
+            skip: vec!["readability".into()],
+            ..request
+        };
+        for tool in [Tool::Activity, Tool::Standard] {
+            let result = run(tool, &skipped).expect("readability skipped");
+            assert!(result["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|issue| issue["category"] != "readability"));
+        }
+    }
     #[wasm_bindgen_test]
     fn test_bundled_research_activity_examples_validate() {
         for (name, content) in [
@@ -591,50 +632,6 @@ mod wasm_tests {
             .collect::<alloc::collections::BTreeSet<_>>();
         assert_eq!(unique.len(), identifiers.len(), "aliases should deduplicate");
         assert_eq!(result["truncated"], false);
-    }
-    #[wasm_bindgen_test]
-    fn test_activity_readability_runs_and_can_be_skipped() {
-        let request = Request {
-            input: include_str!("../assets/examples/publications.json").into(),
-            ..Request::default()
-        };
-        let checked = run(Tool::Activity, &request).expect("RAD validation");
-        assert!(checked["diagnostics"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|issue| issue["category"] == "readability"));
-        let custom = Request {
-            activity_metric: "fres".into(),
-            activity_max: "70".into(),
-            ..request.clone()
-        };
-        let customized = run(Tool::Activity, &custom).expect("custom readability");
-        assert!(customized["diagnostics"].as_array().unwrap().iter().any(|issue| {
-            issue["category"] == "readability"
-                && issue["message"]
-                    .as_str()
-                    .is_some_and(|message| message.starts_with("FRES = ") && message.ends_with("/70"))
-        }));
-        let metadata = run(Tool::Standard, &custom).expect("Metadata RAD options");
-        assert!(metadata["diagnostics"].as_array().unwrap().iter().any(|issue| {
-            issue["category"] == "readability"
-                && issue["message"]
-                    .as_str()
-                    .is_some_and(|message| message.starts_with("FRES = ") && message.ends_with("/70"))
-        }));
-        let skipped = Request {
-            skip: vec!["readability".into()],
-            ..request
-        };
-        for tool in [Tool::Activity, Tool::Standard] {
-            let result = run(tool, &skipped).expect("readability skipped");
-            assert!(result["diagnostics"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .all(|issue| issue["category"] != "readability"));
-        }
     }
     #[wasm_bindgen_test]
     fn test_invalid_activity_retains_diagnostics() {

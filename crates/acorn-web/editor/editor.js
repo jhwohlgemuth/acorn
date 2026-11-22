@@ -115,6 +115,7 @@ function installEditors() {
         let accessibleLabel = input.getAttribute("aria-label") || "Code";
         let mode = languageName(host.dataset.language, input.value);
         let external = false;
+        let editVersion = 0;
         const extensions = [
             EditorState.readOnly.of(input.readOnly), EditorView.editable.of(!input.readOnly),
             lineNumbers(), foldGutter(), history(), drawSelection(), diagnosticMarks, diagnosticHover, bracketMatching(), indentOnInput(),
@@ -130,8 +131,14 @@ function installEditors() {
                     editor.issueIndex = -1;
                     updateIssueControls(host, editor);
                 }
-                input.value = update.state.doc.toString();
-                queueMicrotask(() => input.dispatchEvent(new Event("input", { bubbles: true })));
+                const text = update.state.doc.toString();
+                const version = ++editVersion;
+                input.value = text;
+                queueMicrotask(() => {
+                    if (version !== editVersion || !host.isConnected) return;
+                    input.value = text;
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                });
             }),
         ];
         const state = (text) => EditorState.create({ doc: text, extensions: [extensions, language.of(languages[mode] || [])] });
@@ -289,7 +296,6 @@ function installEditors() {
             const active = host.classList.toggle("is-fullscreen");
             document.body.classList.toggle("editor-fullscreen-open", active);
             const button = host.querySelector(".editor-fullscreen-toggle");
-            button?.setAttribute("aria-pressed", String(active));
             button?.setAttribute("title", active ? "Exit full screen (Esc)" : "Full screen (Esc to exit)");
             view.requestMeasure();
             view.focus();

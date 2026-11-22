@@ -645,6 +645,10 @@ impl CheckCategory {
     pub fn failure_checks(self, diagnostic: impl ToString, uri: Option<String>) -> CheckBatch {
         CheckBatch::single(check_err!(self, context: diagnostic.to_string()).with_uri(uri))
     }
+    /// Return whether a category name is supported as a validation skip option.
+    pub fn is_supported_skip_name<T: AsRef<str> + ?Sized>(value: &T) -> bool {
+        matches!(value.as_ref(), "fair" | "prose" | "readability" | "schema")
+    }
     /// Returns `true` if this category appears in the given list of category items
     pub fn is_in(&self, items: &[String]) -> bool {
         items.iter().any(|value| Self::from(value.as_str()) == *self)

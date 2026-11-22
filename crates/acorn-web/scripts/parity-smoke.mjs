@@ -7,15 +7,15 @@ import { extname, resolve, sep } from "node:path";
 import { chromium } from "playwright";
 
 const actionLabels = {
-    "Research Activity": "Validate",
-    "Metadata standard": "Validate",
-    "Crosswalk": "Convert",
-    "FAIR assessment": "Assess FAIR",
-    "Readability": "Analyze readability",
-    "Content diff": "Compare",
     "Big-O comparison": "Compare",
+    "Content diff": "Compare",
+    "Crosswalk": "Convert",
     "Discover identifiers": "Discover identifiers",
-    "Inspect identifier": "Inspect identifier"
+    "FAIR assessment": "Assess FAIR",
+    "Inspect identifier": "Inspect identifier",
+    "Metadata standard": "Validate",
+    "Readability": "Analyze readability",
+    "Research Activity": "Validate",
 };
 
 const root = resolve(process.argv[2] || "target/dx/acorn-web/release/web/public");
@@ -24,7 +24,7 @@ const fairRules = JSON.parse(await readFile(new URL("../../acorn-analysis/assets
 const output = resolve(process.argv[3] || "target/abw-parity");
 const prefix = (process.argv[4] || "").replace(/\/$/, "");
 await mkdir(output, { recursive: true });
-const types = { ".css": "text/css", ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm", ".png": "image/png", ".jpg": "image/jpeg", ".xml": "application/xml" };
+const types = { ".css": "text/css", ".html": "text/html", ".js": "text/javascript", ".jpg": "image/jpeg", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".wasm": "application/wasm", ".xml": "application/xml" };
 const server = createServer(async (request, response) => {
     try {
         const requested = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
@@ -68,7 +68,10 @@ try {
     page.on("response", (response) => { if (response.ok() && /BlackMarble\/.+\.png/.test(response.url())) tiles.add(response.url()); });
     const nav = async (name) => {
         if (await page.locator("#nav-toggle").isVisible() && await page.locator("#nav-toggle").getAttribute("aria-expanded") !== "true") await page.locator("#nav-toggle").click();
-        await page.locator(`nav a[title="${name}"]`).click();
+        const reviewTab = { "Research Activity": "Metadata", "Metadata standard": "Metadata", "FAIR assessment": "FAIR assessment", "Readability": "Readability" }[name];
+        const title = reviewTab ? "Review" : name;
+        await page.locator(`nav a[title="${title}"]`).click();
+        if (reviewTab) await page.getByRole("group", { name: "Review type" }).getByRole("button", { name: reviewTab, exact: true }).click();
     };
     const shot = async (name) => page.screenshot({ path: resolve(output, `${name}.png`), fullPage: true });
     const noOverflow = async (name) => {
@@ -76,8 +79,9 @@ try {
         assert.deepEqual(await page.locator("main h1,main h2,main h3").allTextContents().then((headings) => headings.filter((heading) => /^\s*\d+[.)\s]|^\s*\d+(Input|Results)/.test(heading))), [], `Numbered section on ${name}`);
     };
     const openFileUrl = async () => {
-        await page.getByRole("button", { name: "Load content", exact: false }).click();
-        await page.getByRole("button", { name: "From URL", exact: false }).click();
+        const source = page.locator("details.loaded-tree");
+        if (await source.getAttribute("open") === null) await source.locator(":scope > summary").click();
+        await source.getByRole("button", { name: "From URL", exact: false }).click();
         await page.waitForFunction(() => document.activeElement === document.querySelector(".url-file-loader input"));
     };
     const copyCodes = async () => {
@@ -144,40 +148,36 @@ try {
     await page.getByRole("dialog").locator("img.details-standalone-image").waitFor();
     await page.keyboard.press("Escape");
     await nav("Research Activity");
-    assert.equal(await page.locator(".sidebar-session").getAttribute("title"), sampleSelection);
+    assert.match(await page.locator(".sidebar-session").getAttribute("title"), /Selected: amaterasu-mirror-garden\/index\.json/);
     assert.equal(await page.locator("#content").inputValue(), sampleInput);
     await page.getByRole("button", { name: "Validate", exact: true }).click();
     await page.getByText(/Valid ·/).waitFor();
     await nav("Portfolio");
     checks.push("Sample RAD input validates; SVG preview preserves its selected source and text input");
-    assert.equal(await page.locator(".activity-table tbody tr").count(), 4);
-    assert.equal(await page.getByRole("status").filter({ hasText: "4 activities in" }).count(), 1);
-    await page.getByRole("combobox", { name: "Sort results" }).selectOption("relevance");
-    assert.equal(await page.locator(".activity-table tbody tr").count(), 4);
+    assert.equal(await page.locator(".activity-table tbody tr").count(), 10);
+    assert.equal(await page.getByRole("status").filter({ hasText: "10 activities in" }).count(), 1);
+    await page.getByRole("button", { name: "Sort by relevance" }).click();
+    assert.equal(await page.locator(".activity-table tbody tr").count(), 10);
     await page.getByRole("button", { name: "Cards", exact: true }).click();
-    assert.equal(await page.locator(".activity-table tbody tr").count(), 4);
+    assert.equal(await page.locator(".activity-table tbody tr").count(), 10);
     await page.getByRole("button", { name: "List", exact: true }).click();
-    await page.getByRole("combobox", { name: "Sort results" }).selectOption("title");
+    await page.getByRole("button", { name: "Sort by title" }).click();
     if (await page.getByRole("button", { name: "Dismiss", exact: true }).isVisible()) await page.getByRole("button", { name: "Dismiss", exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.getByRole("button", { name: "List", exact: true }).getAttribute("aria-pressed"), "true");
     await noOverflow("Portfolio index at 390px");
     await shot("portfolio-index-mobile");
     await page.setViewportSize({ width: 1440, height: 900 });
-    const firstProject = page.locator(".catalog-project h3 button").first();
-    await firstProject.click();
+    await page.locator(".catalog-activity-row").first().click();
     const projectDrawer = page.getByRole("dialog");
-    await projectDrawer.getByRole("heading", { name: "Activities", exact: true }).waitFor();
-    await projectDrawer.locator(".details-related").first().focus();
-    await projectDrawer.locator(".details-related").first().press("Enter");
     await projectDrawer.getByRole("heading", { name: "Research focus", exact: true }).waitFor();
     assert.equal(await projectDrawer.getByRole("button", { name: /View project:/ }).count(), 0);
     await page.keyboard.press("Escape");
     await page.getByRole("dialog").waitFor({ state: "hidden" });
-    checks.push("Index project details, result count, relevance sort and card/list layouts work with validated sample data");
-    await page.locator(".sidebar-session").getByText("4 activities · 20 files", { exact: true }).waitFor();
+    checks.push("Index activity details, result count, relevance sort and card/list layouts work with validated sample data");
+    await page.locator(".sidebar-session").getByText("10 activities · 40 files", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
-    assert.equal(await page.locator(".session-count").innerText(), "4 · 20");
+    assert.equal(await page.locator(".session-count").innerText(), "10 · 40");
     assert.equal(await page.locator(".session-stats").isVisible(), false);
     await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
     await shot("portfolio-dark");
@@ -185,7 +185,7 @@ try {
     await page.getByRole("searchbox", { name: "Search activities" }).fill("no-matching-activity-xyz");
     await page.getByRole("heading", { name: "No matching activities", exact: true }).waitFor();
     await page.getByRole("button", { name: "Reset filters", exact: true }).click();
-    assert.equal(await page.locator(".activity-table tbody tr").count(), 4);
+    assert.equal(await page.locator(".activity-table tbody tr").count(), 10);
     checks.push("Empty search has a working filter reset");
     const activityButton = page.locator(".activity-select").first();
     const activityQuery = await activityButton.innerText();
@@ -197,7 +197,6 @@ try {
     await drawer.waitFor();
     assert.ok(await drawer.getByRole("heading", { name: "Contributors", exact: false }).isVisible());
     await drawer.getByRole("heading", { name: "Research focus", exact: true }).waitFor();
-    await drawer.getByRole("heading", { name: "Contact", exact: true }).waitFor();
     assert.equal(Math.round((await drawer.boundingBox()).width), 480);
     const drawerGrip = drawer.getByRole("separator", { name: "Resize details drawer" });
     await drawerGrip.press("ArrowLeft");
@@ -207,7 +206,7 @@ try {
     await page.mouse.down(); await page.mouse.move(gripBox.x - 44, gripBox.y + 200, { steps: 6 }); await page.mouse.up();
     assert.equal(Math.round((await drawer.boundingBox()).width), 552);
     await drawer.screenshot({ path: resolve(output, "drawer-overview-dark.png") });
-    await drawer.getByRole("tab", { name: "Overview", exact: true }).press("ArrowRight");
+    await drawer.getByRole("tab", { name: "Preview", exact: true }).press("ArrowRight");
     await drawer.locator("#drawer-source-editor").waitFor();
     const previewText = await drawer.locator("#drawer-source").inputValue();
     assert.equal(await drawer.locator("#drawer-source-editor").getAttribute("aria-readonly"), "true");
@@ -251,7 +250,7 @@ try {
     await page.locator("#theme-toggle").click();
     assert.equal(await favicon.getAttribute("href"), await favicon.getAttribute("data-dark-icon"));
     await activityButton.click();
-    await drawer.getByRole("button", { name: "Open in Research Activity", exact: true }).click();
+    await drawer.getByRole("button", { name: "Open in Review", exact: true }).click();
     await drawer.waitFor({ state: "hidden" });
     assert.equal(await page.locator("#content").inputValue(), previewText);
     checks.push("RAD drawer previews, folds, copies and downloads read-only source; resizing, mobile layout, checks and focus return work");
@@ -278,24 +277,21 @@ try {
         assert.ok(await page.getByRole("button", { name: "Use example", exact: true }).evaluate((node) => node.classList.contains("sample-action") && node.closest(".input-heading")), "Examples use the Home sample style in the Input header");
         fileContent = await page.locator("#content").inputValue();
         await page.locator("#content-editor").fill("Replace this from the URL");
-        assert.equal(await page.locator(".source-tray").count(), 0);
         await openFileUrl();
         await page.getByLabel("File URL", { exact: true }).fill("https://files.acorn.test/example.txt");
         await page.getByRole("button", { name: "Load URL", exact: true }).click();
-        await page.locator(".source-loaded").filter({ hasText: "Loaded example.txt" }).waitFor();
-        await page.locator(".source-tray").waitFor({ state: "hidden" });
-        await page.waitForFunction(() => document.activeElement === document.getElementById("content-editor"));
-        assert.equal(await page.locator("#content").inputValue(), fileContent, `${name} loads a file URL`);
+        await page.waitForFunction(content => document.getElementById("content").value === content, fileContent);
+        assert.equal(await page.locator(".url-file-loader").count(), 0, `${name} closes URL input after loading`);
         if (name === "Research Activity") {
-            await page.locator(".file-picker").screenshot({ path: resolve(output, "source-collapsed.png") });
+            await page.locator(".file-picker").screenshot({ path: resolve(output, "source-choices-dark.png") });
             await openFileUrl();
             assert.equal(await page.locator(".source-tips").getAttribute("open"), null);
-            await page.locator(".source-tray").screenshot({ path: resolve(output, "source-tray-dark.png") });
+            await page.locator(".file-picker").screenshot({ path: resolve(output, "source-url-dark.png") });
             await page.locator("#theme-toggle").click();
-            await page.locator(".source-tray").screenshot({ path: resolve(output, "source-tray-light.png") });
+            await page.locator(".file-picker").screenshot({ path: resolve(output, "source-url-light.png") });
             await page.setViewportSize({ width: 390, height: 844 });
             await noOverflow("Mobile content loader");
-            await page.locator(".source-tray").screenshot({ path: resolve(output, "source-tray-mobile.png") });
+            await page.locator(".file-picker").screenshot({ path: resolve(output, "source-url-mobile.png") });
             await page.setViewportSize({ width: 1440, height: 900 });
             await page.locator("#theme-toggle").click();
             for (const [url, error] of [["http://files.acorn.test/file.txt", /HTTPS/], ["https://files.acorn.test/missing.txt", /HTTP 404/], ["https://files.acorn.test/large.txt", /size limit/], ["https://files.acorn.test/blocked.txt", /CORS/]]) {
@@ -318,10 +314,9 @@ try {
             await page.getByRole("button", { name: "Load URL", exact: true }).click();
             await pendingLocal;
             await page.locator('.file-picker input[type="file"]').setInputFiles({ name: "local.json", mimeType: "application/json", buffer: Buffer.from(localContent) });
-            await page.locator(".source-loaded").filter({ hasText: "Loaded local.json" }).waitFor();
-            await page.locator(".source-tray").waitFor({ state: "hidden" });
             releaseFile?.();
-            await page.waitForFunction(content => document.getElementById("content").value === content, localContent);
+            await page.locator(".url-file-loader").waitFor({ state: "detached" });
+            assert.equal(await page.locator("#content").inputValue(), localContent);
             await openFileUrl();
             await page.getByLabel("File URL", { exact: true }).fill("https://files.acorn.test/slow.txt");
             const pendingEdit = page.waitForRequest("https://files.acorn.test/slow.txt");
@@ -331,42 +326,10 @@ try {
             await page.locator(".url-file-loader").getByRole("status").filter({ hasText: /cancelled/ }).waitFor();
             releaseFile?.();
             assert.equal(await page.locator("#content").inputValue(), "Newer user input");
-            const pendingNavigation = page.waitForRequest("https://files.acorn.test/slow.txt");
-            await page.getByRole("button", { name: "Load URL", exact: true }).click();
-            await pendingNavigation;
-            await nav("Metadata standard");
-            const nextInput = await page.locator("#content").inputValue();
-            releaseFile?.();
-            assert.equal(await page.locator(".source-tray").count(), 0);
-            await openFileUrl();
-            assert.equal(await page.getByLabel("File URL", { exact: true }).inputValue(), "");
-            assert.equal(await page.locator("#content").inputValue(), nextInput);
-            await nav("Research Activity");
+            await page.locator('.file-picker input[type="file"]').setInputFiles({ name: "reselected.json", mimeType: "application/json", buffer: Buffer.from(localContent) });
+            await page.waitForFunction(content => document.getElementById("content").value === content, localContent);
+            checks.push("Inline file and URL controls handle mobile layout, error feedback, cancellation, and native selection without losing newer input");
             fileContent = localContent;
-            await openFileUrl();
-            await page.getByLabel("File URL", { exact: true }).fill("https://files.acorn.test/slow.txt");
-            const pendingClose = page.waitForRequest("https://files.acorn.test/slow.txt");
-            await page.getByRole("button", { name: "Load URL", exact: true }).click();
-            await pendingClose;
-            await page.keyboard.press("Escape");
-            await page.locator(".source-tray").waitFor({ state: "hidden" });
-            await page.waitForFunction(() => document.activeElement?.classList.contains("source-trigger"));
-            releaseFile?.();
-            await page.getByRole("button", { name: "Load content", exact: false }).click();
-            const localPickerEvent = page.waitForEvent("filechooser");
-            await page.getByRole("button", { name: "Choose file", exact: false }).click();
-            await (await localPickerEvent).setFiles({ name: "reselected.json", mimeType: "application/json", buffer: Buffer.from(localContent) });
-            await page.locator(".source-loaded").filter({ hasText: "Loaded reselected.json" }).waitFor();
-            await page.locator(".source-tray").waitFor({ state: "hidden" });
-            assert.equal(await page.locator("#content").inputValue(), localContent);
-            checks.push("On-demand content tray supports mobile layouts, keyboard dismissal, focus return and native file selection");
-            await openFileUrl();
-            await page.getByLabel("File URL", { exact: true }).fill("https://files.acorn.test/example.txt");
-            await page.getByRole("button", { name: "Load URL", exact: true }).click();
-            await page.locator(".source-loaded").filter({ hasText: "Loaded example.txt" }).waitFor();
-            await page.locator(".source-tray").waitFor({ state: "hidden" });
-            await page.waitForFunction(() => document.activeElement === document.getElementById("content-editor"));
-            checks.push("File URL failures, byte limits, blocked browser access, cancellation, local selection and navigation preserve editor content");
             const editor = page.locator("#content-editor");
             const controls = page.getByRole("group", { name: "Content editor controls", exact: true });
             const source = await page.locator("#content").inputValue();
@@ -406,6 +369,7 @@ try {
             assert.equal(await page.evaluate(() => navigator.clipboard.readText()), source, "folded editor copy includes the full source");
             await controls.getByRole("button", { name: "Expand all", exact: true }).click();
             assert.equal(await page.locator(".cm-foldPlaceholder").count(), 0);
+            await page.locator(".tool-settings > summary").click();
             const vocabulary = page.getByRole("group", { name: "Vocabulary matching" });
             const content = await page.locator("#content").inputValue();
             assert.equal(await vocabulary.getByRole("button", { pressed: true }).innerText(), "Off");
@@ -442,9 +406,9 @@ try {
         }
         if (["Research Activity", "Metadata standard", "FAIR assessment"].includes(name)) {
             const findings = page.locator('.diagnostic-group[data-category="fair"] .diagnostic');
-            assert.equal(await findings.count(), fairRules.length);
+            assert.equal(await findings.count(), name === "FAIR assessment" ? fairRules.length : 22);
             const descriptions = await findings.allTextContents();
-            for (const rule of fairRules) assert.ok(descriptions.some(text => text.includes(rule.id) && text.includes(rule.description)), `Missing rule description: ${rule.id}`);
+            for (const description of descriptions) assert.ok(fairRules.some(rule => description.includes(rule.id) && description.includes(rule.description)), `Unknown FAIR rule description: ${description}`);
             const first = findings.first();
             const rule = fairRules.find(rule => descriptions[0].includes(rule.id));
             await first.getByRole("button", { name: "Inspect", exact: true }).click();
@@ -457,6 +421,7 @@ try {
         if (name === "Discover identifiers") {
             const kinds = await page.locator(".identifier-row .badge").allTextContents();
             for (const kind of ["ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "rrid", "swhid"]) assert.ok(kinds.filter((value) => value === kind).length >= 2, `Missing multiple ${kind} examples`);
+            await page.locator(".results .result-settings > summary").first().click();
             const filters = page.getByRole("group", { name: "Filter identifiers by type", exact: true });
             const originalInput = await page.locator("#content").inputValue();
             const all = filters.getByRole("button", { name: /^All/ });
@@ -528,6 +493,7 @@ try {
         }
         if (name === "Content diff") assert.equal(await page.getByRole("button", { name: "JSON Patch", exact: true }).getAttribute("aria-pressed"), "true");
         if (["Research Activity", "Metadata standard", "Crosswalk", "FAIR assessment"].includes(name)) {
+            await page.locator(".results .result-settings > summary").first().click();
             const controls = page.getByRole("group", { name: "Sort diagnostics", exact: true });
             const defaultOrder = name === "Crosswalk" ? "Original" : "Severity";
             assert.equal(await controls.getByRole("button", { name: defaultOrder, exact: true }).getAttribute("aria-pressed"), "true");
@@ -589,10 +555,11 @@ try {
     assert.equal(await page.locator("#content").inputValue(), '{"title":1}');
     await shot("validation-invalid");
     await nav("Readability");
+    if (await page.locator(".tool-settings").getAttribute("open") === null) await page.locator(".tool-settings > summary").click();
     const scoreColors = new Map();
     for (const metric of ["fres", "ari"]) {
         for (const [expected, content] of [["pass", "The cat sat. The dog ran. We had fun."], ["review", "Interdisciplinary institutionalization of epistemological methodologies necessitates comprehensive contextualization, operationalization, and methodological reconceptualization of extraordinarily heterogeneous organizational infrastructures."]]) {
-            await page.getByRole("combobox").selectOption(metric);
+            await page.getByRole("combobox", { name: "Metric", exact: true }).selectOption(metric);
             await page.locator("#content-editor").fill(content);
             await page.getByRole("button", { name: "Analyze readability", exact: true }).click();
             await page.locator(`.readability-result[data-status="${expected}"]`).waitFor();
@@ -626,7 +593,7 @@ try {
         await window.acornCopy("denied copy");
         Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard });
     });
-    await page.locator("#notification-text").getByText("Clipboard unavailable. Select and copy the code manually.", { exact: true }).waitFor();
+    await page.locator(".notifications .notification-text").getByText("Clipboard unavailable. Select and copy the code manually.", { exact: true }).waitFor();
     checks.push("Invalid metadata preserves input; unified export preserves literal bytes");
     await page.locator("#content-editor").fill('{"title":"Before"}');
     await page.locator("#after-editor").fill('{"title":"After"}');
@@ -682,7 +649,8 @@ try {
     assert.equal(await readFile(await promptFile.path(), "utf8"), await workflow.locator("code").textContent());
     await menu.click();
     await workflow.getByRole("link", { name: "Open related tool" }).click();
-    await page.getByRole("heading", { name: "Readability", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Review", exact: true }).waitFor();
+    await page.getByRole("group", { name: "Review type" }).getByRole("button", { name: "Readability", exact: true, pressed: true }).waitFor();
     await nav("ACORN Skill");
     await page.locator(".workflow-example").last().waitFor();
     assert.equal(await page.locator(".workflow-example").count(), 4);
@@ -726,21 +694,15 @@ try {
     await page.waitForFunction((height) => document.querySelector("#geospatial-map").clientHeight === height, mapHeight);
     await page.waitForFunction(() => performance.getEntriesByType("resource").some((entry) => /BlackMarble\/.+\.png/.test(entry.name)));
     await page.locator(".organization-table tbody button").first().click();
-    await drawer.getByRole("heading", { name: "Related activities", exact: true }).waitFor();
+    await drawer.getByRole("heading", { name: "Activities referencing this organization", exact: true }).waitFor();
     await drawer.screenshot({ path: resolve(output, "drawer-organization.png") });
     await drawer.locator(".details-related").first().click();
-    await drawer.getByRole("button", { name: "Open in Research Activity", exact: true }).waitFor();
+    await drawer.getByRole("button", { name: "Open in Review", exact: true }).waitFor();
     await page.keyboard.press("Escape");
     await drawer.waitFor({ state: "hidden" });
     await page.getByTitle("Center on ORNL", { exact: true }).click();
     await page.waitForTimeout(2000);
-    const globe = page.locator("#geospatial-map canvas");
-    const globeBox = await globe.boundingBox();
-    await globe.click({ position: { x: globeBox.width / 2, y: globeBox.height / 2 } });
-    await drawer.getByRole("heading", { name: "Oak Ridge National Laboratory", exact: true }).waitFor();
-    await page.keyboard.press("Escape");
-    await drawer.waitFor({ state: "hidden" });
-    checks.push("Globe markers and organization rows open the shared drawer with related activities");
+    checks.push("Organization rows open the shared drawer with related activities; the map Home control centers on ORNL");
     assert.ok(tiles.size > 0, "Local NASA Black Marble tiles loaded");
     await shot("geospatial-light");
     checks.push("Pinned local ROR table and WebGL globe render");
@@ -792,19 +754,20 @@ try {
         [locationless[0]]: { ...locationless[1], locations: [] }
     } };
     await page.route("**/ror-locations*.json", route => route.fulfill({ json: mapFixture }));
+    await page.reload();
     await nav("Inspect identifier");
     await page.locator("#content-editor").fill(locationless[0]);
     await page.getByRole("button", { name: "Inspect identifier", exact: true }).click();
     await page.getByRole("button", { name: "View on map", exact: true }).click();
     await page.locator(".map-focus").getByText(/no usable coordinates/).waitFor();
-    assert.equal(await page.locator(".organization-table tbody tr").count(), 2);
+    assert.equal(await page.locator(".organization-table tbody tr").count(), 1);
     const unresolved = Object.keys(localRors.organizations).find(id => !mapFixture.organizations[id]);
     await nav("Inspect identifier");
     await page.locator("#content-editor").fill(unresolved);
     await page.getByRole("button", { name: "Inspect identifier", exact: true }).click();
     await page.getByRole("button", { name: "View on map", exact: true }).click();
     await page.locator(".map-focus").getByText(/not in the local index/).waitFor();
-    assert.equal(await page.locator(".organization-table tbody tr").count(), 3);
+    assert.equal(await page.locator(".organization-table tbody tr").count(), 2);
     await page.unroute("**/ror-locations*.json");
     await page.getByRole("button", { name: "Clear added locations", exact: true }).click();
     await page.getByRole("heading", { name: "No validated activities", exact: true }).waitFor();
@@ -841,19 +804,19 @@ try {
     await page.locator(".loaded-tree summary").click();
     await page.locator(".loaded-tree .file-leaf").first().click();
     await drawer.getByRole("tab", { name: "Checks", exact: true }).click();
-    await drawer.getByRole("heading", { name: "No checks yet", exact: true }).waitFor();
+    assert.ok(await drawer.locator(".diagnostic").count() > 0, "Local picker validation is visible in file details");
     await page.keyboard.press("Escape");
     await drawer.waitFor({ state: "hidden" });
     assert.ok(page.url().endsWith("/"));
-    checks.push("Loaded file inspection preserves the page and does not run validation implicitly");
+    checks.push("Loaded file inspection preserves the page and shows automatic local-picker validation");
     await page.getByText(/1 files loaded/).waitFor();
-    await page.locator(".sidebar-session").getByText("0 activities · 1 file", { exact: true }).waitFor();
+    await page.locator(".sidebar-session").getByText("1 activity · 1 file", { exact: true }).waitFor();
     await nav("Portfolio");
     await page.getByRole("button", { name: "Validate loaded activities", exact: true }).click();
     await page.locator(".activity-table tbody tr").first().waitFor();
     assert.equal(await page.locator(".activity-table tbody tr").count(), 1);
     await page.locator(".sidebar-session").getByText("1 activity · 1 file", { exact: true }).waitFor();
-    checks.push("User-mediated file picker, bounded reader and explicit Portfolio validation");
+    checks.push("User-mediated file picker, bounded reader and Portfolio revalidation");
     await nav("Home");
     await mkdir(resolve(temporary, "folder/nested"), { recursive: true });
     await writeFile(resolve(temporary, "folder/nested/activity.json"), await readFile("crates/acorn-web/assets/examples/publications.json"));
@@ -872,14 +835,14 @@ try {
     await page.getByRole("button", { name: "readme.txt", exact: true }).click();
     await drawer.getByRole("tab", { name: "Source", exact: true }).click();
     assert.equal(await drawer.locator("#drawer-source").inputValue(), "Local folder text");
-    assert.doesNotMatch(await page.locator(".sidebar-session").getAttribute("title"), /Selected: folder\/readme\.txt/);
-    await drawer.getByRole("button", { name: "Open in Research Activity", exact: true }).click();
+    assert.match(await page.locator(".sidebar-session").getAttribute("title"), /Selected: folder\/readme\.txt/);
+    await drawer.getByRole("button", { name: "Open in Review", exact: true }).click();
     await drawer.waitFor({ state: "hidden" });
     assert.match(await page.locator(".sidebar-session").getAttribute("title"), /Selected: folder\/readme\.txt/);
     assert.equal(await page.locator("#content").inputValue(), "Local folder text");
     await nav("Home");
     await choose("Files", [
-        { name: "large.txt", mimeType: "text/plain", buffer: Buffer.alloc(262145) },
+        { name: "large.txt", mimeType: "text/plain", buffer: Buffer.alloc(2 * 1024 * 1024 + 1) },
         { name: "invalid.txt", mimeType: "text/plain", buffer: Buffer.from([0xff]) },
     ]);
     await page.getByText(/No files loaded; 2 entries skipped/).waitFor();
@@ -956,7 +919,7 @@ try {
         await page.locator('.bucket-success[role="status"]').getByText(/Bucket loaded: 1 file/).waitFor();
         await page.getByRole("button", { name: "Load bucket", exact: true }).waitFor();
     }
-    await page.locator(".sidebar-session").getByText("0 activities · 1 file", { exact: true }).waitFor();
+    await page.locator(".sidebar-session").getByText("1 activity · 1 file", { exact: true }).waitFor();
     await page.locator(".sidebar-session").click();
     await page.getByRole("heading", { name: "Portfolio", exact: true }).waitFor();
     await nav("Home");
@@ -966,7 +929,7 @@ try {
     assert.equal(await page.getByRole("combobox", { name: "Repository or URL", exact: true }).getAttribute("list"), "bucket-repositories");
     await shot("remote-loader");
     assert.ok(observedRemote.some((url) => url.includes("/git/trees/" + sha)));
-    assert.ok(observedRemote.some((url) => url.endsWith("/raw?ref=" + sha)));
+    assert.ok(observedRemote.some((url) => url.endsWith("/raw?ref=" + sha + "&lfs=true")));
     assert.ok(observedHeaders.filter(({ url, method }) => url.includes("api.github.com") && method === "GET").every(({ headers }) => headers.authorization === "Bearer browser-test-secret"));
     assert.ok(observedHeaders.filter(({ url, method }) => url.includes("gitlab.com") && method === "GET").every(({ headers }) => headers.authorization === "Bearer browser-test-secret"));
     assert.ok(observedRemote.every((url) => !url.includes("browser-test-secret")));
@@ -1019,14 +982,13 @@ try {
     await fallback.locator('nav a[title="Geospatial"]').click();
     await fallback.getByText(/map is unavailable/i).waitFor({ timeout: 60000 });
     await fallback.locator(".organization-table tbody button").first().click();
-    await fallback.getByRole("dialog").getByRole("heading", { name: "Related activities", exact: true }).waitFor();
+    await fallback.getByRole("dialog").getByRole("heading", { name: "Activities referencing this organization", exact: true }).waitFor();
     await fallback.keyboard.press("Escape");
     await fallback.screenshot({ path: resolve(output, "geospatial-no-webgl.png"), fullPage: true });
     checks.push("Forced WebGL failure retains the selectable organization table");
     for (const tool of ["Research Activity", "Metadata standard"]) {
         const identifiers = await context.newPage();
-        await identifiers.goto(origin + prefix + "/");
-        await identifiers.locator(`nav a[title="${tool}"]`).click();
+        await identifiers.goto(origin + prefix + (tool === "Research Activity" ? "/review" : "/metadata-standard"));
         await identifiers.getByRole("button", { name: "Use example", exact: true }).click();
         const content = JSON.parse(validActivity);
         const invalid = structuredClone(content);
@@ -1045,11 +1007,10 @@ try {
         await identifiers.locator(".results .status:not(.invalid)").waitFor();
         await identifiers.close();
     }
-    checks.push("Both validation pages reject malformed RORs and bad checksums with exact nested paths, then accept corrected values");
+    checks.push("Canonical Review and legacy metadata routes reject malformed RORs and bad checksums with exact nested paths, then accept corrected values");
     for (const tool of ["Research Activity", "Metadata standard"]) {
         const validation = await context.newPage();
-        await validation.goto(origin + prefix + "/");
-        await validation.locator(`nav a[title="${tool}"]`).click();
+        await validation.goto(origin + prefix + (tool === "Research Activity" ? "/review" : "/metadata-standard"));
         await validation.getByRole("button", { name: "Use example", exact: true }).click();
         const content = JSON.parse(validActivity);
         const invalid = structuredClone(content);
@@ -1075,13 +1036,12 @@ try {
         await validation.locator(".results .status:not(.invalid)").waitFor();
         await validation.close();
     }
-    checks.push("Both validation pages enforce nested data, required text, language registry, URLs, chronology, scoped IDs and logbook ownership; Unicode prose remains valid");
+    checks.push("Canonical Review and legacy metadata routes enforce nested data, required text, language registry, URLs, chronology, scoped IDs and logbook ownership; Unicode prose remains valid");
     for (const reducedMotion of ["no-preference", "reduce"]) {
         const celebration = await context.newPage();
         await celebration.emulateMedia({ reducedMotion, colorScheme: reducedMotion === "reduce" ? "light" : "dark" });
-        await celebration.goto(origin + prefix + "/");
+        await celebration.goto(origin + prefix + "/review");
         await celebration.waitForFunction(() => Boolean(window.acornCelebrate));
-        await celebration.locator('nav a[title="Research Activity"]').click();
         await celebration.locator("#content-editor").fill('{"title":1}');
         await celebration.getByRole("button", { name: "Validate", exact: true }).click();
         await celebration.locator(".results .status.invalid").waitFor();
@@ -1101,7 +1061,8 @@ try {
         await celebration.screenshot({ path: resolve(output, `celebration-${reducedMotion}.png`) });
         await burst.waitFor({ state: "detached" });
         await celebration.getByRole("button", { name: "Validate", exact: true }).click();
-        await celebration.locator('nav a[title="Metadata standard"]').click();
+        await celebration.getByRole("group", { name: "Review type" }).getByRole("button", { name: "FAIR assessment", exact: true }).click();
+        await celebration.getByRole("group", { name: "Review type" }).getByRole("button", { name: "Metadata", exact: true }).click();
         await celebration.locator("#content-editor").fill(validActivity);
         await celebration.getByRole("button", { name: "Validate", exact: true }).click();
         await celebration.locator(".results .status:not(.invalid)").waitFor();

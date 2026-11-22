@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { chromium } from "playwright";
 
-const server = createServer((_request, response) => response.end(`<div class="workspace" data-theme="dark"><div class="code-editor" data-language="json" style="--editor-height:170px"><div class="editor-toolbar"><button onclick="acornEditors.fold('content')">Fold all</button><button onclick="acornEditors.expand('content')">Expand all</button><div class="editor-issue-nav" role="group" aria-label="Issue navigation" hidden><button type="button" aria-label="Previous issue" aria-keyshortcuts="ArrowLeft" onclick="acornEditors.navigateIssue('content', -1)">prev</button><span class="editor-issue-position" aria-live="polite">0 of 0</span><button type="button" aria-label="Next issue" aria-keyshortcuts="ArrowRight" onclick="acornEditors.navigateIssue('content', 1)">next</button></div><button class="copy-code editor-fullscreen-toggle" aria-pressed="false" onclick="acornEditors.toggleFullscreen('content')"><span class="enter-fullscreen-label">Full screen</span><span class="exit-fullscreen-label">Exit full screen</span></button></div><div class="editor-surface"></div><textarea id="content" aria-label="Content" rows="7"></textarea></div></div>`));
+const server = createServer((_request, response) => response.end(`<div class="workspace" data-theme="dark"><div class="code-editor" data-language="json" style="--editor-height:170px"><div class="editor-toolbar"><button onclick="acornEditors.fold('content')">Fold all</button><button onclick="acornEditors.expand('content')">Expand all</button><div class="editor-issue-nav" role="group" aria-label="Issue navigation" hidden><button type="button" aria-label="Previous issue" aria-keyshortcuts="ArrowLeft" onclick="acornEditors.navigateIssue('content', -1)">prev</button><span class="editor-issue-position" aria-live="polite">0 of 0</span><button type="button" aria-label="Next issue" aria-keyshortcuts="ArrowRight" onclick="acornEditors.navigateIssue('content', 1)">next</button></div><button class="copy-code editor-fullscreen-toggle" onclick="acornEditors.toggleFullscreen('content')"><span class="enter-fullscreen-label">Full screen</span><span class="exit-fullscreen-label">Exit full screen</span></button></div><div class="editor-surface"></div><textarea id="content" aria-label="Content" rows="7"></textarea></div></div>`));
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch().catch(error => { server.close(); throw error; });
 try {
@@ -44,12 +44,12 @@ try {
     await page.getByRole("button", { name: "Full screen", exact: true }).click();
     const fullScreen = page.locator(".code-editor");
     assert.equal(await fullScreen.evaluate(node => getComputedStyle(node).position), "fixed");
-    assert.equal(await page.locator(".editor-fullscreen-toggle").getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator(".editor-fullscreen-toggle").getAttribute("aria-pressed"), null, "Full screen is an action button");
     assert.ok((await page.locator(".editor-surface").boundingBox()).height > page.viewportSize().height - 100, "editor fills the viewport after resizing");
     assert.equal(await page.locator("body").evaluate(node => getComputedStyle(node).overflow), "hidden");
     await page.keyboard.press("Escape");
     assert.equal(await fullScreen.evaluate(node => node.classList.contains("is-fullscreen")), false, "Escape exits full screen");
-    assert.equal(await page.locator(".editor-fullscreen-toggle").getAttribute("aria-pressed"), "false");
+    assert.equal(await page.locator(".editor-fullscreen-toggle").getAttribute("aria-pressed"), null);
     assert.equal((await page.locator(".editor-surface").boundingBox()).height, resizedHeight, "exiting restores the resized editor height");
     await page.getByRole("button", { name: "Full screen", exact: true }).click();
     await page.getByRole("button", { name: "Exit full screen", exact: true }).click();

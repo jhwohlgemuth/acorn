@@ -497,7 +497,7 @@ web-check: web-prepare ## Check browser Rust, WASM portability, formatting and l
 	@python3 crates/acorn-web/scripts/rust.py cargo clippy -p acorn-web --target wasm32-unknown-unknown -- -D warnings
 
 web-cli: ## Ensure the local Dioxus CLI exists, or validate an explicit override.
-	@if [ "$(DIOXUS)" = "$(CURDIR)/target/tools/dioxus/bin/dx" ] && [ ! -x "$(DIOXUS)" ]; then $(MAKE) web-setup; fi
+	@if [ "$(DIOXUS)" = "$(CURDIR)/target/tools/dioxus/bin/dx" ]; then case "$$("$(DIOXUS)" --version 2>/dev/null)" in "dioxus 0.7.10"*) ;; *) $(MAKE) web-setup ;; esac; fi
 	@command -v "$(DIOXUS)" >/dev/null 2>&1 || { echo "Dioxus CLI not executable: $(DIOXUS). Check DIOXUS or run make web-setup." >&2; exit 1; }
 
 web-dev: web-cli web-map web-prepare ## Run coordinated Dioxus and map Fast Refresh servers on loopback.
@@ -533,7 +533,7 @@ web-publish: check-release-apps ## Upload the existing browser archive to the Gi
 
 web-setup: ## Install the pinned Dioxus CLI locally and the WASM target.
 	@rustup target add wasm32-unknown-unknown
-	@python3 crates/acorn-web/scripts/rust.py cargo install dioxus-cli --version 0.7.3 --locked --root target/tools/dioxus
+	@python3 crates/acorn-web/scripts/rust.py cargo install dioxus-cli --version 0.7.10 --locked --root target/tools/dioxus
 
 web-skill: ## Stage and verify the canonical release-matched skill bundle.
 	@python3 scripts/package-acorn-skill.py
@@ -545,7 +545,7 @@ web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebM
 	@python3 -m unittest discover -s scripts/tests -p 'test_web_dev.py'
 	@python3 crates/acorn-web/scripts/rust.py cargo test -p acorn-web
 	@$(MAKE) test-webmcp
-	@node --test crates/acorn-web/scripts/acceptance.test.mjs crates/acorn-web/assets/remote.test.mjs crates/acorn-web/assets/syntax.test.mjs crates/acorn-web/assets/workspace-storage.test.mjs
+	@node --test crates/acorn-web/scripts/acceptance.test.mjs crates/acorn-web/assets/dashboard-layout.test.mjs crates/acorn-web/assets/remote.test.mjs crates/acorn-web/assets/syntax.test.mjs crates/acorn-web/assets/workspace-storage.test.mjs
 	@npm --prefix crates/acorn-web/geospatial ci --ignore-scripts
 	@npm --prefix crates/acorn-web/geospatial test
 	@$(MAKE) web-test-wasm
@@ -555,6 +555,10 @@ web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and pla
 	@node crates/acorn-web/scripts/syntax-smoke.mjs
 	@node crates/acorn-web/scripts/editor-smoke.mjs
 	@node --test crates/acorn-web/scripts/workspace-storage-browser.test.mjs
+
+web-test-engines: ## Smoke-test browser effects in Firefox and WebKit (install their Playwright browsers first).
+	@node crates/acorn-web/scripts/cross-engine-smoke.mjs firefox "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
+	@node crates/acorn-web/scripts/cross-engine-smoke.mjs webkit "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
 
 web-test-wasm: web-prepare ## Run all nine browser operations in the real WASM runtime.
 	@python3 crates/acorn-web/scripts/rust.py wasm-pack test --node crates/acorn-web --lib
@@ -720,6 +724,7 @@ TASKS = \
 	web-publish \
 	web-setup \
 	web-test \
+	web-test-engines \
 	web-test-pages \
 	web-test-wasm
 TEST_OLLAMA_BASE_URL ?= http://localhost:11434

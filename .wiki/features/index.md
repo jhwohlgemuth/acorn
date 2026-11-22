@@ -4,7 +4,7 @@
 
 ## In progress
 
-- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - The Dioxus browser now has consolidated Review tabs, reusable Portfolio metric/donut tiles, and ASPECT/S3A construction routes. ABW-19 hosted initial-index acceptance, ABW-63–65 multiple-bucket loading, ABW-44 project-map work, and ABW-66–68 saved dashboard layout/reorder/add/hide controls remain. ABW-69 defines the later official React/shadcn/ui migration handoff separately from interim Dioxus components. Desktop ABW-45–59 cover the complete host capability matrix before ABW-56 and native OS acceptance. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
+- [Rust browser and Tauri desktop workspace for ACORN tools](acorn-browser-workspace/index.md) - The Dioxus browser has consolidated Review tabs, saved Portfolio tile order/visibility controls, and ASPECT/S3A construction routes. ABW-03/04/05/32 retain operation acceptance; ABW-06/16 retain cross-engine effects/folder acceptance after the focused Firefox/WebKit smoke. ABW-19 needs a hosted new-build private-provider recheck before ABW-63–65 multiple-bucket loading and ABW-44/18 project-map work. ABW-69 defines the later official React/shadcn/ui migration handoff. Desktop ABW-45–59 cover the host capability matrix after ABW-11/12/17 and before ABW-56 and native OS acceptance. See the [execution handoff](acorn-browser-workspace/execution-preparation.md).
 
 ## Planned
 

@@ -17,6 +17,7 @@ mod workspace;
 
 fn app() -> Element {
     use_context_provider(|| Signal::new(String::new()));
+    use_context_provider(ui::ToolSessions::new);
     let initially_collapsed = js_sys::Reflect::get(&js_sys::global(), &"acornInitialSidebarCollapsed".into())
         .ok()
         .and_then(|value| value.as_bool())
@@ -62,7 +63,7 @@ fn app() -> Element {
                     if let Ok(status) = result {
                         storage_status.set(ui::parse_storage_status(&status));
                         if status.get("newFailure") == Some(&serde_json::Value::Bool(true)) {
-                            document::eval("window.acornChrome?.notifications.notify('Workspace saving stopped. Browser storage may be full, unavailable, or changed in another tab. Your current session remains open.')");
+                            document::eval("window.acornChrome?.notifications.notify('Workspace saving stopped. Browser storage may be full, unavailable, or changed in another tab. Your current session remains open.', 'warning')");
                         }
                     }
                 });
@@ -91,6 +92,7 @@ fn app() -> Element {
         document::Script { src: asset!("/assets/carousel.js") }
         document::Script { src: asset!("/assets/remote.js") }
         document::Script { src: asset!("/assets/workspace-storage.js") }
+        document::Script { src: asset!("/assets/dashboard-layout.js") }
         document::Script { src: asset!("/assets/syntax.js"), "data-prism": asset!("/assets/vendor/prism.js") }
         if restored() {
             Router::<ui::Route> {}

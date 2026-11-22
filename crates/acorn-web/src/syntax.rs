@@ -74,7 +74,7 @@ pub(crate) fn CodeEditor(
                     span { class: "editor-issue-position", "aria-live": "polite", "0 of 0" }
                     button { r#type: "button", class: "copy-code", title: "Next issue (→)", "aria-label": "Next issue", "aria-keyshortcuts": "ArrowRight", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', 1)")); }, "next" }
                 }
-                if fullscreen { button { r#type: "button", class: "copy-code editor-fullscreen-toggle", "aria-pressed": "false", title: "Full screen (Esc to exit)", onclick: move |_| { document::eval(&format!("window.acornEditors?.toggleFullscreen('{id}')")); }, Icon { name: "maximize" } span { class: "enter-fullscreen-label", "Full screen" } span { class: "exit-fullscreen-label", "Exit full screen" } } }
+                if fullscreen { button { r#type: "button", class: "copy-code editor-fullscreen-toggle", title: "Full screen (Esc to exit)", onclick: move |_| { document::eval(&format!("window.acornEditors?.toggleFullscreen('{id}')")); }, span { class: "enter-fullscreen-icon", Icon { name: "maximize" } } span { class: "exit-fullscreen-icon", Icon { name: "minimize" } } span { class: "enter-fullscreen-label", "Full screen" } span { class: "exit-fullscreen-label", "Exit full screen" } } }
             }
             div { class: "editor-surface" }
             textarea { id, "aria-label": label, rows: "{rows}", readonly, spellcheck: "false", autocapitalize: "off", autocomplete: "off", value, oninput: move |event| {

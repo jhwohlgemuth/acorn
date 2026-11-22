@@ -188,6 +188,8 @@ fn Difference(value: Value) -> Element {
         } else {
             p { "{operations.len()} JSON Patch operations" }
             if operations.len() > 1 {
+                details { class: "result-settings",
+                    summary { Icon { name: "settings" } "Settings" }
                 div { class: "result-controls",
                     div { class: "result-filters", role: "group", "aria-label": "Filter JSON Patch operations",
                         button { r#type: "button", "aria-pressed": all_selected,
@@ -217,6 +219,7 @@ fn Difference(value: Value) -> Element {
                             onclick: move |_| descending.toggle(), span { "aria-hidden": "true", if descending() { "↓" } else { "↑" } }
                         }
                     }
+                }
                 }
                 p { class: "small muted result-summary", role: "status", "Showing {visible.len()} of {operations.len()} operations" }
             }
@@ -269,6 +272,8 @@ fn Discovery(value: Value) -> Element {
         p { class: "status", "{value[\"count\"]} unique identifiers · normalized and deduplicated" }
         if items(&value, "identifiers").is_empty() { p { "No supported persistent identifiers found." } }
         if !identifiers.is_empty() {
+            details { class: "result-settings",
+                summary { Icon { name: "settings" } "Settings" }
             div { class: "result-controls",
                 div { class: "pid-filters result-filters", role: "group", "aria-label": "Filter identifiers by type",
                     button { r#type: "button", class: "pid-filter-all", "aria-pressed": all_state,
@@ -300,6 +305,7 @@ fn Discovery(value: Value) -> Element {
                         }
                     }
                 }
+            }
             }
             p { class: "small muted pid-filter-summary", role: "status", "Showing {visible.len()} of {identifiers.len()} identifiers" }
             if visible.is_empty() { p { class: "muted small", "No PID types selected. Choose a type or All to show results." } }
@@ -398,8 +404,12 @@ fn Fair(value: Rc<Value>, source: Option<Rc<String>>) -> Element {
         }
         details { class: "diagnostic-group", "data-category": "fair", open: true,
             summary { class: "diagnostic-group-summary", h3 { class: "diagnostic-group-title", Icon { name: category_icon } "FAIR findings" span { class: "badge", "{findings.len()}" } } }
-            if findings.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter FAIR findings", error: pattern.as_ref().err().cloned() } SeverityFilters { hidden, counts, label: "Filter FAIR findings by severity" } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Fair } }
-            if visible.len() != findings.len() { p { class: "small muted result-summary", role: "status", "Showing {visible.len()} of {findings.len()} findings" } }
+            if findings.len() > 1 { details { class: "result-settings",
+                summary { Icon { name: "settings" } "Settings" }
+                div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter FAIR findings", error: pattern.as_ref().err().cloned() } SeverityFilters { hidden, counts, label: "Show FAIR findings by severity" } }
+                DiagnosticSortControls { sort, descending, list: DiagnosticList::Fair }
+            } }
+            if findings.len() > 1 { p { class: if visible.len() == findings.len() { "small muted result-summary idle" } else { "small muted result-summary" }, role: "status", "Showing {visible.len()} of {findings.len()} findings" } }
             if visible.is_empty() { p { class: "muted small", if findings.is_empty() { "No FAIR checks were run." } else { "No findings match this filter." } } }
             ol { class: "diagnostics", role: "list", for finding in presentation::sort_diagnostics(visible, DiagnosticList::Fair, sort(), descending()) {
                 {let (severity, tone) = presentation::severity_style(&presentation::finding_severity(finding)); rsx! {
@@ -503,7 +513,7 @@ fn Readability(value: Value) -> Element {
 }
 #[component]
 fn ResultSearch(query: Signal<String>, regex: Signal<bool>, case_sensitive: Signal<bool>, label: &'static str, error: Option<String>) -> Element {
-    rsx! { SearchField { label, placeholder: "Search results", query, regex, case_sensitive, error, compact: true } }
+    rsx! { SearchField { label, visible_label: Some("Filter"), placeholder: "Search results", query, regex, case_sensitive, error, compact: true } }
 }
 #[component]
 pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Option<String>) -> Element {
@@ -538,8 +548,12 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
                 if !warnings.is_empty() {
                 details { class: "diagnostic-group", "data-category": "crosswalk", open: true,
                 summary { class: "diagnostic-group-summary", h3 { class: "diagnostic-group-title", Icon { name: crosswalk_icon } "{crosswalk_label}" span { class: "badge", "{warnings.len()}" } } }
-                if warnings.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter crosswalk warnings", error: pattern.as_ref().err().cloned() } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Crosswalk } }
-                if !query().trim().is_empty() { p { class: "small muted result-summary", role: "status", "Showing {visible_warnings.len()} of {warnings.len()} warnings" } }
+                if warnings.len() > 1 { details { class: "result-settings",
+                    summary { Icon { name: "settings" } "Settings" }
+                    div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter crosswalk warnings", error: pattern.as_ref().err().cloned() } }
+                    DiagnosticSortControls { sort, descending, list: DiagnosticList::Crosswalk }
+                } }
+                if warnings.len() > 1 { p { class: if query().trim().is_empty() { "small muted result-summary idle" } else { "small muted result-summary" }, role: "status", "Showing {visible_warnings.len()} of {warnings.len()} warnings" } }
                 if visible_warnings.is_empty() { p { class: "muted small", "No warnings match this filter." } }
                 ol { class: "diagnostics", role: "list", for warning in presentation::sort_diagnostics(visible_warnings, DiagnosticList::Crosswalk, sort(), descending()) {
                     li { class: "diagnostic", "data-tone": warning_tone,
@@ -584,7 +598,7 @@ fn SeverityFilters(mut hidden: Signal<BTreeSet<String>>, counts: Vec<(CheckSever
     let total = counts.iter().map(|(_, count)| count).sum::<usize>();
     rsx! {
         div { class: "result-filters severity-filters", role: "group", "aria-label": label,
-            span { class: "muted", "Filter" }
+            span { class: "muted", "Show" }
             button { r#type: "button", "aria-pressed": all_selected,
                 title: if all_selected { "Hide all severities" } else { "Show all severities" },
                 onclick: move |_| hidden.set(if all_selected { all_hidden.clone() } else { BTreeSet::new() }),
@@ -683,8 +697,12 @@ fn Validation(value: Rc<Value>, source: Option<Rc<String>>, tool: Tool) -> Eleme
         if let Some(skipped) = skipped_label.filter(|label| !label.is_empty()) {
             p { class: "small muted", "Skipped: {skipped}" }
         }
-        if diagnostics.len() > 1 { div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter diagnostics", error: pattern.as_ref().err().cloned() } SeverityFilters { hidden, counts, label: "Filter diagnostics by severity" } } DiagnosticSortControls { sort, descending, list: DiagnosticList::Validation } }
-        if visible_count != diagnostics.len() { p { class: "small muted result-summary", role: "status", "Showing {visible_count} of {diagnostics.len()} diagnostics" } }
+        if diagnostics.len() > 1 { details { class: "result-settings",
+            summary { Icon { name: "settings" } "Settings" }
+            div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter diagnostics", error: pattern.as_ref().err().cloned() } SeverityFilters { hidden, counts, label: "Show diagnostics by severity" } }
+            DiagnosticSortControls { sort, descending, list: DiagnosticList::Validation }
+        } }
+        if diagnostics.len() > 1 { p { class: if visible_count == diagnostics.len() { "small muted result-summary idle" } else { "small muted result-summary" }, role: "status", "Showing {visible_count} of {diagnostics.len()} diagnostics" } }
         if visible_count == 0 { p { class: "muted small", if diagnostics.is_empty() { "No diagnostics from the selected checks." } else { "No diagnostics match this filter." } } }
         for (category, label, icon, group) in groups {
             {rsx! {

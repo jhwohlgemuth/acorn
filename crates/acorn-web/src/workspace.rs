@@ -1,4 +1,4 @@
-use crate::dashboard::{ChartSegment, DashboardTile, DonutTile, MetricTile};
+use crate::dashboard::{ChartSegment, DashboardTile, DonutTile, GridCell, MetricTile, TileLayout, PORTFOLIO_TILES};
 use crate::details::{self, Detail};
 use crate::search_ui::SearchField;
 use crate::ui::{validate_files, FileInput, Icon, Route, UrlFileInput};
@@ -23,50 +23,6 @@ struct BucketHistory {
     refs: Vec<String>,
 }
 #[component]
-fn TopicBars(counts: Vec<(String, usize)>, total: usize) -> Element {
-    rsx! { DashboardTile { class: "topic-bars", h2 { "Top topics" }
-        if counts.is_empty() { p { class: "muted", "No keywords in matching activities" } }
-        else {
-            p { class: "small muted", "Activities can appear under more than one topic." }
-            for (label, count) in counts { div { class: "proportion", p { span { "{label}" } span { "{count}" } } progress { value: "{count}", max: "{total}", "aria-label": "{label}: {count} of {total} matching activities" } } }
-        }
-    } }
-}
-#[component]
-fn StatusDonut(counts: BTreeMap<String, usize>) -> Element {
-    let segments = counts
-        .into_iter()
-        .map(|(label, count)| ChartSegment {
-            color: status_color(&label).into(),
-            label,
-            count,
-        })
-        .collect();
-    rsx! { DonutTile { class: "status-donut", title: "Statuses", center_label: "activities", empty_message: "No matching activities", segments } }
-}
-#[component]
-fn IdentifierDonut(counts: BTreeMap<String, usize>) -> Element {
-    let segments = counts
-        .into_iter()
-        .enumerate()
-        .map(|(index, (label, count))| ChartSegment {
-            color: format!("var(--identifier-{})", index % IDENTIFIER_COLOR_COUNT),
-            label,
-            count,
-        })
-        .collect();
-    rsx! { DonutTile { class: "identifier-donut", title: "Identifiers", center_label: "unique IDs", empty_message: "No identifiers in matching activities", description: Some("Unique values across matching activities."), segments } }
-}
-fn status_color(status: &str) -> &'static str {
-    match status {
-        | "active" => "var(--status-active)",
-        | "canceled" => "var(--status-canceled)",
-        | "completed" => "var(--status-completed)",
-        | "paused" => "var(--status-paused)",
-        | _ => "var(--muted)",
-    }
-}
-#[component]
 fn ActivityStatus(status: String) -> Element {
     let (icon, label) = match status.as_str() {
         | "active" => ("play", "Active"),
@@ -76,16 +32,6 @@ fn ActivityStatus(status: String) -> Element {
         | _ => ("info", status.as_str()),
     };
     rsx! { span { class: "catalog-activity-status", "data-status": status.as_str(), Icon { name: icon } "{label}" } }
-}
-fn file_loadable(file: &SuppliedFile, tool: Tool) -> bool {
-    let mime = MimeType::from(file.path.as_str());
-    !mime.is_image()
-        && file.content.len() <= tool.limit()
-        && match tool {
-            | Tool::Activity | Tool::Fair => matches!(mime, MimeType::Json),
-            | Tool::Standard | Tool::Crosswalk => file_format(&file.path).is_some(),
-            | _ => true,
-        }
 }
 pub(crate) fn file_format(path: &str) -> Option<&'static str> {
     match MimeType::from(path) {
@@ -112,37 +58,54 @@ fn file_kind(file: &SuppliedFile) -> &'static str {
         | _ => "other",
     }
 }
-fn route_tool(route: &Route) -> Option<Tool> {
-    match route {
-        | Route::Page { page } => Tool::iter().find(|tool| tool.slug() == page),
-        | Route::Home {} => None,
-    }
+fn file_loadable(file: &SuppliedFile, tool: Tool) -> bool {
+    let mime = MimeType::from(file.path.as_str());
+    !mime.is_image()
+        && file.content.len() <= tool.limit()
+        && match tool {
+            | Tool::Activity | Tool::Fair => matches!(mime, MimeType::Json),
+            | Tool::Standard | Tool::Crosswalk => file_format(&file.path).is_some(),
+            | _ => true,
+        }
 }
-fn tree_children(paths: &[String], prefix: &str, descending: bool) -> Vec<(bool, String)> {
-    let mut children = paths
-        .iter()
-        .filter_map(|path| path.strip_prefix(prefix))
-        .filter_map(|relative| relative.split('/').next())
-        .map(|name| (paths.contains(&format!("{prefix}{name}")), name.to_owned()))
-        .collect::<BTreeSet<_>>()
+#[component]
+fn FileTree(paths: Vec<String>, prefix: String, descending: bool, tool: Option<Tool>, onselect: Option<EventHandler<SuppliedFile>>) -> Element {
+    let mut workspace = use_context::<Signal<Workspace>>();
+    let mut input = use_context::<Signal<String>>();
+    let drawer = use_context::<Signal<Option<Detail>>>();
+    let children = tree_children(&paths, &prefix, descending);
+    rsx! { ul { class: "file-tree", for (is_file, name) in children {
+        {let path = format!("{prefix}{name}");
+        let thumbnail = workspace.read().image_file(&path);
+        let loadable = workspace.read().files.iter().find(|file| file.path == path).is_some_and(|file| tool.is_none_or(|tool| file_loadable(file, tool)));
+        rsx! { li {
+            if is_file { button { class: "file-leaf", disabled: !loadable, title: if loadable { "" } else { "This file cannot be loaded into this page" }, "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| {
+                if loadable {
+                    let snapshot = workspace();
+                    if let Some(file) = snapshot.files.iter().find(|file| file.path == path) {
+                        if tool.is_some() {
+                            if let Some(onselect) = onselect { onselect.call(file.clone()); } else { input.set(file.content.clone()); }
+                        } else { details::open(drawer, Detail::file(file, &snapshot)); }
+                        if !MimeType::from(file.path.as_str()).is_image() { workspace.write().selected = Some(path.clone()); }
+                    }
+                }
+            }, if let Some(thumbnail) = thumbnail { img { class: "file-thumb", src: thumbnail, alt: "" } } else { Icon { name: "file" } } "{name}" } }
+            else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/"), descending, tool, onselect } } }
+        }}}
+    } } }
+}
+#[component]
+fn IdentifierDonut(counts: BTreeMap<String, usize>) -> Element {
+    let segments = counts
         .into_iter()
-        .collect::<Vec<_>>();
-    if descending {
-        children.sort_by(|(left_file, left), (right_file, right)| left_file.cmp(right_file).then_with(|| right.cmp(left)));
-    }
-    children
-}
-fn visible_file_paths(files: &[SuppliedFile], pattern: &SearchPattern, kind: &str, tool: Option<Tool>) -> Vec<String> {
-    files
-        .iter()
-        .filter(|file| pattern.matches(&file.path))
-        .filter(|file| match kind {
-            | "all" => true,
-            | "loadable" => tool.is_none_or(|tool| file_loadable(file, tool)),
-            | kind => file_kind(file) == kind,
+        .enumerate()
+        .map(|(index, (label, count))| ChartSegment {
+            color: format!("var(--identifier-{})", index % IDENTIFIER_COLOR_COUNT),
+            label,
+            count,
         })
-        .map(|file| file.path.clone())
-        .collect()
+        .collect();
+    rsx! { DonutTile { tile_id: "identifiers", class: "identifier-donut", title: "Identifiers", center_label: "unique IDs", empty_message: "No identifiers in matching activities", description: Some("Unique values across matching activities."), segments } }
 }
 #[component]
 pub(crate) fn LoadedFiles(
@@ -188,32 +151,6 @@ pub(crate) fn LoadedFiles(
             else { FileTree { paths, prefix: String::new(), descending: descending(), tool, onselect } }
         }
     } }
-}
-#[component]
-fn FileTree(paths: Vec<String>, prefix: String, descending: bool, tool: Option<Tool>, onselect: Option<EventHandler<SuppliedFile>>) -> Element {
-    let mut workspace = use_context::<Signal<Workspace>>();
-    let mut input = use_context::<Signal<String>>();
-    let drawer = use_context::<Signal<Option<Detail>>>();
-    let children = tree_children(&paths, &prefix, descending);
-    rsx! { ul { class: "file-tree", for (is_file, name) in children {
-        {let path = format!("{prefix}{name}");
-        let thumbnail = workspace.read().image_file(&path);
-        let loadable = workspace.read().files.iter().find(|file| file.path == path).is_some_and(|file| tool.is_none_or(|tool| file_loadable(file, tool)));
-        rsx! { li {
-            if is_file { button { class: "file-leaf", disabled: !loadable, title: if loadable { "" } else { "This file cannot be loaded into this page" }, "aria-pressed": workspace.read().selected.as_deref() == Some(path.as_str()), onclick: move |_| {
-                if loadable {
-                    let snapshot = workspace();
-                    if let Some(file) = snapshot.files.iter().find(|file| file.path == path) {
-                        if tool.is_some() {
-                            if let Some(onselect) = onselect { onselect.call(file.clone()); } else { input.set(file.content.clone()); }
-                        } else { details::open(drawer, Detail::file(file, &snapshot)); }
-                        if !MimeType::from(file.path.as_str()).is_image() { workspace.write().selected = Some(path.clone()); }
-                    }
-                }
-            }, if let Some(thumbnail) = thumbnail { img { class: "file-thumb", src: thumbnail, alt: "" } } else { Icon { name: "file" } } "{name}" } }
-            else { details { summary { Icon { name: "folder-open" } "{name}" } FileTree { paths: paths.clone(), prefix: format!("{path}/"), descending, tool, onselect } } }
-        }}}
-    } } }
 }
 #[component]
 pub(crate) fn Loader() -> Element {
@@ -406,7 +343,7 @@ pub(crate) fn Loader() -> Element {
     }
 }
 #[component]
-pub(crate) fn Portfolio() -> Element {
+pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
     let mut workspace = use_context::<Signal<Workspace>>();
     let drawer = use_context::<Signal<Option<Detail>>>();
     let mut search = use_signal(String::new);
@@ -418,6 +355,21 @@ pub(crate) fn Portfolio() -> Element {
     let mut descending = use_signal(|| false);
     let mut layout = use_signal(|| "list");
     let mut validating = use_signal(|| false);
+    let mut tile_layout = use_signal(TileLayout::default);
+    let mut tile_ready = use_signal(|| false);
+    let mut arrange_tiles = use_signal(|| false);
+    let mut dragged_tile = use_signal(|| None::<String>);
+    let mut drop_tile = use_signal(|| None::<String>);
+    let mut drop_cell = use_signal(|| None::<GridCell>);
+    use_future(move || async move {
+        let restored = document::eval("if (!window.acornDashboardLayout) await new Promise(resolve => window.addEventListener('acorn-dashboard-layout-ready', resolve, {once:true})); return window.acornDashboardLayout.load('portfolio')")
+            .join::<Option<TileLayout>>()
+            .await;
+        if let Ok(Some(saved)) = restored {
+            tile_layout.set(saved.normalized());
+        }
+        tile_ready.set(true);
+    });
     let snapshot = workspace();
     let activities = snapshot.activities();
     let index = ResearchIndex::from(&snapshot);
@@ -483,11 +435,22 @@ pub(crate) fn Portfolio() -> Element {
         .or_else(|| filtered.first())
         .copied();
     let invalid = snapshot.validations.values().filter(|value| value["valid"] != true).count();
+    let current_tile_layout = tile_layout();
+    let visible_tile_count = current_tile_layout.order.iter().filter(|id| current_tile_layout.visible(id)).count();
+    let visible_metrics = current_tile_layout
+        .order
+        .iter()
+        .filter(|id| current_tile_layout.visible(id) && matches!(id.as_str(), "activities" | "organizations" | "contributors"))
+        .cloned()
+        .collect::<Vec<_>>();
+    let visible_metric_count = visible_metrics.len();
+    let first_metric = visible_metrics.first().cloned();
     rsx! {
-        p { class: "lede", "Research activities in this session · {activities.len()} validated {record_noun}" }
-        if snapshot.files.is_empty() {
+        p { class: "lede", if dashboard_only { "Dashboard for {activities.len()} validated {record_noun} in this session" } else { "Research activities in this session · {activities.len()} validated {record_noun}" } }
+        if snapshot.files.is_empty() && !dashboard_only {
             div { class: "card empty", Icon { name: "portfolio" } h2 { "No research activities loaded" } p { "Open local content or try the bundled sample from Home." } Link { to: Route::Home {}, "Open Home →" } }
         } else {
+            if !dashboard_only {
             LoadedFiles { summary: format!("{} loaded files · {} stored bytes", snapshot.files.len(), snapshot.bytes()) }
             div { class: "actions", button { class: "primary", disabled: validating(), "aria-busy": validating(), onclick: move |_| async move {
                 validating.set(true);
@@ -527,13 +490,16 @@ pub(crate) fn Portfolio() -> Element {
                 div { class: "catalog-activity-grid", "data-layout": layout(),
                     if layout() == "list" {
                         for (file, value) in &filtered {
-                            {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); let slide = snapshot.slides(&file.path, value).into_iter().next(); rsx! {
+                            {let path = file.path.clone(); let detail = Detail::file(file, &snapshot); let slide = snapshot.slides(&file.path, value).into_iter().next(); let project = index.projects.iter().find(|project| project.paths.contains(&file.path)); rsx! {
                                 button { r#type: "button", class: "card catalog-activity-row", onclick: move |_| { workspace.write().selected = Some(path.clone()); details::open(drawer, detail.clone()); },
                                     if let Some(slide) = slide { img { class: "catalog-activity-thumb", src: slide.src().to_owned(), alt: "" } }
                                     span { class: "catalog-activity-body",
                                         strong { class: "catalog-activity-title", "{text(value, \"title\")}" }
                                         span { class: "small muted", "{file.path}" }
                                     }
+                                    if let Some(project) = project { if !project.keywords.is_empty() { span { class: "catalog-keywords", "aria-label": "Keywords",
+                                        for keyword in &project.keywords { span { class: "catalog-keyword", "data-tag-color": tag_colors.get(keyword.as_str()).copied().unwrap_or_default().to_string(), "{keyword}" } }
+                                    } } }
                                     span { class: "catalog-activity-meta", ActivityStatus { status: session::activity_status(value).to_owned() } }
                                 }
                             }}
@@ -559,20 +525,60 @@ pub(crate) fn Portfolio() -> Element {
                     }
                 } }
             }
-            div { class: "portfolio-dashboard",
-                div { class: "metrics",
-                    for (label, count) in [("Activities", filtered.len()), ("Organizations", session::entities(&filtered, "organizations").len()), ("Contributors", session::entities(&filtered, "contributors").len())] {
-                        MetricTile { label, count }
+            }
+            div { class: "dashboard-actions",
+                details { class: "dashboard-settings",
+                    summary { Icon { name: "settings" } "Dashboard settings" }
+                    div { class: "dashboard-settings-content",
+                    div { class: "dashboard-sort", role: "group", "aria-label": "Sort dashboard tiles",
+                    span { class: "small muted", "Sort" }
+                    button { r#type: "button", disabled: !tile_ready(), "aria-pressed": tile_layout().positions.is_empty() && tile_layout().order == TileLayout::default().order, onclick: move |_| { let next = tile_layout().restore_order(); tile_layout.set(next.clone()); notify_dashboard_kind("Original tile order restored.", "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); }, "Original" }
+                    button { r#type: "button", disabled: !tile_ready(), "aria-pressed": tile_layout().positions.is_empty() && tile_layout().order == tile_layout().sort_by_label(false).order, onclick: move |_| { let next = tile_layout().sort_by_label(false); tile_layout.set(next.clone()); notify_dashboard_kind("Dashboard sorted A–Z.", "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); }, "A–Z" }
+                    button { r#type: "button", disabled: !tile_ready(), "aria-pressed": tile_layout().positions.is_empty() && tile_layout().order == tile_layout().sort_by_label(true).order, onclick: move |_| { let next = tile_layout().sort_by_label(true); tile_layout.set(next.clone()); notify_dashboard_kind("Dashboard sorted Z–A.", "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); }, "Z–A" }
                     }
-                }
-                div { class: "distribution-grid", TopicBars { counts: top_topics(&filtered), total: filtered.len() }
-                    div { class: "distribution-stack",
-                        StatusDonut { counts: session::distribution(filtered.iter().map(|(_, value)| session::activity_status(value))) }
-                        IdentifierDonut { counts: session::distribution(session::identifier_labels(&filtered)) }
+                    div { class: "dashboard-other-controls",
+                        button { class: "dashboard-arrange", r#type: "button", disabled: !tile_ready(), "aria-pressed": arrange_tiles(), title: "Show empty grid cells for placing tiles", onclick: move |_| { arrange_tiles.toggle(); dragged_tile.set(None); drop_tile.set(None); drop_cell.set(None); }, "Place freely" }
+                        button { class: "dashboard-restore", r#type: "button", disabled: !tile_ready() || tile_layout().hidden.is_empty(), onclick: move |_| { let next = tile_layout().restore_hidden(); tile_layout.set(next.clone()); notify_dashboard_kind("Hidden dashboard tiles restored.", "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile visibility changed, but could not be saved on this device.", "warning"); } }); }, "Restore hidden tiles" }
+                        button { class: "dashboard-reset", r#type: "button", disabled: !tile_ready() || tile_layout() == TileLayout::default(), onclick: move |_| { tile_layout.set(TileLayout::default()); arrange_tiles.set(false); notify_dashboard_kind("Dashboard layout reset.", "success"); spawn(async move { if !reset_tile_layout().await { notify_dashboard_kind("Dashboard layout reset for this session, but saved settings could not be cleared.", "warning"); } }); }, "Reset dashboard" }
+                        if !dashboard_only { a { class: "dashboard-open", href: "dashboard", target: "_blank", rel: "noopener noreferrer", "Open dashboard in new tab ↗" } }
+                    }
                     }
                 }
             }
-            table { class: "activity-table", caption { "{filtered.len()} matching {activity_noun}" }
+            div { class: "portfolio-dashboard", "data-dashboard-page": "portfolio", "data-layout": if tile_layout() == TileLayout::default() && !arrange_tiles() { "default" } else { "custom" }, "data-positioned": arrange_tiles() || !tile_layout().positions.is_empty(), "data-arranging": arrange_tiles(), "data-metric-count": "{visible_metric_count}",
+                for (position, tile_id) in tile_layout().order.iter().filter(|id| tile_layout().visible(id)).enumerate() {
+                    { let tile_id = tile_id.clone(); let up_id = tile_id.clone(); let down_id = tile_id.clone(); let hide_id = tile_id.clone(); let drag_id = tile_id.clone(); let over_id = tile_id.clone(); let drop_id = tile_id.clone(); let label = tile_label(&tile_id); let cell = tile_layout().placement(&tile_id).unwrap_or(GridCell { row: 1, column: 1 }); let span = if matches!(tile_id.as_str(), "activities" | "organizations" | "contributors") { 1 } else { 2 }; let first_metric_tile = first_metric.as_deref() == Some(tile_id.as_str()); rsx! { div { key: "{tile_id}", class: if dragged_tile().as_deref() == Some(tile_id.as_str()) { "dashboard-slot is-dragging" } else if drop_tile().as_deref() == Some(tile_id.as_str()) { "dashboard-slot is-drop-target" } else { "dashboard-slot" }, "data-first-metric": if first_metric_tile { "true" } else { "false" }, style: "--tile-row:{cell.row};--tile-column:{cell.column};--tile-span:{span}",
+                        ondragover: move |event| { if !arrange_tiles() && dragged_tile().as_deref().is_some_and(|source| source != over_id.as_str()) { event.prevent_default(); event.data_transfer().set_drop_effect("move"); if drop_tile().as_deref() != Some(over_id.as_str()) { drop_tile.set(Some(over_id.clone())); } } },
+                        ondrop: move |event| { if !arrange_tiles() { event.prevent_default(); let source = dragged_tile(); dragged_tile.set(None); drop_tile.set(None); if let Some(source) = source { let next = tile_layout().move_to(&source, &drop_id); if next != tile_layout() { tile_layout.set(next.clone()); notify_dashboard_kind("Dashboard tiles reordered.", "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); } } } },
+                        div { class: "dashboard-tile-controls", role: "group", "aria-label": "{label} tile controls",
+                            button { class: "dashboard-drag-handle", r#type: "button", disabled: !tile_ready(), draggable: "true", "aria-label": if arrange_tiles() { "Drag {label} to place" } else { "Drag {label} to reorder" }, title: if arrange_tiles() { "Drag {label} to an empty grid cell" } else { "Drag {label} to reorder" }, ondragstart: move |event| { let transfer = event.data_transfer(); let _ = transfer.set_data("text/plain", &drag_id); transfer.set_effect_allowed("move"); dragged_tile.set(Some(drag_id.clone())); drop_tile.set(None); drop_cell.set(None); }, ondragend: move |_| { dragged_tile.set(None); drop_tile.set(None); drop_cell.set(None); }, "⋮⋮" }
+                            button { r#type: "button", disabled: !tile_ready() || position == 0, "aria-label": "Move {label} up", title: "Move {label} up", onclick: move |_| { let next = tile_layout().move_by(&up_id, -1); tile_layout.set(next.clone()); notify_dashboard_kind(&format!("Moved {label} up."), "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); }, "↑" }
+                            button { r#type: "button", disabled: !tile_ready() || position + 1 == visible_tile_count, "aria-label": "Move {label} down", title: "Move {label} down", onclick: move |_| { let next = tile_layout().move_by(&down_id, 1); tile_layout.set(next.clone()); notify_dashboard_kind(&format!("Moved {label} down."), "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); }, "↓" }
+                            button { r#type: "button", disabled: !tile_ready(), "aria-label": "Hide {label}", title: "Hide {label}", onclick: move |_| { let next = tile_layout().set_visible(&hide_id, false); tile_layout.set(next.clone()); notify_dashboard_kind(&format!("{label} hidden."), "success"); document::eval("document.querySelector('.dashboard-settings > summary')?.focus()"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile visibility changed, but could not be saved on this device.", "warning"); } }); }, "×" }
+                        }
+                        match tile_id.as_str() {
+                            "activities" => rsx! { MetricTile { tile_id: "activities", label: "Activities", count: filtered.len() } },
+                            "organizations" => rsx! { MetricTile { tile_id: "organizations", label: "Organizations", count: session::entities(&filtered, "organizations").len() } },
+                            "contributors" => rsx! { MetricTile { tile_id: "contributors", label: "Contributors", count: session::entities(&filtered, "contributors").len() } },
+                            "top-topics" => rsx! { TopicBars { counts: top_topics(&filtered), total: filtered.len() } },
+                            "statuses" => rsx! { StatusDonut { counts: session::distribution(filtered.iter().map(|(_, value)| session::activity_status(value))) } },
+                            "identifiers" => rsx! { IdentifierDonut { counts: session::distribution(session::identifier_labels(&filtered)) } },
+                            _ => rsx! {},
+                        }
+                    } } }
+                }
+                if arrange_tiles() && visible_tile_count > 0 {
+                    for cell in tile_layout().empty_cells() {
+                        { let row = cell.row; let column = cell.column; rsx! { div { key: "empty-{row}-{column}", class: if drop_cell() == Some(cell) { "dashboard-empty-cell is-drop-target" } else { "dashboard-empty-cell" }, "data-grid-cell": "{row}-{column}", style: "--tile-row:{row};--tile-column:{column}", "aria-label": "Empty dashboard position, row {row}, column {column}",
+                            ondragover: move |event| { if let Some(source) = dragged_tile() { if tile_layout().can_place(&source, cell) { event.prevent_default(); event.data_transfer().set_drop_effect("move"); drop_cell.set(Some(cell)); } } },
+                            ondragleave: move |_| { if drop_cell() == Some(cell) { drop_cell.set(None); } },
+                            ondrop: move |event| { event.prevent_default(); let source = dragged_tile(); dragged_tile.set(None); drop_cell.set(None); if let Some(source) = source { let next = tile_layout().place_at(&source, cell); if next != tile_layout() { tile_layout.set(next.clone()); notify_dashboard_kind(&format!("Tile placed at row {row}, column {column}."), "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile placement changed, but could not be saved on this device.", "warning"); } }); } } },
+                        } } }
+                    }
+                }
+                if tile_layout().hidden.len() == PORTFOLIO_TILES.len() { div { class: "card empty", p { "No dashboard tiles shown. Open Dashboard settings to restore hidden tiles or reset the layout." } } }
+            }
+            if !dashboard_only { table { class: "activity-table", caption { "{filtered.len()} matching {activity_noun}" }
                 thead { tr { for (field, label) in [("title", "Activity"), ("type", "Type"), ("status", "Status")] {
                     th { scope: "col", "aria-sort": if sort() == field { if descending() { "descending" } else { "ascending" } } else { "none" }, button { onclick: move |_| { if sort() == field { descending.toggle(); } else { sort.set(field); descending.set(false); } }, "{label}" } }
                 } } }
@@ -581,10 +587,69 @@ pub(crate) fn Portfolio() -> Element {
                 }} } }
             }
             if filtered.is_empty() && !activities.is_empty() { div { class: "card empty", h2 { "No matching activities" } p { "Try another search or reset the filters." } button { onclick: move |_| { search.set(String::new()); kind.set(String::new()); status.set(String::new()); }, "Reset filters" } } }
+            }
 
         }
     }
 }
+fn notify_dashboard_kind(message: &str, kind: &'static str) {
+    let value = serde_json::to_string(message).unwrap_or_default();
+    document::eval(&format!("window.acornChrome?.notifications.notify({value}, '{kind}')"));
+}
+async fn reset_tile_layout() -> bool {
+    document::eval("return window.acornDashboardLayout?.reset('portfolio') ?? false")
+        .join::<bool>()
+        .await
+        .unwrap_or(false)
+}
+fn route_tool(route: &Route) -> Option<Tool> {
+    match route {
+        | Route::Page { page } => Tool::iter().find(|tool| tool.slug() == page),
+        | Route::Home {} => None,
+    }
+}
+async fn save_tile_layout(layout: &TileLayout) -> bool {
+    let value = serde_json::to_string(layout).unwrap_or_default();
+    document::eval(&format!("return window.acornDashboardLayout?.save('portfolio', {value}) ?? false"))
+        .join::<bool>()
+        .await
+        .unwrap_or(false)
+}
+fn status_color(status: &str) -> &'static str {
+    match status {
+        | "active" => "var(--status-active)",
+        | "canceled" => "var(--status-canceled)",
+        | "completed" => "var(--status-completed)",
+        | "paused" => "var(--status-paused)",
+        | _ => "var(--muted)",
+    }
+}
+#[component]
+fn StatusDonut(counts: BTreeMap<String, usize>) -> Element {
+    let segments = counts
+        .into_iter()
+        .map(|(label, count)| ChartSegment {
+            color: status_color(&label).into(),
+            label,
+            count,
+        })
+        .collect();
+    rsx! { DonutTile { tile_id: "statuses", class: "status-donut", title: "Statuses", center_label: "activities", empty_message: "No matching activities", segments } }
+}
+fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
+    projects
+        .iter()
+        .flat_map(|project| project.keywords.iter().map(String::as_str))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .enumerate()
+        .map(|(index, tag)| (tag, index % TAG_COLOR_COUNT))
+        .collect()
+}
+fn tile_label(id: &str) -> &'static str {
+    PORTFOLIO_TILES.iter().find(|(tile, _)| *tile == id).map_or("Tile", |(_, label)| *label)
+}
+
 fn top_topics(records: &[(&SuppliedFile, &Value)]) -> Vec<(String, usize)> {
     let counts = records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
         session::many(value.pointer("/meta/keywords").unwrap_or(&Value::Null))
@@ -610,17 +675,42 @@ fn top_topics(records: &[(&SuppliedFile, &Value)]) -> Vec<(String, usize)> {
     topics.truncate(6);
     topics
 }
-fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
-    projects
+#[component]
+fn TopicBars(counts: Vec<(String, usize)>, total: usize) -> Element {
+    rsx! { DashboardTile { tile_id: "top-topics", class: "topic-bars", h2 { "Top topics" }
+        if counts.is_empty() { p { class: "muted", "No keywords in matching activities" } }
+        else {
+            p { class: "small muted", "Activities can appear under more than one topic." }
+            for (label, count) in counts { div { class: "proportion", p { span { "{label}" } span { "{count}" } } progress { value: "{count}", max: "{total}", "aria-label": "{label}: {count} of {total} matching activities" } } }
+        }
+    } }
+}
+fn tree_children(paths: &[String], prefix: &str, descending: bool) -> Vec<(bool, String)> {
+    let mut children = paths
         .iter()
-        .flat_map(|project| project.keywords.iter().map(String::as_str))
+        .filter_map(|path| path.strip_prefix(prefix))
+        .filter_map(|relative| relative.split('/').next())
+        .map(|name| (paths.contains(&format!("{prefix}{name}")), name.to_owned()))
         .collect::<BTreeSet<_>>()
         .into_iter()
-        .enumerate()
-        .map(|(index, tag)| (tag, index % TAG_COLOR_COUNT))
+        .collect::<Vec<_>>();
+    if descending {
+        children.sort_by(|(left_file, left), (right_file, right)| left_file.cmp(right_file).then_with(|| right.cmp(left)));
+    }
+    children
+}
+fn visible_file_paths(files: &[SuppliedFile], pattern: &SearchPattern, kind: &str, tool: Option<Tool>) -> Vec<String> {
+    files
+        .iter()
+        .filter(|file| pattern.matches(&file.path))
+        .filter(|file| match kind {
+            | "all" => true,
+            | "loadable" => tool.is_none_or(|tool| file_loadable(file, tool)),
+            | kind => file_kind(file) == kind,
+        })
+        .map(|file| file.path.clone())
         .collect()
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

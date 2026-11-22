@@ -1,8 +1,8 @@
 (() => {
-    let trigger;
-    let previousOverflow;
-    let width = 480;
     let onClose;
+    let previousOverflow;
+    let trigger;
+    let width = 480;
     const dialog = () => document.getElementById("details-drawer");
     function resize(panel, requested, remember = true) {
         if (remember) width = Math.round(Math.max(360, Math.min(requested, 900)));
@@ -37,6 +37,13 @@
             resize(panel, width + (event.key === 'ArrowLeft' ? 24 : -24));
         });
         panel.addEventListener("keydown", event => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                panel.close();
+            }
+        }, true);
+        panel.addEventListener("keydown", event => {
             const tab = event.target.closest('[role="tab"]');
             if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault();
@@ -60,8 +67,8 @@
         });
     }
     window.acornDetails = {
+        close(restore = true) { if (!restore) trigger = undefined; dialog()?.close(); },
         connect(callback) { onClose = callback; },
-        rememberFocus() { if (!dialog()?.open) trigger = document.activeElement; },
         open() {
             const panel = dialog();
             if (!panel?.querySelector("#details-title")) return;
@@ -75,7 +82,7 @@
             panel.querySelector(".details-body")?.scrollTo(0, 0);
             panel.querySelector(".details-close")?.focus({ preventScroll: true });
         },
-        close(restore = true) { if (!restore) trigger = undefined; dialog()?.close(); },
+        rememberFocus() { if (!dialog()?.open) trigger = document.activeElement; },
     };
     window.addEventListener("resize", () => { const panel = dialog(); if (panel?.open) resize(panel, width, false); });
     window.dispatchEvent(new Event("acorn-details-ready"));

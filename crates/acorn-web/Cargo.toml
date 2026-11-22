@@ -16,7 +16,7 @@ acorn-schema.workspace = true
 acorn-wasm = { path = "../acorn-wasm" }
 case = "1.0.0"
 data-encoding.workspace = true
-dioxus = { version = "=0.7.3", features = ["web", "router"] }
+dioxus = { version = "=0.7.10", features = ["web", "router"] }
 js-sys = "0.3.105"
 jsonc-parser.workspace = true
 regex.workspace = true

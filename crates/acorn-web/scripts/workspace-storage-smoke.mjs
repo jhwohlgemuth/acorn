@@ -234,7 +234,7 @@ try {
     await page.locator('nav a[title="Portfolio"]').click();
     await page.locator(".activity-select").nth(1).click();
     await page.waitForFunction(saved => localStorage.getItem("acorn.workspace.v1") === saved, lastSaved);
-    await page.locator("#notification-text").filter({ hasText: /Workspace saving stopped/ }).waitFor();
+    await page.locator(".notifications .notification-text").filter({ hasText: /Workspace saving stopped/ }).waitFor();
     await page.getByRole("button", { name: "Close details" }).click();
     await page.locator('nav a[title="Settings"]').click();
     await page.getByText(/Workspace saving failed\. The last saved copy remains/).waitFor();
