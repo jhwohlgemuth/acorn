@@ -78,6 +78,7 @@ pub(crate) fn CodeEditor(
                     button { r#type: "button", class: "copy-code", "data-size": "big", "aria-label": "Big", title: "Big font size", "aria-pressed": "false", onclick: move |_| { document::eval(&format!("window.acornEditors?.setFontSize('{id}', 'big')")); }, Icon { name: "font-big" } }
                 }
                 CopyButton { text: value.clone(), icon_only: true }
+                button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Open code editor in new tab", title: "Open code editor in new tab", onclick: move |_| { document::eval(&format!("window.acornEditors?.openInNewTab('{id}')")); }, Icon { name: "external" } }
                 span { class: "editor-toolbar-spacer", "aria-hidden": "true" }
                 if let Some(message) = run_error { span { class: "editor-run-error", title: "{message}", "{message}" } }
                 div { class: "editor-issue-nav", role: "group", "aria-label": "Issue navigation", hidden: true,

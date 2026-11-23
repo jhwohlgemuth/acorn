@@ -163,6 +163,10 @@ function createWorkspaceStorage(storage = () => window.localStorage, indexedDB =
                     bytes = saved.bytes;
                     return { ...saved.workspace, files: restored };
                 }
+                knownFiles = new Map();
+                knownRevision = null;
+                bytes = 0;
+                fallbackActive = false;
                 const workspace = restoreLocal(legacyKey);
                 if (workspace?.files?.length) await save(workspace);
                 return workspace;

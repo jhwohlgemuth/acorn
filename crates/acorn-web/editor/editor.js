@@ -12,6 +12,7 @@ import { openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import { Decoration, drawSelection, EditorView, GutterMarker, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, lineNumberMarkers, lineNumbers } from "@codemirror/view";
 import { classHighlighter } from "@lezer/highlight";
 
+const editorScriptUrl = document.currentScript?.src;
 const languages = {
     expression: StreamLanguage.define({ token(stream) {
         if (stream.eatSpace()) return null;
@@ -241,7 +242,11 @@ function installEditors() {
     }
     function find(id) { return editors.get(document.getElementById(id)?.closest(".code-editor")); }
     window.acornEditors = {
-        sync(id, value, language, label) { discover(); find(id)?.sync(value, language, label); },
+        sync(id, value, language, label) {
+            discover();
+            find(id)?.sync(value, language, label);
+            if (value !== null) document.getElementById(id)?.dispatchEvent(new CustomEvent("acorn-editor-sync", { bubbles: true, detail: value }));
+        },
         setDiagnostics(id, diagnostics, source) {
             discover();
             const editor = find(id);
@@ -334,6 +339,82 @@ function installEditors() {
             button?.setAttribute("aria-label", active ? "Exit full screen" : "Full screen");
             view.requestMeasure();
             view.focus();
+        },
+        openInNewTab(id) {
+            const editor = find(id);
+            const source = document.getElementById(id);
+            if (!editor || !source) return;
+            const popup = window.open("", "_blank");
+            if (!popup) return;
+            const label = source.getAttribute("aria-label") || "Code";
+            const language = source.closest(".code-editor").dataset.language;
+            const channel = crypto.randomUUID();
+            const popoutId = "popout-content";
+            popup.document.write("<!doctype html><html><head></head><body></body></html>");
+            popup.document.close();
+            popup.document.title = `${label} — ACORN`;
+            const stylesheet = document.getElementById("app-stylesheet");
+            if (stylesheet) {
+                const link = popup.document.createElement("link");
+                link.rel = "stylesheet";
+                link.href = stylesheet.href;
+                popup.document.head.append(link);
+            }
+            popup.document.body.className = "workspace";
+            popup.document.body.dataset.theme = document.querySelector(".workspace")?.dataset.theme || "light";
+            const host = popup.document.createElement("div");
+            host.className = "code-editor is-fullscreen";
+            host.dataset.language = language;
+            const toolbar = popup.document.createElement("div");
+            toolbar.className = "editor-toolbar";
+            toolbar.setAttribute("role", "group");
+            toolbar.setAttribute("aria-label", `${label} editor controls`);
+            const heading = popup.document.createElement("span");
+            heading.className = "editor-fullscreen-name";
+            heading.textContent = label;
+            const copy = popup.document.createElement("button");
+            copy.type = "button";
+            copy.className = "copy-code";
+            copy.textContent = "Copy code";
+            copy.addEventListener("click", () => popup.navigator.clipboard.writeText(input.value));
+            toolbar.append(heading, copy);
+            const surface = popup.document.createElement("div");
+            surface.className = "editor-surface";
+            const input = popup.document.createElement("textarea");
+            input.id = popoutId;
+            input.setAttribute("aria-label", label);
+            input.readOnly = source.readOnly;
+            input.value = editor.view.state.doc.toString();
+            host.append(toolbar, surface, input);
+            popup.document.body.append(host);
+            const onParentInput = (event) => {
+                if (event.target?.id === id && !popup.closed) popup.postMessage({ channel, type: "acorn-editor-update", value: event.detail ?? event.target.value }, location.origin);
+            };
+            const onChildMessage = (event) => {
+                if (event.origin !== location.origin || event.data?.channel !== channel || event.data?.type !== "acorn-editor-update") return;
+                const current = document.getElementById(id);
+                if (!current || current.readOnly || current.value === event.data.value) return;
+                current.value = event.data.value;
+                current.dispatchEvent(new Event("input", { bubbles: true }));
+            };
+            document.addEventListener("input", onParentInput);
+            document.addEventListener("acorn-editor-sync", onParentInput);
+            window.addEventListener("message", onChildMessage);
+            popup.addEventListener("pagehide", () => {
+                document.removeEventListener("input", onParentInput);
+                document.removeEventListener("acorn-editor-sync", onParentInput);
+                window.removeEventListener("message", onChildMessage);
+            }, { once: true });
+            input.addEventListener("input", () => popup.opener?.postMessage({ channel, type: "acorn-editor-update", value: input.value }, location.origin));
+            popup.addEventListener("message", (event) => {
+                if (event.origin !== location.origin || event.data?.channel !== channel || event.data?.type !== "acorn-editor-update") return;
+                input.value = event.data.value;
+                if (popup.acornEditors) popup.acornEditors.sync(popoutId, event.data.value, language, label);
+            });
+            popup.addEventListener("acorn-editors-ready", () => popup.document.getElementById(`${popoutId}-editor`)?.focus(), { once: true });
+            const script = popup.document.createElement("script");
+            script.src = editorScriptUrl;
+            popup.document.head.append(script);
         },
         fold(id) { const editor = find(id); if (editor) { foldDocument(editor.view); editor.view.focus(); } },
         expand(id) { const editor = find(id); if (editor) { unfoldAll(editor.view); editor.view.focus(); } },

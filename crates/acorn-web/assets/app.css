@@ -946,6 +946,7 @@ body.editor-fullscreen-open{overflow:hidden}
 .code-editor.is-fullscreen .editor-resize-handle{display:none}
 .code-editor textarea{font:inherit;min-height:var(--editor-height);border:0;margin:0}
 .editor-toolbar{position:relative;display:none;align-items:center;flex-wrap:nowrap;gap:4px;padding:4px 6px 8px;border-bottom:1px solid var(--border);overflow-x:auto}
+.editor-toolbar:has(.editor-issue-nav:not([hidden])){flex-wrap:wrap}
 .cm-ready .editor-toolbar{display:flex}
 .cm-ready>textarea{display:none}
 .editor-toolbar>*{flex:none}

@@ -402,6 +402,18 @@ pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
         }
         tile_ready.set(true);
     });
+    use_future(move || async move {
+        loop {
+            let layout = document::eval("return await new Promise(resolve => window.addEventListener('storage', function changed(event) { if (event.key !== 'acorn.dashboard.layout.v1') return; window.removeEventListener('storage', changed); resolve(window.acornDashboardLayout.load('portfolio')); }))")
+                .join::<Option<TileLayout>>()
+                .await;
+            match layout {
+                | Ok(Some(saved)) => tile_layout.set(saved.normalized()),
+                | Ok(None) => tile_layout.set(TileLayout::default()),
+                | Err(_) => break,
+            }
+        }
+    });
     let snapshot = workspace();
     let activities = snapshot.activities();
     let index = ResearchIndex::from(&snapshot);

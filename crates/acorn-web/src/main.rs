@@ -29,6 +29,7 @@ fn app() -> Element {
     let mut workspace = use_context_provider(|| Signal::new(acorn_web::session::Workspace::default()));
     let mut storage_status = use_context_provider(|| Signal::new((0_usize, false, 0_usize, 0_usize)));
     let mut restored = use_signal(|| false);
+    let mut skip_save = use_signal(|| false);
     let mut recovery_timed_out = use_context_provider(|| RecoveryTimedOut(Signal::new(false))).0;
     use_future(move || async move {
         let saved = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); const storage = window.acornWorkspaceStorage; const workspace = await storage.restore(); return {workspace, recoveryTimedOut: storage.recoveryTimedOut}").join::<serde_json::Value>().await;
@@ -70,8 +71,11 @@ fn app() -> Element {
     });
     use_effect(move || {
         if restored() {
-            if let Ok(value) = serde_json::to_string(&workspace()) {
-                let evaluator = document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = await storage.save({value}); return {{...await storage.status(), newFailure: !saved}}"));
+            let current = workspace();
+            if *skip_save.peek() {
+                skip_save.set(false);
+            } else if let Ok(value) = serde_json::to_string(&current) {
+                let evaluator = document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = await storage.save({value}); if (saved) try {{ localStorage.setItem('acorn.workspace.changed.v1', crypto.randomUUID()); }} catch {{}} return {{...await storage.status(), newFailure: !saved}}"));
                 spawn(async move {
                     let result = evaluator.join::<serde_json::Value>().await;
                     if let Ok(status) = result {
@@ -81,6 +85,38 @@ fn app() -> Element {
                         }
                     }
                 });
+            }
+        }
+    });
+    use_future(move || async move {
+        loop {
+            let changed = document::eval("return await new Promise(resolve => window.addEventListener('storage', function changed(event) { if (event.key !== 'acorn.workspace.changed.v1') return; window.removeEventListener('storage', changed); resolve(true); }))")
+                .join::<bool>()
+                .await;
+            if changed.is_err() {
+                break;
+            }
+            let saved = document::eval("return await window.acornWorkspaceStorage.restore()")
+                .join::<serde_json::Value>()
+                .await;
+            let next = saved
+                .as_ref()
+                .ok()
+                .and_then(|value| serde_json::from_value::<acorn_web::session::Workspace>(value.clone()).ok())
+                .and_then(acorn_web::session::Workspace::restored);
+            if let Some(next) = next {
+                session.set(next.content());
+                if *workspace.peek() != next {
+                    skip_save.set(true);
+                    workspace.set(next);
+                }
+            } else if matches!(saved, Ok(serde_json::Value::Null)) {
+                session.set(String::new());
+                let empty = acorn_web::session::Workspace::default();
+                if *workspace.peek() != empty {
+                    skip_save.set(true);
+                    workspace.set(empty);
+                }
             }
         }
     });

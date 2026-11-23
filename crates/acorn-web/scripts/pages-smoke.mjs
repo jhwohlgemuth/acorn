@@ -263,6 +263,11 @@ try {
     assert.equal(await dashboardPage.locator(".catalog-activity-section,.activity-table,.dashboard-open").count(), 0, "The new tab shows the dashboard without the project listing");
     const activityCount = await page.locator('.metric[data-tile-id="activities"] strong').textContent();
     await dashboardPage.waitForFunction((count) => document.querySelector('.metric[data-tile-id="activities"] strong')?.textContent === count, activityCount);
+    await page.getByRole("button", { name: "Hide Organizations" }).click();
+    await dashboardPage.locator('.portfolio-dashboard [data-tile-id="organizations"]').waitFor({ state: "detached" });
+    await dashboardPage.locator(".dashboard-settings > summary").click();
+    await dashboardPage.getByRole("button", { name: "Restore hidden tiles" }).click();
+    await page.locator('.portfolio-dashboard [data-tile-id="organizations"]').waitFor();
     await dashboardPage.close();
     await page.setViewportSize({ width: 800, height: 720 });
     assert.equal(await page.locator(".portfolio-dashboard").evaluate((dashboard) => getComputedStyle(dashboard).gridTemplateColumns.split(" ").length), 2, "The customized dashboard gives drag controls room on a mid-size screen");
@@ -475,13 +480,13 @@ try {
     assert.equal(await toolSettings.getAttribute("open"), null, "Tool settings start collapsed");
     await toolSettings.locator("summary").first().click();
     const settingLabels = () => toolSettings.locator(".options > .field > span, .options > .check-settings-row legend, .options > .vocabulary-field legend").allTextContents();
-    assert.deepEqual(await settingLabels(), ["Standard", "Format", "Skip checks", "Vocabulary matching"]);
-    const standardSelect = toolSettings.getByRole("combobox", { name: "Standard", exact: true });
-    await standardSelect.selectOption("datacite");
+    assert.deepEqual(await settingLabels(), ["Standard", "Format", "Skip checks", "Readability metric", "Vocabulary matching"]);
+    const standardChoices = toolSettings.locator('.choice-bar[aria-label="Standard"]');
+    await standardChoices.getByRole("button", { name: "DCITE", exact: true }).click();
     assert.equal(await page.locator(".vocabulary-choices").count(), 0, "Other standards hide RAD-specific controls");
     assert.deepEqual(await settingLabels(), ["Standard", "Format"]);
-    await standardSelect.selectOption("research-activity-data");
-    assert.deepEqual(await settingLabels(), ["Standard", "Format", "Skip checks", "Vocabulary matching"]);
+    await standardChoices.getByRole("button", { name: "RADS", exact: true }).click();
+    assert.deepEqual(await settingLabels(), ["Standard", "Format", "Skip checks", "Readability metric", "Vocabulary matching"]);
     assert.match(await page.locator('.review-modes button[aria-pressed="true"]').first().evaluate((button) => getComputedStyle(button).boxShadow), /inset/, "Selected Review modes have an inner shadow");
     assert.equal(await page.locator('.vocabulary-choices button[aria-pressed="true"]').first().evaluate((button) => getComputedStyle(button).boxShadow), "none", "Selected Vocabulary matching has no inner shadow");
     const vocabularyChoices = page.locator(".vocabulary-choices");
@@ -501,16 +506,16 @@ try {
         assert.ok(buttons.every((button) => button.right <= width), `Vocabulary options fit the viewport at ${width}px`);
     }
     await page.setViewportSize({ width: 1280, height: 720 });
-    const metadataStandardWidth = await standardSelect.evaluate((select) => select.getBoundingClientRect().width);
-    const readabilityControls = page.locator(".activity-readability-controls");
+    const metadataStandardWidth = await standardChoices.evaluate((choices) => choices.getBoundingClientRect().width);
+    const readabilityControls = page.locator(".readability-controls");
     const readabilitySkip = page.getByRole("group", { name: "Skip check types" }).getByRole("button", { name: "Readability", exact: true });
     const skipBox = await readabilitySkip.boundingBox();
-    const metricBox = await readabilityControls.getByRole("combobox").boundingBox();
+    const metricBox = await readabilityControls.locator(".metric-choices").boundingBox();
     const thresholdBox = await readabilityControls.getByLabel("Maximum readability score").boundingBox();
     const checkRowBox = await page.locator(".check-settings-row").boundingBox();
-    assert.ok(Math.abs(skipBox.y - metricBox.y) <= 4, `Readability settings align with the skip controls (${JSON.stringify({ skipBox, metricBox, checkRowBox })})`);
+    assert.ok(metricBox.y >= skipBox.y + skipBox.height && metricBox.y < checkRowBox.y + checkRowBox.height, `Readability settings follow the skip controls (${JSON.stringify({ skipBox, metricBox, checkRowBox })})`);
     assert.equal(metricBox.y, thresholdBox.y, "Readability metric and threshold share a row");
-    await readabilityControls.getByRole("combobox").selectOption("fres");
+    await readabilityControls.getByRole("button", { name: "FRES", exact: true }).click();
     await readabilityControls.getByLabel("Minimum readability score").fill("70");
     const validationTypes = page.getByRole("group", { name: "Skip check types" });
     assert.equal(await validationTypes.locator("button .nav-icon").count(), 5);
@@ -547,7 +552,7 @@ try {
     await page.getByRole("button", { name: "FAIR assessment", exact: true }).click();
     await page.getByRole("button", { name: /Use example/ }).click();
     if (await page.locator(".tool-settings").getAttribute("open") === null) await page.locator(".tool-settings > summary").click();
-    const fairStandardWidth = await page.getByRole("combobox", { name: "Standard", exact: true }).evaluate((select) => select.getBoundingClientRect().width);
+    const fairStandardWidth = await page.locator('.choice-bar[aria-label="Standard"]').evaluate((choices) => choices.getBoundingClientRect().width);
     assert.ok(Math.abs(metadataStandardWidth - fairStandardWidth) <= 1, "Standard control keeps the same width across Review tabs");
     const fairTypes = page.getByRole("group", { name: "Skip check types" });
     await fairTypes.getByRole("button", { name: /^All/ }).click();
@@ -675,14 +680,14 @@ try {
     await contentPage.locator('nav a[title="Review"]').click();
     await contentPage.getByRole("heading", { name: "Review", exact: true }).waitFor();
     await contentPage.locator(".tool-settings > summary").click();
-    const formatSelect = contentPage.getByRole("combobox", { name: "Format", exact: true });
+    const formatChoices = contentPage.locator('.choice-bar[aria-label="Format"]');
     const reviewTree = contentPage.locator(".loaded-tree");
     await reviewTree.locator(":scope > summary").click();
-    for (const [folder, file, format] of [["bamboo-shoots-after-rain", "index.md", "markdown"], ["kitsune-lantern-atlas", "index.yaml", "yaml"]]) {
+    for (const [folder, file, format] of [["bamboo-shoots-after-rain", "index.md", "MD"], ["kitsune-lantern-atlas", "index.yaml", "YAML"]]) {
         const folderSummary = reviewTree.locator(".file-tree details > summary").filter({ hasText: folder });
         await folderSummary.click();
         await folderSummary.locator("..").locator(":scope > .file-tree > li > .file-leaf").filter({ hasText: file }).click();
-        assert.equal(await formatSelect.inputValue(), format, `${file} selects its format`);
+        assert.equal(await formatChoices.locator('button[aria-pressed="true"]').textContent(), format, `${file} selects its format`);
     }
     await contentPage.close();
     const busyPage = await browser.newPage();

@@ -351,6 +351,7 @@ pub(crate) fn Icon(name: &'static str) -> Element {
             r#"<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />"#
         }
         | "expand" => r#"<path d="m8 6 4-4 4 4M12 2v7m-4 9 4 4 4-4m-4 4v-7M4 12h16"/>"#,
+        | "external" => r#"<path class="s" d="M14 3h7v7M21 3l-9 9M20 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"/>"#,
         | "eye" => r#"<path class="s" d="M2 12c2.5-4 6-6 10-6s7.5 2 10 6c-2.5 4-6 6-10 6S4.5 16 2 12Z"/><circle class="s" cx="12" cy="12" r="2.5"/>"#,
         | "file" => r#"<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>"#,
         | "filecheck" => {
@@ -570,7 +571,7 @@ fn InfoPage(page: String) -> Element {
                                 credential_error.set(String::new());
                                 credential_message.set(String::new());
                                 if let Ok((workspace_deleted, remote_deleted, layout_deleted, tour_deleted)) = deleted {
-                                    if workspace_deleted { storage_status.set((0, false, 0, 0)); }
+                                    if workspace_deleted { storage_status.set((0, false, 0, 0)); document::eval("try { localStorage.setItem('acorn.workspace.changed.v1', crypto.randomUUID()); } catch {}"); }
                                     if remote_deleted { recent_inputs.set((0, 0)); credential_status.set(String::new()); }
                                     if workspace_deleted && remote_deleted && layout_deleted && tour_deleted {
                                         storage_error.set(String::new());
