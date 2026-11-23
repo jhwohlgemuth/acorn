@@ -397,7 +397,9 @@ try {
     await touchSession.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     assert.ok((await mobile.locator(".editor-surface").boundingBox()).height >= touchSurface.height + 75, "touch dragging resizes the editor");
     await mobile.locator("#content-editor").tap();
+    await mobile.locator("#content-editor").focus();
     await mobile.keyboard.insertText('{"touch":true}');
+    await mobile.waitForFunction(() => document.getElementById("content")?.value === '{"touch":true}');
     assert.equal(await mobile.locator("#content").inputValue(), '{"touch":true}', "touch editing updates the source input");
     await mobile.getByRole("button", { name: "Big" }).tap();
     assert.equal(await mobile.locator(".code-editor").evaluate(node => getComputedStyle(node).fontSize), "20px", "touch font control changes size");
