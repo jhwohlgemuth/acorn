@@ -83,9 +83,9 @@ pub(crate) fn CodeEditor(
                 if let Some(message) = run_error { span { class: "editor-run-error", title: "{message}", "{message}" } }
                 div { class: "editor-issue-nav", role: "group", "aria-label": "Issue navigation", hidden: true,
                     span { class: "editor-issue-label", "Issues" }
-                    button { r#type: "button", class: "copy-code", title: "Previous issue (←)", "aria-label": "Previous issue", "aria-keyshortcuts": "ArrowLeft", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', -1)")); }, "←" }
+                    button { r#type: "button", class: "copy-code", title: "Previous issue (←)", "aria-label": "Previous issue", "aria-keyshortcuts": "ArrowLeft", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', -1)")); }, span { "←" } span { class: "editor-issue-word", "Prev" } }
                     span { class: "editor-issue-position", "aria-live": "polite", "0 of 0" }
-                    button { r#type: "button", class: "copy-code", title: "Next issue (→)", "aria-label": "Next issue", "aria-keyshortcuts": "ArrowRight", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', 1)")); }, "→" }
+                    button { r#type: "button", class: "copy-code", title: "Next issue (→)", "aria-label": "Next issue", "aria-keyshortcuts": "ArrowRight", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', 1)")); }, span { class: "editor-issue-word", "Next" } span { "→" } }
                     span { class: "editor-issue-message", role: "status", "aria-live": "polite" }
                 }
                 if run_action && run_disabled { span { class: "editor-run-status", role: "status", "aria-live": "polite", "Running…" } }

@@ -13,6 +13,7 @@ mod search_ui;
 mod skill;
 mod syntax;
 mod ui;
+mod window_sync;
 mod workspace;
 
 #[derive(Clone, Copy)]
@@ -75,13 +76,16 @@ fn app() -> Element {
             if *skip_save.peek() {
                 skip_save.set(false);
             } else if let Ok(value) = serde_json::to_string(&current) {
-                let evaluator = document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = await storage.save({value}); if (saved) try {{ localStorage.setItem('acorn.workspace.changed.v1', crypto.randomUUID()); }} catch {{}} return {{...await storage.status(), newFailure: !saved}}"));
+                window_sync::publish_json("acorn.workspace.live.v1", &value);
+                let evaluator = document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = await storage.save({value}); return {{...await storage.status(), newFailure: !saved}}"));
                 spawn(async move {
                     let result = evaluator.join::<serde_json::Value>().await;
                     if let Ok(status) = result {
                         storage_status.set(ui::parse_storage_status(&status));
                         if status.get("newFailure") == Some(&serde_json::Value::Bool(true)) {
                             document::eval("window.acornChrome?.notifications.notify('Workspace saving stopped. Browser storage may be full, unavailable, or changed in another tab. Your current session remains open.', 'warning')");
+                        } else {
+                            window_sync::notify_storage("acorn.workspace.changed.v1");
                         }
                     }
                 });
@@ -89,13 +93,31 @@ fn app() -> Element {
         }
     });
     use_future(move || async move {
-        loop {
-            let changed = document::eval("return await new Promise(resolve => window.addEventListener('storage', function changed(event) { if (event.key !== 'acorn.workspace.changed.v1') return; window.removeEventListener('storage', changed); resolve(true); }))")
-                .join::<bool>()
-                .await;
-            if changed.is_err() {
-                break;
+        let mut channel = window_sync::subscribe("acorn.workspace.live.v1");
+        while let Ok(value) = channel.recv::<serde_json::Value>().await {
+            if !restored() {
+                continue;
             }
+            if let Some(next) = serde_json::from_value::<acorn_web::session::Workspace>(value)
+                .ok()
+                .and_then(acorn_web::session::Workspace::restored)
+            {
+                if next.selected.is_some() || next.files.is_empty() {
+                    let content = next.content();
+                    if *session.peek() != content {
+                        session.set(content);
+                    }
+                }
+                if *workspace.peek() != next {
+                    skip_save.set(true);
+                    workspace.set(next);
+                }
+            }
+        }
+    });
+    use_future(move || async move {
+        let mut changes = window_sync::subscribe_storage("acorn.workspace.changed.v1");
+        while changes.recv::<bool>().await.is_ok() {
             let saved = document::eval("return await window.acornWorkspaceStorage.restore()")
                 .join::<serde_json::Value>()
                 .await;
@@ -105,7 +127,12 @@ fn app() -> Element {
                 .and_then(|value| serde_json::from_value::<acorn_web::session::Workspace>(value.clone()).ok())
                 .and_then(acorn_web::session::Workspace::restored);
             if let Some(next) = next {
-                session.set(next.content());
+                if next.selected.is_some() || next.files.is_empty() {
+                    let content = next.content();
+                    if *session.peek() != content {
+                        session.set(content);
+                    }
+                }
                 if *workspace.peek() != next {
                     skip_save.set(true);
                     workspace.set(next);
@@ -137,6 +164,7 @@ fn app() -> Element {
         document::Link { rel: "license", title: "Simple Icons license", href: asset!("/assets/vendor/simple-icons.LICENSE") }
         document::Link { id: "app-stylesheet", rel: "stylesheet", href: asset!("/assets/app.css") }
         document::Script { src: asset!("/assets/url-state.js") }
+        document::Script { r#type: "module", src: asset!("/assets/window-sync.js") }
         document::Script { src: asset!("/assets/effects.js"), "data-worker": asset!("/assets/worker.js") }
         document::Script { src: asset!("/assets/details.js") }
         document::Script { src: asset!("/assets/carousel.js") }

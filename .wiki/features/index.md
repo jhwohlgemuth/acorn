@@ -8,6 +8,7 @@
 
 ## Planned
 
+- [Optional USWDS browser theme](uswds-browser-theme.md) - Add a selectable USWDS-informed appearance to the existing Dioxus workspace, with pinned design-token mapping, complete theme-state handling, and accessible cross-view validation.
 - [Conversational RAD assistance and reviewed fixes](assisted-rad-workspace.md) - After ABW-11 creates the desktop shell, add an opt-in Ask ACORN panel to the shared UI, grounded read-only tools, ACORN-backed fix previews, per-fix review, and explicit browser download or native save.
 - [Opt-in netrc authentication](netrc-support.md) - Add explicit native credential loading, origin-scoped HTTPS Basic authentication and remote BagIt download flags; preserve provider/OAuth precedence and anonymous defaults. Earthdata compatibility is unproven and outside the initial release claim.
 - [Interactive metadata chat and terminal prompts](interactive-metadata-chat.md) - Inline multi-turn `ask`, durable transcripts, reusable terminal controls, and interactive format review are in place; the TUI consumer seam, multi-select control, and release validation remain.

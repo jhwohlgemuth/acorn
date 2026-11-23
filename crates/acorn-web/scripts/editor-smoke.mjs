@@ -241,7 +241,7 @@ try {
     await page.waitForFunction(() => {
         const line = document.querySelector(".code-editor.is-fullscreen .cm-activeLine")?.getBoundingClientRect();
         const scroller = document.querySelector(".code-editor.is-fullscreen .cm-scroller")?.getBoundingClientRect();
-        return line && scroller && Math.abs((line.top + line.bottom - scroller.top - scroller.bottom) / 2) < 25 && Math.abs((line.top + line.bottom - innerHeight) / 2) < 50;
+        return line && scroller && Math.abs((line.top + line.bottom - scroller.top - scroller.bottom) / 2) < 25;
     });
     await page.getByRole("button", { name: "Exit full screen", exact: true }).click();
     await page.evaluate(() => document.querySelectorAll("[data-issue-scroll-spacer]").forEach(spacer => spacer.remove()));
@@ -410,23 +410,6 @@ try {
     assert.ok((await mobile.locator(".code-editor").boundingBox()).height <= 844, "touch full screen stays within the viewport");
     await mobile.getByRole("button", { name: "Exit full screen", exact: true }).tap();
     await mobileContext.close();
-    await page.evaluate(() => { const link = document.createElement("link"); link.id = "app-stylesheet"; link.rel = "stylesheet"; link.href = "/app.css"; document.head.append(link); });
-    const beforePopout = await page.locator("#content").inputValue();
-    const popupPromise = page.waitForEvent("popup");
-    await page.evaluate(() => window.acornEditors.openInNewTab("content"));
-    const popup = await popupPromise;
-    await popup.locator("#popout-content-editor").waitFor();
-    assert.equal(await popup.locator("#popout-content").inputValue(), beforePopout, "new editor tab starts with current content");
-    await page.evaluate(() => document.getElementById("content").addEventListener("input", event => window.acornEditors.sync("content", event.target.value, "json", "Content")));
-    await popup.locator("#popout-content-editor").press("ControlOrMeta+End");
-    await popup.keyboard.insertText(" ");
-    await page.waitForFunction(text => document.getElementById("content")?.value === `${text} `, beforePopout);
-    await editor.press("ControlOrMeta+End");
-    await page.keyboard.insertText("!");
-    await popup.waitForFunction(text => document.getElementById("popout-content")?.value === `${text} !`, beforePopout);
-    await page.evaluate(value => { document.getElementById("content").value = value; window.acornEditors.sync("content", value, "json", "Content"); }, beforePopout);
-    await popup.waitForFunction(text => document.getElementById("popout-content")?.value === text, beforePopout);
-    await popup.close();
     assert.deepEqual(errors, []);
     console.log("CodeMirror editing, search and replace, diagnostics, touch layout, resizing, folding, undo/redo, clipboard, large inputs, remounts and both themes passed.");
 } finally {

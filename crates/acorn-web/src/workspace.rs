@@ -2,6 +2,7 @@ use crate::dashboard::{ChartSegment, DashboardTile, DonutTile, GridCell, MetricT
 use crate::details::{self, Detail};
 use crate::search_ui::SearchField;
 use crate::ui::{validate_files, FileInput, Icon, Route, UrlFileInput};
+use crate::window_sync;
 use acorn_core::util::MimeType;
 use acorn_web::{
     operations::Tool,
@@ -403,8 +404,9 @@ pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
         tile_ready.set(true);
     });
     use_future(move || async move {
-        loop {
-            let layout = document::eval("return await new Promise(resolve => window.addEventListener('storage', function changed(event) { if (event.key !== 'acorn.dashboard.layout.v1') return; window.removeEventListener('storage', changed); resolve(window.acornDashboardLayout.load('portfolio')); }))")
+        let mut changes = window_sync::subscribe_storage("acorn.dashboard.layout.v1");
+        while changes.recv::<bool>().await.is_ok() {
+            let layout = document::eval("return window.acornDashboardLayout.load('portfolio')")
                 .join::<Option<TileLayout>>()
                 .await;
             match layout {

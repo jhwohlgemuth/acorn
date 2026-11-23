@@ -545,7 +545,7 @@ web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebM
 	@python3 -m unittest discover -s scripts/tests -p 'test_web_dev.py'
 	@python3 crates/acorn-web/scripts/rust.py cargo test -p acorn-web
 	@$(MAKE) test-webmcp
-	@node --test crates/acorn-web/scripts/acceptance.test.mjs crates/acorn-web/assets/dashboard-layout.test.mjs crates/acorn-web/assets/remote.test.mjs crates/acorn-web/assets/syntax.test.mjs crates/acorn-web/assets/workspace-storage.test.mjs
+	@node --test crates/acorn-web/scripts/acceptance.test.mjs crates/acorn-web/assets/dashboard-layout.test.mjs crates/acorn-web/assets/remote.test.mjs crates/acorn-web/assets/syntax.test.mjs crates/acorn-web/assets/window-sync.test.mjs crates/acorn-web/assets/workspace-storage.test.mjs
 	@npm --prefix crates/acorn-web/geospatial ci --ignore-scripts
 	@npm --prefix crates/acorn-web/geospatial test
 	@$(MAKE) web-test-wasm

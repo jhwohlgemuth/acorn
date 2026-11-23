@@ -3,6 +3,7 @@ use crate::results::ResultView;
 use crate::sample;
 use crate::skill::{Install, Skill};
 use crate::syntax::CodeEditor;
+use crate::window_sync::{self, ToolSignals};
 use crate::workspace::{file_format, LoadedFiles, Loader, Portfolio};
 use acorn_analysis::readability::ReadabilityType;
 use acorn_core::util::MimeType;
@@ -15,7 +16,7 @@ use core::iter::once;
 use dioxus::html::FileData;
 use dioxus::prelude::*;
 use serde_json::Value;
-use strum::IntoEnumIterator;
+use strum::{EnumIs, IntoEnumIterator};
 
 const APP_NAME: &str = "ACORN Research Intelligence";
 const FORMAT_CHOICES: [(MimeType, &str, &str); 10] = [
@@ -54,6 +55,23 @@ pub(crate) enum Route {
     #[route("/:page")]
     Page { page: String },
 }
+#[derive(Clone, Copy, EnumIs)]
+enum WindowType {
+    CodeEditor,
+    Dashboard,
+    Workspace,
+}
+impl WindowType {
+    fn for_route(route: &Route, window_name: &str) -> Self {
+        if window_name.starts_with("acorn-editor:") {
+            return Self::CodeEditor;
+        }
+        match route {
+            | Route::Page { page } if page == "dashboard" => Self::Dashboard,
+            | Route::Home {} | Route::Page { .. } => Self::Workspace,
+        }
+    }
+}
 /// In-memory tool forms and results retained while navigating between tools.
 #[derive(Clone, Copy)]
 pub(crate) struct ToolSessions {
@@ -66,16 +84,6 @@ pub(crate) struct ToolSessions {
     inspect: ToolSignals,
     readability: ToolSignals,
     standard: ToolSignals,
-}
-#[derive(Clone, Copy)]
-struct ToolSignals {
-    drafts: Signal<BTreeMap<String, (String, String)>>,
-    editor_source: Signal<Option<SuppliedFile>>,
-    last_request: Signal<Request>,
-    request: Signal<Request>,
-    result: Signal<Option<Result<Value, String>>>,
-    running: Signal<bool>,
-    seen_session: Signal<String>,
 }
 impl ToolSessions {
     pub(crate) fn new() -> Self {
@@ -146,34 +154,6 @@ impl ToolSessions {
         ] {
             signals.running.set(false);
         }
-    }
-}
-impl ToolSignals {
-    fn new(
-        request: Signal<Request>,
-        last_request: Signal<Request>,
-        seen_session: Signal<String>,
-        drafts: Signal<BTreeMap<String, (String, String)>>,
-        editor_source: Signal<Option<SuppliedFile>>,
-    ) -> Self {
-        Self {
-            drafts,
-            editor_source,
-            last_request,
-            request,
-            result: Signal::new(None),
-            running: Signal::new(false),
-            seen_session,
-        }
-    }
-    fn isolated() -> Self {
-        Self::new(
-            Signal::new(Request::default()),
-            Signal::new(Request::default()),
-            Signal::new(String::new()),
-            Signal::new(BTreeMap::new()),
-            Signal::new(None),
-        )
     }
 }
 fn editor_source_file(workspace: &Workspace, source: Option<&SuppliedFile>) -> Option<SuppliedFile> {
@@ -571,7 +551,7 @@ fn InfoPage(page: String) -> Element {
                                 credential_error.set(String::new());
                                 credential_message.set(String::new());
                                 if let Ok((workspace_deleted, remote_deleted, layout_deleted, tour_deleted)) = deleted {
-                                    if workspace_deleted { storage_status.set((0, false, 0, 0)); document::eval("try { localStorage.setItem('acorn.workspace.changed.v1', crypto.randomUUID()); } catch {}"); }
+                                    if workspace_deleted { storage_status.set((0, false, 0, 0)); window_sync::notify_storage("acorn.workspace.changed.v1"); }
                                     if remote_deleted { recent_inputs.set((0, 0)); credential_status.set(String::new()); }
                                     if workspace_deleted && remote_deleted && layout_deleted && tour_deleted {
                                         storage_error.set(String::new());
@@ -822,6 +802,11 @@ fn Shell() -> Element {
         .unwrap_or_else(|| "light".into());
     let initially_dark = initial_theme == "dark";
     let route = use_route::<Route>();
+    let window_name = js_sys::Reflect::get(&js_sys::global(), &"name".into())
+        .ok()
+        .and_then(|value| value.as_string())
+        .unwrap_or_default();
+    let window_type = WindowType::for_route(&route, &window_name);
     let current = match route {
         | Route::Home {} => "home".to_owned(),
         | Route::Page { page } => page,
@@ -832,6 +817,20 @@ fn Shell() -> Element {
         let _ = current;
         document::eval("window.acornChrome?.tour.cancel(); window.acornChrome?.theme.sync(); requestAnimationFrame(() => { const heading = document.querySelector('#content-main h1'); if (heading) { heading.tabIndex = -1; heading.focus(); } window.scrollTo(0, 0); })");
     }));
+    if window_type.is_dashboard() || window_type.is_code_editor() {
+        return rsx! {
+            div { class: "workspace standalone-window", "data-theme": initial_theme,
+                div { id: "notifications", class: "notifications", "aria-live": "polite", "aria-relevant": "additions" }
+                div { id: "notification-template", class: "notification", "data-kind": "info", hidden: true,
+                    span { class: "notification-icon notification-icon-success", Icon { name: "check" } }
+                    span { class: "notification-icon notification-icon-warning", Icon { name: "alert" } }
+                    span { class: "notification-icon notification-icon-info", Icon { name: "info" } }
+                    span { class: "notification-text" }
+                    button { "aria-label": "Dismiss notification", "Dismiss" } }
+                main { id: "content-main", tabindex: "-1", Outlet::<Route> {} }
+            }
+        };
+    }
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/vendor/driver.css") }
         div { class: format!("workspace {} {}", if collapsed() { "compact" } else { "" }, if drawer() { "drawer-open" } else { "" }), onkeydown: move |event| { if event.key() == Key::Escape && drawer() { drawer.set(false); document::eval("document.getElementById('nav-toggle')?.focus()"); } }, "data-theme": initial_theme,
@@ -955,7 +954,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut selected_tool = use_signal(|| if sync_review_url { initial_review_tab() } else { initial_tool });
     use_future(move || async move {
         if sync_review_url {
-            let mut channel = document::eval("if (!window.acornUrl) await new Promise(resolve => window.addEventListener('acorn-url-ready', resolve, {once:true})); const initial = window.acornInitialReviewFragment; if (initial && !window.acornUrl.getFragment()) window.acornUrl.setFragment(initial, true); window.acornInitialReviewFragment = ''; const unsubscribe = window.acornUrl.subscribe(fragment => dioxus.send(fragment)); await dioxus.recv(); unsubscribe();");
+            let mut channel = window_sync::fragments();
             while let Ok(fragment) = channel.recv::<String>().await {
                 selected_tool.set(review_tab(&fragment));
             }
@@ -972,6 +971,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut seen_session = signals.seen_session;
     let mut drafts = signals.drafts;
     let mut editor_source = signals.editor_source;
+    window_sync::use_tool_sync(tool, signals, session);
     use_hook(|| {
         document::eval("window.acornOperations?.warm()");
     });
@@ -991,8 +991,15 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         let content = session();
         if *seen_session.peek() != content {
             seen_session.set(content.clone());
-            drafts.set(BTreeMap::new());
             let snapshot = workspace();
+            let source_is_current = editor_source
+                .peek()
+                .as_ref()
+                .is_some_and(|source| Some(&source.path) == snapshot.selected.as_ref() && source.content == content);
+            if source_is_current {
+                return;
+            }
+            drafts.set(BTreeMap::new());
             let source = snapshot
                 .files
                 .iter()
