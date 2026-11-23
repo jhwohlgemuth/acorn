@@ -8,6 +8,7 @@ import { bracketMatching, foldable, foldAll, foldEffect, foldGutter, foldKeymap,
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { turtle } from "@codemirror/legacy-modes/mode/turtle";
 import { Compartment, EditorState, RangeSet, StateEffect, StateField } from "@codemirror/state";
+import { openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import { Decoration, drawSelection, EditorView, GutterMarker, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, lineNumberMarkers, lineNumbers } from "@codemirror/view";
 import { classHighlighter } from "@lezer/highlight";
 
@@ -48,8 +49,10 @@ function foldDocument(view) {
 }
 const setDiagnosticMarks = StateEffect.define();
 const emptyDiagnostics = { marks: Decoration.none, lines: RangeSet.empty, issues: [] };
-class DiagnosticLineMarker extends GutterMarker { elementClass = "cm-diagnostic-line"; }
-const diagnosticLineMarker = new DiagnosticLineMarker();
+class DiagnosticLineMarker extends GutterMarker {
+    constructor(severity) { super(); this.elementClass = `cm-diagnostic-line cm-diagnostic-line-${severity}`; }
+}
+const diagnosticLineMarkers = { error: new DiagnosticLineMarker("error"), warning: new DiagnosticLineMarker("warning") };
 const diagnosticMarks = StateField.define({
     create: () => emptyDiagnostics,
     update(diagnostics, transaction) {
@@ -105,6 +108,13 @@ function installEditors() {
         const position = controls.querySelector(".editor-issue-position");
         const label = `${editor.issueIndex + 1} of ${count}`;
         if (position && position.textContent !== label) position.textContent = label;
+        const message = controls.querySelector(".editor-issue-message");
+        const active = editor.issueLocations[editor.issueIndex];
+        const description = active ? `${active.severity === "error" ? "Error" : "Warning"}, line ${active.line}: ${active.messages.join("; ")}` : "";
+        if (message && message.textContent !== description) message.textContent = description;
+        if (message) message.dataset.severity = active?.severity || "";
+        if (description) controls.title = description;
+        else controls.removeAttribute("title");
     }
     function mount(host) {
         if (editors.has(host)) return;
@@ -112,16 +122,18 @@ function installEditors() {
         const surface = host.querySelector(".editor-surface");
         if (!input || !surface) return;
         const language = new Compartment();
+        const wrapping = new Compartment();
         let accessibleLabel = input.getAttribute("aria-label") || "Code";
         let mode = languageName(host.dataset.language, input.value);
         let external = false;
         let editVersion = 0;
+        let wrapped = true;
         const extensions = [
             EditorState.readOnly.of(input.readOnly), EditorView.editable.of(!input.readOnly),
-            lineNumbers(), foldGutter(), history(), drawSelection(), diagnosticMarks, diagnosticHover, bracketMatching(), indentOnInput(),
-            highlightActiveLine(), highlightActiveLineGutter(), EditorView.lineWrapping,
+            lineNumbers(), foldGutter(), history(), drawSelection(), diagnosticMarks, diagnosticHover, bracketMatching(), indentOnInput(), search(),
+            highlightActiveLine(), highlightActiveLineGutter(),
             syntaxHighlighting(classHighlighter),
-            keymap.of([...foldKeymap.map(binding => binding.run === foldAll ? { ...binding, run: foldDocument } : binding), ...defaultKeymap, ...historyKeymap]),
+            keymap.of([...searchKeymap, ...foldKeymap.map(binding => binding.run === foldAll ? { ...binding, run: foldDocument } : binding), ...defaultKeymap, ...historyKeymap]),
             EditorView.contentAttributes.of(() => ({ id: `${input.id}-editor`, "aria-label": accessibleLabel, "aria-readonly": String(input.readOnly), tabindex: "0", spellcheck: "false", autocapitalize: "off" })),
             EditorView.updateListener.of((update) => {
                 if (!update.docChanged || external) return;
@@ -141,7 +153,7 @@ function installEditors() {
                 });
             }),
         ];
-        const state = (text) => EditorState.create({ doc: text, extensions: [extensions, language.of(languages[mode] || [])] });
+        const state = (text) => EditorState.create({ doc: text, extensions: [extensions, language.of(languages[mode] || []), wrapping.of(wrapped ? EditorView.lineWrapping : [])] });
         const view = new EditorView({ parent: surface, state: state(input.value) });
         const grip = document.createElement("div");
         grip.className = "editor-resize-handle";
@@ -149,11 +161,12 @@ function installEditors() {
         grip.setAttribute("role", "separator");
         grip.setAttribute("aria-orientation", "horizontal");
         grip.setAttribute("aria-label", `Resize ${accessibleLabel} editor`);
-        grip.setAttribute("aria-valuemin", "86");
+        const minimumHeight = matchMedia("(pointer: coarse)").matches ? 120 : 86;
+        grip.setAttribute("aria-valuemin", String(minimumHeight));
         grip.setAttribute("aria-valuemax", "2048");
         grip.title = "Drag to resize · Up/Down arrows to adjust height";
         function resize(height) {
-            const size = Math.round(Math.max(86, Math.min(2048, height)));
+            const size = Math.round(Math.max(minimumHeight, Math.min(2048, height)));
             surface.style.height = `${size}px`;
             grip.setAttribute("aria-valuenow", String(size));
             grip.setAttribute("aria-valuetext", `${size} pixels`);
@@ -203,6 +216,12 @@ function installEditors() {
                 record.issueIndex = -1;
                 updateIssueControls(host, record);
             }
+        }, toggleWrap() {
+            wrapped = !wrapped;
+            view.dispatch({ effects: wrapping.reconfigure(wrapped ? EditorView.lineWrapping : []) });
+            const button = host.querySelector(".editor-wrap-toggle");
+            button?.setAttribute("aria-pressed", String(wrapped));
+            button?.setAttribute("title", wrapped ? "Disable word wrap" : "Enable word wrap");
         } };
         editors.set(host, record);
         const pending = window.acornPendingEditorReveal;
@@ -229,7 +248,7 @@ function installEditors() {
             const view = editor?.view;
             if (!view || view.state.doc.toString() !== source) return;
             const grouped = new Map();
-            const lines = new Set();
+            const lines = new Map();
             const locations = new Map();
             for (const diagnostic of diagnostics) {
                 if (diagnostic.severity !== "error" && diagnostic.severity !== "warning") continue;
@@ -240,9 +259,16 @@ function installEditors() {
                 if (!locations.has(locationKey)) locations.set(locationKey, {
                     from, to, line: diagnostic.line, character: diagnostic.character,
                     endLine: diagnostic.endLine, endCharacter: diagnostic.endCharacter,
+                    severity: diagnostic.severity, messages: [],
                 });
+                const location = locations.get(locationKey);
+                if (diagnostic.severity === "error") location.severity = "error";
+                if (typeof diagnostic.message === "string" && !location.messages.includes(diagnostic.message)) location.messages.push(diagnostic.message);
                 const lastLine = view.state.doc.lineAt(to !== null && to > from ? to - 1 : from).number;
-                for (let number = diagnostic.line; number <= lastLine; number++) lines.add(view.state.doc.line(number).from);
+                for (let number = diagnostic.line; number <= lastLine; number++) {
+                    const offset = view.state.doc.line(number).from;
+                    if (diagnostic.severity === "error" || !lines.has(offset)) lines.set(offset, diagnostic.severity);
+                }
                 if (to === null || from >= to) continue;
                 const key = `${from}:${to}`;
                 if (!grouped.has(key)) grouped.set(key, { from, to, line: diagnostic.line, path: diagnostic.path, severity: diagnostic.severity, messages: new Set() });
@@ -251,15 +277,15 @@ function installEditors() {
                 if (typeof diagnostic.message === "string") issue.messages.add(diagnostic.message);
             }
             const issues = Array.from(grouped.values()).sort((left, right) => (left.to - left.from) - (right.to - right.from) || left.from - right.from);
-            const marks = issues.map(({ from, to }) => Decoration.mark({ class: "cm-diagnostic" }).range(from, to));
-            const markers = Array.from(lines).sort((left, right) => left - right).map(offset => diagnosticLineMarker.range(offset));
+            const marks = issues.map(({ from, to, severity }) => Decoration.mark({ class: `cm-diagnostic cm-diagnostic-${severity}` }).range(from, to));
+            const markers = Array.from(lines).sort(([left], [right]) => left - right).map(([offset, severity]) => diagnosticLineMarkers[severity].range(offset));
             view.dispatch({ effects: setDiagnosticMarks.of({ marks: Decoration.set(marks, true), lines: RangeSet.of(markers), issues }) });
             const active = editor.issueLocations[editor.issueIndex];
             editor.issueLocations = Array.from(locations.values()).sort((left, right) => left.from - right.from || (left.to ?? left.from) - (right.to ?? right.from));
             editor.issueIndex = active ? editor.issueLocations.findIndex(location => location.from === active.from && location.to === active.to) : -1;
             updateIssueControls(view.dom.closest(".code-editor"), editor);
         },
-        reveal(id, lineNumber, characterNumber, endLineNumber, endCharacterNumber) {
+        reveal(id, lineNumber, characterNumber, endLineNumber, endCharacterNumber, center = false) {
             discover();
             const editor = find(id);
             if (!editor) return;
@@ -269,7 +295,7 @@ function installEditors() {
             unfoldAll(view);
             const line = view.state.doc.line(lineNumber);
             const head = sourcePosition(view.state.doc, endLineNumber, endCharacterNumber) ?? Math.min(line.to, anchor + (Array.from(line.text)[characterNumber - 1]?.length || 0));
-            view.dispatch({ selection: { anchor, head }, scrollIntoView: true });
+            view.dispatch({ selection: { anchor, head }, ...(center ? { effects: EditorView.scrollIntoView(anchor, { y: "center" }) } : { scrollIntoView: true }) });
             view.focus();
             editor.issueIndex = editor.issueLocations.findIndex(location => location.from === anchor && (location.to === null || location.to === head));
             updateIssueControls(view.dom.closest(".code-editor"), editor);
@@ -283,10 +309,18 @@ function installEditors() {
             const count = editor.issueLocations.length;
             const index = editor.issueIndex < 0 ? (direction < 0 ? count - 1 : 0) : (editor.issueIndex + direction + count) % count;
             const issue = editor.issueLocations[index];
-            window.acornEditors.reveal(id, issue.line, issue.character, issue.endLine, issue.endCharacter);
+            window.acornEditors.reveal(id, issue.line, issue.character, issue.endLine, issue.endCharacter, true);
             editor.issueIndex = index;
             updateIssueControls(editor.view.dom.closest(".code-editor"), editor);
             activeControl?.focus({ preventScroll: true });
+            requestAnimationFrame(() => {
+                if (editor.issueIndex !== index || editor.view.dom.closest(".code-editor")?.classList.contains("is-fullscreen")) return;
+                const rect = editor.view.coordsAtPos(issue.from);
+                if (!rect) return;
+                const viewport = window.visualViewport;
+                const middle = viewport ? viewport.offsetTop + viewport.height / 2 : window.innerHeight / 2;
+                window.scrollBy(0, (rect.top + rect.bottom) / 2 - middle);
+            });
         },
         toggleFullscreen(id) {
             discover();
@@ -297,16 +331,35 @@ function installEditors() {
             document.body.classList.toggle("editor-fullscreen-open", active);
             const button = host.querySelector(".editor-fullscreen-toggle");
             button?.setAttribute("title", active ? "Exit full screen (Esc)" : "Full screen (Esc to exit)");
+            button?.setAttribute("aria-label", active ? "Exit full screen" : "Full screen");
             view.requestMeasure();
             view.focus();
         },
         fold(id) { const editor = find(id); if (editor) { foldDocument(editor.view); editor.view.focus(); } },
         expand(id) { const editor = find(id); if (editor) { unfoldAll(editor.view); editor.view.focus(); } },
+        openFind(id) { const editor = find(id); if (editor) openSearchPanel(editor.view); },
+        setFontSize(id, size) {
+            const host = document.getElementById(id)?.closest(".code-editor");
+            if (!host || !["small", "big"].includes(size)) return;
+            host.dataset.fontSize = size;
+            host.querySelectorAll(".editor-font-size button").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.size === size)));
+            find(id)?.view.requestMeasure();
+        },
+        toggleWrap(id) { find(id)?.toggleWrap(); },
     };
     new MutationObserver((records) => {
         if (records.some(({ target }) => !target.closest?.(".cm-editor"))) discover();
     }).observe(document.documentElement, { childList: true, subtree: true });
     document.addEventListener("keydown", event => {
+        if (event.key.toLowerCase() === "r" && event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
+            const run = document.querySelector(".code-editor.is-fullscreen .editor-run-action");
+            if (run) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!event.repeat && !run.disabled) run.click();
+            }
+            return;
+        }
         if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
             const controls = event.target.closest?.(".editor-issue-nav:not([hidden])");
             const id = controls?.closest(".code-editor")?.querySelector("textarea")?.id;

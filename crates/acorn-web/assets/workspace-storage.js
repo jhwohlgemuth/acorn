@@ -1,4 +1,4 @@
-function createWorkspaceStorage(storage = () => window.localStorage, indexedDB = () => window.indexedDB, manager = () => navigator.storage) {
+function createWorkspaceStorage(storage = () => window.localStorage, indexedDB = () => window.indexedDB, manager = () => navigator.storage, restoreTimeoutMs = 8000) {
     const legacyKey = "acorn.workspace.v1";
     const fallbackKey = "acorn.workspace.fallback.v1";
     const legacyLimit = 33 * 1024 * 1024;
@@ -9,6 +9,7 @@ function createWorkspaceStorage(storage = () => window.localStorage, indexedDB =
     let fallbackActive = false;
     let bytes = 0;
     let failed = false;
+    let recoveryTimedOut = false;
     const request = (operation) => new Promise((resolve, reject) => {
         operation.onsuccess = () => resolve(operation.result);
         operation.onerror = () => reject(operation.error);
@@ -106,6 +107,7 @@ function createWorkspaceStorage(storage = () => window.localStorage, indexedDB =
     };
     const save = (workspace) => {
         const work = pending.then(async () => {
+            if (recoveryTimedOut) { failed = true; return false; }
             if (!workspace.files?.length) return true;
             try {
                 if (fallbackActive) saveFallback(workspace);
@@ -123,6 +125,7 @@ function createWorkspaceStorage(storage = () => window.localStorage, indexedDB =
         return work;
     };
     return {
+        get recoveryTimedOut() { return recoveryTimedOut; },
         async status() {
             let usage = 0;
             let quota = 0;
@@ -135,14 +138,24 @@ function createWorkspaceStorage(storage = () => window.localStorage, indexedDB =
                 fallbackActive = true;
                 return fallback;
             }
+            const timeoutError = new Error("Workspace recovery timed out.");
             try {
                 if (!indexedDB()) return restoreLocal(legacyKey);
-                const db = await open();
-                const transaction = db.transaction(["state", "files"], "readonly");
-                const done = complete(transaction);
-                const state = request(transaction.objectStore("state").get("workspace"));
-                const files = request(transaction.objectStore("files").getAll());
-                const [saved, entries] = await Promise.all([state, files, done]);
+                let timer;
+                const timeout = new Promise((_, reject) => {
+                    timer = setTimeout(() => reject(timeoutError), restoreTimeoutMs);
+                });
+                let saved, entries;
+                try {
+                    const db = await Promise.race([open(), timeout]);
+                    const transaction = db.transaction(["state", "files"], "readonly");
+                    const done = complete(transaction);
+                    const state = request(transaction.objectStore("state").get("workspace"));
+                    const files = request(transaction.objectStore("files").getAll());
+                    [saved, entries] = await Promise.race([Promise.all([state, files, done]), timeout]);
+                }
+                finally { clearTimeout(timer); }
+                if (recoveryTimedOut) return null;
                 if (saved?.schema === 2) {
                     const restored = await Promise.all(entries.map(async (file) => ({ path: file.path, content: file.content instanceof Blob ? await imageContent(file.content) : file.content })));
                     knownFiles = new Map(restored.map((file) => [file.path, file.content]));
@@ -153,7 +166,13 @@ function createWorkspaceStorage(storage = () => window.localStorage, indexedDB =
                 const workspace = restoreLocal(legacyKey);
                 if (workspace?.files?.length) await save(workspace);
                 return workspace;
-            } catch { return restoreLocal(legacyKey); }
+            } catch (error) {
+                if (error === timeoutError) {
+                    recoveryTimedOut = true;
+                    failed = true;
+                }
+                return restoreLocal(legacyKey);
+            }
         },
         save,
         delete() {

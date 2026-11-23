@@ -9,7 +9,8 @@ use acorn_core::util::MimeType;
 use acorn_schema::{pid::PID, standard::Standard};
 use acorn_web::operations::{self, Request, Tool};
 use acorn_web::presentation;
-use acorn_web::session::{Selection, SuppliedFile, Workspace};
+use acorn_web::session::{Selection, SuppliedFile, Workspace, FILE_LIMIT, TOTAL_LIMIT};
+use alloc::collections::BTreeMap;
 use core::iter::once;
 use dioxus::html::FileData;
 use dioxus::prelude::*;
@@ -68,6 +69,8 @@ pub(crate) struct ToolSessions {
 }
 #[derive(Clone, Copy)]
 struct ToolSignals {
+    drafts: Signal<BTreeMap<String, (String, String)>>,
+    editor_source: Signal<Option<SuppliedFile>>,
     last_request: Signal<Request>,
     request: Signal<Request>,
     result: Signal<Option<Result<Value, String>>>,
@@ -79,16 +82,36 @@ impl ToolSessions {
         let review_request = Signal::new(Request::default());
         let review_last_request = Signal::new(Request::default());
         let review_seen_session = Signal::new(String::new());
+        let review_drafts = Signal::new(BTreeMap::new());
+        let review_editor_source = Signal::new(None);
         Self {
             activity: ToolSignals::isolated(),
             big_o: ToolSignals::isolated(),
             crosswalk: ToolSignals::isolated(),
             diff: ToolSignals::isolated(),
             discover: ToolSignals::isolated(),
-            fair: ToolSignals::new(review_request, review_last_request, review_seen_session),
+            fair: ToolSignals::new(
+                review_request,
+                review_last_request,
+                review_seen_session,
+                review_drafts,
+                review_editor_source,
+            ),
             inspect: ToolSignals::isolated(),
-            readability: ToolSignals::new(review_request, review_last_request, review_seen_session),
-            standard: ToolSignals::new(review_request, review_last_request, review_seen_session),
+            readability: ToolSignals::new(
+                review_request,
+                review_last_request,
+                review_seen_session,
+                review_drafts,
+                review_editor_source,
+            ),
+            standard: ToolSignals::new(
+                review_request,
+                review_last_request,
+                review_seen_session,
+                review_drafts,
+                review_editor_source,
+            ),
         }
     }
     fn for_tool(self, tool: Tool) -> ToolSignals {
@@ -126,8 +149,16 @@ impl ToolSessions {
     }
 }
 impl ToolSignals {
-    fn new(request: Signal<Request>, last_request: Signal<Request>, seen_session: Signal<String>) -> Self {
+    fn new(
+        request: Signal<Request>,
+        last_request: Signal<Request>,
+        seen_session: Signal<String>,
+        drafts: Signal<BTreeMap<String, (String, String)>>,
+        editor_source: Signal<Option<SuppliedFile>>,
+    ) -> Self {
         Self {
+            drafts,
+            editor_source,
             last_request,
             request,
             result: Signal::new(None),
@@ -140,7 +171,48 @@ impl ToolSignals {
             Signal::new(Request::default()),
             Signal::new(Request::default()),
             Signal::new(String::new()),
+            Signal::new(BTreeMap::new()),
+            Signal::new(None),
         )
+    }
+}
+fn editor_source_file(workspace: &Workspace, source: Option<&SuppliedFile>) -> Option<SuppliedFile> {
+    source.and_then(|source| {
+        workspace
+            .files
+            .iter()
+            .find(|file| file.path == source.path && file.content == source.content)
+            .cloned()
+    })
+}
+fn editor_save_allowed(workspace: &Workspace, file: &SuppliedFile, input: &str, limit: usize) -> bool {
+    input.len() <= limit.min(FILE_LIMIT) && workspace.bytes().saturating_sub(file.content.len()).saturating_add(input.len()) <= TOTAL_LIMIT
+}
+#[cfg(test)]
+mod editor_source_tests {
+    use super::*;
+
+    #[test]
+    fn save_source_follows_editor_input_across_workspace_selection_changes() {
+        let source = SuppliedFile {
+            path: "a.json".into(),
+            content: "original A".into(),
+        };
+        let other = SuppliedFile {
+            path: "b.json".into(),
+            content: "original B".into(),
+        };
+        let mut workspace = Workspace {
+            files: vec![source.clone(), other],
+            selected: Some("b.json".into()),
+            ..Workspace::default()
+        };
+        assert_eq!(
+            editor_source_file(&workspace, Some(&source)).as_ref().map(|file| file.path.as_str()),
+            Some("a.json")
+        );
+        workspace.files.get_mut(0).expect("source file in fixture").content = "newer A".into();
+        assert!(editor_source_file(&workspace, Some(&source)).is_none());
     }
 }
 #[component]
@@ -289,6 +361,8 @@ pub(crate) fn Icon(name: &'static str) -> Element {
         | "folder-open" => {
             r#"<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>"#
         }
+        | "font-big" => r#"<path class="s" d="M2 19 8 5l6 14M4 14h8M18 18V7m-3 3 3-3 3 3"/>"#,
+        | "font-small" => r#"<path class="s" d="M2 19 8 5l6 14M4 14h8M18 7v11m-3-3 3 3 3-3"/>"#,
         | "globe" => {
             r#"<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
       <ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" />
@@ -336,6 +410,7 @@ pub(crate) fn Icon(name: &'static str) -> Element {
         | "users" => {
             r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>"#
         }
+        | "wrap" => r#"<path class="s" d="M3 6h18M3 10h12a4 4 0 0 1 0 8H9m3-3-3 3 3 3M3 14h5M3 18h3"/>"#,
         | "x" => r#"<path class="s" d="M5 5l14 14M19 5 5 19"/>"#,
         | _ => "",
     };
@@ -348,7 +423,9 @@ fn InfoPage(page: String) -> Element {
     let mut session = use_context::<Signal<String>>();
     let mut workspace = use_context::<Signal<Workspace>>();
     let mut storage_status = use_context::<Signal<(usize, bool, usize, usize)>>();
+    let recovery_timed_out = use_context::<crate::RecoveryTimedOut>().0;
     let mut storage_error = use_signal(String::new);
+    let mut storage_message = use_signal(String::new);
     let mut settings_message = use_signal(String::new);
     let mut credential_status = use_signal(String::new);
     let mut credential_error = use_signal(String::new);
@@ -394,6 +471,19 @@ fn InfoPage(page: String) -> Element {
         .source
         .as_ref()
         .map(|source| format!("{} · {}/{}", source.kind, source.host, source.project));
+    let (saved_bytes, _, site_usage, site_quota) = storage_status();
+    let site_percent = if site_quota > 0 {
+        (site_usage as f64 / site_quota as f64 * 100.0).min(100.0)
+    } else {
+        0.0
+    };
+    let saved_label = if recovery_timed_out() {
+        "Unavailable while recovery is stalled".to_string()
+    } else if saved_bytes > 0 {
+        storage_size(saved_bytes)
+    } else {
+        "No saved files".to_string()
+    };
     rsx! {
         document::Title { "{document_title}" }
         section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "aspect" => "chart", "portfolio" | "dashboard" => "portfolio", "geospatial" => "globe", "s3a" => "database", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } }
@@ -435,11 +525,42 @@ fn InfoPage(page: String) -> Element {
                         }
                         if !settings_message().is_empty() { p { role: "status", class: "status", "{settings_message}" } }
                     }
-                    div { class: "card", h2 { class: "section-heading", Icon { name: "folder-open" } "Your data" }
-                        dl { class: "result-fields", dt { "Loaded now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } dt { "Saved for reload" } dd { if storage_status().1 { "Latest save failed" } else if storage_status().0 > 0 { "On this device" } else { "Nothing saved" } } dt { "Saved content" } dd { "{storage_status().0 / 1024} KiB" } if storage_status().3 > 0 { dt { "Site storage" } dd { "{storage_status().2 / (1024 * 1024)} of about {storage_status().3 / (1024 * 1024)} MiB used" } } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
-                        p { class: "small muted", "Loaded files and the selected activity are saved automatically on this device and restored after reload. Browser storage is shared with other app data and limits vary." }
+                    div { class: "card", id: "app-data", h2 { class: "section-heading", Icon { name: "folder-open" } "Your data" }
+                        dl { class: "result-fields", dt { "Loaded now" } dd { "{workspace.read().files.len()} files · {workspace.read().activities().len()} validated activities" } if let Some(source_summary) = source_summary { dt { "Bucket source" } dd { "{source_summary}" } } }
+                        p { class: "small muted", "Download includes the workspace currently open in this tab. It cannot include saved files that browser storage could not recover." }
                         div { class: "actions",
-                            button { class: "danger", onclick: move |_| async move {
+                            button { disabled: workspace.read().files.is_empty(), onclick: move |_| {
+                                if let Ok(content) = serde_json::to_string(&workspace()) {
+                                    if let Ok(argument) = serde_json::to_string(&content) {
+                                        document::eval(&format!("window.acornDownload({argument}, 'acorn-workspace.json')"));
+                                    }
+                                }
+                            }, "Download open workspace" }
+                        }
+                    }
+                    div { class: "card browser-storage", id: "browser-storage", h2 { class: "section-heading", Icon { name: "database" } "Browser storage" }
+                        if site_quota > 0 {
+                            div { class: "storage-usage-label", span { "Site usage" } strong { "{storage_size(site_usage)} of about {storage_size(site_quota)}" } }
+                            progress { value: "{site_usage}", max: "{site_quota}", "aria-label": "Site storage used" }
+                            p { class: "small muted", "{site_percent:.1}% of the browser's estimated quota is in use. The browser sets this limit; ACORN cannot increase it." }
+                        } else {
+                            p { class: "small muted", "This browser did not provide a storage quota estimate." }
+                        }
+                        dl { class: "result-fields", dt { "ACORN saved workspace" } dd { "{saved_label}" } dt { "Latest save" } dd { if storage_status().1 { "Failed" } else { "No failure reported" } } }
+                        p { class: "small muted", "Site usage includes this origin's other browser data and cached assets. It is an estimate, so it may be larger than the ACORN workspace shown above." }
+                        if recovery_timed_out() { p { role: "alert", class: "error", "The saved workspace database is not responding. Reloading repeats the same read. Close and reopen the browser to try recovery. ACORN has not erased that database. Deletion is disabled until storage responds." } }
+                        div { class: "actions",
+                            button { onclick: move |_| async move {
+                                storage_message.set("Refreshing browser estimate…".into());
+                                let estimate = document::eval("return await window.acornWorkspaceStorage.status()").join::<Value>().await;
+                                if let Ok(value) = estimate {
+                                    storage_status.set(parse_storage_status(&value));
+                                    storage_message.set("Browser estimate refreshed.".into());
+                                } else {
+                                    storage_message.set("Could not refresh the browser estimate.".into());
+                                }
+                            }, "Refresh estimate" }
+                            button { class: "danger", disabled: recovery_timed_out(), onclick: move |_| async move {
                                 let deleted = document::eval("window.acornWorkspace?.cancel(); window.acornRemote?.cancel(); let workspaceDeleted = false; let remoteDeleted = false; let layoutDeleted = false; let tourDeleted = false; try { workspaceDeleted = await window.acornWorkspaceStorage?.delete() ?? false; } catch {} try { remoteDeleted = window.acornRemote?.clearData() ?? false; } catch {} try { layoutDeleted = window.acornDashboardLayout?.clear() ?? false; } catch {} try { tourDeleted = window.acornChrome?.tour.reset() ?? false; } catch {} return [workspaceDeleted, remoteDeleted, layoutDeleted, tourDeleted]")
                                     .join::<(bool, bool, bool, bool)>()
                                     .await;
@@ -462,8 +583,9 @@ fn InfoPage(page: String) -> Element {
                                 }
                             }, "Delete all data" }
                         }
+                        if !storage_message().is_empty() { p { role: "status", class: "status", "{storage_message}" } }
                         if !storage_error().is_empty() { p { role: "alert", class: "error", "{storage_error}" } }
-                        if storage_status().1 { p { role: "alert", class: "error", "Workspace saving failed. Your current session remains open, but the saved copy was not updated. Free browser storage or reload if another tab changed this workspace." } }
+                        if storage_status().1 && !recovery_timed_out() { p { role: "alert", class: "error", "Workspace saving failed. Your current session remains open, but the saved copy was not updated. Free browser storage or reload if another tab changed this workspace." } }
                         p { class: "small muted", "Deletes loaded and saved files, tool input, map pins, dashboard layout, tour completion, recent bucket inputs, and the repository token in this tab." } }
                     div { class: "card", h2 { "Repository access" }
                         p { class: "small muted", "One token is available in this tab for repositories on its provider and HTTPS host. Add or replace it beside the repository loader on Home." }
@@ -526,6 +648,20 @@ pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool, usize, usize)
         value["usage"].as_u64().unwrap_or(0) as usize,
         value["quota"].as_u64().unwrap_or(0) as usize,
     )
+}
+fn storage_size(bytes: usize) -> String {
+    const KIB: usize = 1024;
+    const MIB: usize = KIB * KIB;
+    const GIB: usize = MIB * KIB;
+    if bytes >= GIB {
+        format!("{:.1} GiB", bytes as f64 / GIB as f64)
+    } else if bytes >= MIB {
+        format!("{:.1} MiB", bytes as f64 / MIB as f64)
+    } else if bytes >= KIB {
+        format!("{:.1} KiB", bytes as f64 / KIB as f64)
+    } else {
+        format!("{bytes} B")
+    }
 }
 async fn read_local_file(file: FileData, limit: usize) -> Result<String, String> {
     if file.size() > limit as u64 {
@@ -833,6 +969,8 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut running = signals.running;
     let mut last_request = signals.last_request;
     let mut seen_session = signals.seen_session;
+    let mut drafts = signals.drafts;
+    let mut editor_source = signals.editor_source;
     use_hook(|| {
         document::eval("window.acornOperations?.warm()");
     });
@@ -852,6 +990,14 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         let content = session();
         if *seen_session.peek() != content {
             seen_session.set(content.clone());
+            drafts.set(BTreeMap::new());
+            let snapshot = workspace();
+            let source = snapshot
+                .files
+                .iter()
+                .find(|file| Some(&file.path) == snapshot.selected.as_ref() && file.content == content)
+                .cloned();
+            editor_source.set(source);
             let previous = request.peek().clone();
             request.set(Request { input: content, ..previous });
         }
@@ -876,6 +1022,13 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         .count();
     let all_skipped = !skip_choices.is_empty() && skipped_checks == skip_choices.len();
     let input = current.input.clone();
+    let snapshot = workspace();
+    let selected_file = editor_source_file(&snapshot, editor_source().as_ref());
+    let edited_file = selected_file.as_ref().filter(|file| file.content != input).cloned();
+    let save_allowed = edited_file
+        .as_ref()
+        .is_some_and(|file| editor_save_allowed(&snapshot, file, &input, limit));
+    let discard_file = edited_file.clone();
     let needs_content = input.trim().is_empty() && !(tool == Tool::Diff && current.mode == "unified");
     let language = match tool {
         | Tool::BigO => "expression".to_owned(),
@@ -910,22 +1063,24 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 LoadedFiles {
                     summary: "Select content".to_owned(),
                     selected_tool: Some(tool),
-                    onload: move |text: String| { workspace.write().selected = None; request.set(Request { input: text, ..request() }); result.set(None); },
+                    onload: move |text: String| { workspace.write().selected = None; editor_source.set(None); request.set(Request { input: text, ..request() }); result.set(None); },
                     onselect: move |file: SuppliedFile| {
                         let previous = request();
+                        let content = drafts.read().get(&file.path).filter(|(source, _)| source == &file.content).map(|(_, draft)| draft.clone()).unwrap_or_else(|| file.content.clone());
                         let format = if matches!(tool, Tool::Standard | Tool::Crosswalk) {
                             file_format(&file.path).unwrap_or(&previous.format).to_owned()
                         } else {
                             previous.format.clone()
                         };
-                        request.set(Request { input: file.content, format, ..previous });
+                        editor_source.set(Some(file));
+                        request.set(Request { input: content, format, ..previous });
                         result.set(None);
                     },
                 }
                 section { class: "card editor",
                     div { class: "input-heading",
                         h2 { class: "section-heading", "Input" }
-                        button { class: "sample-action", title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" }, onclick: move |_| { workspace.write().selected = None; request.set(operations::example_request(tool)); result.set(None); }, span { "aria-hidden": "true", "✨" } "Use example" }
+                        button { class: "sample-action", title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" }, onclick: move |_| { workspace.write().selected = None; editor_source.set(None); request.set(operations::example_request(tool)); result.set(None); }, span { "aria-hidden": "true", "✨" } "Use example" }
                     }
                     if tool != Tool::Discover { details { class: "tool-settings",
                         summary { Icon { name: "settings" } "Settings"
@@ -1000,9 +1155,41 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         }
                     }
                     }
+                    if let Some(file) = edited_file { div { class: "editor-draft", role: "status",
+                        span { "Edited copy of {file.path}. Changes are kept here until you save or discard them." }
+                        button { r#type: "button", disabled: !save_allowed, onclick: move |_| {
+                            let mut next = workspace();
+                            let content = request().input;
+                            if let Some(file) = editor_source_file(&next, editor_source().as_ref())
+                                .filter(|file| file.content != content && editor_save_allowed(&next, file, &content, limit))
+                            {
+                                if let Some(source) = next.files.iter_mut().find(|source| source.path == file.path) {
+                                    source.content = content.clone();
+                                    next.validations.remove(&file.path);
+                                    workspace.set(next);
+                                    editor_source.set(Some(SuppliedFile { path: file.path.clone(), content }));
+                                    drafts.write().remove(&file.path);
+                                }
+                            }
+                        }, "Save to workspace" }
+                        if !save_allowed { small { "Reduce this input to fit the editor or workspace limit before saving." } }
+                        button { r#type: "button", onclick: move |_| {
+                            if let Some(file) = &discard_file {
+                                drafts.write().remove(&file.path);
+                                request.set(Request { input: file.content.clone(), ..request() });
+                                result.set(None);
+                            }
+                        }, "Discard edits" }
+                    } }
                     div { class: if matches!(tool, Tool::Diff | Tool::BigO) { "editor-pair" } else { "" },
                         div { class: "field", span { if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" } }
-                            CodeEditor { id: "content", label: if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" }, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, oninput: move |value| { request.set(Request { input: value, ..request() }); result.set(None); } }
+                            CodeEditor { id: "content", label: if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" }, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, oninput: move |value: String| {
+                                if let Some(file) = &selected_file {
+                                    if value == file.content { drafts.write().remove(&file.path); }
+                                    else { drafts.write().insert(file.path.clone(), (file.content.clone(), value.clone())); }
+                                }
+                                request.set(Request { input: value, ..request() }); result.set(None);
+                            } }
                             small { class: if input.len() > limit { "error" } else { "muted" }, "{input.len()} / {limit} UTF-8 bytes" }
                         }
                         if matches!(tool, Tool::Diff | Tool::BigO) {
@@ -1013,7 +1200,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         }
                     }
                     if tool == Tool::Readability { p { class: "small muted", "{input.split_whitespace().count()} words · {input.len()} UTF-8 bytes" } }
-                    div { class: "actions run-actions", button { class: "primary", disabled: running(), "aria-busy": running(), onclick: move |_| async move {
+                    div { class: "actions run-actions", button { id: "tool-run", class: "primary", disabled: running(), "aria-busy": running(), onclick: move |_| async move {
                         running.set(true);
                         let submitted = request.peek().clone();
                         let output = execute(tool, submitted.clone()).await.map(|mut value| {
@@ -1031,9 +1218,9 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         let celebrate = matches!(tool, Tool::Activity | Tool::Standard) && output.as_ref().is_ok_and(|value| value["valid"] == true);
                         // Edits made while the operation ran supersede its result.
                         if *request.peek() == submitted {
-                            result.set(Some(output)); document::eval(&format!("requestAnimationFrame(() => {{ const heading = document.querySelector('[data-tool=\"{}\"] #result-heading'); heading?.focus(); if (heading && {celebrate}) window.acornCelebrate?.(); }})", tool.slug()));
+                            result.set(Some(output)); document::eval(&format!("requestAnimationFrame(() => {{ const fullscreen = document.querySelector('.code-editor.is-fullscreen'); const heading = document.querySelector('[data-tool=\"{}\"] #result-heading'); if (fullscreen) fullscreen.querySelector('.editor-run-action')?.focus({{preventScroll:true}}); else heading?.focus(); if (heading && {celebrate}) window.acornCelebrate?.(); }})", tool.slug()));
                         }
-                    }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { request.set(Request::default()); result.set(None); }, "Clear" } }
+                    }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
                 }
                 }

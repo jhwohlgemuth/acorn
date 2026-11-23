@@ -128,8 +128,8 @@ fn package_web(source: &Path, output: &Path, catalog: Catalog, revision: String)
     } else {
         archive_path(output, &catalog.version).and_then(|archive| {
             read_files(source, source).and_then(|files| {
-                if !files.contains_key("index.html") || files.keys().filter(|name| name.ends_with(".wasm")).count() != 1 {
-                    Err("Browser output requires index.html and exactly one WASM payload; run make web-build".into())
+                if !files.contains_key("index.html") || files.keys().filter(|name| is_application_wasm(name)).count() != 1 {
+                    Err("Browser output requires index.html and exactly one acorn-web_bg WASM payload; run make web-build".into())
                 } else if files.contains_key("release.json") {
                     Err("Browser output already contains reserved release.json".into())
                 } else {
@@ -156,6 +156,10 @@ fn package_web(source: &Path, output: &Path, catalog: Catalog, revision: String)
             })
         })
     }
+}
+fn is_application_wasm(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name == "acorn-web_bg.wasm" || (name.starts_with("acorn-web_bg-dxh") && name.ends_with(".wasm"))
 }
 fn publish_web(root: &Path, output: &Path) -> TaskResult<()> {
     verify_web(root, output).and_then(|archive| {

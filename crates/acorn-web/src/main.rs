@@ -15,8 +15,11 @@ mod syntax;
 mod ui;
 mod workspace;
 
+#[derive(Clone, Copy)]
+struct RecoveryTimedOut(Signal<bool>);
+
 fn app() -> Element {
-    use_context_provider(|| Signal::new(String::new()));
+    let mut session = use_context_provider(|| Signal::new(String::new()));
     use_context_provider(ui::ToolSessions::new);
     let initially_collapsed = js_sys::Reflect::get(&js_sys::global(), &"acornInitialSidebarCollapsed".into())
         .ok()
@@ -26,10 +29,20 @@ fn app() -> Element {
     let mut workspace = use_context_provider(|| Signal::new(acorn_web::session::Workspace::default()));
     let mut storage_status = use_context_provider(|| Signal::new((0_usize, false, 0_usize, 0_usize)));
     let mut restored = use_signal(|| false);
+    let mut recovery_timed_out = use_context_provider(|| RecoveryTimedOut(Signal::new(false))).0;
     use_future(move || async move {
-        let saved = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); return await window.acornWorkspaceStorage.restore()").join::<serde_json::Value>().await;
+        let saved = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); const storage = window.acornWorkspaceStorage; const workspace = await storage.restore(); return {workspace, recoveryTimedOut: storage.recoveryTimedOut}").join::<serde_json::Value>().await;
+        recovery_timed_out.set(
+            saved
+                .as_ref()
+                .ok()
+                .and_then(|value| value.get("recoveryTimedOut"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
+        );
         let restorable = saved
             .ok()
+            .and_then(|value| value.get("workspace").cloned())
             .and_then(|value| serde_json::from_value::<acorn_web::session::Workspace>(value).ok())
             .and_then(acorn_web::session::Workspace::restored);
         if let Some(mut checked) = restorable {
@@ -50,6 +63,7 @@ fn app() -> Element {
                 )
             })
             .collect();
+            session.set(checked.content());
             workspace.set(checked);
         }
         restored.set(true);
@@ -95,6 +109,11 @@ fn app() -> Element {
         document::Script { src: asset!("/assets/dashboard-layout.js") }
         document::Script { src: asset!("/assets/syntax.js"), "data-prism": asset!("/assets/vendor/prism.js") }
         if restored() {
+            if recovery_timed_out() {
+                div { class: "startup-recovery-warning error", role: "alert",
+                    p { "Browser storage did not finish loading. Your saved data was left untouched, and this session cannot save changes. See Browser storage in Settings." }
+                }
+            }
             Router::<ui::Route> {}
         } else {
             main { class: "page", role: "status", "Restoring saved workspace…" }

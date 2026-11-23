@@ -24,7 +24,9 @@ fn fixture() -> TempDir {
     .unwrap();
     fs::create_dir(root.join("public")).unwrap();
     fs::write(root.join("public/index.html"), "<!doctype html><title>ACORN</title>").unwrap();
-    fs::write(root.join("public/app.wasm"), b"\0asm\x01\0\0\0").unwrap();
+    fs::write(root.join("public/acorn-web_bg.wasm"), b"\0asm\x01\0\0\0").unwrap();
+    fs::create_dir_all(root.join("public/cesium")).unwrap();
+    fs::write(root.join("public/cesium/draco_decoder.wasm"), b"\0asm\x01\0\0\0").unwrap();
     temp
 }
 fn write_catalog(root: &Path, catalog: &Catalog) {
@@ -92,21 +94,28 @@ fn test_package_is_reproducible_and_records_hashes_and_pending_desktop() {
     let release: Release = serde_json::from_reader(zip.by_name("release.json").unwrap()).unwrap();
     assert_eq!(release.catalog.version, "1.2.3");
     assert_eq!(release.catalog.applications["acorn-desktop"].state, State::Planned);
-    assert_eq!(release.files["app.wasm"], checksum(&fs::read(root.join("public/app.wasm")).unwrap()));
+    assert_eq!(
+        release.files["acorn-web_bg.wasm"],
+        checksum(&fs::read(root.join("public/acorn-web_bg.wasm")).unwrap())
+    );
+    assert_eq!(
+        release.files["cesium/draco_decoder.wasm"],
+        checksum(&fs::read(root.join("public/cesium/draco_decoder.wasm")).unwrap())
+    );
     assert_eq!(release.revision, "abc123");
     assert_eq!(verify_web(root, &root.join("one")).unwrap(), archive);
 }
 #[test]
-fn test_package_rejects_missing_or_duplicate_wasm_and_reserved_manifest() {
+fn test_package_rejects_missing_or_duplicate_application_wasm_and_reserved_manifest() {
     let temp = fixture();
     let root = temp.path();
     let package = || package_web(&root.join("public"), &root.join("out"), inventory(root).unwrap(), "abc123".into());
-    fs::remove_file(root.join("public/app.wasm")).unwrap();
-    assert!(package().unwrap_err().contains("exactly one WASM"));
-    fs::write(root.join("public/app.wasm"), "wasm").unwrap();
-    fs::write(root.join("public/extra.wasm"), "wasm").unwrap();
-    assert!(package().unwrap_err().contains("exactly one WASM"));
-    fs::remove_file(root.join("public/extra.wasm")).unwrap();
+    fs::remove_file(root.join("public/acorn-web_bg.wasm")).unwrap();
+    assert!(package().unwrap_err().contains("exactly one acorn-web_bg WASM"));
+    fs::write(root.join("public/acorn-web_bg.wasm"), "wasm").unwrap();
+    fs::write(root.join("public/acorn-web_bg-dxh123.wasm"), "wasm").unwrap();
+    assert!(package().unwrap_err().contains("exactly one acorn-web_bg WASM"));
+    fs::remove_file(root.join("public/acorn-web_bg-dxh123.wasm")).unwrap();
     fs::write(root.join("public/release.json"), "{}").unwrap();
     assert!(package().unwrap_err().contains("reserved release.json"));
 }

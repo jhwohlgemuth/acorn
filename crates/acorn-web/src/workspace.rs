@@ -17,6 +17,14 @@ use strum::IntoEnumIterator;
 
 const IDENTIFIER_COLOR_COUNT: usize = 8;
 const TAG_COLOR_COUNT: usize = 8;
+const FILE_KIND_FILTERS: [(Option<MimeType>, &str, &str, &str); 6] = [
+    (Some(MimeType::Json), "json", "JSON", "JSON files"),
+    (Some(MimeType::Yaml), "yaml", "YAML", "YAML files"),
+    (Some(MimeType::Markdown), "markdown", "Markdown", "Markdown files"),
+    (Some(MimeType::Text), "text", "Text", "Text files"),
+    (None, "image", "Images", "Image files"),
+    (None, "other", "Other", "Other files"),
+];
 #[derive(Clone, Default, serde::Deserialize)]
 struct BucketHistory {
     repositories: Vec<String>,
@@ -49,14 +57,12 @@ pub(crate) fn file_format(path: &str) -> Option<&'static str> {
     }
 }
 fn file_kind(file: &SuppliedFile) -> &'static str {
-    match MimeType::from(file.path.as_str()) {
-        | MimeType::Json => "json",
-        | MimeType::Yaml => "yaml",
-        | MimeType::Markdown => "markdown",
-        | MimeType::Text => "text",
-        | mime if mime.is_image() => "image",
-        | _ => "other",
-    }
+    let mime = MimeType::from(file.path.as_str());
+    FILE_KIND_FILTERS
+        .iter()
+        .find(|(filter, _, _, _)| filter.as_ref() == Some(&mime))
+        .map(|(_, value, _, _)| *value)
+        .unwrap_or(if mime.is_image() { "image" } else { "other" })
 }
 fn file_loadable(file: &SuppliedFile, tool: Tool) -> bool {
     let mime = MimeType::from(file.path.as_str());
@@ -121,12 +127,20 @@ pub(crate) fn LoadedFiles(
     let regex = use_signal(|| false);
     let case_sensitive = use_signal(|| false);
     let mut kind = use_signal(|| "all".to_owned());
+    let mut selected_kinds = use_signal(|| {
+        FILE_KIND_FILTERS
+            .iter()
+            .map(|(_, value, _, _)| (*value).to_owned())
+            .collect::<BTreeSet<_>>()
+    });
     let mut descending = use_signal(|| false);
     let snapshot = workspace();
     let pattern = SearchPattern::new(&query(), regex(), case_sensitive());
+    let selected = selected_kinds();
+    let all_selected = selected.len() == FILE_KIND_FILTERS.len();
     let paths = pattern
         .as_ref()
-        .map(|pattern| visible_file_paths(&snapshot.files, pattern, &kind(), tool))
+        .map(|pattern| visible_file_paths(&snapshot.files, pattern, &kind(), tool, (tool.is_none()).then_some(&selected)))
         .unwrap_or_default();
     rsx! { details { class: "loaded-tree", summary {
         span { class: "loaded-tree-icon", Icon { name: "folder-open" } }
@@ -138,13 +152,26 @@ pub(crate) fn LoadedFiles(
                 SearchField { label: "Find a file", placeholder: "Search paths…", query, regex, case_sensitive, error: pattern.as_ref().err().cloned() }
                 div { class: "result-filters", role: "group", "aria-label": "Show files",
                     span { class: "muted", "Show" }
-                    for (value, label, title) in [("all", "All", "All files"), ("loadable", "Available", "Available here"), ("json", "JSON", "JSON files"), ("yaml", "YAML", "YAML files"), ("markdown", "Markdown", "Markdown files"), ("text", "Text", "Text files"), ("image", "Images", "Image files")] {
-                        if value != "loadable" || tool.is_some() {
+                    if tool.is_some() {
+                        for (value, label, title) in [("all", "All", "All files"), ("loadable", "Available", "Available here"), ("json", "JSON", "JSON files"), ("yaml", "YAML", "YAML files"), ("markdown", "Markdown", "Markdown files"), ("text", "Text", "Text files"), ("image", "Images", "Image files")] {
                             button { r#type: "button", title, "aria-pressed": kind() == value, onclick: move |_| kind.set(value.to_owned()), "{label}" }
+                        }
+                    } else {
+                        button { r#type: "button", title: "Toggle all file types", "aria-pressed": all_selected,
+                            onclick: move |_| selected_kinds.set(if all_selected { BTreeSet::new() } else { FILE_KIND_FILTERS.iter().map(|(_, value, _, _)| (*value).to_owned()).collect() }), "All"
+                        }
+                        for (_, value, label, title) in FILE_KIND_FILTERS {
+                            button { r#type: "button", title, "aria-pressed": selected.contains(value),
+                                onclick: move |_| {
+                                    let mut next = selected_kinds();
+                                    if !next.insert(value.to_owned()) { next.remove(value); }
+                                    selected_kinds.set(next);
+                                }, "{label}"
+                            }
                         }
                     }
                 }
-                div { class: "result-filters", role: "group", "aria-label": "Sort files",
+                div { class: "result-filters loaded-files-sort", role: "group", "aria-label": "Sort files",
                     span { class: "muted", "Sort" }
                     for (reverse, label, title) in [(false, "A–Z", "Name A–Z"), (true, "Z–A", "Name Z–A")] {
                         button { r#type: "button", title, "aria-pressed": descending() == reverse, onclick: move |_| descending.set(reverse), "{label}" }
@@ -704,14 +731,23 @@ fn tree_children(paths: &[String], prefix: &str, descending: bool) -> Vec<(bool,
     }
     children
 }
-fn visible_file_paths(files: &[SuppliedFile], pattern: &SearchPattern, kind: &str, tool: Option<Tool>) -> Vec<String> {
+fn visible_file_paths(
+    files: &[SuppliedFile],
+    pattern: &SearchPattern,
+    kind: &str,
+    tool: Option<Tool>,
+    selected_kinds: Option<&BTreeSet<String>>,
+) -> Vec<String> {
     files
         .iter()
         .filter(|file| pattern.matches(&file.path))
-        .filter(|file| match kind {
-            | "all" => true,
-            | "loadable" => tool.is_none_or(|tool| file_loadable(file, tool)),
-            | kind => file_kind(file) == kind,
+        .filter(|file| match selected_kinds {
+            | Some(selected) => selected.contains(file_kind(file)),
+            | None => match kind {
+                | "all" => true,
+                | "loadable" => tool.is_none_or(|tool| file_loadable(file, tool)),
+                | kind => file_kind(file) == kind,
+            },
         })
         .map(|file| file.path.clone())
         .collect()
@@ -823,15 +859,24 @@ mod tests {
         ];
         let gold = SearchPattern::new("gold", false, false).expect("literal query");
         let all = SearchPattern::new("", false, false).expect("empty query");
-        assert_eq!(visible_file_paths(&files, &gold, "all", None), vec!["Gold/index.json", "Gold/banner.svg"]);
-        assert_eq!(visible_file_paths(&files, &all, "image", None), vec!["Gold/banner.svg"]);
         assert_eq!(
-            visible_file_paths(&files, &gold, "loadable", Some(Tool::Activity)),
+            visible_file_paths(&files, &gold, "all", None, None),
+            vec!["Gold/index.json", "Gold/banner.svg"]
+        );
+        assert_eq!(visible_file_paths(&files, &all, "image", None, None), vec!["Gold/banner.svg"]);
+        assert_eq!(
+            visible_file_paths(&files, &gold, "loadable", Some(Tool::Activity), None),
             vec!["Gold/index.json"]
         );
         let case_sensitive = SearchPattern::new("gold", false, true).expect("literal query");
-        assert!(visible_file_paths(&files, &case_sensitive, "all", None).is_empty());
+        assert!(visible_file_paths(&files, &case_sensitive, "all", None, None).is_empty());
         let regex = SearchPattern::new(r"Gold/.*\.svg$", true, true).expect("regex query");
-        assert_eq!(visible_file_paths(&files, &regex, "all", None), vec!["Gold/banner.svg"]);
+        assert_eq!(visible_file_paths(&files, &regex, "all", None, None), vec!["Gold/banner.svg"]);
+        let selected = BTreeSet::from(["json".to_owned(), "text".to_owned()]);
+        assert_eq!(
+            visible_file_paths(&files, &all, "all", None, Some(&selected)),
+            vec!["Gold/index.json", "Other/notes.txt"]
+        );
+        assert!(visible_file_paths(&files, &all, "all", None, Some(&BTreeSet::new())).is_empty());
     }
 }

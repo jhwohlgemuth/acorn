@@ -5,6 +5,37 @@ import { chromium } from "playwright";
 
 const script = await readFile(new URL("../assets/workspace-storage.js", import.meta.url), "utf8");
 
+test("a stalled IndexedDB restore times out without overwriting saved files", async () => {
+    const browser = await chromium.launch();
+    try {
+        const page = await browser.newPage();
+        await page.route("http://127.0.0.1:7899/**", route => route.fulfill({ body: "<!doctype html><title>storage test</title>", contentType: "text/html" }));
+        await page.goto("http://127.0.0.1:7899/");
+        await page.addScriptTag({ content: script });
+        const result = await page.evaluate(async () => {
+            const oldWorkspace = { files: [{ path: "old.json", content: "{}" }] };
+            await window.acornWorkspaceStorage.save(oldWorkspace);
+            const getAll = IDBObjectStore.prototype.getAll;
+            IDBObjectStore.prototype.getAll = () => ({});
+            const stored = createWorkspaceStorage(() => localStorage, () => indexedDB, () => navigator.storage, 20);
+            let restored, saved, timedOut, status;
+            try {
+                restored = await stored.restore();
+                saved = await stored.save({ files: [{ path: "new.json", content: "{}" }] });
+                timedOut = stored.recoveryTimedOut;
+                status = await stored.status();
+            } finally { IDBObjectStore.prototype.getAll = getAll; }
+            const preserved = await createWorkspaceStorage().restore();
+            return { restored, saved, timedOut, status, preserved: preserved.files[0].path };
+        });
+        assert.equal(result.restored, null);
+        assert.equal(result.saved, false);
+        assert.equal(result.timedOut, true);
+        assert.equal(result.status.failed, true);
+        assert.equal(result.preserved, "old.json");
+    } finally { await browser.close(); }
+});
+
 test("IndexedDB migrates legacy data, stores large text and binary images, preserves failed saves, and deletes data", async () => {
     const browser = await chromium.launch();
     try {

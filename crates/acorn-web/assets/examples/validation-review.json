@@ -427,7 +427,7 @@
   "title": "RAD validation workshop: intentionally flawed metadata",
   "sections": {
     "mission": "Explain how seasonal rainfall and land use shape water availability across connected watersheds.",
-    "challenge": "Field teams collect different measurements on different schedules, making regional comparisons difficult.",
+    "challenge": "Field teams collect rainfall, streamflow, soil moisture, reservoir releases, and water quality measurements on different schedules and with different instruments, making regional comparisons difficult when a single season spans multiple watersheds and the recorded values must still be traced back to the people, places, methods, and dates that produced them.",
     "approach": [
       " ",
       "Combine field observations with reproducible watershed simulations."

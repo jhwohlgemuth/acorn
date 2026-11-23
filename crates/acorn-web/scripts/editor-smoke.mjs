@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { chromium } from "playwright";
 
-const server = createServer((_request, response) => response.end(`<div class="workspace" data-theme="dark"><div class="code-editor" data-language="json" style="--editor-height:170px"><div class="editor-toolbar"><button onclick="acornEditors.fold('content')">Fold all</button><button onclick="acornEditors.expand('content')">Expand all</button><div class="editor-issue-nav" role="group" aria-label="Issue navigation" hidden><button type="button" aria-label="Previous issue" aria-keyshortcuts="ArrowLeft" onclick="acornEditors.navigateIssue('content', -1)">prev</button><span class="editor-issue-position" aria-live="polite">0 of 0</span><button type="button" aria-label="Next issue" aria-keyshortcuts="ArrowRight" onclick="acornEditors.navigateIssue('content', 1)">next</button></div><button class="copy-code editor-fullscreen-toggle" onclick="acornEditors.toggleFullscreen('content')"><span class="enter-fullscreen-label">Full screen</span><span class="exit-fullscreen-label">Exit full screen</span></button></div><div class="editor-surface"></div><textarea id="content" aria-label="Content" rows="7"></textarea></div></div>`));
+const server = createServer((_request, response) => response.end(`<div class="workspace" data-theme="dark"><div class="code-editor" data-language="json" style="--editor-height:170px"><div class="editor-toolbar"><button onclick="acornEditors.fold('content')">Fold all</button><button onclick="acornEditors.expand('content')">Expand all</button><div class="editor-issue-nav" role="group" aria-label="Issue navigation" hidden><button type="button" aria-label="Previous issue" aria-keyshortcuts="ArrowLeft" onclick="acornEditors.navigateIssue('content', -1)">prev</button><span class="editor-issue-position" aria-live="polite">0 of 0</span><button type="button" aria-label="Next issue" aria-keyshortcuts="ArrowRight" onclick="acornEditors.navigateIssue('content', 1)">next</button></div><button class="copy-code editor-fullscreen-toggle" aria-label="Full screen" onclick="acornEditors.toggleFullscreen('content')"><span class="enter-fullscreen-label">Full screen</span><span class="exit-fullscreen-label">Exit full screen</span></button></div><div class="editor-surface"></div><textarea id="content" aria-label="Content" rows="7"></textarea></div></div>`));
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch().catch(error => { server.close(); throw error; });
 try {
@@ -22,6 +22,27 @@ try {
     await editor.waitFor();
     assert.equal(await page.evaluate(() => window.getSelection().toString()), "A", "pending source positions select once the editor mounts");
     assert.equal(await page.locator("#content").isVisible(), false);
+    await page.evaluate(() => {
+        const message = document.createElement("span");
+        message.className = "editor-issue-message";
+        document.querySelector(".editor-issue-nav").append(message);
+    });
+    await editor.press("ControlOrMeta+f");
+    const searchPanel = page.locator(".cm-search");
+    await searchPanel.getByRole("textbox", { name: "Find" }).fill("ACORN");
+    assert.ok(await page.locator(".cm-searchMatch").count() > 0, "editor search finds source text");
+    assert.ok(await searchPanel.getByRole("textbox", { name: "Replace" }).isVisible(), "editable editors offer replacement");
+    await searchPanel.getByRole("textbox", { name: "Replace" }).fill("ACORN edited");
+    await searchPanel.getByRole("button", { name: "replace", exact: true }).click();
+    await searchPanel.getByRole("button", { name: "replace", exact: true }).click();
+    assert.ok((await page.locator("#content").inputValue()).includes("ACORN edited"), "replacement updates the source input");
+    await searchPanel.getByRole("button", { name: "close" }).click();
+    await editor.press("ControlOrMeta+z");
+    assert.equal(await page.locator("#content").inputValue(), original, "replacement remains undoable");
+    await page.evaluate(() => window.acornEditors.setFontSize("content", "big"));
+    assert.equal(await page.locator(".code-editor").evaluate(node => getComputedStyle(node).fontSize), "16px", "big font size changes the editor");
+    await page.evaluate(() => window.acornEditors.setFontSize("content", "small"));
+    assert.equal(await page.locator(".code-editor").evaluate(node => getComputedStyle(node).fontSize), "13px", "small font size restores the readable default");
     async function resizeEditor(delta) {
         const surface = page.locator(".editor-surface").first();
         const before = await surface.boundingBox();
@@ -144,9 +165,13 @@ try {
     assert.deepEqual(await issueNav.locator("button").allTextContents(), ["prev", "next"], "issue controls use text labels");
     assert.equal(await issueNav.evaluate(node => node.nextElementSibling?.classList.contains("editor-fullscreen-toggle")), true, "issue controls precede full screen");
     assert.equal(await issueNav.locator(".editor-issue-position").innerText(), "0 of 2", "same-value checks share one stop");
+    assert.equal(await issueNav.locator(".editor-issue-message").innerText(), "", "unselected issues have no generic message");
     await page.getByRole("button", { name: "Previous issue" }).click();
     assert.equal(await page.evaluate(() => window.getSelection().toString()), '"active"', "previous starts at the last source issue");
     assert.equal(await issueNav.locator(".editor-issue-position").innerText(), "2 of 2");
+    assert.equal(await issueNav.locator(".editor-issue-message").innerText(), "Warning, line 9: Status check", "issue navigation exposes the message without hovering");
+    assert.equal(await issueNav.locator(".editor-issue-message").getAttribute("data-severity"), "warning", "warning messages retain their severity");
+    assert.equal(await page.locator(".cm-diagnostic-line-warning").count(), 1, "warning lines have their own marker");
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "Previous issue", "clicking keeps issue controls focused");
     await page.keyboard.press("ArrowRight");
     assert.equal(await page.evaluate(() => window.getSelection().toString()), '"ACORN 🌳"', "right arrow wraps to the first source issue");
@@ -170,6 +195,7 @@ try {
     assert.equal(await issueNav.locator(".editor-issue-position").innerText(), "0 of 1", "line-only syntax issues are navigable");
     await page.getByRole("button", { name: "Next issue" }).click();
     assert.equal(await issueNav.locator(".editor-issue-position").innerText(), "1 of 1");
+    assert.equal(await issueNav.locator(".editor-issue-message").innerText(), "Error, line 1: Syntax check", "line-only issues expose their message");
     await page.evaluate(() => window.acornEditors.sync("content", null, "json", "Before"));
     assert.equal(await editor.getAttribute("aria-label"), "Before", "route changes update the accessible label");
     await editor.press("ArrowRight");
@@ -184,6 +210,34 @@ try {
             if (fold) window.acornEditors.fold("content");
         }, { value, language, fold });
     }
+    const longSource = Array.from({ length: 100 }, (_, index) => `line ${index + 1}`).join("\n");
+    await replace(longSource, "markdown");
+    await page.evaluate(() => {
+        for (const side of ["top", "bottom"]) {
+            const spacer = document.createElement("div");
+            spacer.dataset.issueScrollSpacer = side;
+            spacer.style.height = "900px";
+            if (side === "top") document.body.prepend(spacer);
+            else document.body.append(spacer);
+        }
+    });
+    await page.evaluate(source => window.acornEditors.setDiagnostics("content", [{ line: 50, character: 1, severity: "error", message: "Middle line" }], source), longSource);
+    await page.getByRole("button", { name: "Next issue" }).click();
+    await page.waitForFunction(() => {
+        const line = document.querySelector(".code-editor .cm-activeLine")?.getBoundingClientRect();
+        const scroller = document.querySelector(".code-editor .cm-scroller")?.getBoundingClientRect();
+        return line && scroller && Math.abs((line.top + line.bottom - scroller.top - scroller.bottom) / 2) < 25 && Math.abs((line.top + line.bottom - innerHeight) / 2) < 40;
+    });
+    await page.getByRole("button", { name: "Full screen", exact: true }).click();
+    await page.evaluate(source => window.acornEditors.setDiagnostics("content", [{ line: 80, character: 1, severity: "error", message: "Fullscreen line" }], source), longSource);
+    await page.getByRole("button", { name: "Next issue" }).click();
+    await page.waitForFunction(() => {
+        const line = document.querySelector(".code-editor.is-fullscreen .cm-activeLine")?.getBoundingClientRect();
+        const scroller = document.querySelector(".code-editor.is-fullscreen .cm-scroller")?.getBoundingClientRect();
+        return line && scroller && Math.abs((line.top + line.bottom - scroller.top - scroller.bottom) / 2) < 25 && Math.abs((line.top + line.bottom - innerHeight) / 2) < 50;
+    });
+    await page.getByRole("button", { name: "Exit full screen", exact: true }).click();
+    await page.evaluate(() => document.querySelectorAll("[data-issue-scroll-spacer]").forEach(spacer => spacer.remove()));
     const largeJson = JSON.stringify({ items: Array.from({ length: 2000 }, (_, id) => ({ id, title: "Research" })) }, null, 2);
     await replace(largeJson, "json", true);
     assert.equal(await page.locator(".cm-diagnostic").count(), 0, "replacing the document clears stale check underlines");
@@ -271,6 +325,11 @@ try {
     await page.locator("#after-editor").press("ControlOrMeta+Home");
     await page.keyboard.insertText("must not change");
     assert.equal(await page.locator("#after").inputValue(), readonlySource, "read-only previews reject edits");
+    await page.evaluate(() => window.acornEditors.openFind("after"));
+    const readonlyHost = page.locator(".code-editor").filter({ has: page.locator("#after") });
+    assert.ok(await readonlyHost.locator(".cm-search input[aria-label='Find']").isVisible(), "read-only previews can be searched");
+    assert.equal(await readonlyHost.locator(".cm-search input[aria-label='Replace']").count(), 0, "read-only previews do not offer replacement");
+    await readonlyHost.locator(".cm-search button[name='close']").click();
     await page.evaluate(() => window.acornEditors.fold("after"));
     assert.ok(await page.locator("#after-editor .cm-foldPlaceholder").count() > 0);
     assert.equal(await page.locator("#content-editor .cm-foldPlaceholder").count(), 0, "editors fold independently");
@@ -289,8 +348,61 @@ try {
     });
     await page.waitForFunction(() => document.querySelectorAll(".cm-editor").length === 1);
     assert.equal(await editor.textContent(), "{}", "remount starts from the new input, without stale editor state");
+    const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    const mobile = await mobileContext.newPage();
+    await mobile.goto(`http://127.0.0.1:${server.address().port}`);
+    await mobile.evaluate(() => {
+        const viewport = document.createElement("meta");
+        viewport.name = "viewport";
+        viewport.content = "width=device-width,initial-scale=1";
+        document.head.append(viewport);
+    });
+    await mobile.addStyleTag({ content: await readFile(new URL("../assets/app.css", import.meta.url), "utf8") });
+    await mobile.addScriptTag({ content: await readFile(new URL("../assets/generated/editor/editor.js", import.meta.url), "utf8") });
+    await mobile.evaluate(() => {
+        const toolbar = document.querySelector(".editor-toolbar");
+        const find = document.createElement("button");
+        find.className = "copy-code";
+        find.textContent = "Find";
+        find.onclick = () => window.acornEditors.openFind("content");
+        const sizes = document.createElement("div");
+        sizes.className = "editor-font-size";
+        sizes.setAttribute("role", "group");
+        sizes.setAttribute("aria-label", "Editor font size");
+        for (const size of ["small", "big"]) {
+            const button = document.createElement("button");
+            button.dataset.size = size;
+            button.textContent = size === "small" ? "Small" : "Big";
+            button.onclick = () => window.acornEditors.setFontSize("content", size);
+            sizes.append(button);
+        }
+        toolbar.prepend(find, sizes);
+    });
+    assert.equal(await mobile.locator(".code-editor").evaluate(node => getComputedStyle(node).fontSize), "16px", "touch editors start at a readable size");
+    assert.equal(await mobile.locator(".editor-resize-handle").evaluate(node => getComputedStyle(node).height), "32px", "touch resize handle has a larger target");
+    const touchGrip = await mobile.locator(".editor-resize-handle").boundingBox();
+    const touchSurface = await mobile.locator(".editor-surface").boundingBox();
+    const touchX = touchGrip.x + touchGrip.width / 2;
+    const touchY = touchGrip.y + touchGrip.height / 2;
+    const touchSession = await mobileContext.newCDPSession(mobile);
+    await touchSession.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: touchX, y: touchY }] });
+    await touchSession.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: touchX, y: touchY + 80 }] });
+    await touchSession.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    assert.ok((await mobile.locator(".editor-surface").boundingBox()).height >= touchSurface.height + 75, "touch dragging resizes the editor");
+    await mobile.locator("#content-editor").tap();
+    await mobile.keyboard.insertText('{"touch":true}');
+    assert.equal(await mobile.locator("#content").inputValue(), '{"touch":true}', "touch editing updates the source input");
+    await mobile.getByRole("button", { name: "Big" }).tap();
+    assert.equal(await mobile.locator(".code-editor").evaluate(node => getComputedStyle(node).fontSize), "20px", "touch font control changes size");
+    await mobile.getByRole("button", { name: "Find" }).tap();
+    assert.ok(await mobile.locator(".cm-search input[aria-label='Find']").isVisible(), "touch opens editor search");
+    assert.ok(await mobile.locator(".code-editor").evaluate(node => node.scrollWidth <= node.clientWidth), "narrow editor controls do not overflow horizontally");
+    await mobile.getByRole("button", { name: "Full screen", exact: true }).tap();
+    assert.ok((await mobile.locator(".code-editor").boundingBox()).height <= 844, "touch full screen stays within the viewport");
+    await mobile.getByRole("button", { name: "Exit full screen", exact: true }).tap();
+    await mobileContext.close();
     assert.deepEqual(errors, []);
-    console.log("CodeMirror resizing, folding, editing, undo/redo, clipboard, invalid JSON, language changes, large inputs, remounts and both themes passed.");
+    console.log("CodeMirror editing, search and replace, diagnostics, touch layout, resizing, folding, undo/redo, clipboard, large inputs, remounts and both themes passed.");
 } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

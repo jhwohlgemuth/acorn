@@ -43,6 +43,9 @@ pub(crate) fn CodeEditor(
     #[props(default)] readonly: bool,
     #[props(default)] diagnostics: Vec<serde_json::Value>,
     #[props(default)] fullscreen: bool,
+    #[props(default)] run_action: bool,
+    #[props(default)] run_disabled: bool,
+    #[props(default)] run_error: Option<String>,
     oninput: EventHandler<String>,
 ) -> Element {
     let mut edited = use_signal(|| None::<String>);
@@ -66,15 +69,31 @@ pub(crate) fn CodeEditor(
         div { class: "code-editor", "data-language": language, style: "--editor-height:calc({rows} * 1.6em + 20px)",
             div { class: "editor-toolbar", role: "group", "aria-label": "{label} editor controls",
                 if fullscreen { span { class: "editor-fullscreen-name", "{label}" } }
-                button { r#type: "button", class: "copy-code", title: "Fold all regions (Ctrl+Alt+[)", onclick: move |_| { document::eval(&format!("window.acornEditors?.fold('{id}')")); }, Icon { name: "fold" } "Fold all" }
-                button { r#type: "button", class: "copy-code", title: "Expand all regions (Ctrl+Alt+])", onclick: move |_| { document::eval(&format!("window.acornEditors?.expand('{id}')")); }, Icon { name: "expand" } "Expand all" }
-                CopyButton { text: value.clone() }
-                div { class: "editor-issue-nav", role: "group", "aria-label": "Issue navigation", hidden: true,
-                    button { r#type: "button", class: "copy-code", title: "Previous issue (←)", "aria-label": "Previous issue", "aria-keyshortcuts": "ArrowLeft", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', -1)")); }, "prev" }
-                    span { class: "editor-issue-position", "aria-live": "polite", "0 of 0" }
-                    button { r#type: "button", class: "copy-code", title: "Next issue (→)", "aria-label": "Next issue", "aria-keyshortcuts": "ArrowRight", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', 1)")); }, "next" }
+                button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Fold all", title: "Fold all regions (Ctrl+Alt+[)", onclick: move |_| { document::eval(&format!("window.acornEditors?.fold('{id}')")); }, Icon { name: "fold" } }
+                button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Expand all", title: "Expand all regions (Ctrl+Alt+])", onclick: move |_| { document::eval(&format!("window.acornEditors?.expand('{id}')")); }, Icon { name: "expand" } }
+                button { r#type: "button", class: "copy-code editor-icon-action editor-wrap-toggle", "aria-label": "Wrap lines", "aria-pressed": "true", title: "Disable word wrap", onclick: move |_| { document::eval(&format!("window.acornEditors?.toggleWrap('{id}')")); }, Icon { name: "wrap" } }
+                button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Find", title: "Find in editor (Ctrl+F)", onclick: move |_| { document::eval(&format!("window.acornEditors?.openFind('{id}')")); }, Icon { name: "search" } }
+                div { class: "editor-font-size", role: "group", "aria-label": "Editor font size",
+                    button { r#type: "button", class: "copy-code", "data-size": "small", "aria-label": "Small", title: "Small font size", "aria-pressed": "true", onclick: move |_| { document::eval(&format!("window.acornEditors?.setFontSize('{id}', 'small')")); }, Icon { name: "font-small" } }
+                    button { r#type: "button", class: "copy-code", "data-size": "big", "aria-label": "Big", title: "Big font size", "aria-pressed": "false", onclick: move |_| { document::eval(&format!("window.acornEditors?.setFontSize('{id}', 'big')")); }, Icon { name: "font-big" } }
                 }
-                if fullscreen { button { r#type: "button", class: "copy-code editor-fullscreen-toggle", title: "Full screen (Esc to exit)", onclick: move |_| { document::eval(&format!("window.acornEditors?.toggleFullscreen('{id}')")); }, span { class: "enter-fullscreen-icon", Icon { name: "maximize" } } span { class: "exit-fullscreen-icon", Icon { name: "minimize" } } span { class: "enter-fullscreen-label", "Full screen" } span { class: "exit-fullscreen-label", "Exit full screen" } } }
+                CopyButton { text: value.clone(), icon_only: true }
+                span { class: "editor-toolbar-spacer", "aria-hidden": "true" }
+                if let Some(message) = run_error { span { class: "editor-run-error", title: "{message}", "{message}" } }
+                div { class: "editor-issue-nav", role: "group", "aria-label": "Issue navigation", hidden: true,
+                    span { class: "editor-issue-label", "Issues" }
+                    button { r#type: "button", class: "copy-code", title: "Previous issue (←)", "aria-label": "Previous issue", "aria-keyshortcuts": "ArrowLeft", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', -1)")); }, "←" }
+                    span { class: "editor-issue-position", "aria-live": "polite", "0 of 0" }
+                    button { r#type: "button", class: "copy-code", title: "Next issue (→)", "aria-label": "Next issue", "aria-keyshortcuts": "ArrowRight", onclick: move |_| { document::eval(&format!("window.acornEditors?.navigateIssue('{id}', 1)")); }, "→" }
+                    span { class: "editor-issue-message", role: "status", "aria-live": "polite" }
+                }
+                if run_action && run_disabled { span { class: "editor-run-status", role: "status", "aria-live": "polite", "Running…" } }
+                if run_action { span { class: "editor-run-group",
+                    button { r#type: "button", class: "primary editor-run-action", disabled: run_disabled, "aria-keyshortcuts": "Control+R", title: "Run (Ctrl+R)", onclick: move |_| { document::eval("document.getElementById('tool-run')?.click()"); }, Icon { name: "play" } "Run" }
+                } }
+                if fullscreen { span { class: "editor-fullscreen-group",
+                    button { r#type: "button", class: "copy-code editor-fullscreen-toggle editor-icon-action", "aria-label": "Full screen", title: "Full screen (Esc to exit)", onclick: move |_| { document::eval(&format!("window.acornEditors?.toggleFullscreen('{id}')")); }, span { class: "enter-fullscreen-icon", Icon { name: "maximize" } } span { class: "exit-fullscreen-icon", Icon { name: "minimize" } } span { class: "enter-fullscreen-label", "Full screen" } span { class: "exit-fullscreen-label", "Exit full screen" } }
+                } }
             }
             div { class: "editor-surface" }
             textarea { id, "aria-label": label, rows: "{rows}", readonly, spellcheck: "false", autocapitalize: "off", autocomplete: "off", value, oninput: move |event| {
@@ -86,11 +105,11 @@ pub(crate) fn CodeEditor(
     }
 }
 #[component]
-pub(crate) fn CopyButton(text: String, #[props(default = "Copy code")] label: &'static str) -> Element {
+pub(crate) fn CopyButton(text: String, #[props(default = "Copy code")] label: &'static str, #[props(default)] icon_only: bool) -> Element {
     rsx! {
-        button { class: "copy-code", r#type: "button", title: "Copy to clipboard", onclick: move |_| {
+        button { class: if icon_only { "copy-code editor-icon-action" } else { "copy-code" }, r#type: "button", "aria-label": label, title: "Copy to clipboard", onclick: move |_| {
             let encoded = serde_json::to_string(&text).unwrap_or_default();
             document::eval(&format!("window.acornCopy({encoded})"));
-        }, Icon { name: "copy" } "{label}" }
+        }, Icon { name: "copy" } if !icon_only { "{label}" } }
     }
 }
