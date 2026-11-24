@@ -8,6 +8,7 @@
 
 ## Planned
 
+- [Browser and WebMCP metadata formatting parity](browser-format-parity.md) - Ship RAD JSON formatting through one portable WASM function, a tenth read-only WebMCP tool, and `/format`; expand only tested standard/syntax pairs, then reconcile the page with ABW-50 desktop local format.
 - [Optional USWDS browser theme](uswds-browser-theme.md) - The static ACORN component catalog and USWDS appearance are implemented; finish manual accessibility acceptance and retire the plan.
 - [Conversational RAD assistance and reviewed fixes](assisted-rad-workspace.md) - After ABW-11 creates the desktop shell, add an opt-in Ask ACORN panel to the shared UI, grounded read-only tools, ACORN-backed fix previews, per-fix review, and explicit browser download or native save.
 - [Opt-in netrc authentication](netrc-support.md) - Add explicit native credential loading, origin-scoped HTTPS Basic authentication and remote BagIt download flags; preserve provider/OAuth precedence and anonymous defaults. Earthdata compatibility is unproven and outside the initial release claim.
