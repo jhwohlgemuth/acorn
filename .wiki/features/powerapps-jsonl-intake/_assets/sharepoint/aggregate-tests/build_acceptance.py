@@ -73,7 +73,7 @@ def assertion(expression, after, label):
 def export_case(label, query, expected, after=None, late=False, rejected=False):
     actions=deepcopy(B.build(LIST,LIBRARY)['operationDefinition']['actions'])
     filename=TAG+'-'+label+'.jsonl'
-    actions['Read_latest_receipt_LB']['inputs']['parameters']['$filter']=query
+    actions['Retry_latest_receipt_LB']['actions']['Read_latest_receipt_LB']['inputs']['parameters']['$filter']=query
     actions['Read_receipts_LB']['inputs']['parameters']['$filter']="@concat('("+query.replace("'","''")+") and ID le ',string(outputs('High_water_item_LB')))"
     if late:
         actions['Arrival_after_cutoff']=post_receipt(3,'High_water_item_LB')

@@ -148,8 +148,8 @@ impl ToolSessions {
     }
 }
 impl WindowType {
-    fn for_route(route: &Route, window_name: &str) -> Self {
-        if window_name.starts_with("acorn-editor:") {
+    fn for_route(route: &Route, editor_popout: bool) -> Self {
+        if editor_popout {
             return Self::CodeEditor;
         }
         match route {
@@ -157,6 +157,26 @@ impl WindowType {
             | Route::Home {} | Route::Page { .. } => Self::Workspace,
         }
     }
+}
+fn editor_popout() -> bool {
+    let initial = js_sys::Reflect::get(&js_sys::global(), &"acornInitialEditorId".into())
+        .ok()
+        .and_then(|value| value.as_string())
+        .is_some_and(|id| !id.is_empty());
+    let name = js_sys::Reflect::get(&js_sys::global(), &"name".into())
+        .ok()
+        .and_then(|value| value.as_string())
+        .is_some_and(|name| name.starts_with("acorn-editor:"));
+    let query = js_sys::Reflect::get(&js_sys::global(), &"location".into())
+        .ok()
+        .and_then(|location| js_sys::Reflect::get(&location, &"search".into()).ok())
+        .and_then(|search| search.as_string())
+        .unwrap_or_default();
+    let has_search_param = query
+        .trim_start_matches('?')
+        .split('&')
+        .any(|parameter| parameter.strip_prefix("acorn-editor=").is_some_and(|id| !id.is_empty()));
+    initial || name || has_search_param
 }
 #[component]
 fn AppName() -> Element {
@@ -671,11 +691,7 @@ fn Shell() -> Element {
     let initially_dark = initial_theme == "dark";
     let initially_uswds = initial_theme == "uswds";
     let route = use_route::<Route>();
-    let window_name = js_sys::Reflect::get(&js_sys::global(), &"name".into())
-        .ok()
-        .and_then(|value| value.as_string())
-        .unwrap_or_default();
-    let window_type = WindowType::for_route(&route, &window_name);
+    let window_type = WindowType::for_route(&route, editor_popout());
     let current = match route {
         | Route::Home {} => "home".to_owned(),
         | Route::Page { page } => page,
@@ -852,6 +868,8 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut workspace = use_context::<Signal<Workspace>>();
     let sync_review_url = review && initial_tool == Tool::Standard;
     let mut selected_tool = use_signal(|| if sync_review_url { initial_review_tab() } else { initial_tool });
+    let is_editor_popout = editor_popout();
+    let mut results_expanded = use_signal(|| !is_editor_popout);
     use_future(move || async move {
         if sync_review_url {
             let mut channel = window_sync::fragments();
@@ -866,12 +884,17 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let signals = sessions.for_tool(tool);
     let mut request = signals.request;
     let mut result = signals.result;
+    use_effect(move || {
+        if is_editor_popout {
+            results_expanded.set(result().is_some());
+        }
+    });
     let mut running = signals.running;
     let mut last_request = signals.last_request;
     let mut seen_session = signals.seen_session;
     let mut drafts = signals.drafts;
     let mut editor_source = signals.editor_source;
-    window_sync::use_tool_sync(tool, signals, session);
+    window_sync::use_tool_sync(tool, signals, session, is_editor_popout);
     use_hook(|| {
         script::warm_operations();
     });
@@ -911,6 +934,22 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         }
     });
     let title = if review { "Review".to_owned() } else { tool.to_string() };
+    let field_label = match tool {
+        | Tool::BigO => "Left expression",
+        | Tool::Diff => "Before",
+        | _ => "Content",
+    };
+    let editor_label = if is_editor_popout {
+        match tool {
+            | Tool::Standard if review => "Review Metadata".to_owned(),
+            | Tool::Fair if review => "Review FAIR".to_owned(),
+            | Tool::Readability if review => "Review Readability".to_owned(),
+            | Tool::Diff | Tool::BigO => field_label.to_owned(),
+            | _ => title.clone(),
+        }
+    } else {
+        field_label.to_owned()
+    };
     let lede = if review {
         "Validate metadata, assess FAIR principles, or analyze readability."
     } else {
@@ -947,7 +986,29 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     };
     let diagnostics = result()
         .and_then(Result::ok)
-        .and_then(|value| value.get("diagnostics").and_then(Value::as_array).cloned())
+        .map(|value| {
+            if tool == Tool::Discover {
+                value
+                    .get("identifiers")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|identifier| {
+                        crate::location::identifier_locations(
+                            &input,
+                            identifier.get("kind").and_then(Value::as_str).unwrap_or_default(),
+                            identifier.get("normalized").and_then(Value::as_str).unwrap_or_default(),
+                        )
+                        .into_iter()
+                        .map(|(line, character, end_line, end_character)| {
+                            serde_json::json!({"severity": "discovered", "kind": identifier.get("kind"), "normalized": identifier.get("normalized"), "line": line, "character": character, "endLine": end_line, "endCharacter": end_character})
+                        })
+                    })
+                    .collect()
+            } else {
+                value.get("diagnostics").and_then(Value::as_array).cloned().unwrap_or_default()
+            }
+        })
         .unwrap_or_default();
     rsx! {
         document::Title { "{title} · {APP_NAME}" }
@@ -966,7 +1027,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     }, Icon { name: mode.icon() } "{mode}" }
                 }
             } }
-            div { class: "tool-grid",
+            div { class: if is_editor_popout && !results_expanded() { "tool-grid results-collapsed" } else { "tool-grid" },
                 div { class: "tool-input-column",
                 LoadedFiles {
                     summary: "Select content".to_owned(),
@@ -1090,8 +1151,11 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         }, "Discard edits" }
                     } }
                     div { class: if matches!(tool, Tool::Diff | Tool::BigO) { "editor-pair" } else { "" },
-                        div { class: "field", span { if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" } }
-                            CodeEditor { id: "content", label: if tool == Tool::BigO { "Left expression" } else if tool == Tool::Diff { "Before" } else { "Content" }, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, oninput: move |value: String| {
+                        div { class: "field",
+                            if !is_editor_popout || matches!(tool, Tool::Diff | Tool::BigO) {
+                                span { "{field_label}" }
+                            }
+                            CodeEditor { id: "content", label: editor_label, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, popout_state: window_sync::handoff(tool, signals), oninput: move |value: String| {
                                 if let Some(file) = &selected_file {
                                     if value == file.content { drafts.write().remove(&file.path); }
                                     else { drafts.write().insert(file.path.clone(), (file.content.clone(), value.clone())); }
@@ -1132,7 +1196,14 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
                 }
                 }
-                section { class: "card results", "aria-live": "polite", h2 { id: "result-heading", class: "section-heading", tabindex: "-1", "Results" }
+                section { class: "card results", "aria-live": "polite",
+                    div { class: "results-header",
+                        h2 { id: "result-heading", class: "section-heading", tabindex: "-1", "Results" }
+                        if is_editor_popout { button { r#type: "button", class: "collapse results-toggle", "aria-controls": "tool-result-content", "aria-expanded": results_expanded(), "aria-label": if results_expanded() { "Hide results" } else { "Show results" }, title: if results_expanded() { "Hide results" } else { "Show results" }, onclick: move |_| results_expanded.toggle(),
+                            if results_expanded() { Icon { name: "panel-open" } } else { Icon { name: "panel" } }
+                        } }
+                    }
+                    div { id: "tool-result-content", class: "result-content", hidden: is_editor_popout && !results_expanded(),
                     match result() {
                         None => rsx! { div { class: "empty", Icon { name: tool.icon() } h3 { "Ready when you are" } p { "Add your content, choose options, and select {tool.action_label()}." } } },
                         Some(Err(message)) => rsx! {
@@ -1153,6 +1224,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             }
                         },
                         Some(Ok(value)) => rsx! { ResultView { tool, value, source: input.clone() } },
+                    }
                     }
                 }
             }

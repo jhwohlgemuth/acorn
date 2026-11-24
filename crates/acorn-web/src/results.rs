@@ -232,7 +232,7 @@ fn Difference(value: Value) -> Element {
     }
 }
 #[component]
-fn Discovery(value: Value) -> Element {
+fn Discovery(value: Value, source: Option<Rc<String>>) -> Element {
     let mut session = use_context::<Signal<String>>();
     let mut hidden = use_signal(BTreeSet::<String>::new);
     let mut sort = use_signal(|| IdentifierSort::Original);
@@ -312,10 +312,13 @@ fn Discovery(value: Value) -> Element {
             if visible.is_empty() { p { class: "muted small", "No PID types selected. Choose a type or All to show results." } }
         }
         for (_, identifier) in visible {
-            {let normalized = text(identifier, "normalized").to_owned(); rsx! {
-                div { class: "identifier-row", PidBadge { kind: text(identifier, "kind").to_owned() } span { class: "inline-code", code { class: "syntax language-identifier", "{normalized}" } CopyButton { text: normalized.clone() } }
+            {let normalized = text(identifier, "normalized").to_owned();
+            let location = source.as_ref().and_then(|source| crate::location::identifier_location(source, text(identifier, "kind"), &normalized));
+            rsx! {
+                div { class: "identifier-row", PidBadge { kind: text(identifier, "kind").to_owned() } span { class: "inline-code", code { class: "syntax language-identifier", "{normalized}" } CopyButton { text: normalized.clone(), label: "Copy identifier", icon_only: true } }
+                    if let Some((line, character, end_line, end_character)) = location { button { class: "identifier-source", r#type: "button", "aria-label": "Show identifier in input at line {line}, character {character}", title: "Show identifier in input at line {line}, character {character}", onclick: move |_| script::reveal_diagnostic(line, character, end_line, end_character), Icon { name: "code" } } }
                     if text(identifier, "kind").eq_ignore_ascii_case("ror") { RorMapButton { identifier: normalized.clone() } }
-                    button { onclick: move |_| { session.set(normalized.clone()); nav.push(Route::Page { page: "inspect".into() }); }, "Inspect →" }
+                    button { class: "identifier-inspect", r#type: "button", "aria-label": "Inspect identifier", title: "Inspect identifier", onclick: move |_| { session.set(normalized.clone()); nav.push(Route::Page { page: "inspect".into() }); }, Icon { name: "search" } }
                 }
             }}
         }
@@ -570,7 +573,7 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
             Tool::Fair => rsx! { Fair { value: checks.clone(), source: source.clone() } },
             Tool::Readability => rsx! { Readability { value: value.clone() } },
             Tool::Diff => rsx! { Difference { value: value.clone() } },
-            Tool::Discover => rsx! { Discovery { value: value.clone() } },
+            Tool::Discover => rsx! { Discovery { value: value.clone(), source: source.clone() } },
             Tool::Inspect => rsx! { Inspection { value: value.clone() } },
             Tool::BigO => rsx! { Complexity { value: value.clone() } },
         }

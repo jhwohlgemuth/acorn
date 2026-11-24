@@ -454,6 +454,15 @@ try {
     await page.getByRole("button", { name: /Use example/ }).click();
     await page.getByRole("button", { name: "Discover identifiers", exact: true }).click();
     await page.locator(".identifier-row").first().waitFor();
+    const identifierRow = page.locator(".identifier-row").first();
+    for (const name of ["Copy identifier", "Inspect identifier"]) {
+        const action = identifierRow.getByRole("button", { name, exact: true });
+        assert.equal((await action.textContent()).trim(), "", `${name} uses an icon without visible text`);
+        assert.ok((await action.boundingBox()).width <= 32, `${name} fits a compact result row`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Identifier actions fit a 390px viewport");
+    await page.setViewportSize({ width: 1280, height: 720 });
     const retainedDiscoverInput = await page.locator("#content").inputValue();
     const retainedDiscoverResult = await page.locator(".results").textContent();
     await page.locator('nav a[title="Review"]').click();

@@ -38,3 +38,36 @@ fn test_annotate_syntax_error_location() {
     assert_eq!(diagnostic.get("line"), Some(&json!(3)));
     assert_eq!(diagnostic.get("character"), Some(&json!(1)));
 }
+#[test]
+fn test_identifier_location_finds_discovery_example_identifiers() {
+    let source = include_str!("../../assets/examples/discovery.txt");
+    for identifier in Identifier::find_all(source)
+        .into_iter()
+        .filter(|identifier| identifier.kind.supports_discovery())
+        .filter_map(|identifier| identifier.normalized())
+    {
+        assert!(
+            identifier_location(source, identifier.kind.as_str(), &identifier.value).is_some(),
+            "missing source location for {:?}",
+            identifier
+        );
+    }
+}
+#[test]
+fn test_identifier_location_skips_invalid_prefix_and_counts_unicode() {
+    let source = "é\nhttps://ror.org/01qz5mb56xxx\nROR 01qz5mb56";
+    assert_eq!(identifier_location(source, "ror", "https://ror.org/01qz5mb56"), Some((3, 5, 3, 14)));
+}
+#[test]
+fn test_identifier_location_handles_json_escaped_slashes() {
+    let source = "é\nhttps:\\/\\/doi.org\\/10.15760\\/etd.6294";
+    assert!(identifier_location(source, "doi", "10.15760/etd.6294").is_some());
+}
+#[test]
+fn test_identifier_locations_mark_repeated_aliases_once_each() {
+    let source = "https://ror.org/01qz5mb56 and ROR 01qz5mb56";
+    assert_eq!(
+        identifier_locations(source, "ror", "https://ror.org/01qz5mb56"),
+        vec![(1, 1, 1, 26), (1, 35, 1, 44)]
+    );
+}

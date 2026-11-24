@@ -15,6 +15,8 @@ phase_budget_hours: 5
 
 Expose a live, read-only status feed from the GitLab bot. Keep GitLab ingress as webhook POST and event polling, and keep the durable operation queue authoritative. The feed informs connected viewers; it does not deliver work or provide a management command channel.
 
+This executable plan is coordinated by the [SSE bot observability epic](sse-bot-observability.md).
+
 # Current evidence
 
 November 24 source review: `crates/acorn-lib/src/io/api/gitlab/bot.rs` exposes `GET /state` with `after`, poll/processed counts, last error, and `WebhookRuntimeState`; it has no SSE route. `poll_once`, `record_success`, `record_error`, and `work_forever` update state while webhook operations and callbacks use a durable queue. The router also accepts `POST /webhooks/gitlab`. `GET /state` has no authentication check. No SSE behavior or live integration test was run in this planning pass.

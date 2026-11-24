@@ -1,4 +1,5 @@
-//! Source positions for browser validation diagnostics.
+//! Source positions for browser results.
+use acorn_schema::pid::{Identifier, PID};
 use jsonc_parser::ast::Value as AstValue;
 use jsonc_parser::common::{Range, Ranged};
 use serde_json::Value;
@@ -33,6 +34,76 @@ pub(crate) fn annotate(value: &mut Value, source: &str, format: &str) {
             }
         }
     }
+}
+pub(crate) fn identifier_location(source: &str, kind: &str, normalized: &str) -> Option<(u64, u64, u64, u64)> {
+    identifier_locations(source, kind, normalized).into_iter().next()
+}
+pub(crate) fn identifier_locations(source: &str, kind: &str, normalized: &str) -> Vec<(u64, u64, u64, u64)> {
+    let kind = PID::from(kind);
+    let characters = source
+        .char_indices()
+        .filter(|(_, character)| character.is_ascii_alphanumeric())
+        .collect::<Vec<_>>();
+    let compact_source = characters.iter().map(|(_, character)| character.to_ascii_lowercase()).collect::<String>();
+    let path = normalized
+        .split_once("://")
+        .and_then(|(_, rest)| rest.split_once('/').map(|(_, path)| path));
+    let keys = [Some(normalized), path, normalized.rsplit(['/', ':']).next()]
+        .into_iter()
+        .flatten()
+        .map(compact_identifier)
+        .filter(|key| key.len() >= 6)
+        .collect::<Vec<_>>();
+    let mut ranges = keys
+        .iter()
+        .flat_map(|key| compact_source.match_indices(key).map(|(offset, _)| (offset, key.len())))
+        .filter_map(|(offset, length)| {
+            characters
+                .get(offset)
+                .zip(characters.get(offset.saturating_add(length.saturating_sub(1))))
+                .map(|((start, _), (last, _))| (*start, last.saturating_add(1)))
+        })
+        .filter(|(start, end)| {
+            let adjacent = |character: char| character.is_ascii_alphanumeric() || character == '_';
+            !source[..*start].chars().next_back().is_some_and(adjacent) && !source[*end..].chars().next().is_some_and(adjacent)
+        })
+        .filter(|(start, end)| {
+            source.get(*start..*end).is_some_and(|matched| {
+                Identifier {
+                    kind: kind.clone(),
+                    value: matched.replace(r"\/", "/"),
+                }
+                .normalized()
+                .is_some_and(|identifier| identifier.kind == kind && identifier.value == normalized)
+            })
+        })
+        .collect::<Vec<_>>();
+    ranges.sort_unstable_by(|left, right| left.0.cmp(&right.0).then_with(|| right.1.cmp(&left.1)));
+    ranges
+        .into_iter()
+        .fold(Vec::<(usize, usize)>::new(), |mut found, range| {
+            match found.last_mut() {
+                | Some(previous) if range.0 < previous.1 => previous.1 = previous.1.max(range.1),
+                | _ => found.push(range),
+            }
+            found
+        })
+        .into_iter()
+        .filter_map(|(start, end)| position(source, start).zip(position(source, end)))
+        .filter_map(
+            |((line, character), (end_line, end_character))| match [line, character, end_line, end_character].map(u64::try_from) {
+                | [Ok(line), Ok(character), Ok(end_line), Ok(end_character)] => Some((line, character, end_line, end_character)),
+                | _ => None,
+            },
+        )
+        .collect()
+}
+fn compact_identifier(value: &str) -> String {
+    value
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|character| character.to_ascii_lowercase())
+        .collect()
 }
 fn position(source: &str, offset: usize) -> Option<(usize, usize)> {
     source.get(..offset).map(|prefix| {

@@ -806,6 +806,11 @@ try {
     await page.locator("#content-editor").fill("ROR: https://ror.org/01qz5mb56 DOI: 10.5281/zenodo.10000001");
     await page.getByRole("button", { name: "Discover identifiers", exact: true }).click();
     const rorRow = page.locator(".identifier-row").filter({ has: page.locator('[data-pid="ror"]') });
+    for (const name of ["Copy identifier", "Inspect identifier", "View on map"]) {
+        const action = rorRow.getByRole("button", { name, exact: true });
+        assert.equal((await action.textContent()).trim(), "", `${name} uses an icon without visible text`);
+        assert.ok((await action.boundingBox()).width <= 32, `${name} fits the compact action row`);
+    }
     await page.getByRole("button", { name: "View on map", exact: true }).waitFor();
     assert.equal(await page.getByRole("button", { name: "View on map", exact: true }).count(), 1);
     await rorRow.getByRole("button", { name: "View on map", exact: true }).click();

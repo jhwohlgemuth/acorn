@@ -296,8 +296,8 @@ pub(crate) fn open_editor_find(id: &'static str) {
     fire("open_editor_find", js!("window.acornEditors?.openFind({id})"));
 }
 
-pub(crate) fn open_editor_in_new_tab(id: &'static str) {
-    fire("open_editor_in_new_tab", js!("window.acornEditors?.openInNewTab({id})"));
+pub(crate) fn open_editor_in_new_tab(id: &'static str, state: Option<String>) {
+    fire("open_editor_in_new_tab", js!("window.acornEditors?.openInNewTab({id}, {state})"));
 }
 
 pub(crate) fn open_file_picker(slug: &'static str) {
@@ -322,6 +322,13 @@ pub(crate) fn pick_workspace_folder() {
 pub(crate) fn publish_json(topic: &str, payload: &str) {
     let source = serde_json::from_str::<serde_json::Value>(payload).and_then(|payload| js!("if (!window.acornWindowSync) await new Promise(resolve => window.addEventListener('acorn-window-sync-ready', resolve, {once:true})); window.acornWindowSync.publish({topic}, {payload});"));
     fire("publish_json", source);
+}
+
+pub(crate) fn request_editor_state(topic: &str, after: u64) {
+    fire(
+        "request_editor_state",
+        js!("window.opener?.postMessage({type: 'acorn-editor-state-refresh', topic: {topic}, after: {after}}, location.origin)"),
+    );
 }
 
 pub(crate) fn query<T: DeserializeOwned>(name: &'static str, source: Result<String, serde_json::Error>) -> impl Future<Output = Result<T, String>> {

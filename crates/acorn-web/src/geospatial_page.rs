@@ -209,7 +209,7 @@ pub(crate) fn RorMapButton(identifier: String) -> Element {
         return rsx! {};
     };
     rsx! {
-        button { r#type: "button", class: "ror-map-button", title: "View this organization using the local ROR location index",
+        button { r#type: "button", class: "ror-map-button", "aria-label": "View on map", title: "Open in Geospatial using the local ROR location index",
             onclick: move |_| {
                 let mut next = pins();
                 next.identifiers.insert(id.clone());
@@ -218,7 +218,7 @@ pub(crate) fn RorMapButton(identifier: String) -> Element {
                 drawer.set(None);
                 nav.push(Route::Page { page: "geospatial".into() });
             },
-            Icon { name: "globe" } "View on map"
+            Icon { name: "globe" }
         }
     }
 }

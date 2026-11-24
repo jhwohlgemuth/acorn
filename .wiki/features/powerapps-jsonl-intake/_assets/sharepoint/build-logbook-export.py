@@ -162,6 +162,48 @@ def file_content(name):
             "equals("+body+",null)),string(null),"+body+")")
 
 
+def retry_latest_receipt(actions):
+    """Retry only transient failures of the initial read, before snapshot capture."""
+    name = 'Read_latest_receipt_LB'
+    loop = 'Retry_latest_receipt_LB'
+    status = "actions('" + name + "')?['status']"
+    error = "actions('" + name + "')?['error']"
+    code = "coalesce(outputs('" + name + "')?['statusCode'],0)"
+    transient = (
+        "or(equals(" + status + ",'TimedOut'),contains(createArray(408,429)," + code + "),"
+        "and(greater(" + code + ",499),lessOrEquals(" + code + ",599)),"
+        "and(or(equals(" + code + ",400),equals(" + error + "?['code'],'BadRequest')),"
+        "contains(string(" + error + "?['message']),'An error occurred while sending the request.')))"
+    )
+    read = {**actions[name], 'runAfter': {'Wait_before_receipt_retry_LB': ['Succeeded']}}
+    retry = {
+        'type': 'Until',
+        'expression': "@or(equals(" + status + ",'Succeeded'),not(" + transient + '))',
+        'limit': {'count': 3, 'timeout': 'PT2M'},
+        'operationOptions': 'FailWhenLimitsReached',
+        'actions': {
+            'Wait_before_receipt_retry_LB': {
+                'type': 'If',
+                'expression': {'greater': ["@iterationIndexes('" + loop + "')", 0]},
+                'actions': {'Receipt_retry_delay_LB': {
+                    'type': 'Wait', 'inputs': {'interval': {'count': 10, 'unit': 'Second'}},
+                    'runAfter': {},
+                }},
+                'else': {'actions': {}}, 'runAfter': {},
+            },
+            name: read,
+        },
+        'runAfter': actions[name].get('runAfter', {}),
+    }
+    return {
+        **{key: value for key, value in actions.items() if key != name},
+        loop: retry,
+        'High_water_item_LB': {
+            **actions['High_water_item_LB'], 'runAfter': {loop: ['Succeeded']},
+        },
+    }
+
+
 def build(receipt_list=LIST, library='Sponsor Highlights JSONL Pilot'):
     raw="base64ToString(concat(item()?['PayloadBase64A'],coalesce(item()?['PayloadBase64B'],string(null))))"
     content="if(empty(body('Select_original_rows_LB')),string(null),concat(join(body('Select_original_rows_LB'),decodeUriComponent('%0A')),decodeUriComponent('%0A')))"
@@ -213,7 +255,7 @@ def build(receipt_list=LIST, library='Sponsor Highlights JSONL Pilot'):
       'Complete_valid_rows_LB':guard({'and':[{'lessOrEquals':["@length(body('Read_receipts_LB')?['value'])",5000]},{'equals':["@length(body('Invalid_rows_LB'))",0]}]},build,'LogbookInvalidOrTruncated','Receipt limit or invalid stored payload; previous logbook retained.','Invalid_rows_LB')}
     actions['Read_receipts_LB']['runtimeConfiguration']['paginationPolicy']={'minimumItemCount':5001}
     references=json.loads((ROOT/'SharePoint_intake_SP.clipboard.json').read_text())['connectionReferences']
-    definition={'type':'Scope','actions':actions,'runAfter':{}}
+    definition={'type':'Scope','actions':retry_latest_receipt(actions),'runAfter':{}}
     result={'id':str(uuid5(NAMESPACE_URL,SITE+'/Combined_logbook_export_LB')),'brandColor':'#8C6CFF','connectionReferences':references,
             'connectorDisplayName':'Control','isTrigger':False,'operationName':'Combined_logbook_export_LB','operationDefinition':definition}
     return result

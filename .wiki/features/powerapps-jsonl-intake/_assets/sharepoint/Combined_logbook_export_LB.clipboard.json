@@ -17,40 +17,11 @@
   "operationDefinition": {
     "type": "Scope",
     "actions": {
-      "Read_latest_receipt_LB": {
-        "type": "OpenApiConnection",
-        "inputs": {
-          "host": {
-            "connectionName": "shared_sharepointonline",
-            "operationId": "GetItems",
-            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
-          },
-          "parameters": {
-            "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
-            "table": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
-            "$orderby": "ID desc",
-            "$top": 1
-          },
-          "authentication": "@parameters('$authentication')",
-          "retryPolicy": {
-            "type": "none"
-          }
-        },
-        "runAfter": {},
-        "runtimeConfiguration": {
-          "secureData": {
-            "properties": [
-              "inputs",
-              "outputs"
-            ]
-          }
-        }
-      },
       "High_water_item_LB": {
         "type": "Compose",
         "inputs": "@if(empty(body('Read_latest_receipt_LB')?['value']),0,first(body('Read_latest_receipt_LB')?['value'])?['ID'])",
         "runAfter": {
-          "Read_latest_receipt_LB": [
+          "Retry_latest_receipt_LB": [
             "Succeeded"
           ]
         },
@@ -454,6 +425,76 @@
             "Succeeded"
           ]
         }
+      },
+      "Retry_latest_receipt_LB": {
+        "type": "Until",
+        "expression": "@or(equals(actions('Read_latest_receipt_LB')?['status'],'Succeeded'),not(or(equals(actions('Read_latest_receipt_LB')?['status'],'TimedOut'),contains(createArray(408,429),coalesce(outputs('Read_latest_receipt_LB')?['statusCode'],0)),and(greater(coalesce(outputs('Read_latest_receipt_LB')?['statusCode'],0),499),lessOrEquals(coalesce(outputs('Read_latest_receipt_LB')?['statusCode'],0),599)),and(or(equals(coalesce(outputs('Read_latest_receipt_LB')?['statusCode'],0),400),equals(actions('Read_latest_receipt_LB')?['error']?['code'],'BadRequest')),contains(string(actions('Read_latest_receipt_LB')?['error']?['message']),'An error occurred while sending the request.')))))",
+        "limit": {
+          "count": 3,
+          "timeout": "PT2M"
+        },
+        "operationOptions": "FailWhenLimitsReached",
+        "actions": {
+          "Wait_before_receipt_retry_LB": {
+            "type": "If",
+            "expression": {
+              "greater": [
+                "@iterationIndexes('Retry_latest_receipt_LB')",
+                0
+              ]
+            },
+            "actions": {
+              "Receipt_retry_delay_LB": {
+                "type": "Wait",
+                "inputs": {
+                  "interval": {
+                    "count": 10,
+                    "unit": "Second"
+                  }
+                },
+                "runAfter": {}
+              }
+            },
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {}
+          },
+          "Read_latest_receipt_LB": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetItems",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                "table": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+                "$orderby": "ID desc",
+                "$top": 1
+              },
+              "authentication": "@parameters('$authentication')",
+              "retryPolicy": {
+                "type": "none"
+              }
+            },
+            "runAfter": {
+              "Wait_before_receipt_retry_LB": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          }
+        },
+        "runAfter": {}
       }
     },
     "runAfter": {}

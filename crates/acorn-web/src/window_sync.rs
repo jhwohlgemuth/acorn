@@ -12,6 +12,7 @@ use serde_json::Value;
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ToolMessage {
     Request,
+    Refresh { after: u64 },
     State { revision: u64, snapshot: Box<ToolSnapshot> },
 }
 #[derive(Clone, Copy)]
@@ -82,6 +83,14 @@ impl ToolSnapshot {
 pub(crate) fn fragments() -> document::Eval {
     script::review_fragments_channel()
 }
+pub(crate) fn handoff(tool: Tool, signals: ToolSignals) -> Option<String> {
+    let millis = u64::try_from(js_sys::Date::now() as i64).unwrap_or_default();
+    let message = ToolMessage::State {
+        revision: millis.saturating_mul(1000).saturating_add(1),
+        snapshot: Box::new(signals.snapshot()),
+    };
+    serde_json::to_string(&(format!("acorn.tool.{}", tool.slug()), message)).ok()
+}
 pub(crate) fn notify_storage(key: &str) {
     script::notify_storage(key);
 }
@@ -99,7 +108,7 @@ pub(crate) fn subscribe(topic: &str) -> document::Eval {
 pub(crate) fn subscribe_storage(key: &str) -> document::Eval {
     script::subscribe_storage_channel(key)
 }
-pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signal<String>) {
+pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signal<String>, editor_popout: bool) {
     let mut ready_for = use_signal(|| None::<Tool>);
     let mut received = use_signal(|| None::<(Tool, ToolSnapshot)>);
     let mut baseline = use_signal(|| None::<(Tool, ToolSnapshot)>);
@@ -118,6 +127,21 @@ pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signa
                 continue;
             };
             match message {
+                | ToolMessage::Refresh { after } => {
+                    // The opener's current snapshot wins over the popup's click-time handoff, even when it is pristine.
+                    let snapshot = signals.snapshot();
+                    let next = revision.peek().saturating_add(1).max(after.saturating_add(1));
+                    revision.set(next);
+                    baseline.set(Some((tool, snapshot.clone())));
+                    ready_for.set(Some(tool));
+                    publish(
+                        tool,
+                        &ToolMessage::State {
+                            revision: next,
+                            snapshot: Box::new(snapshot),
+                        },
+                    );
+                }
                 | ToolMessage::Request if *ready_for.peek() == Some(tool) => {
                     let snapshot = signals.snapshot();
                     if !snapshot.is_pristine(&session.peek()) || *revision.peek() > 0 {
@@ -143,12 +167,9 @@ pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signa
         }
     }));
     use_effect(move || {
-        let current_session = session();
-        if (signals.seen_session)() != current_session {
-            return;
-        }
         if let Some((tracked, incoming, snapshot)) = pending() {
             if tracked == tool && (incoming > *revision.peek() || (received.peek().is_none() && *revision.peek() == 0)) {
+                let first_state = received.peek().is_none();
                 revision.set(incoming);
                 received.set(Some((tool, snapshot.clone())));
                 baseline.set(Some((tool, snapshot.clone())));
@@ -157,36 +178,39 @@ pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signa
                 signals.editor_source.set(snapshot.editor_source);
                 signals.request.set(snapshot.request);
                 signals.result.set(snapshot.result);
+                signals.seen_session.set(session.peek().clone());
                 ready_for.set(Some(tool));
+                if first_state && editor_popout {
+                    // Updates sent while the popup loaded may have arrived before it subscribed.
+                    script::request_editor_state(&format!("acorn.tool.{}", tool.slug()), incoming);
+                }
             }
             pending.set(None);
-            return;
-        }
-        let snapshot = ToolSnapshot {
-            drafts: (signals.drafts)(),
-            editor_source: (signals.editor_source)(),
-            request: (signals.request)(),
-            result: (signals.result)(),
-        };
-        let observed_baseline = baseline();
-        if observed_baseline.as_ref().is_none_or(|(tracked, _)| *tracked != tool) {
-            baseline.set(Some((tool, snapshot)));
-            ready_for.set(Some(tool));
-            publish(tool, &ToolMessage::Request);
-            return;
-        }
-        if observed_baseline != Some((tool, snapshot.clone())) {
-            let millis = u64::try_from(js_sys::Date::now() as i64).unwrap_or_default();
-            let next = millis.saturating_mul(1000).max(revision.peek().saturating_add(1));
-            revision.set(next);
-            baseline.set(Some((tool, snapshot.clone())));
-            publish(
-                tool,
-                &ToolMessage::State {
-                    revision: next,
-                    snapshot: Box::new(snapshot),
-                },
-            );
+        } else if (signals.seen_session)() == session() {
+            let snapshot = ToolSnapshot {
+                drafts: (signals.drafts)(),
+                editor_source: (signals.editor_source)(),
+                request: (signals.request)(),
+                result: (signals.result)(),
+            };
+            let observed_baseline = baseline();
+            if observed_baseline.as_ref().is_none_or(|(tracked, _)| *tracked != tool) {
+                baseline.set(Some((tool, snapshot)));
+                ready_for.set(Some(tool));
+                publish(tool, &ToolMessage::Request);
+            } else if observed_baseline != Some((tool, snapshot.clone())) {
+                let millis = u64::try_from(js_sys::Date::now() as i64).unwrap_or_default();
+                let next = millis.saturating_mul(1000).max(revision.peek().saturating_add(1));
+                revision.set(next);
+                baseline.set(Some((tool, snapshot.clone())));
+                publish(
+                    tool,
+                    &ToolMessage::State {
+                        revision: next,
+                        snapshot: Box::new(snapshot),
+                    },
+                );
+            }
         }
     });
 }

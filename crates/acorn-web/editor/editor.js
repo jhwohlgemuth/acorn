@@ -49,7 +49,21 @@ function foldDocument(view) {
     return effects.length > 0;
 }
 const setDiagnosticMarks = StateEffect.define();
-const emptyDiagnostics = { marks: Decoration.none, lines: RangeSet.empty, issues: [] };
+const pidDocumentation = {
+    ark: "https://arks.org/about/ark-overview/",
+    arxiv: "https://info.arxiv.org/help/arxiv_identifier.html",
+    doi: "https://www.doi.org/the-identifier/resources/handbook/",
+    handle: "https://handle.net/documentation.html",
+    isbn: "https://www.isbn-international.org/content/what-isbn/10",
+    isni: "https://www.iso.org/standard/87177.html",
+    orcid: "https://info.orcid.org/what-is-orcid/",
+    patent: "https://www.uspto.gov/patents/apply/applying-online/patent-number",
+    raid: "https://documentation.raid.org/raid/what-is-raid",
+    ror: "https://ror.org/about/faqs/",
+    rrid: "https://www.rrids.org/rrid-system",
+    swhid: "https://www.swhid.org/specification/v1.2/",
+};
+const emptyDiagnostics = { marks: Decoration.none, lines: RangeSet.empty, issues: [], discoveries: [] };
 class DiagnosticLineMarker extends GutterMarker {
     constructor(severity) { super(); this.elementClass = `cm-diagnostic-line cm-diagnostic-line-${severity}`; }
 }
@@ -63,34 +77,46 @@ const diagnosticMarks = StateField.define({
     provide: field => [EditorView.decorations.from(field, value => value.marks), lineNumberMarkers.from(field, value => value.lines)],
 });
 function diagnosticTooltip(issue) {
+    const discovered = issue.severity === "discovered";
     const dom = document.createElement("div");
     dom.className = "cm-diagnostic-tooltip";
     dom.dataset.severity = issue.severity;
+    if (discovered) dom.dataset.pid = issue.kind;
     dom.setAttribute("role", "tooltip");
     const heading = document.createElement("div");
     heading.className = "cm-diagnostic-tooltip-heading";
     const badge = document.createElement("strong");
     badge.className = "cm-diagnostic-tooltip-badge";
-    badge.textContent = issue.severity === "error" ? "Error" : "Warning";
+    badge.textContent = discovered ? issue.kind.toUpperCase() : issue.severity === "error" ? "Error" : "Warning";
     const location = document.createElement("span");
     location.textContent = `Line ${issue.line}`;
     heading.append(badge, location);
     dom.append(heading);
-    if (issue.path) {
+    if (issue.path || discovered) {
         const path = document.createElement("div");
         path.className = "cm-diagnostic-tooltip-path";
-        path.textContent = issue.path;
+        path.textContent = discovered ? issue.normalized : issue.path;
         dom.append(path);
     }
-    for (const message of issue.messages) {
+    for (const message of issue.messages || []) {
         const body = document.createElement("p");
         body.textContent = message;
         dom.append(body);
     }
+    if (discovered && pidDocumentation[issue.kind]) {
+        const link = document.createElement("a");
+        link.href = pidDocumentation[issue.kind];
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = `About ${issue.kind.toUpperCase()} ↗`;
+        dom.append(link);
+    }
     return { dom };
 }
 const diagnosticHover = hoverTooltip((view, pos) => {
-    const issue = view.state.field(diagnosticMarks).issues.find(({ from, to }) => from <= pos && pos <= to);
+    const diagnostics = view.state.field(diagnosticMarks);
+    const issue = diagnostics.issues.find(({ from, to }) => from <= pos && pos <= to)
+        ?? diagnostics.discoveries.find(({ from, to }) => from <= pos && pos <= to);
     return issue ? { pos: issue.from, end: issue.to, above: true, create: () => diagnosticTooltip(issue) } : null;
 }, { hideOnChange: true, hideOn: transaction => transaction.effects.some(effect => effect.is(setDiagnosticMarks)) });
 function sourcePosition(doc, lineNumber, characterNumber) {
@@ -275,13 +301,23 @@ function installEditors() {
             const view = editor?.view;
             if (!view || view.state.doc.toString() !== source) return;
             const grouped = new Map();
+            const discovered = [];
+            const discoveries = [];
             const lines = new Map();
             const locations = new Map();
             for (const diagnostic of diagnostics) {
-                if (diagnostic.severity !== "error" && diagnostic.severity !== "warning") continue;
+                if (diagnostic.severity !== "error" && diagnostic.severity !== "warning" && diagnostic.severity !== "discovered") continue;
                 const from = sourcePosition(view.state.doc, diagnostic.line, diagnostic.character);
                 const to = sourcePosition(view.state.doc, diagnostic.endLine, diagnostic.endCharacter);
                 if (from === null) continue;
+                if (diagnostic.severity === "discovered") {
+                    if (to !== null && from < to) {
+                        const kind = typeof diagnostic.kind === "string" ? diagnostic.kind.toLowerCase() : "";
+                        discovered.push(Decoration.mark({ class: "cm-discovered-pid", attributes: { "data-pid": kind } }).range(from, to));
+                        discoveries.push({ from, to, severity: "discovered", kind, normalized: diagnostic.normalized, line: diagnostic.line });
+                    }
+                    continue;
+                }
                 const locationKey = `${from}:${to ?? from}`;
                 if (!locations.has(locationKey)) locations.set(locationKey, {
                     from, to, line: diagnostic.line, character: diagnostic.character,
@@ -306,7 +342,7 @@ function installEditors() {
             const issues = Array.from(grouped.values()).sort((left, right) => (left.to - left.from) - (right.to - right.from) || left.from - right.from);
             const marks = issues.map(({ from, to, severity }) => Decoration.mark({ class: `cm-diagnostic cm-diagnostic-${severity}` }).range(from, to));
             const markers = Array.from(lines).sort(([left], [right]) => left - right).map(([offset, severity]) => diagnosticLineMarkers[severity].range(offset));
-            view.dispatch({ effects: setDiagnosticMarks.of({ marks: Decoration.set(marks, true), lines: RangeSet.of(markers), issues }) });
+            view.dispatch({ effects: setDiagnosticMarks.of({ marks: Decoration.set([...marks, ...discovered], true), lines: RangeSet.of(markers), issues, discoveries }) });
             const active = editor.issueLocations[editor.issueIndex];
             editor.issueLocations = Array.from(locations.values()).sort((left, right) => left.from - right.from || (left.to ?? left.from) - (right.to ?? right.from));
             editor.issueIndex = active ? editor.issueLocations.findIndex(location => location.from === active.from && location.to === active.to) : -1;
@@ -358,8 +394,8 @@ function installEditors() {
             setFullscreen(host, !host.classList.contains("is-fullscreen"));
             view.focus();
         },
-        openInNewTab(id) {
-            if (find(id)) popouts.open(id);
+        openInNewTab(id, state) {
+            if (find(id)) popouts.open(id, state);
         },
         fold(id) { const editor = find(id); if (editor) { foldDocument(editor.view); editor.view.focus(); } },
         expand(id) { const editor = find(id); if (editor) { unfoldAll(editor.view); editor.view.focus(); } },

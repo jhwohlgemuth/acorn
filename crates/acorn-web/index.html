@@ -24,6 +24,7 @@ html[data-theme=uswds],html[data-theme=uswds] #boot{background:#fff;color:#1b1b1
 <script>
 if (new URLSearchParams(location.search).get('preview-loader') === '1') document.documentElement.setAttribute('data-loader-preview', '');
 window.acornThemeOverride = new URLSearchParams(location.search).get('theme');
+window.acornInitialEditorId = new URLSearchParams(location.search).get('acorn-editor') || /^acorn-editor:([^:]+):/.exec(window.name)?.[1] || '';
 if (!['dark', 'light', 'uswds'].includes(window.acornThemeOverride)) window.acornThemeOverride = '';
 window.acornInitialThemeMode = 'system';
 try {

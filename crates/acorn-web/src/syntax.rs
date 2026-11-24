@@ -43,6 +43,7 @@ pub(crate) fn CodeEditor(
     #[props(default)] run_action: bool,
     #[props(default)] run_disabled: bool,
     #[props(default)] run_error: Option<String>,
+    #[props(default)] popout_state: Option<String>,
     oninput: EventHandler<String>,
 ) -> Element {
     let mut edited = use_signal(|| None::<String>);
@@ -74,7 +75,7 @@ pub(crate) fn CodeEditor(
                     button { r#type: "button", class: "copy-code", "data-size": "big", "aria-label": "Big", title: "Big font size", "aria-pressed": "false", onclick: move |_| { script::set_editor_font_size(id, "big"); }, Icon { name: "font-big" } }
                 }
                 CopyButton { text: value.clone(), icon_only: true }
-                button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Open code editor in new tab", title: "Open code editor in new tab", onclick: move |_| { script::open_editor_in_new_tab(id); }, Icon { name: "external" } }
+                button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Open code editor in new tab", title: "Open code editor in new tab", onclick: move |_| { script::open_editor_in_new_tab(id, popout_state.clone()); }, Icon { name: "external" } }
                 span { class: "editor-toolbar-spacer", "aria-hidden": "true" }
                 if let Some(message) = run_error { span { class: "editor-run-error", title: "{message}", "{message}" } }
                 div { class: "editor-issue-nav", role: "group", "aria-label": "Issue navigation", hidden: true,

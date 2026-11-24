@@ -1,0 +1,627 @@
+{
+  "name": "51efa5f9-6e69-4d75-a53b-2c2965fd51bd",
+  "id": "/providers/Microsoft.Flow/flows/51efa5f9-6e69-4d75-a53b-2c2965fd51bd",
+  "type": "Microsoft.Flow/flows",
+  "properties": {
+    "apiId": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+    "displayName": "ACORN SharePoint Logbook Export",
+    "definition": {
+      "metadata": {
+        "workflowEntityId": null,
+        "processAdvisorMetadata": null,
+        "flowChargedByPaygo": null,
+        "flowclientsuspensionreason": "None",
+        "flowclientsuspensiontime": null,
+        "flowclientsuspensionreasondetails": null,
+        "creator": {
+          "id": "ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8",
+          "type": "User",
+          "tenantId": "db3dbd43-4c4b-4544-9f8a-0553f9f5f25e"
+        },
+        "provisioningMethod": "FromDefinition",
+        "failureAlertSubscription": true,
+        "clientLastModifiedTime": "2026-11-24T18:46:56.1838056Z",
+        "lastModifiedBy": "ea4ab5d4-f4e4-4978-87e2-7aee39b6c1b8",
+        "connectionKeySavedTimeKey": "2026-11-24T18:46:56.1838056Z",
+        "creationSource": null
+      },
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5,
+            "startTime": "2026-10-26T14:00:00.000Z"
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5,
+            "startTime": "2026-10-26T14:00:00.000Z"
+          },
+          "metadata": {
+            "operationMetadataId": "44739325-0d3a-455e-87c8-741cc8b9d9a3"
+          },
+          "type": "Recurrence",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "runs": 1
+            }
+          }
+        }
+      },
+      "actions": {
+        "Combined_logbook_export_LB": {
+          "actions": {
+            "High_water_item_LB": {
+              "runAfter": {
+                "Retry_latest_receipt_LB": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "7fbc5ce0-9635-47af-a7f7-00ec33e5df85"
+              },
+              "type": "Compose",
+              "inputs": "@if(empty(body('Read_latest_receipt_LB')?['value']), 0, first(body('Read_latest_receipt_LB')?['value'])?['ID'])",
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs"
+                  ]
+                }
+              }
+            },
+            "Read_receipts_LB": {
+              "runAfter": {
+                "High_water_item_LB": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "9e33d526-3770-4098-baa2-cc57f4399d88"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "parameters": {
+                  "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                  "table": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+                  "$filter": "@concat('ID le ', string(outputs('High_water_item_LB')))",
+                  "$orderby": "ID asc",
+                  "$top": 5001
+                },
+                "retryPolicy": {
+                  "type": "none"
+                },
+                "authentication": "@parameters('$authentication')"
+              },
+              "runtimeConfiguration": {
+                "paginationPolicy": {
+                  "minimumItemCount": 5001
+                },
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Invalid_rows_LB": {
+              "runAfter": {
+                "Read_receipts_LB": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "258b3ecd-a9d9-475c-970c-557306957c2f"
+              },
+              "type": "Query",
+              "inputs": {
+                "from": "@body('Read_receipts_LB')?['value']",
+                "where": "@or(empty(item()?['SubmissionId']), empty(item()?['PayloadBase64A']), contains(base64ToString(concat(item()?['PayloadBase64A'], coalesce(item()?['PayloadBase64B'], string(null)))), decodeUriComponent('%0A')), contains(base64ToString(concat(item()?['PayloadBase64A'], coalesce(item()?['PayloadBase64B'], string(null)))), decodeUriComponent('%0D')), not(equals(json(base64ToString(concat(item()?['PayloadBase64A'], coalesce(item()?['PayloadBase64B'], string(null)))))?['submissionId'], item()?['SubmissionId'])), not(equals(json(base64ToString(concat(item()?['PayloadBase64A'], coalesce(item()?['PayloadBase64B'], string(null)))))?['projectId'], item()?['ProjectId'])))"
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Complete_valid_rows_LB": {
+              "actions": {
+                "Select_original_rows_LB": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "d4a92184-42c8-4727-8e27-e3fb7bcb98b6"
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Read_receipts_LB')?['value']",
+                    "select": "@base64ToString(concat(item()?['PayloadBase64A'], coalesce(item()?['PayloadBase64B'], string(null))))"
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                },
+                "Combined_JSONL_LB": {
+                  "runAfter": {
+                    "Select_original_rows_LB": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "be08ab31-d654-45b0-8adc-0f5c0f72aa5a"
+                  },
+                  "type": "Compose",
+                  "inputs": "@if(empty(body('Select_original_rows_LB')), string(null), concat(join(body('Select_original_rows_LB'), decodeUriComponent('%0A')), decodeUriComponent('%0A')))",
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs"
+                      ]
+                    }
+                  }
+                },
+                "Within_byte_limit_LB": {
+                  "actions": {
+                    "Read_previous_logbook_LB": {
+                      "runAfter": {},
+                      "metadata": {
+                        "operationMetadataId": "fcead0ea-7791-4aad-ae7a-54a94567dd90"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetFileContentByPath"
+                        },
+                        "parameters": {
+                          "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                          "path": "/Sponsor Highlights JSONL Pilot/logbook.jsonl",
+                          "inferContentType": false
+                        },
+                        "retryPolicy": {
+                          "type": "none"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs",
+                            "outputs"
+                          ]
+                        }
+                      }
+                    },
+                    "Readable_or_missing_LB": {
+                      "actions": {
+                        "Changed_logbook_LB": {
+                          "actions": {
+                            "Write_logbook_LB": {
+                              "runAfter": {},
+                              "metadata": {
+                                "operationMetadataId": "8e09a19a-f56a-4e99-9a5d-c6b27e489bc1"
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                  "connectionName": "shared_sharepointonline",
+                                  "operationId": "HttpRequest"
+                                },
+                                "parameters": {
+                                  "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                                  "parameters/method": "POST",
+                                  "parameters/uri": "_api/web/GetFolderByServerRelativeUrl('/sites/ResearchEnablement/Sponsor Highlights JSONL Pilot')/Files/add(url='logbook.jsonl',overwrite=@{if(equals(actions('Read_previous_logbook_LB')?['status'], 'Succeeded'), 'true', 'false')})",
+                                  "parameters/headers": {
+                                    "Accept": "application/json;odata=nometadata",
+                                    "Content-Type": "application/octet-stream"
+                                  },
+                                  "parameters/body": "@outputs('Combined_JSONL_LB')"
+                                },
+                                "retryPolicy": {
+                                  "type": "none"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              },
+                              "runtimeConfiguration": {
+                                "secureData": {
+                                  "properties": [
+                                    "inputs",
+                                    "outputs"
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "runAfter": {},
+                          "expression": {
+                            "not": {
+                              "equals": [
+                                "@if(and(equals(actions('Read_previous_logbook_LB')?['status'], 'Succeeded'), equals(outputs('Read_previous_logbook_LB')?['statusCode'], 200), equals(string(outputs('Read_previous_logbook_LB')?['headers']?['Content-Length']), '0'), equals(body('Read_previous_logbook_LB')?['$content'], null)), string(null), body('Read_previous_logbook_LB')?['$content'])",
+                                "@base64(outputs('Combined_JSONL_LB'))"
+                              ]
+                            }
+                          },
+                          "metadata": {
+                            "operationMetadataId": "7db12b4b-630d-48be-b732-ab758373a282"
+                          },
+                          "type": "If"
+                        },
+                        "Read_published_logbook_LB": {
+                          "runAfter": {
+                            "Changed_logbook_LB": [
+                              "Succeeded",
+                              "Failed",
+                              "TimedOut"
+                            ]
+                          },
+                          "metadata": {
+                            "operationMetadataId": "061681c6-b3eb-4785-bb98-de63f982e0b7"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetFileContentByPath"
+                            },
+                            "parameters": {
+                              "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                              "path": "/Sponsor Highlights JSONL Pilot/logbook.jsonl",
+                              "inferContentType": false
+                            },
+                            "retryPolicy": {
+                              "type": "none"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          },
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs",
+                                "outputs"
+                              ]
+                            }
+                          }
+                        },
+                        "Exact_logbook_LB": {
+                          "actions": {
+                            "Export_receipt_LB": {
+                              "runAfter": {},
+                              "metadata": {
+                                "operationMetadataId": "48457767-4780-477a-8c63-d8afab5173af"
+                              },
+                              "type": "Compose",
+                              "inputs": {
+                                "rows": "@length(body('Read_receipts_LB')?['value'])",
+                                "highWaterItemId": "@outputs('High_water_item_LB')",
+                                "verifiedAt": "@utcNow()",
+                                "url": "https://ornl.sharepoint.com/sites/ResearchEnablement/Sponsor%20Highlights%20JSONL%20Pilot/logbook.jsonl"
+                              }
+                            }
+                          },
+                          "runAfter": {
+                            "Read_published_logbook_LB": [
+                              "Succeeded",
+                              "Failed",
+                              "TimedOut",
+                              "Skipped"
+                            ]
+                          },
+                          "else": {
+                            "actions": {
+                              "LogbookOutcomeUnresolved": {
+                                "runAfter": {},
+                                "metadata": {
+                                  "operationMetadataId": "8bd33b4b-ef78-4322-addb-b122e9df89f5"
+                                },
+                                "type": "Terminate",
+                                "inputs": {
+                                  "runStatus": "Failed",
+                                  "runError": {
+                                    "code": "LogbookOutcomeUnresolved",
+                                    "message": "Combined logbook outcome is unresolved. Read and compare exact expected bytes before retrying; the prior file is not guaranteed retained. Do not roll back over a later snapshot."
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "equals": [
+                                  "@actions('Read_published_logbook_LB')?['status']",
+                                  "Succeeded"
+                                ]
+                              },
+                              {
+                                "equals": [
+                                  "@if(and(equals(actions('Read_published_logbook_LB')?['status'], 'Succeeded'), equals(outputs('Read_published_logbook_LB')?['statusCode'], 200), equals(string(outputs('Read_published_logbook_LB')?['headers']?['Content-Length']), '0'), equals(body('Read_published_logbook_LB')?['$content'], null)), string(null), body('Read_published_logbook_LB')?['$content'])",
+                                  "@base64(outputs('Combined_JSONL_LB'))"
+                                ]
+                              }
+                            ]
+                          },
+                          "metadata": {
+                            "operationMetadataId": "25d7ecea-dd28-4c28-a92f-eb286c9eeaa3"
+                          },
+                          "type": "If"
+                        }
+                      },
+                      "runAfter": {
+                        "Read_previous_logbook_LB": [
+                          "Succeeded",
+                          "Failed",
+                          "TimedOut",
+                          "Skipped"
+                        ]
+                      },
+                      "else": {
+                        "actions": {
+                          "LogbookPreviousReadUnavailable": {
+                            "runAfter": {},
+                            "metadata": {
+                              "operationMetadataId": "339b9263-8db5-4f05-a649-fe3c984e1457"
+                            },
+                            "type": "Terminate",
+                            "inputs": {
+                              "runStatus": "Failed",
+                              "runError": {
+                                "code": "LogbookPreviousReadUnavailable",
+                                "message": "Previous logbook was not read and no confirmed 404 was returned. No write was attempted."
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "expression": {
+                        "or": [
+                          {
+                            "and": [
+                              {
+                                "equals": [
+                                  "@actions('Read_previous_logbook_LB')?['status']",
+                                  "Succeeded"
+                                ]
+                              },
+                              {
+                                "not": {
+                                  "equals": [
+                                    "@if(and(equals(actions('Read_previous_logbook_LB')?['status'], 'Succeeded'), equals(outputs('Read_previous_logbook_LB')?['statusCode'], 200), equals(string(outputs('Read_previous_logbook_LB')?['headers']?['Content-Length']), '0'), equals(body('Read_previous_logbook_LB')?['$content'], null)), string(null), body('Read_previous_logbook_LB')?['$content'])",
+                                    null
+                                  ]
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "and": [
+                              {
+                                "equals": [
+                                  "@actions('Read_previous_logbook_LB')?['status']",
+                                  "Failed"
+                                ]
+                              },
+                              {
+                                "equals": [
+                                  "@outputs('Read_previous_logbook_LB')?['statusCode']",
+                                  404
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "8ca3d1bd-f302-4c8a-af39-17e2a5bed7a2"
+                      },
+                      "type": "If"
+                    }
+                  },
+                  "runAfter": {
+                    "Combined_JSONL_LB": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {
+                      "LogbookTooLarge": {
+                        "runAfter": {},
+                        "metadata": {
+                          "operationMetadataId": "c0323693-10f2-461c-8aef-8aa82413ab2b"
+                        },
+                        "type": "Terminate",
+                        "inputs": {
+                          "runStatus": "Failed",
+                          "runError": {
+                            "code": "LogbookTooLarge",
+                            "message": "Export exceeds the 10 MiB ACORN source limit; previous logbook retained."
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "lessOrEquals": [
+                      "@sub(div(mul(length(base64(outputs('Combined_JSONL_LB'))), 3), 4), if(endsWith(base64(outputs('Combined_JSONL_LB')), '=='), 2, if(endsWith(base64(outputs('Combined_JSONL_LB')), '='), 1, 0)))",
+                      10485760
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "f4d8b37b-cedd-4228-90a9-924fddea5a25"
+                  },
+                  "type": "If"
+                }
+              },
+              "runAfter": {
+                "Invalid_rows_LB": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "LogbookInvalidOrTruncated": {
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "3a8defbb-b928-41ea-9500-b5bc708ac0ac"
+                    },
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Failed",
+                      "runError": {
+                        "code": "LogbookInvalidOrTruncated",
+                        "message": "Receipt limit or invalid stored payload; previous logbook retained."
+                      }
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "lessOrEquals": [
+                      "@length(body('Read_receipts_LB')?['value'])",
+                      5000
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@length(body('Invalid_rows_LB'))",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "0bfe40f8-0f00-40ff-bdeb-7c78c0e1c863"
+              },
+              "type": "If"
+            },
+            "Retry_latest_receipt_LB": {
+              "actions": {
+                "Wait_before_receipt_retry_LB": {
+                  "actions": {
+                    "Receipt_retry_delay_LB": {
+                      "runAfter": {},
+                      "metadata": {
+                        "operationMetadataId": "51ecd202-e4f0-4e50-822f-14f0d8a63d82"
+                      },
+                      "type": "Wait",
+                      "inputs": {
+                        "interval": {
+                          "count": 10,
+                          "unit": "Second"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {},
+                  "expression": {
+                    "greater": [
+                      "@iterationIndexes('Retry_latest_receipt_LB')",
+                      0
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "d78fb15d-13b3-44e0-8973-e75486a3242c"
+                  },
+                  "type": "If"
+                },
+                "Read_latest_receipt_LB": {
+                  "runAfter": {
+                    "Wait_before_receipt_retry_LB": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "9b99e57d-1db3-424b-bdd9-474f225d2132"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "GetItems"
+                    },
+                    "parameters": {
+                      "dataset": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+                      "table": "a904a6c6-5dd0-427b-9575-8167c4c0c412",
+                      "$orderby": "ID desc",
+                      "$top": 1
+                    },
+                    "retryPolicy": {
+                      "type": "none"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                }
+              },
+              "runAfter": {},
+              "expression": "@or(equals(actions('Read_latest_receipt_LB')?['status'], 'Succeeded'), not(or(equals(actions('Read_latest_receipt_LB')?['status'], 'TimedOut'), contains(createArray(408, 429), coalesce(outputs('Read_latest_receipt_LB')?['statusCode'], 0)), and(greater(coalesce(outputs('Read_latest_receipt_LB')?['statusCode'], 0), 499), lessOrEquals(coalesce(outputs('Read_latest_receipt_LB')?['statusCode'], 0), 599)), and(or(equals(coalesce(outputs('Read_latest_receipt_LB')?['statusCode'], 0), 400), equals(actions('Read_latest_receipt_LB')?['error']?['code'], 'BadRequest')), contains(string(actions('Read_latest_receipt_LB')?['error']?['message']), 'An error occurred while sending the request.')))))",
+              "limit": {
+                "count": 3,
+                "timeout": "PT2M"
+              },
+              "metadata": {
+                "operationMetadataId": "05d0f282-c7d2-4ef5-bbe8-a93da9204523"
+              },
+              "type": "Until",
+              "operationOptions": "FailWhenLimitsReached"
+            }
+          },
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "c19dab50-67be-4eeb-b6c3-37c1d59e752b"
+          },
+          "type": "Scope"
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "connectionName": "shared-sharepointonl-4aa12f84-9554-41c4-a184-b21799bd4104",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "tier": "NotSpecified",
+        "apiName": "sharepointonline",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
+      }
+    },
+    "flowFailureAlertSubscribed": false,
+    "isManaged": false
+  }
+}
