@@ -16,14 +16,16 @@ phase_budget_hours: 5
 
 Every supported ACORN frontend build entry point checks authored CSS, JavaScript and TypeScript before generating or replacing build artifacts. Release builds deliver verified minified runtime assets with preserved browser behavior, module exports, license notices and asset URLs. Development retains readable sources and working hot reload. The future Tauri app consumes this same frontend build contract.
 
-This plan covers `acorn-web` and its canonical `acorn-wasm/web` adapter. Rust-only Cargo checks remain usable without installing Node packages. Documentation themes, Power Apps assets, generated WASM bindings, vendored libraries and unrelated repository scripts are outside the authored-source lint baseline. Generated and vendored runtime assets still appear in the release inventory with their processing owner and any explicit exception.
+This plan's remaining type-checking and minification work covers `acorn-web` and its canonical `acorn-wasm/web` adapter. The accepted lint gate covers all authored repository JS/TS and CSS, including docs helpers, WebMCP examples, print styles and the design catalog. Rust-only Cargo checks remain usable without installing Node packages. Generated WASM bindings, vendored libraries and dependency files are excluded from authored-source lint. Generated and vendored runtime assets still appear in the release inventory with their processing owner and any explicit exception.
 
 # Current evidence
 
+On November 24, 2026, FBQ-OX1 and FBQ-CSS1 landed and were pruned. `make web-lint` runs pinned Oxlint 1.95.0 over 72 authored JS/TS files and Stylelint 18.1.0 with its recommended error preset over all six authored CSS files. File selection matched the repository inventory after generated/vendor exclusions. `make web-fix` exposes Oxlint's safe fixes and `make web-format` exposes pinned Oxfmt 0.80.0 as explicit source-writing actions; the existing formatting baseline is not yet Oxfmt-clean. A deliberate invalid CSS value stopped parallel `web-map`/`web-editor-bundle` before either bundle command; the restored parallel build, `make web-check`, and `make web-build` passed. Four browser acceptance tests, eight map tests, and 49 release browser parity checks passed. The release retained one WASM payload and nine operation exports. Separate TypeScript compiler coverage, minification, and final release acceptance remain open below.
+
 Targeted inspection on November 12, 2026 used HEAD `0d0cc366` plus the existing uncommitted browser implementation. These are source observations, not a new passing build or browser acceptance run. The November 7 portfolio-wide currency review remains current.
 
-- [Makefile](../../Makefile): `web-map` installs its npm lockfile, runs TypeScript/Vite and stages the map; `web-build` depends on `web-map` and `web-prepare` before cleaning and running Dioxus. `web-pages` and `web-package` consume `web-build`; `web-dev` also prepares the map. `web-check` checks Rust. There is no shared CSS/JS lint gate. Sibling Make prerequisites alone do not guarantee check-before-build ordering under `make -j`.
-- [Browser npm manifest](../../crates/acorn-web/package.json) currently contains Playwright only. The [map manifest](../../crates/acorn-web/geospatial/package.json) pins TypeScript 7.0.2 and Vite 8.3.8; its build runs `tsc --noEmit`. The [TS project](../../crates/acorn-web/geospatial/tsconfig.json) includes `src`, leaving `vite.config.ts` outside compiler checking.
+- [Makefile](../../Makefile): `web-lint` is an ordered predecessor of `web-map` and `web-editor-bundle`; `web-build`, Pages, package, dev, check and test inherit the gate. The map build still installs its own npm lockfile and runs TypeScript/Vite.
+- [Browser npm manifest](../../crates/acorn-web/package.json) pins the accepted lint tools. The [map manifest](../../crates/acorn-web/geospatial/package.json) pins TypeScript 7.0.2 and Vite 8.3.8; its build runs `tsc --noEmit`. The [TS project](../../crates/acorn-web/geospatial/tsconfig.json) includes `src`, leaving `vite.config.ts` outside compiler checking.
 - [Vite configuration](../../crates/acorn-web/geospatial/vite.config.ts) emits an ES library, relies on default minifiers and disables production sourcemaps. Cesium resources are copied separately. The [release checker](../../crates/acorn-web/scripts/check-package.mjs) checks one WASM payload, absent debug sections and nine operation exports, but does not establish JS/CSS minification coverage.
 - [Main asset declarations](../../crates/acorn-web/src/main.rs) and [UI asset declarations](../../crates/acorn-web/src/ui.rs) use Manganis for shell CSS/JS, vendor assets and the generated adapter. Installed `manganis-core` 0.7.10 `src/css.rs` and `src/js.rs` expose minification options that default to true; generic asset defaults use an unknown variant. **Unresolved:** which options the pinned Dioxus pipeline applies to each final artifact. Measure this before adding another transform.
 - [Build script](../../crates/acorn-web/build.rs) and `web-prepare` copy the canonical WebMCP source into generated assets. A transform inserted at the wrong point can be overwritten by staging or invalidate already hashed asset references. Inline JavaScript in Rust `document::eval` strings is not covered by ordinary file linting and must remain an explicit boundary backed by runtime tests.
@@ -33,11 +35,11 @@ Targeted inspection on November 12, 2026 used HEAD `0d0cc366` plus the existing 
 
 ## Analysis tools and coverage
 
-Use pinned **Oxlint** for JS/TS/TSX correctness checks, **Stylelint** for CSS correctness, and the existing **TypeScript compiler** for type checking. Keep tool dependencies in the browser npm package and map-specific compiler dependencies in the map package; retain both lockfiles. Pin versions compatible with the CI Node 22 runtime and verify native npm binaries work with the existing installation policy.
+The accepted JS/TS/TSX correctness gate uses pinned **Oxlint** and the CSS gate uses pinned **Stylelint** with `stylelint-config-recommended`. The remaining phases extend the existing **TypeScript compiler** for type checking. Keep tool dependencies in the browser npm package and map-specific compiler dependencies in the map package; retain both lockfiles.
 
 [Oxlint documents JS/TS/TSX support and correctness-focused defaults](https://oxc.rs/docs/guide/usage/linter.html). Use its non-type-aware rules initially; `tsc` remains the type-checking authority. This avoids adding a second type engine to the first rollout. [typescript-eslint currently publishes TypeScript support below 6.1](https://typescript-eslint.io/users/dependency-versions/), outside this repository's pin; do not downgrade TypeScript or suppress compatibility warnings to force adoption. Recheck versions during FBQ-01.
 
-[Stylelint supports a project configuration and standard rule baseline](https://stylelint.io/user-guide/get-started/). Enable syntax and correctness rules first, with narrow documented exceptions for intentional fallbacks and cascade patterns. Formatting migrations, selector purging and broad automatic fixes are outside scope.
+[Stylelint's recommended preset](https://github.com/stylelint/stylelint-config-recommended) enables rules aimed at likely errors. The standard preset produced 971 existing diagnostics, mostly formatting and selector ordering, so the accepted gate uses the recommended preset. Two selector-order/duplicate rules are disabled for intentional source-order theme and component overrides; one PDF margin-box background property has a local exception. Formatting migrations, selector purging and broad automatic fixes remain outside scope.
 
 The initial source inventory is:
 
@@ -49,7 +51,7 @@ The initial source inventory is:
 | Shared adapter | `crates/acorn-wasm/web/webmcp.js`, `webmcp.d.ts`, `webmcp.test.mjs` | ES-module/browser lint, declaration checking and Node test lint |
 | New frontend tooling | The lint/minification configurations and authored scripts added by this plan | Same appropriate checks, without generated-fixture false positives |
 
-FBQ-01 records an explicit source discovery rule and exclusions. Newly added authored files inside these surfaces must enter the gate automatically. Ignore `node_modules`, generated assets, build outputs, Cesium copies and vendor files; check the canonical adapter once. Do not claim that `.rs` strings, generated bindings or excluded surfaces have been linted.
+The accepted lint command discovers newly added authored files inside its named source directories. It excludes `node_modules`, generated assets, build outputs, Cesium copies and vendor files; the canonical adapter is checked once. Rust-embedded scripts remain under the separate `js-lint` feature.
 
 ## Minification ownership
 
@@ -61,13 +63,13 @@ Minify before asset hashing/copying and package assembly. Never rewrite final ha
 
 ## Build contract
 
-Expose `make web-lint` for JS/TS/CSS lint, `make web-typecheck` for compiler checks and `make web-preflight` for both. Dependency preparation is explicit and lockfile-based; analysis itself does not fetch packages or rewrite sources. Install each npm tree once per build invocation and fail clearly when tooling is unavailable.
+The accepted `make web-lint` runs JS/TS/CSS analysis before the existing browser build paths. The remaining work exposes `make web-typecheck` for compiler checks and `make web-preflight` for both. Dependency preparation is explicit and lockfile-based; analysis itself does not fetch packages or rewrite sources. Install each npm tree once per build invocation and fail clearly when tooling is unavailable.
 
 The ordered release path is dependency preparation → preflight → map build/minification and source staging → Dioxus build/asset minification → artifact verification → Pages/package assembly. Encode real dependency edges, including direct `web-map` calls; test parallel Make execution. `web-check` and `web-test` include preflight; `web-dev` performs it before starting servers and retains HMR. Document that preflight runs at startup, with explicit reruns during editing; a continuous lint watcher is outside this initial scope. `web-prepare` remains a narrow Cargo-compatible source staging operation. Direct npm map builds must retain their analysis gate, too.
 
 # Dependencies and boundaries
 
-FBQ-01 → FBQ-02 and FBQ-03 → FBQ-04 → FBQ-05 → FBQ-06. Independent phase eligibility does not authorize concurrent edits to shared configurations.
+FBQ-01 → FBQ-02 → FBQ-04 → FBQ-05 → FBQ-06. Independent phase eligibility does not authorize concurrent edits to shared configurations.
 
 Coordinate with [browser/desktop workspace](../features/acorn-browser-workspace/index.md) ABW-07 adapter staging, ABW-18 asset budgets and ABW-35 development/hosting acceptance. This plan owns analysis and minification mechanics; ABW retains product, accessibility, performance and native release acceptance. The future ABW-11 desktop consumer must invoke the accepted preflight/build path. None of those entire plans is a prerequisite for FBQ-01.
 
@@ -87,44 +89,33 @@ All phases reserve this plan file for lifecycle maintenance. At each handoff, se
 
 # Execution phases
 
-## FBQ-01 — Establish the toolchain and executable coverage contract
+## FBQ-01 — Inspect compiler coverage and asset processing ownership
 
 - Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: browser npm/configuration lock available; recheck tool compatibility against current pins
-- Exact write set: `crates/acorn-web/package.json`, `crates/acorn-web/package-lock.json`, `crates/acorn-web/.oxlintrc.json`, `crates/acorn-web/stylelint.config.mjs`, `crates/acorn-web/scripts/frontend-quality.mjs`, `crates/acorn-web/scripts/frontend-quality.test.mjs`, `crates/acorn-web/README.md`
-- Primary integration lock: frontend tooling
-- Outcome: Pinned tools, explicit inventory/exclusions and environment overrides, read-only analysis commands, and disposable positive/negative fixtures. Capture existing diagnostics and per-artifact processing ownership without yet wiring builds to a failing baseline.
-- Focused validation: Clean lockfile install with the existing ignore-scripts policy; Node runner tests prove detection of JS, TS syntax and CSS errors, source discovery and ignored generated/vendor files; inspect actual release assets to resolve current minification coverage.
-- Handoff: Freeze the coverage and artifact inventory in README; FBQ-02 and FBQ-03 become eligible. Unsupported tooling is a named blocker, not a waived gate.
+- Prerequisites: frontend asset inspection lock available
+- Exact write set: `crates/acorn-web/scripts/{frontend-quality.mjs,frontend-quality.test.mjs}`, `crates/acorn-web/README.md`
+- Primary integration lock: frontend asset inventory
+- Outcome: Inventory remaining TypeScript compiler gaps and per-artifact processing ownership. Preserve the accepted `web-lint` gate.
+- Focused validation: Inspect actual release assets and pinned Manganis/Vite options; verify type-check project boundaries and identify generated/vendor exceptions without rewriting sources.
+- Handoff: Freeze the compiler and artifact inventory in README; FBQ-02 becomes eligible. Unsupported tooling is a named blocker, not a waived gate.
 
-## FBQ-02 — Establish the JavaScript and TypeScript baseline
+## FBQ-02 — Extend TypeScript compiler coverage
 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: FBQ-01
-- Exact write set: `crates/acorn-web/.oxlintrc.json`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/scripts/{acceptance.test.mjs,build-ror-location-index.mjs,check-package.mjs,dev-smoke.mjs,frontend-quality.mjs,frontend-quality.test.mjs,pages-smoke.mjs,parity-smoke.mjs,stage-map.mjs}`, `crates/acorn-web/geospatial/{package.json,package-lock.json,tsconfig.json,tsconfig.node.json,vite.config.ts}`, `crates/acorn-web/geospatial/src/{bridge.ts,main.tsx,map.tsx}`, `crates/acorn-web/geospatial/tests/bridge.test.mjs`, `crates/acorn-wasm/web/{webmcp.js,webmcp.d.ts,webmcp.test.mjs}`, `crates/acorn-web/tsconfig.webmcp.json`
+- Exact write set: `crates/acorn-web/geospatial/{package.json,package-lock.json,tsconfig.json,tsconfig.node.json,vite.config.ts}`, `crates/acorn-web/geospatial/src/{bridge.ts,home.ts,main.tsx,map.tsx}`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-web/tsconfig.webmcp.json`, `crates/acorn-web/scripts/{frontend-quality.mjs,frontend-quality.test.mjs}`
 - Primary integration lock: browser JavaScript and adapter
-- Outcome: Correctness diagnostics resolved with minimal behavior-preserving edits; map sources, Node config and adapter declarations compile in appropriate projects. Do not expand this into Rust string extraction or a source reformat.
-- Focused validation: JS/TS lint; all compiler projects; effects, adapter and map bridge tests. Inject a type error in a temporary fixture and prove nonzero failure.
+- Outcome: Map sources, Node config and adapter declarations compile in appropriate TypeScript projects. Preserve the accepted Oxlint baseline without a source reformat.
+- Focused validation: Repository JS/TS lint remains clean; all compiler projects and map bridge tests pass. Inject a type error in a temporary fixture and prove nonzero failure.
 - Handoff: Record passing commands and justified narrow exceptions; freeze source/API compatibility for FBQ-04.
-
-## FBQ-03 — Establish the CSS baseline
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FBQ-01
-- Exact write set: `crates/acorn-web/stylelint.config.mjs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/geospatial/src/map.css`, `crates/acorn-web/scripts/frontend-quality.test.mjs`
-- Primary integration lock: browser styles
-- Outcome: CSS correctness gate passes while preserving intentional fallbacks and responsive/theme behavior; every exception has a local reason.
-- Focused validation: CSS lint and invalid-declaration fixture; existing parity smoke for light/dark, mobile drawer and desktop layouts after any CSS edits.
-- Handoff: Record the accepted rule set and observed visual behavior; FBQ-04 follows once FBQ-02 also passes.
 
 ## FBQ-04 — Make release minification explicit and verifiable
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: FBQ-02 and FBQ-03; inspected pinned Manganis/Vite behavior from FBQ-01
+- Prerequisites: FBQ-02; inspected pinned Manganis/Vite behavior from FBQ-01
 - Exact write set: `crates/acorn-web/src/{main.rs,ui.rs,geospatial_page.rs}`, `crates/acorn-web/build.rs`, `crates/acorn-web/geospatial/vite.config.ts`, `crates/acorn-web/scripts/{stage-map.mjs,check-package.mjs,frontend-assets.test.mjs}`, `crates/acorn-web/frontend-assets.json`, `crates/acorn-web/README.md`
 - Primary integration lock: frontend asset pipeline
 - Outcome: Explicit processing owners produce minified shell, adapter and final map assets before Dioxus hashing, with a build report and tests for preserved public contracts. Existing generated/vendor exceptions are enumerated. Production source maps and development staging remain intentional.
@@ -138,7 +129,7 @@ All phases reserve this plan file for lifecycle maintenance. At each handoff, se
 - Prerequisites: FBQ-04; CI/build lock available
 - Exact write set: `Makefile`, `.github/workflows/acorn-web-pages.yml`, `.gitlab-ci.yml`, `crates/acorn-web/package.json`, `crates/acorn-web/geospatial/package.json`, `crates/acorn-web/scripts/{dev.py,frontend-quality.mjs,frontend-quality.test.mjs}`, `crates/acorn-web/README.md`
 - Primary integration lock: CI/build
-- Outcome: Named lint/typecheck/preflight targets, direct map npm gate and all supported Make consumers follow explicit ordering. Both npm lockfiles and compatible Node/native tooling are prepared once; CI fails before uploading or assembling invalid artifacts. Rust-only Cargo checks acquire no npm dependency.
+- Outcome: Complete the typecheck/preflight targets and direct map npm gate while preserving the accepted `web-lint` Make ordering. Both npm lockfiles and compatible Node/native tooling are prepared once; CI fails before uploading or assembling invalid artifacts. Rust-only Cargo checks acquire no npm dependency.
 - Focused validation: Temporary-worktree fault injection at direct map npm, web-map/build/dev/check/test/pages/package entry points; sentinel output survives failure. Exercise `make -j` ordering with instrumented build commands, then one real clean release build. Validate CI syntax and changed-path/cache coverage; confirm direct Cargo check still works without frontend node_modules.
 - Handoff: Record the command/dependency matrix and install behavior; FBQ-06 owns final acceptance.
 

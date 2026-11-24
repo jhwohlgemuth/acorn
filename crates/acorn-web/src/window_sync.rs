@@ -1,4 +1,5 @@
 //! Browser messaging and cross-window state synchronization.
+use crate::script;
 use acorn_web::operations::{Request, Tool};
 use acorn_web::session::SuppliedFile;
 use alloc::boxed::Box;
@@ -7,25 +8,11 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub(crate) fn notify_storage(key: &str) {
-    let key = serde_json::to_string(key).unwrap_or_default();
-    document::eval(&format!("if (!window.acornWindowSync) await new Promise(resolve => window.addEventListener('acorn-window-sync-ready', resolve, {{once:true}})); window.acornWindowSync.notifyStorage({key});"));
-}
-pub(crate) fn publish_json(topic: &str, payload: &str) {
-    let topic = serde_json::to_string(topic).unwrap_or_default();
-    document::eval(&format!("if (!window.acornWindowSync) await new Promise(resolve => window.addEventListener('acorn-window-sync-ready', resolve, {{once:true}})); window.acornWindowSync.publish({topic}, {payload});"));
-}
-pub(crate) fn subscribe(topic: &str) -> document::Eval {
-    let topic = serde_json::to_string(topic).unwrap_or_default();
-    document::eval(&format!("if (!window.acornWindowSync) await new Promise(resolve => window.addEventListener('acorn-window-sync-ready', resolve, {{once:true}})); const unsubscribe = window.acornWindowSync.subscribe({topic}, message => dioxus.send(message)); await dioxus.recv(); unsubscribe();"))
-}
-pub(crate) fn subscribe_storage(key: &str) -> document::Eval {
-    let key = serde_json::to_string(key).unwrap_or_default();
-    document::eval(&format!("if (!window.acornWindowSync) await new Promise(resolve => window.addEventListener('acorn-window-sync-ready', resolve, {{once:true}})); const unsubscribe = window.acornWindowSync.subscribeStorage({key}, () => dioxus.send(true)); await dioxus.recv(); unsubscribe();"))
-}
-
-pub(crate) fn fragments() -> document::Eval {
-    document::eval("if (!window.acornUrl) await new Promise(resolve => window.addEventListener('acorn-url-ready', resolve, {once:true})); if (!window.acornWindowSync) await new Promise(resolve => window.addEventListener('acorn-window-sync-ready', resolve, {once:true})); const initial = window.acornInitialReviewFragment; if (initial && !window.acornUrl.getFragment()) window.acornUrl.setFragment(initial, true); window.acornInitialReviewFragment = ''; const receive = window.acornWindowSync.subscribe('acorn.review.mode.v1', fragment => { if (typeof fragment === 'string' && fragment !== window.acornUrl.getFragment()) window.acornUrl.setFragment(fragment, true); }); const unsubscribe = window.acornUrl.subscribe(fragment => { window.acornWindowSync.publish('acorn.review.mode.v1', fragment); dioxus.send(fragment); }); await dioxus.recv(); unsubscribe(); receive();")
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ToolMessage {
+    Request,
+    State { revision: u64, snapshot: Box<ToolSnapshot> },
 }
 #[derive(Clone, Copy)]
 pub(crate) struct ToolSignals {
@@ -43,24 +30,6 @@ struct ToolSnapshot {
     editor_source: Option<SuppliedFile>,
     request: Request,
     result: Option<Result<Value, String>>,
-}
-#[derive(Deserialize, Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum ToolMessage {
-    Request,
-    State { revision: u64, snapshot: Box<ToolSnapshot> },
-}
-impl ToolSnapshot {
-    fn is_pristine(&self, session: &str) -> bool {
-        self.drafts.is_empty()
-            && self.result.is_none()
-            && self.editor_source.as_ref().is_none_or(|source| source.content == session)
-            && self.request
-                == Request {
-                    input: session.to_owned(),
-                    ..Request::default()
-                }
-    }
 }
 impl ToolSignals {
     pub(crate) fn new(
@@ -98,10 +67,37 @@ impl ToolSignals {
         }
     }
 }
+impl ToolSnapshot {
+    fn is_pristine(&self, session: &str) -> bool {
+        self.drafts.is_empty()
+            && self.result.is_none()
+            && self.editor_source.as_ref().is_none_or(|source| source.content == session)
+            && self.request
+                == Request {
+                    input: session.to_owned(),
+                    ..Request::default()
+                }
+    }
+}
+pub(crate) fn fragments() -> document::Eval {
+    script::review_fragments_channel()
+}
+pub(crate) fn notify_storage(key: &str) {
+    script::notify_storage(key);
+}
 fn publish(tool: Tool, message: &ToolMessage) {
     if let Ok(payload) = serde_json::to_string(message) {
         publish_json(&format!("acorn.tool.{}", tool.slug()), &payload);
     }
+}
+pub(crate) fn publish_json(topic: &str, payload: &str) {
+    script::publish_json(topic, payload);
+}
+pub(crate) fn subscribe(topic: &str) -> document::Eval {
+    script::subscribe_window_sync_channel(topic)
+}
+pub(crate) fn subscribe_storage(key: &str) -> document::Eval {
+    script::subscribe_storage_channel(key)
 }
 pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signal<String>) {
     let mut ready_for = use_signal(|| None::<Tool>);

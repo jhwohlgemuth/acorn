@@ -1,0 +1,907 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$authentication": {
+      "defaultValue": {},
+      "type": "SecureObject"
+    },
+    "$connections": {
+      "defaultValue": {},
+      "type": "Object"
+    }
+  },
+  "triggers": {
+    "Recurrence": {
+      "type": "Recurrence",
+      "recurrence": {
+        "frequency": "Day",
+        "interval": 1,
+        "timeZone": "Eastern Standard Time",
+        "schedule": {
+          "hours": [
+            3
+          ],
+          "minutes": [
+            30
+          ]
+        }
+      },
+      "runtimeConfiguration": {
+        "concurrency": {
+          "runs": 1
+        }
+      }
+    }
+  },
+  "actions": {
+    "Approved_JSONL_GitLab_sync_BETA": {
+      "type": "Scope",
+      "actions": {
+        "Sync_configuration_BETA": {
+          "type": "Compose",
+          "inputs": {
+            "sharePointSiteUrl": "https://ornl.sharepoint.com/sites/ResearchEnablement",
+            "projectListId": "88dfa78d-a62f-4e0f-aae5-0d5ea52758ed",
+            "approvedExportLibrary": "Sponsor Highlights Collected Export TEST ONLY",
+            "catalogSyncReady": false,
+            "approvedSourceReady": false,
+            "gitLabWriteReady": false,
+            "gitLabProjectId": 22464,
+            "gitLabBranch": "main",
+            "approvedGitLabPath": ".acorn/approved/logbook.jsonl",
+            "maxReceiptAgeHours": 48
+          },
+          "runAfter": {},
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          }
+        },
+        "Validate_sync_configuration_BETA": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Sync_configuration_BETA')?['approvedSourceReady']",
+                  true
+                ]
+              },
+              {
+                "equals": [
+                  "@outputs('Sync_configuration_BETA')?['gitLabWriteReady']",
+                  true
+                ]
+              },
+              {
+                "greater": [
+                  "@int(outputs('Sync_configuration_BETA')?['gitLabProjectId'])",
+                  0
+                ]
+              },
+              {
+                "not": {
+                  "equals": [
+                    "@outputs('Sync_configuration_BETA')?['gitLabBranch']",
+                    ""
+                  ]
+                }
+              },
+              {
+                "startsWith": [
+                  "@outputs('Sync_configuration_BETA')?['approvedGitLabPath']",
+                  ".acorn/approved/"
+                ]
+              },
+              {
+                "endsWith": [
+                  "@outputs('Sync_configuration_BETA')?['approvedGitLabPath']",
+                  ".jsonl"
+                ]
+              }
+            ]
+          },
+          "actions": {},
+          "else": {
+            "actions": {
+              "Fail_ApprovedSyncNotReady_BETA": {
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Failed",
+                  "runError": {
+                    "code": "ApprovedSyncNotReady",
+                    "message": "Approval source and dedicated GitLab destination must be verified before publishing."
+                  }
+                },
+                "runAfter": {}
+              }
+            }
+          },
+          "runAfter": {
+            "Sync_configuration_BETA": [
+              "Succeeded"
+            ]
+          }
+        },
+        "List_export_files_BETA": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "@outputs('Sync_configuration_BETA')?['sharePointSiteUrl']",
+              "parameters/method": "GET",
+              "parameters/uri": "@concat('_api/web/GetFolderByServerRelativeUrl(',decodeUriComponent('%27'),uriPath(outputs('Sync_configuration_BETA')?['sharePointSiteUrl']),'/',outputs('Sync_configuration_BETA')?['approvedExportLibrary'],decodeUriComponent('%27'),')/Files?$orderby=TimeCreated desc&$top=5001')",
+              "parameters/headers": {
+                "Accept": "application/json;odata=nometadata"
+              }
+            },
+            "retryPolicy": {
+              "type": "exponential",
+              "count": 3,
+              "interval": "PT5S",
+              "maximumInterval": "PT30S"
+            }
+          },
+          "runAfter": {
+            "Validate_sync_configuration_BETA": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          }
+        },
+        "Receipt_files_BETA": {
+          "type": "Query",
+          "inputs": {
+            "from": "@body('List_export_files_BETA')?['value']",
+            "where": "@and(startsWith(item()?['Name'],'export-receipt-'),endsWith(item()?['Name'],'.json'))"
+          },
+          "runAfter": {
+            "List_export_files_BETA": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Find_latest_receipt_BETA": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "greater": [
+                  "@length(body('Receipt_files_BETA'))",
+                  0
+                ]
+              },
+              {
+                "lessOrEquals": [
+                  "@length(body('List_export_files_BETA')?['value'])",
+                  5000
+                ]
+              },
+              {
+                "equals": [
+                  "@empty(coalesce(body('List_export_files_BETA')?['@odata.nextLink'],body('List_export_files_BETA')?['odata.nextLink'],body('List_export_files_BETA')?['d']?['__next']))",
+                  true
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Read_receipt_BETA": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetFileContentByPath",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@outputs('Sync_configuration_BETA')?['sharePointSiteUrl']",
+                  "path": "@concat(concat('/',outputs('Sync_configuration_BETA')?['approvedExportLibrary']),'/',first(body('Receipt_files_BETA'))?['Name'])",
+                  "inferContentType": false
+                },
+                "retryPolicy": {
+                  "type": "exponential",
+                  "count": 3,
+                  "interval": "PT5S",
+                  "maximumInterval": "PT30S"
+                }
+              },
+              "runAfter": {},
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Receipt_object_BETA": {
+              "type": "Compose",
+              "inputs": "@json(base64ToString(body('Read_receipt_BETA')?['$content']))",
+              "runAfter": {
+                "Read_receipt_BETA": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Validate_receipt_shape_BETA": {
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@outputs('Receipt_object_BETA')",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batchCount": {
+                      "type": "integer"
+                    },
+                    "byteCount": {
+                      "type": "integer"
+                    },
+                    "candidateFingerprint": {
+                      "type": "string"
+                    },
+                    "fileIdentity": {
+                      "type": "string"
+                    },
+                    "fileRevision": {
+                      "type": "string"
+                    },
+                    "lastApprovedBatchId": {
+                      "type": "string"
+                    },
+                    "lineCount": {
+                      "type": "integer"
+                    },
+                    "runId": {
+                      "type": "string"
+                    },
+                    "verifiedAtUtc": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "batchCount",
+                    "byteCount",
+                    "candidateFingerprint",
+                    "fileIdentity",
+                    "fileRevision",
+                    "lastApprovedBatchId",
+                    "lineCount",
+                    "runId",
+                    "verifiedAtUtc"
+                  ]
+                }
+              },
+              "runAfter": {
+                "Receipt_object_BETA": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Read_export_metadata_before_BETA": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@outputs('Sync_configuration_BETA')?['sharePointSiteUrl']",
+                  "parameters/method": "GET",
+                  "parameters/uri": "@concat('_api/web/GetFileByServerRelativeUrl(',decodeUriComponent('%27'),concat(uriPath(outputs('Sync_configuration_BETA')?['sharePointSiteUrl']),'/',outputs('Sync_configuration_BETA')?['approvedExportLibrary'],'/', 'logbook.jsonl'),decodeUriComponent('%27'),')?$select=ETag,UniqueId')",
+                  "parameters/headers": {
+                    "Accept": "application/json;odata=nometadata"
+                  }
+                },
+                "retryPolicy": {
+                  "type": "exponential",
+                  "count": 3,
+                  "interval": "PT5S",
+                  "maximumInterval": "PT30S"
+                }
+              },
+              "runAfter": {
+                "Validate_receipt_shape_BETA": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Read_approved_export_BETA": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetFileContentByPath",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@outputs('Sync_configuration_BETA')?['sharePointSiteUrl']",
+                  "path": "@concat(concat('/',outputs('Sync_configuration_BETA')?['approvedExportLibrary']),'/', 'logbook.jsonl')",
+                  "inferContentType": false
+                },
+                "retryPolicy": {
+                  "type": "exponential",
+                  "count": 3,
+                  "interval": "PT5S",
+                  "maximumInterval": "PT30S"
+                }
+              },
+              "runAfter": {
+                "Read_export_metadata_before_BETA": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Read_export_metadata_BETA": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@outputs('Sync_configuration_BETA')?['sharePointSiteUrl']",
+                  "parameters/method": "GET",
+                  "parameters/uri": "@concat('_api/web/GetFileByServerRelativeUrl(',decodeUriComponent('%27'),concat(uriPath(outputs('Sync_configuration_BETA')?['sharePointSiteUrl']),'/',outputs('Sync_configuration_BETA')?['approvedExportLibrary'],'/', 'logbook.jsonl'),decodeUriComponent('%27'),')?$select=ETag,UniqueId')",
+                  "parameters/headers": {
+                    "Accept": "application/json;odata=nometadata"
+                  }
+                },
+                "retryPolicy": {
+                  "type": "exponential",
+                  "count": 3,
+                  "interval": "PT5S",
+                  "maximumInterval": "PT30S"
+                }
+              },
+              "runAfter": {
+                "Read_approved_export_BETA": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": [
+                    "inputs",
+                    "outputs"
+                  ]
+                }
+              }
+            },
+            "Verify_approved_receipt_BETA": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@int(outputs('Receipt_object_BETA')?['batchCount'])",
+                      0
+                    ]
+                  },
+                  {
+                    "greater": [
+                      "@int(outputs('Receipt_object_BETA')?['lineCount'])",
+                      0
+                    ]
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@trim(outputs('Receipt_object_BETA')?['runId'])",
+                        ""
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@trim(outputs('Receipt_object_BETA')?['lastApprovedBatchId'])",
+                        ""
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@outputs('Receipt_object_BETA')?['lastApprovedBatchId']",
+                        null
+                      ]
+                    }
+                  },
+                  {
+                    "equals": [
+                      "@outputs('Receipt_object_BETA')?['fileIdentity']",
+                      "@concat(uriPath(outputs('Sync_configuration_BETA')?['sharePointSiteUrl']),'/',outputs('Sync_configuration_BETA')?['approvedExportLibrary'],'/', 'logbook.jsonl')"
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@outputs('Receipt_object_BETA')?['candidateFingerprint']",
+                      "@concat('b64-edge-v1:',string(length(body('Read_approved_export_BETA')?['$content'])),':',substring(body('Read_approved_export_BETA')?['$content'],0,if(greater(length(body('Read_approved_export_BETA')?['$content']),64),64,length(body('Read_approved_export_BETA')?['$content']))),':',substring(body('Read_approved_export_BETA')?['$content'],if(greater(length(body('Read_approved_export_BETA')?['$content']),64),sub(length(body('Read_approved_export_BETA')?['$content']),64),0),if(greater(length(body('Read_approved_export_BETA')?['$content']),64),64,length(body('Read_approved_export_BETA')?['$content']))))"
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@int(outputs('Receipt_object_BETA')?['byteCount'])",
+                      "@sub(div(mul(length(body('Read_approved_export_BETA')?['$content']),3),4),if(endsWith(body('Read_approved_export_BETA')?['$content'],'=='),2,if(endsWith(body('Read_approved_export_BETA')?['$content'],'='),1,0)))"
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@outputs('Receipt_object_BETA')?['fileRevision']",
+                      "@coalesce(body('Read_export_metadata_BETA')?['ETag'],body('Read_export_metadata_BETA')?['@odata.etag'])"
+                    ]
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@coalesce(coalesce(body('Read_export_metadata_before_BETA')?['ETag'],body('Read_export_metadata_before_BETA')?['@odata.etag']),'')",
+                        ""
+                      ]
+                    }
+                  },
+                  {
+                    "equals": [
+                      "@coalesce(body('Read_export_metadata_before_BETA')?['ETag'],body('Read_export_metadata_before_BETA')?['@odata.etag'])",
+                      "@coalesce(body('Read_export_metadata_BETA')?['ETag'],body('Read_export_metadata_BETA')?['@odata.etag'])"
+                    ]
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@coalesce(body('Read_export_metadata_before_BETA')?['UniqueId'],'')",
+                        ""
+                      ]
+                    }
+                  },
+                  {
+                    "equals": [
+                      "@body('Read_export_metadata_before_BETA')?['UniqueId']",
+                      "@body('Read_export_metadata_BETA')?['UniqueId']"
+                    ]
+                  },
+                  {
+                    "lessOrEquals": [
+                      "@sub(div(mul(length(body('Read_approved_export_BETA')?['$content']),3),4),if(endsWith(body('Read_approved_export_BETA')?['$content'],'=='),2,if(endsWith(body('Read_approved_export_BETA')?['$content'],'='),1,0)))",
+                      10485760
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@endsWith(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A'))",
+                      true
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@contains(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0D'))",
+                      false
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@contains(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A%0A'))",
+                      false
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@startsWith(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A'))",
+                      false
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@sub(length(split(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A'))),1)",
+                      "@outputs('Receipt_object_BETA')?['lineCount']"
+                    ]
+                  },
+                  {
+                    "lessOrEquals": [
+                      "@ticks(outputs('Receipt_object_BETA')?['verifiedAtUtc'])",
+                      "@ticks(utcNow())"
+                    ]
+                  },
+                  {
+                    "greaterOrEquals": [
+                      "@ticks(outputs('Receipt_object_BETA')?['verifiedAtUtc'])",
+                      "@ticks(addHours(utcNow(),sub(0,outputs('Sync_configuration_BETA')?['maxReceiptAgeHours'])))"
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Read_GitLab_before_BETA": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                      "operationId": "ReadApprovedJsonl",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46"
+                    },
+                    "parameters": {
+                      "projectId": "@outputs('Sync_configuration_BETA')?['gitLabProjectId']",
+                      "filePath": "@outputs('Sync_configuration_BETA')?['approvedGitLabPath']",
+                      "ref": "@outputs('Sync_configuration_BETA')?['gitLabBranch']"
+                    },
+                    "retryPolicy": {
+                      "type": "exponential",
+                      "count": 3,
+                      "interval": "PT5S",
+                      "maximumInterval": "PT30S"
+                    }
+                  },
+                  "runAfter": {},
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                },
+                "GitLab_read_outcome_BETA": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@actions('Read_GitLab_before_BETA')?['status']",
+                          "Succeeded"
+                        ]
+                      },
+                      {
+                        "equals": [
+                          "@body('Read_GitLab_before_BETA')?['encoding']",
+                          "base64"
+                        ]
+                      },
+                      {
+                        "equals": [
+                          "@body('Read_GitLab_before_BETA')?['file_path']",
+                          "@outputs('Sync_configuration_BETA')?['approvedGitLabPath']"
+                        ]
+                      },
+                      {
+                        "not": {
+                          "equals": [
+                            "@body('Read_GitLab_before_BETA')?['content']",
+                            null
+                          ]
+                        }
+                      },
+                      {
+                        "not": {
+                          "equals": [
+                            "@coalesce(body('Read_GitLab_before_BETA')?['last_commit_id'],'')",
+                            ""
+                          ]
+                        }
+                      },
+                      {
+                        "equals": [
+                          "@base64(take(base64ToString(body('Read_approved_export_BETA')?['$content']),length(base64ToString(replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')))))",
+                          "@replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')"
+                        ]
+                      },
+                      {
+                        "or": [
+                          {
+                            "equals": [
+                              "@replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')",
+                              ""
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@endsWith(base64ToString(replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')),decodeUriComponent('%0A'))",
+                              true
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Create_or_update_GitLab_BETA": {
+                      "type": "If",
+                      "expression": {
+                        "equals": [
+                          "@replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')",
+                          "@body('Read_approved_export_BETA')?['$content']"
+                        ]
+                      },
+                      "actions": {},
+                      "else": {
+                        "actions": {
+                          "Update_approved_JSONL_BETA": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "host": {
+                                "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                                "operationId": "CommitApprovedJsonl",
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46"
+                              },
+                              "parameters": {
+                                "projectId": "@outputs('Sync_configuration_BETA')?['gitLabProjectId']",
+                                "body/branch": "@outputs('Sync_configuration_BETA')?['gitLabBranch']",
+                                "body/commit_message": "@concat('approved-jsonl-sync:',outputs('Receipt_object_BETA')?['runId'])",
+                                "body/actions": "@createArray(setProperty(setProperty(setProperty(setProperty(setProperty(json('{}'),'file_path',outputs('Sync_configuration_BETA')?['approvedGitLabPath']),'content',body('Read_approved_export_BETA')?['$content']),'encoding','base64'),'action','update'),'last_commit_id',body('Read_GitLab_before_BETA')?['last_commit_id']))"
+                              },
+                              "retryPolicy": {
+                                "type": "none"
+                              }
+                            },
+                            "runAfter": {},
+                            "runtimeConfiguration": {
+                              "secureData": {
+                                "properties": [
+                                  "inputs",
+                                  "outputs"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "runAfter": {}
+                    },
+                    "Read_GitLab_after_BETA": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "host": {
+                          "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                          "operationId": "ReadApprovedJsonl",
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46"
+                        },
+                        "parameters": {
+                          "projectId": "@outputs('Sync_configuration_BETA')?['gitLabProjectId']",
+                          "filePath": "@outputs('Sync_configuration_BETA')?['approvedGitLabPath']",
+                          "ref": "@outputs('Sync_configuration_BETA')?['gitLabBranch']"
+                        },
+                        "retryPolicy": {
+                          "type": "exponential",
+                          "count": 3,
+                          "interval": "PT5S",
+                          "maximumInterval": "PT30S"
+                        }
+                      },
+                      "runAfter": {
+                        "Create_or_update_GitLab_BETA": [
+                          "Succeeded",
+                          "Failed",
+                          "TimedOut"
+                        ]
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs",
+                            "outputs"
+                          ]
+                        }
+                      }
+                    },
+                    "Verify_GitLab_bytes_BETA": {
+                      "type": "If",
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@actions('Read_GitLab_after_BETA')?['status']",
+                              "Succeeded"
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@body('Read_GitLab_after_BETA')?['encoding']",
+                              "base64"
+                            ]
+                          },
+                          {
+                            "not": {
+                              "equals": [
+                                "@coalesce(body('Read_GitLab_after_BETA')?['last_commit_id'],'')",
+                                ""
+                              ]
+                            }
+                          },
+                          {
+                            "equals": [
+                              "@replace(replace(body('Read_GitLab_after_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')",
+                              "@body('Read_approved_export_BETA')?['$content']"
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@body('Read_GitLab_after_BETA')?['file_path']",
+                              "@outputs('Sync_configuration_BETA')?['approvedGitLabPath']"
+                            ]
+                          }
+                        ]
+                      },
+                      "actions": {},
+                      "else": {
+                        "actions": {
+                          "Fail_GitLabReadbackMismatch_BETA": {
+                            "type": "Terminate",
+                            "inputs": {
+                              "runStatus": "Failed",
+                              "runError": {
+                                "code": "GitLabReadbackMismatch",
+                                "message": "Approved GitLab file does not match the finalized SharePoint bytes."
+                              }
+                            },
+                            "runAfter": {}
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Read_GitLab_after_BETA": [
+                          "Succeeded",
+                          "Failed",
+                          "TimedOut",
+                          "Skipped"
+                        ]
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Fail_GitLabReadUnavailable_BETA": {
+                        "type": "Terminate",
+                        "inputs": {
+                          "runStatus": "Failed",
+                          "runError": {
+                            "code": "GitLabReadUnavailable",
+                            "message": "An existing dedicated GitLab file with readable revision and an exact complete-line prefix of the approved snapshot is required. No write was attempted."
+                          }
+                        },
+                        "runAfter": {}
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Read_GitLab_before_BETA": [
+                      "Succeeded",
+                      "Failed",
+                      "TimedOut"
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Fail_UnverifiedApprovedExport_BETA": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Failed",
+                      "runError": {
+                        "code": "UnverifiedApprovedExport",
+                        "message": "Receipt is stale or receipt, finalized bytes, and stable SharePoint file revision do not agree."
+                      }
+                    },
+                    "runAfter": {}
+                  }
+                }
+              },
+              "runAfter": {
+                "Read_export_metadata_BETA": [
+                  "Succeeded"
+                ]
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Fail_NoFinalizedApprovedReceipt_BETA": {
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Failed",
+                  "runError": {
+                    "code": "NoFinalizedApprovedReceipt",
+                    "message": "No bounded finalized approved export receipt was found."
+                  }
+                },
+                "runAfter": {}
+              }
+            }
+          },
+          "runAfter": {
+            "Receipt_files_BETA": [
+              "Succeeded"
+            ]
+          }
+        }
+      },
+      "runAfter": {}
+    },
+    "Sync_verified_BETA": {
+      "type": "Compose",
+      "inputs": {
+        "sourceRevision": "@outputs('Receipt_object_BETA')?['fileRevision']",
+        "sourceReceiptRunId": "@outputs('Receipt_object_BETA')?['runId']",
+        "lastApprovedBatchId": "@outputs('Receipt_object_BETA')?['lastApprovedBatchId']",
+        "destinationRevision": "@body('Read_GitLab_after_BETA')?['last_commit_id']",
+        "lineCount": "@outputs('Receipt_object_BETA')?['lineCount']",
+        "status": "verified",
+        "runId": "@workflow()?['run']?['name']",
+        "verifiedAtUtc": "@utcNow()"
+      },
+      "runAfter": {
+        "Approved_JSONL_GitLab_sync_BETA": [
+          "Succeeded"
+        ]
+      }
+    },
+    "Sync_failed_BETA": {
+      "type": "Terminate",
+      "inputs": {
+        "runStatus": "Failed",
+        "runError": {
+          "code": "SyncNotVerified",
+          "message": "Sync did not verify. Inspect the failed action; reconcile destination state before retrying. Never restore over a newer revision."
+        }
+      },
+      "runAfter": {
+        "Approved_JSONL_GitLab_sync_BETA": [
+          "Failed",
+          "TimedOut"
+        ]
+      }
+    }
+  },
+  "outputs": {}
+}

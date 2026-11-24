@@ -1,62 +1,149 @@
-# [BETA] Scheduled GitLab and SharePoint sync
+# Scheduled GitLab and SharePoint sync
 
-The two flow definitions are independent of the Power Apps form. Both run under
-the flow owner's connections and start with a single `Sync_configuration_BETA`
-action. Copy [sync-config.json](sync-config.json), change its values, and run
-the builders to produce reusable scope definitions. All three readiness flags
-start `false`; the live flows also retain false readiness values until a
-controlled source and destination test is complete.
+Two independent owner-run flows reconcile GitLab project choices into SharePoint
+and mirror an approval-receipted SharePoint JSONL snapshot into a dedicated
+GitLab file. Neither flow writes the Vergil intake inbox, changes review state,
+finalizes batches, or deletes source receipts.
 
-| Flow title | Direction | Schedule | Live state |
-| --- | --- | --- | --- |
-| `[BETA] GitLab Project Catalog Sync` | GitLab project choices → SharePoint project list | Daily, 2:00 AM Eastern | Saved and Off. SharePoint site/list and GitLab project/branch come from `Sync configuration BETA`. `catalogSyncReady` is `false`, so the flow terminates before reading or writing if turned On. Flow checker: zero errors and warnings. |
-| `[BETA] Approved JSONL GitLab Sync` | Finalized, approval-receipted SharePoint JSONL → dedicated GitLab path | Daily, 2:30 AM Eastern | Saved and Off. SharePoint site/library and GitLab project/branch/path come from `Sync configuration BETA`. It reads the newest `export-receipt-*.json`, validates file identity, byte count, fingerprint, and file revision, updates an existing GitLab file only when bytes differ, and reads back the result. Both readiness flags remain `false`. Flow checker: zero errors and warnings. |
+The November 24 hardening is **local source and generated definitions only**.
+No target, connection, permission, readiness flag, or live schedule was changed.
+The last recorded live versions were saved and Off; their current tenant state
+has not been rechecked. They do not yet contain these changes. Remaining binding,
+isolated acceptance, and deployment are tracked in the
+[scheduled-sync plan](../../../scheduled-sync/index.md).
 
-Live flow details: [catalog sync](https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/~preferred/flows/031af465-9b60-4e7b-7960-028505194a42/details) and [approved JSONL sync](https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/~preferred/flows/044451dc-7cdf-f111-84ea-001dd8062052/details).
+| Artifact | Purpose |
+| --- | --- |
+| `build-catalog-sync.py` / `catalog-sync.clipboard.json` | Catalog reconciliation scope, including complete-input validation, conditional writes, and readback. |
+| `build-approved-sync.py` / `approved-sync.clipboard.json` | Stable approved-source capture and conditional, append-only GitLab snapshot replacement. |
+| `build_workflows.py` / `*.workflow.json` | Reviewable WDL definitions with serialized daily recurrence, success evidence, and failed-run handling. These are not native import packages. |
+| `sync-config.json` / `sync_config.py` | Retained historical settings and strict generation-time validation. All readiness flags remain false. Regenerate after editing configuration; do not bypass validation by editing generated expressions. |
+| `test_sync.py` / `test_failures.py` / `test_runtime.py` | Static contract checks and synthetic execution of the generated expression/action subset. No network calls. |
 
-## Reuse settings
+## Build and verify
 
-`sharePointSiteUrl` and `projectListId` select the catalog list. That list must
-have `Title`, `ProjectId`, and `SourceRevision` columns. `approvedExportLibrary`
-selects the library containing `logbook.jsonl` and the exporter’s
-`export-receipt-<run-id>.json` files. `gitLabProjectId` and `gitLabBranch`
-select the repository/ref; `approvedGitLabPath` selects a distinct
-`.acorn/approved/*.jsonl` output. Set each readiness flag to `true` only after
-testing the corresponding source, destination, and connector binding.
+Run from this directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 build-catalog-sync.py
 PYTHONDONTWRITEBYTECODE=1 python3 build-approved-sync.py
+PYTHONDONTWRITEBYTECODE=1 python3 build_workflows.py
 PYTHONDONTWRITEBYTECODE=1 python3 test_sync.py
+PYTHONDONTWRITEBYTECODE=1 python3 test_failures.py
 ```
 
-The generated `*.clipboard.json` files are designer action sources, not native
-flow packages. The ACORN GitLab Logbook connector has the revised
-`project-catalog.cs` script, optional `projectId` and `branch` inputs on its
-existing catalog action, and the new `GetProjectCatalogForRepository`,
-`ReadApprovedJsonl`, and `CommitApprovedJsonl` operations. The catalog flow
-uses those optional inputs so its downstream action references remain valid.
-`gitlab-sync.swagger.json` is the JSON form of the same connector definition.
-Both live flows use the existing protected GitLab connection. The canvas app
-must not receive that connection.
+Connection references are deliberately unbound in both generated scopes. The
+GitLab connector operation names remain compatible with the retained
+`project-catalog.swagger.yaml` / `gitlab-sync.swagger.json` contract. Binding a
+connection is a separate deployment action; the canvas apps must never receive
+the GitLab connection or token. The historical configuration file is context,
+not approval to use its targets. Sanitized artifacts require the
+[normal reuse checks](../../../../../privacy.md).
 
-## Publication safeguards
+## Catalog guarantees
 
-The catalog flow checks a bounded nonempty source and duplicate IDs before
-sequential list writes. The generated catalog scope also has a removal guard;
-that guard is not in the live flow yet. The approved flow requires the newest
-exporter receipt and compares its file identity, byte count, candidate
-fingerprint, and SharePoint revision with the current JSONL. Its GitLab write
-has no automatic retry. It reads GitLab first, skips matching content, and
-reads back exact content after an update. The live flow currently requires the
-configured GitLab destination file to exist; a missing file stops the flow.
-The generated approved scope also handles initial creation, but that branch is
-not deployed. Do not turn either flow On until a controlled test verifies the
-connector’s path encoding, the SharePoint receipt response, the receipt's
-`ETag` field, and the intended list/repository permissions.
+Before any write, the flow requires a bounded, nonempty catalog at a source
+revision; a complete SharePoint collection; unique case-insensitive IDs in both
+collections; valid nonempty labels; usable item ETags; and no removed project.
+The projected destination count, including the reserved General row, must fit
+1,000 items. Continuation links and malformed/truncated inputs stop the run.
 
-The current source library is **TEST ONLY** and the approval-gated exporter is
-Off. Production publication also requires the approved exporter cutover, a
-production receipt/library setting, and an existing dedicated GitLab file.
-Keep both live flows Off and their readiness flags false until those
-prerequisites and a controlled readback test are complete.
+The flow also reads the ProjectId field definition and requires indexed,
+writable, unique single-line text. It does not alter the list schema. This
+constraint prevents duplicate creates across retries or competing instances.
+The General row is preserved. The current GitLab connector returns IDs as
+fallback labels; these must not overwrite existing human-readable titles.
+Explicit non-fallback labels can update titles.
+
+Writes run sequentially. Existing rows use REST MERGE with the exact ETag;
+there is no wildcard overwrite or automatic write retry. Each create/update,
+including a failed or timed-out response, is followed by a lookup and exact
+ProjectId/Title/SourceRevision comparison. A matching no-op also gets read back.
+Uncertain writes only succeed when that comparison proves the intended state.
+A failed run can leave verified earlier rows updated: this is a convergent
+reconciliation, not a multi-row transaction. Preserve diagnostics and rerun only
+after investigating the failure; never restore a whole list over newer edits.
+
+## Approved snapshot guarantees
+
+The newest receipt must come from a bounded, complete file listing. Its required
+fields are typed, its timestamp must be neither future nor stale, and its file
+identity, ETag, byte count, line count, and candidate fingerprint must agree with
+the source. `maxReceiptAgeHours` defaults to 48 and can be configured explicitly;
+that is a freshness policy, not a guarantee of upstream schedule delivery.
+The source must be LF-terminated JSONL without blank lines or CR bytes, at most
+10 MiB, with positive batch and line counts.
+
+Metadata is read before and after content. ETag and UniqueId must stay stable
+and match the receipt, closing the content/metadata race. The inherited
+`b64-edge-v1` fingerprint is not a cryptographic digest; trust also depends on
+restricted source/receipt writers and authenticated revision checks. The sync
+does not independently re-perform review or validate every RAD field.
+
+The GitLab destination **must already exist** with readable base64 content and
+`last_commit_id`. A 404 is not permission to create: it can mean a missing file
+or ref. An empty dedicated file can bootstrap publication after explicit target
+approval. Otherwise its exact complete-line content must be a prefix of the
+approved snapshot. Older or divergent snapshots cannot erase newer GitLab
+history. Equal bytes produce no commit; changed bytes use conditional update
+with `last_commit_id`, with automatic write retry disabled.
+
+The flow rereads GitLab after success, failure, or timeout and verifies the exact
+base64 bytes, path, encoding, and returned revision. A lost write response can
+therefore reconcile successfully; mismatch or unreadable readback fails without
+claiming publication. Do not blindly replay a failed write or roll back over a
+later commit. No branch, repository, file, or bridge to `.acorn/intake/` is created.
+
+Read-only connector calls use at most three exponential retries, starting at five
+seconds with a 30-second maximum interval. Writes never retry automatically.
+
+## Scheduling and operations
+
+The new templates serialize each flow with trigger concurrency one. Proposed
+times are 03:00 and 03:30 Eastern, avoiding the missing 02:00 hour during the
+spring DST transition. These are template defaults; the historical live schedules
+were 02:00 and 02:30 and remain untouched. The flows are independent; a 30-minute
+offset does not establish approval/export completion. Publication checks the
+receipt itself on every run.
+
+Concurrency control applies to one flow, not clones. Deployment must designate
+one active writer for each target, disable superseded schedules, and verify
+there is no run still in flight. The platform owns connector timeouts; this
+source adds no claim of a bounded whole-run deadline. Operational acceptance must
+measure duration, configure owner-visible failure and missed-run monitoring,
+verify retention/access to run history, and test connection-owner continuity.
+No notification is sent and no alert destination is selected by these artifacts.
+`Sync_verified_BETA` records run ID, time, verified status, source revision and
+counts after the scope succeeds; approved mirroring also records the source
+receipt/batch and GitLab revision. It includes no payload text or credentials.
+Failure paths retain failure status and require reconciliation.
+
+Before enabling a production copy, supply and approve:
+
+- exact GitLab project/ref/file and SharePoint site/list/library, scoped connection references, and non-personal ownership/rotation arrangements;
+- the catalog uniqueness/index settings, single-writer policy, and a dedicated existing GitLab file with an accepted empty or exact-prefix baseline;
+- an accepted approval-gated exporter and its receipt/library contract; PA-41A gates Sponsor Highlights operational publication;
+- isolated allow/deny, limits, replay, ETag conflict, changed-source, stale receipt, real connector timeout/lost-response, readback, and recovery results;
+- fresh native backups, an inspected import/rebind in isolation, monitoring owners, support instructions, and an approved activation window.
+
+Set flags true only in the explicitly approved isolated copy during acceptance.
+Keep production copies Off/false until their release gates pass. Rollback is to
+disable scheduling and preserve verified data, then reconcile with its owner.
+Do not reactivate an unfiltered exporter or delete receipts/commits as rollback.
+
+## Evidence and review basis
+
+The offline matrix executes the generated graph against synthetic connector
+responses for disabled flags, changed/no-op replay, uncertain committed and
+uncommitted writes, denied/missing reads, stale/conflicting source revisions,
+newer/divergent/case-changed destinations, oversized snapshots, pagination, catalog duplicates/removals/capacity,
+unique-field requirements, ETag conflicts, title preservation, and readback
+failure. This is not proof of hosted WDL semantics, connector field shapes,
+permission enforcement, importability, licensing, or real service fault injection.
+
+The conditional-write and error-routing contracts were checked against
+[WDL expression semantics](https://learn.microsoft.com/en-us/azure/logic-apps/expression-functions-reference),
+[Microsoft run-after handling](https://learn.microsoft.com/en-us/azure/logic-apps/error-exception-handling),
+[SharePoint ETag updates](https://learn.microsoft.com/en-us/sharepoint/dev/sp-add-ins/working-with-lists-and-list-items-with-rest),
+[Power Automate concurrency limits](https://learn.microsoft.com/en-us/power-automate/limits-and-config),
+and [GitLab conditional commit actions](https://docs.gitlab.com/api/commits/).

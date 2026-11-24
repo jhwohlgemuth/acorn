@@ -1,5 +1,6 @@
 use crate::media::ImageCarousel;
 use crate::results::ResultView;
+use crate::script;
 use crate::syntax::{CodeBlock, CodeEditor};
 use crate::ui::{Icon, Route};
 use acorn_web::research_index::{Project, ResearchIndex};
@@ -198,14 +199,14 @@ pub(crate) fn DetailsDrawer() -> Element {
     let nav = use_navigator();
     let route = use_route::<Route>();
     use_future(move || async move {
-        let mut channel = document::eval("if (!window.acornDetails) await new Promise(resolve => window.addEventListener('acorn-details-ready', resolve, {once:true})); window.acornDetails.connect(() => dioxus.send(null)); await dioxus.recv();");
+        let mut channel = script::details_channel();
         while channel.recv::<Value>().await.is_ok() {
             drawer.set(None);
         }
     });
     use_effect(use_reactive((&route,), move |(_route,)| {
         if drawer.peek().is_some() {
-            document::eval("window.acornDetails?.close(false)");
+            script::close_details(false);
             drawer.set(None);
         }
     }));
@@ -220,14 +221,14 @@ pub(crate) fn DetailsDrawer() -> Element {
     use_effect(use_reactive((&detail,), move |(detail,)| {
         if detail.is_some() {
             tab.set("overview");
-            document::eval("requestAnimationFrame(() => { const panel = document.getElementById('details-drawer'); if (panel?.open) { panel.querySelector('.details-body')?.scrollTo(0, 0); panel.querySelector('.details-close')?.focus({preventScroll:true}); } })");
+            script::scroll_details_to_top();
         }
     }));
     use_effect(use_reactive((&visible,), move |(visible,)| {
         if visible {
-            document::eval("if (!window.acornDetails) await new Promise(resolve => window.addEventListener('acorn-details-ready', resolve, {once:true})); requestAnimationFrame(() => window.acornDetails.open())");
+            script::open_details();
         } else {
-            document::eval("window.acornDetails?.close()");
+            script::close_details_default();
         }
     }));
     let index = ResearchIndex::from(&snapshot);
@@ -237,7 +238,7 @@ pub(crate) fn DetailsDrawer() -> Element {
             if let Some(detail) = detail {
                 header { class: "details-header",
                     div { p { class: "details-eyebrow", "{detail.subtitle}" } h2 { id: "details-title", tabindex: "-1", "{detail.title}" } }
-                    button { class: "details-close", "aria-label": "Close details", title: "Close details (Esc)", onclick: move |_| { document::eval("window.acornDetails?.close()"); }, "×" }
+                    button { class: "details-close", "aria-label": "Close details", title: "Close details (Esc)", onclick: move |_| { script::close_details_default(); }, "×" }
                 }
                 if let Some(href) = snapshot.source.as_ref().and_then(|source| detail.path.as_deref().and_then(|path| source.link(path))) {
                     p { class: "details-provenance", a { href, target: "_blank", rel: "noopener noreferrer", "View source at loaded revision ↗" } }
@@ -253,8 +254,7 @@ pub(crate) fn DetailsDrawer() -> Element {
                             p { class: "small muted", "Read-only preview · {detail.source.len()} UTF-8 bytes" }
                             CodeEditor { id: "drawer-source", label: "Source preview", value: detail.source.clone(), language: detail.language.clone(), rows: 24, readonly: true, diagnostics: detail.checks.as_ref().and_then(|checks| checks["diagnostics"].as_array().cloned()).unwrap_or_default(), oninput: |_| {} }
                             button { class: "copy-code details-download", onclick: { let content = detail.source.clone(); let filename = detail.filename.clone(); move |_| {
-                                let args = serde_json::to_string(&(content.clone(), filename.clone(), "text/plain;charset=utf-8")).unwrap_or_default();
-                                document::eval(&format!("window.acornDownload(...{args})"));
+                                script::download_result(&content, &filename, "text/plain;charset=utf-8");
                             } }, Icon { name: "download" } "Download source" }
                         },
                         "checks" => rsx! {
@@ -323,9 +323,9 @@ pub(crate) fn DetailsDrawer() -> Element {
                     footer { class: "details-footer", button { class: "primary", onclick: move |_| {
                         input.set(detail.source.clone());
                         if let Some(path) = &detail.path { let mut workspace = workspace; let mut next = workspace(); next.selected = Some(path.clone()); workspace.set(next); }
-                        document::eval("window.acornDetails?.close(false)"); drawer.set(None);
+                        script::close_details(false); drawer.set(None);
                         nav.push(Route::Page { page: "review".into() });
-                        document::eval("requestAnimationFrame(() => (document.getElementById('content-editor') || document.getElementById('content'))?.focus())");
+                        script::focus_content_next_frame();
                     }, Icon { name: "code" } "Open in Review" } }
                 }
             }
@@ -419,7 +419,7 @@ fn metadata<'a>(value: &'a Value, field: &str) -> &'a Value {
     value.get("meta").and_then(|meta| meta.get(field)).unwrap_or(&Value::Null)
 }
 pub(crate) fn open(mut drawer: Signal<Option<Detail>>, detail: Detail) {
-    document::eval("window.acornDetails?.rememberFocus()");
+    script::remember_details_focus();
     drawer.set(Some(detail));
 }
 

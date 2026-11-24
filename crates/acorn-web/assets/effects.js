@@ -269,6 +269,7 @@ else if (typeof MutationObserver === "function" && document.documentElement) {
 const workspaceLimits = { count: 500, depth: 20, entries: 10000, file: 2 * 1024 * 1024, total: 32 * 1024 * 1024 };
 function validWorkspacePath(path) {
     const parts = path.split("/");
+    // oxlint-disable-next-line no-control-regex -- Reject control characters in workspace paths.
     return !/[\\:\x00-\x1f\x7f]/.test(path) && parts.length <= workspaceLimits.depth
         && parts.every((part) => part && part !== "." && part !== "..") && /\.(json|ya?ml|md|txt|svg|png|jpe?g|webp)$/i.test(path);
 }

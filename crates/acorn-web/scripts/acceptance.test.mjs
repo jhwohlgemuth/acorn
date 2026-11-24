@@ -5,6 +5,7 @@ import { test } from "node:test";
 
 const assets = new URL("../assets/", import.meta.url);
 const css = await readFile(new URL("app.css", assets), "utf8");
+// oxlint-disable-next-line unicorn/no-useless-spread -- String characters must be iterable before mapping.
 const tokens = (selector) => Object.fromEntries([...css.match(selector)[1].matchAll(/--([a-z]+):(#[a-f0-9]{3,6})/g)].map(([, key, value]) => [key, value.length === 4 ? "#" + [...value.slice(1)].map((digit) => digit + digit).join("") : value]));
 const luminance = (color) => color.slice(1).match(/../g).map((hex) => parseInt(hex, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
 const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);

@@ -174,3 +174,60 @@ fn test_option_timestamp_detection() {
     assert!(is_option_timestamp(&timestamp_ty));
     assert!(!is_option_timestamp(&string_ty));
 }
+
+mod script_tests {
+    #[cfg(feature = "js-lint")]
+    use crate::script::validate_javascript;
+    use crate::script::{parse_js, validate_authored_script, Part};
+
+    #[test]
+    fn test_authored_script_uses_one_value_argument() {
+        assert!(validate_authored_script("const [name] = __acornArgs; window.good(name)").is_ok());
+        assert!(validate_authored_script("window.good({name})").is_err());
+    }
+    #[test]
+    fn test_division_bindings_and_regex_bindings() {
+        for script in [
+            "return 10 / {divisor}",
+            "return amount/{divisor}",
+            "return call() / {divisor}",
+            "return [10][0] / {divisor}",
+            "return /a/.test('a') / {divisor}",
+            "const amount = {} / {divisor}",
+        ] {
+            assert!(parse_js(script).is_ok(), "{script}");
+        }
+        for script in ["return /{divisor}/", "const pattern = /{divisor}/", "if (ready) /{divisor}/.test(input)"] {
+            assert!(parse_js(script).is_err(), "{script}");
+        }
+    }
+    #[cfg(feature = "js-lint")]
+    #[test]
+    fn test_javascript_parser_rejects_invalid_body() {
+        assert!(validate_javascript("await Promise.resolve(); return null;").is_ok());
+        assert!(validate_javascript("const = ;").is_err());
+    }
+    #[test]
+    fn test_placeholder_is_a_value() {
+        assert_eq!(
+            parse_js("window.foo({value});"),
+            Ok(vec![
+                Part::Literal("window.foo(".into()),
+                Part::Binding("value".into()),
+                Part::Literal(");".into())
+            ])
+        );
+    }
+    #[test]
+    fn test_placeholder_rejects_identifier_fragments() {
+        for script in ["foo{value}", "{value}bar", "window.{value}"] {
+            assert!(parse_js(script).is_err(), "{script}");
+        }
+    }
+    #[test]
+    fn test_placeholder_rejects_quoted_contexts() {
+        for script in ["'{value}'", "\"{value}\"", "`{value}`", "// {value}\n", "/* {value} */", "/{value}/"] {
+            assert!(parse_js(script).is_err(), "{script}");
+        }
+    }
+}

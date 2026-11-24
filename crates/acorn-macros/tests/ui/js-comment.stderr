@@ -1,0 +1,5 @@
+error: js!(...): interpolation inside a comment is forbidden
+ --> tests/ui/js-comment.rs:5:17
+  |
+5 |     let _ = js!("// {value}\nwindow.good()");
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -14,6 +14,7 @@ SITE = '@' + CONFIG + "?['sharePointSiteUrl']"
 LIBRARY = CONFIG + "?['approvedExportLibrary']"
 EXPORT = "body('Read_approved_export_BETA')?['$content']"
 RECEIPT = "outputs('Receipt_object_BETA')"
+READ_RETRY = {'type': 'exponential', 'count': 3, 'interval': 'PT5S', 'maximumInterval': 'PT30S'}
 SECURE = {'secureData': {'properties': ['inputs', 'outputs']}}
 
 
@@ -28,7 +29,7 @@ def action(operation, parameters, dependency=None, *, gitlab=False, statuses=Non
                 'apiId': '/providers/Microsoft.PowerApps/apis/' + connector,
             },
             'parameters': parameters if gitlab else {'dataset': SITE, **parameters},
-            'retryPolicy': {'type': 'none'},
+            'retryPolicy': READ_RETRY if operation != 'CommitApprovedJsonl' else {'type': 'none'},
         },
         'runAfter': {dependency: statuses or ['Succeeded']} if dependency else {},
         'runtimeConfiguration': SECURE,
@@ -103,10 +104,6 @@ def build(config=None):
     base_write = ("setProperty(setProperty(setProperty(setProperty(json('{}'),'file_path',"
                   + CONFIG + "?['approvedGitLabPath']),'content'," + EXPORT
                   + "),'encoding','base64'),'action',")
-    create = action('CommitApprovedJsonl', {
-        **commit_common,
-        'body/actions': "@createArray(" + base_write + "'create'))",
-    }, gitlab=True)
     update = action('CommitApprovedJsonl', {
         **commit_common,
         'body/actions': ("@createArray(setProperty(" + base_write
@@ -123,30 +120,34 @@ def build(config=None):
         'else': {'actions': {'Update_approved_JSONL_BETA': update}},
         'runAfter': {},
     }
-    create_or_update = {
-        'type': 'If',
-        'expression': {'equals': ["@actions('Read_GitLab_before_BETA')?['status']", 'Failed']},
-        'actions': {'Create_approved_JSONL_BETA': create},
-        'else': {'actions': {'Update_only_if_changed_BETA': update_if_changed}},
-        'runAfter': {},
-    }
+    # WDL startsWith ignores case; compare the re-encoded prefix for exact bytes.
     publish = {
         'Read_GitLab_before_BETA': action('ReadApprovedJsonl', gitlab_read, gitlab=True),
         'GitLab_read_outcome_BETA': {
             'type': 'If',
-            'expression': {'or': [
+            'expression': {'and': [
                 {'equals': ["@actions('Read_GitLab_before_BETA')?['status']", 'Succeeded']},
-                {'and': [
-                    {'equals': ["@actions('Read_GitLab_before_BETA')?['status']", 'Failed']},
-                    {'equals': ["@outputs('Read_GitLab_before_BETA')?['statusCode']", 404]},
+                {'equals': ["@body('Read_GitLab_before_BETA')?['encoding']", 'base64']},
+                {'equals': ["@body('Read_GitLab_before_BETA')?['file_path']", '@' + CONFIG + "?['approvedGitLabPath']"]},
+                {'not': {'equals': ["@body('Read_GitLab_before_BETA')?['content']", None]}},
+                {'not': {'equals': ["@coalesce(body('Read_GitLab_before_BETA')?['last_commit_id'],'')", '']}},
+                {'equals': ['@base64(take(base64ToString(' + EXPORT + '),length(base64ToString(' + existing_content + '))))',
+                            '@' + existing_content]},
+                {'or': [
+                    {'equals': ['@' + existing_content, '']},
+                    {'equals': ["@endsWith(base64ToString(" + existing_content + "),decodeUriComponent('%0A'))", True]},
                 ]},
             ]},
             'actions': {
-                'Create_or_update_GitLab_BETA': create_or_update,
+                'Create_or_update_GitLab_BETA': update_if_changed,
                 'Read_GitLab_after_BETA': action('ReadApprovedJsonl', gitlab_read,
-                                                'Create_or_update_GitLab_BETA', gitlab=True),
+                                                'Create_or_update_GitLab_BETA', gitlab=True,
+                                                statuses=['Succeeded', 'Failed', 'TimedOut']),
                 'Verify_GitLab_bytes_BETA': gate(
                     {'and': [
+                        {'equals': ["@actions('Read_GitLab_after_BETA')?['status']", 'Succeeded']},
+                        {'equals': ["@body('Read_GitLab_after_BETA')?['encoding']", 'base64']},
+                        {'not': {'equals': ["@coalesce(body('Read_GitLab_after_BETA')?['last_commit_id'],'')", '']}},
                         {'equals': ['@' + after_content, '@' + EXPORT]},
                         {'equals': ["@body('Read_GitLab_after_BETA')?['file_path']",
                                     '@' + CONFIG + "?['approvedGitLabPath']"]},
@@ -156,15 +157,24 @@ def build(config=None):
             },
             'else': {'actions': {
                 'Fail_GitLabReadUnavailable_BETA': fail(
-                    'GitLabReadUnavailable', 'GitLab read failed without a confirmed missing file.'),
+                    'GitLabReadUnavailable', 'An existing dedicated GitLab file with readable revision and an exact complete-line prefix of the approved snapshot is required. No write was attempted.'),
             }},
             'runAfter': {'Read_GitLab_before_BETA': ['Succeeded', 'Failed', 'TimedOut']},
         },
     }
+    publish['GitLab_read_outcome_BETA']['actions']['Verify_GitLab_bytes_BETA']['runAfter'] = {
+        'Read_GitLab_after_BETA': ['Succeeded', 'Failed', 'TimedOut', 'Skipped'],
+    }
+    metadata_before = "body('Read_export_metadata_before_BETA')"
+    metadata_after = "body('Read_export_metadata_BETA')"
+    before_etag = "coalesce(" + metadata_before + "?['ETag']," + metadata_before + "?['@odata.etag'])"
+    after_etag = "coalesce(" + metadata_after + "?['ETag']," + metadata_after + "?['@odata.etag'])"
     verified = gate(
         {'and': [
             {'greater': ["@int(" + RECEIPT + "?['batchCount'])", 0]},
             {'greater': ["@int(" + RECEIPT + "?['lineCount'])", 0]},
+            {'not': {'equals': ['@trim(' + RECEIPT + "?['runId'])", '']}},
+            {'not': {'equals': ['@trim(' + RECEIPT + "?['lastApprovedBatchId'])", '']}},
             {'not': {'equals': ['@' + RECEIPT + "?['lastApprovedBatchId']", None]}},
             {'equals': ['@' + RECEIPT + "?['fileIdentity']", '@' + file_identity]},
             {'equals': ['@' + RECEIPT + "?['candidateFingerprint']",
@@ -172,19 +182,49 @@ def build(config=None):
             {'equals': ["@int(" + RECEIPT + "?['byteCount'])",
                         '@' + byte_count(EXPORT)]},
             {'equals': ['@' + RECEIPT + "?['fileRevision']",
-                        "@coalesce(body('Read_export_metadata_BETA')?['ETag'],"
-                        "body('Read_export_metadata_BETA')?['@odata.etag'])"]},
+                        '@' + after_etag]},
+            {'not': {'equals': ['@coalesce(' + before_etag + ",'')", '']}},
+            {'equals': ['@' + before_etag, '@' + after_etag]},
+            {'not': {'equals': ['@coalesce(' + metadata_before + "?['UniqueId'],'')", '']}},
+            {'equals': ['@' + metadata_before + "?['UniqueId']", '@' + metadata_after + "?['UniqueId']"]},
+            {'lessOrEquals': ['@' + byte_count(EXPORT), 10485760]},
+            {'equals': ["@endsWith(base64ToString(" + EXPORT + "),decodeUriComponent('%0A'))", True]},
+            {'equals': ["@contains(base64ToString(" + EXPORT + "),decodeUriComponent('%0D'))", False]},
+            {'equals': ["@contains(base64ToString(" + EXPORT + "),decodeUriComponent('%0A%0A'))", False]},
+            {'equals': ["@startsWith(base64ToString(" + EXPORT + "),decodeUriComponent('%0A'))", False]},
+            {'equals': ["@sub(length(split(base64ToString(" + EXPORT + "),decodeUriComponent('%0A'))),1)", '@' + RECEIPT + "?['lineCount']"]},
+            {'lessOrEquals': ["@ticks(" + RECEIPT + "?['verifiedAtUtc'])", '@ticks(utcNow())']},
+            {'greaterOrEquals': ["@ticks(" + RECEIPT + "?['verifiedAtUtc'])",
+                                 "@ticks(addHours(utcNow(),sub(0," + CONFIG + "?['maxReceiptAgeHours'])))"]},
         ]}, publish, 'UnverifiedApprovedExport',
-        'Receipt, finalized bytes, and SharePoint file revision do not agree.',
+        'Receipt is stale or receipt, finalized bytes, and stable SharePoint file revision do not agree.',
         'Read_export_metadata_BETA')
+    receipt_fields = {
+        key: {'type': 'integer' if key in ('batchCount', 'byteCount', 'lineCount') else 'string'}
+        for key in ('batchCount', 'byteCount', 'candidateFingerprint', 'fileIdentity',
+                    'fileRevision', 'lastApprovedBatchId', 'lineCount', 'runId', 'verifiedAtUtc')
+    }
     read_receipt = {
         'Read_receipt_BETA': action('GetFileContentByPath',
                                     {'path': '@' + receipt_path, 'inferContentType': False}),
         'Receipt_object_BETA': compose(
             "@json(base64ToString(body('Read_receipt_BETA')?['$content']))", 'Read_receipt_BETA'),
+        'Validate_receipt_shape_BETA': {
+            'type': 'ParseJson',
+            'inputs': {'content': '@' + RECEIPT, 'schema': {
+                'type': 'object', 'properties': receipt_fields, 'required': list(receipt_fields),
+            }},
+            'runAfter': {'Receipt_object_BETA': ['Succeeded']},
+            'runtimeConfiguration': SECURE,
+        },
+        'Read_export_metadata_before_BETA': action('HttpRequest', {
+            'parameters/method': 'GET',
+            'parameters/uri': metadata_uri,
+            'parameters/headers': {'Accept': 'application/json;odata=nometadata'},
+        }, 'Validate_receipt_shape_BETA'),
         'Read_approved_export_BETA': action('GetFileContentByPath',
                                             {'path': '@' + export_path, 'inferContentType': False},
-                                            'Receipt_object_BETA'),
+                                            'Read_export_metadata_before_BETA'),
         'Read_export_metadata_BETA': action('HttpRequest', {
             'parameters/method': 'GET',
             'parameters/uri': metadata_uri,
@@ -222,6 +262,7 @@ def build(config=None):
             {'and': [
                 {'greater': ["@length(body('Receipt_files_BETA'))", 0]},
                 {'lessOrEquals': ["@length(body('List_export_files_BETA')?['value'])", 5000]},
+                {'equals': ["@empty(coalesce(body('List_export_files_BETA')?['@odata.nextLink'],body('List_export_files_BETA')?['odata.nextLink'],body('List_export_files_BETA')?['d']?['__next']))", True]},
             ]}, read_receipt, 'NoFinalizedApprovedReceipt',
             'No bounded finalized approved export receipt was found.', 'Receipt_files_BETA'),
     }

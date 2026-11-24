@@ -19,7 +19,8 @@
           "gitLabWriteReady": false,
           "gitLabProjectId": 22464,
           "gitLabBranch": "main",
-          "approvedGitLabPath": ".acorn/approved/logbook.jsonl"
+          "approvedGitLabPath": ".acorn/approved/logbook.jsonl",
+          "maxReceiptAgeHours": 48
         },
         "runAfter": {},
         "runtimeConfiguration": {
@@ -114,7 +115,10 @@
             }
           },
           "retryPolicy": {
-            "type": "none"
+            "type": "exponential",
+            "count": 3,
+            "interval": "PT5S",
+            "maximumInterval": "PT30S"
           }
         },
         "runAfter": {
@@ -158,6 +162,12 @@
                 "@length(body('List_export_files_BETA')?['value'])",
                 5000
               ]
+            },
+            {
+              "equals": [
+                "@empty(coalesce(body('List_export_files_BETA')?['@odata.nextLink'],body('List_export_files_BETA')?['odata.nextLink'],body('List_export_files_BETA')?['d']?['__next']))",
+                true
+              ]
             }
           ]
         },
@@ -176,7 +186,10 @@
                 "inferContentType": false
               },
               "retryPolicy": {
-                "type": "none"
+                "type": "exponential",
+                "count": 3,
+                "interval": "PT5S",
+                "maximumInterval": "PT30S"
               }
             },
             "runAfter": {},
@@ -206,6 +219,105 @@
               }
             }
           },
+          "Validate_receipt_shape_BETA": {
+            "type": "ParseJson",
+            "inputs": {
+              "content": "@outputs('Receipt_object_BETA')",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "batchCount": {
+                    "type": "integer"
+                  },
+                  "byteCount": {
+                    "type": "integer"
+                  },
+                  "candidateFingerprint": {
+                    "type": "string"
+                  },
+                  "fileIdentity": {
+                    "type": "string"
+                  },
+                  "fileRevision": {
+                    "type": "string"
+                  },
+                  "lastApprovedBatchId": {
+                    "type": "string"
+                  },
+                  "lineCount": {
+                    "type": "integer"
+                  },
+                  "runId": {
+                    "type": "string"
+                  },
+                  "verifiedAtUtc": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "batchCount",
+                  "byteCount",
+                  "candidateFingerprint",
+                  "fileIdentity",
+                  "fileRevision",
+                  "lastApprovedBatchId",
+                  "lineCount",
+                  "runId",
+                  "verifiedAtUtc"
+                ]
+              }
+            },
+            "runAfter": {
+              "Receipt_object_BETA": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
+          "Read_export_metadata_before_BETA": {
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "@outputs('Sync_configuration_BETA')?['sharePointSiteUrl']",
+                "parameters/method": "GET",
+                "parameters/uri": "@concat('_api/web/GetFileByServerRelativeUrl(',decodeUriComponent('%27'),concat(uriPath(outputs('Sync_configuration_BETA')?['sharePointSiteUrl']),'/',outputs('Sync_configuration_BETA')?['approvedExportLibrary'],'/', 'logbook.jsonl'),decodeUriComponent('%27'),')?$select=ETag,UniqueId')",
+                "parameters/headers": {
+                  "Accept": "application/json;odata=nometadata"
+                }
+              },
+              "retryPolicy": {
+                "type": "exponential",
+                "count": 3,
+                "interval": "PT5S",
+                "maximumInterval": "PT30S"
+              }
+            },
+            "runAfter": {
+              "Validate_receipt_shape_BETA": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "secureData": {
+                "properties": [
+                  "inputs",
+                  "outputs"
+                ]
+              }
+            }
+          },
           "Read_approved_export_BETA": {
             "type": "OpenApiConnection",
             "inputs": {
@@ -220,11 +332,14 @@
                 "inferContentType": false
               },
               "retryPolicy": {
-                "type": "none"
+                "type": "exponential",
+                "count": 3,
+                "interval": "PT5S",
+                "maximumInterval": "PT30S"
               }
             },
             "runAfter": {
-              "Receipt_object_BETA": [
+              "Read_export_metadata_before_BETA": [
                 "Succeeded"
               ]
             },
@@ -254,7 +369,10 @@
                 }
               },
               "retryPolicy": {
-                "type": "none"
+                "type": "exponential",
+                "count": 3,
+                "interval": "PT5S",
+                "maximumInterval": "PT30S"
               }
             },
             "runAfter": {
@@ -290,6 +408,22 @@
                 {
                   "not": {
                     "equals": [
+                      "@trim(outputs('Receipt_object_BETA')?['runId'])",
+                      ""
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "equals": [
+                      "@trim(outputs('Receipt_object_BETA')?['lastApprovedBatchId'])",
+                      ""
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "equals": [
                       "@outputs('Receipt_object_BETA')?['lastApprovedBatchId']",
                       null
                     ]
@@ -318,6 +452,82 @@
                     "@outputs('Receipt_object_BETA')?['fileRevision']",
                     "@coalesce(body('Read_export_metadata_BETA')?['ETag'],body('Read_export_metadata_BETA')?['@odata.etag'])"
                   ]
+                },
+                {
+                  "not": {
+                    "equals": [
+                      "@coalesce(coalesce(body('Read_export_metadata_before_BETA')?['ETag'],body('Read_export_metadata_before_BETA')?['@odata.etag']),'')",
+                      ""
+                    ]
+                  }
+                },
+                {
+                  "equals": [
+                    "@coalesce(body('Read_export_metadata_before_BETA')?['ETag'],body('Read_export_metadata_before_BETA')?['@odata.etag'])",
+                    "@coalesce(body('Read_export_metadata_BETA')?['ETag'],body('Read_export_metadata_BETA')?['@odata.etag'])"
+                  ]
+                },
+                {
+                  "not": {
+                    "equals": [
+                      "@coalesce(body('Read_export_metadata_before_BETA')?['UniqueId'],'')",
+                      ""
+                    ]
+                  }
+                },
+                {
+                  "equals": [
+                    "@body('Read_export_metadata_before_BETA')?['UniqueId']",
+                    "@body('Read_export_metadata_BETA')?['UniqueId']"
+                  ]
+                },
+                {
+                  "lessOrEquals": [
+                    "@sub(div(mul(length(body('Read_approved_export_BETA')?['$content']),3),4),if(endsWith(body('Read_approved_export_BETA')?['$content'],'=='),2,if(endsWith(body('Read_approved_export_BETA')?['$content'],'='),1,0)))",
+                    10485760
+                  ]
+                },
+                {
+                  "equals": [
+                    "@endsWith(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A'))",
+                    true
+                  ]
+                },
+                {
+                  "equals": [
+                    "@contains(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0D'))",
+                    false
+                  ]
+                },
+                {
+                  "equals": [
+                    "@contains(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A%0A'))",
+                    false
+                  ]
+                },
+                {
+                  "equals": [
+                    "@startsWith(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A'))",
+                    false
+                  ]
+                },
+                {
+                  "equals": [
+                    "@sub(length(split(base64ToString(body('Read_approved_export_BETA')?['$content']),decodeUriComponent('%0A'))),1)",
+                    "@outputs('Receipt_object_BETA')?['lineCount']"
+                  ]
+                },
+                {
+                  "lessOrEquals": [
+                    "@ticks(outputs('Receipt_object_BETA')?['verifiedAtUtc'])",
+                    "@ticks(utcNow())"
+                  ]
+                },
+                {
+                  "greaterOrEquals": [
+                    "@ticks(outputs('Receipt_object_BETA')?['verifiedAtUtc'])",
+                    "@ticks(addHours(utcNow(),sub(0,outputs('Sync_configuration_BETA')?['maxReceiptAgeHours'])))"
+                  ]
                 }
               ]
             },
@@ -336,7 +546,10 @@
                     "ref": "@outputs('Sync_configuration_BETA')?['gitLabBranch']"
                   },
                   "retryPolicy": {
-                    "type": "none"
+                    "type": "exponential",
+                    "count": 3,
+                    "interval": "PT5S",
+                    "maximumInterval": "PT30S"
                   }
                 },
                 "runAfter": {},
@@ -352,7 +565,7 @@
               "GitLab_read_outcome_BETA": {
                 "type": "If",
                 "expression": {
-                  "or": [
+                  "and": [
                     {
                       "equals": [
                         "@actions('Read_GitLab_before_BETA')?['status']",
@@ -360,17 +573,51 @@
                       ]
                     },
                     {
-                      "and": [
+                      "equals": [
+                        "@body('Read_GitLab_before_BETA')?['encoding']",
+                        "base64"
+                      ]
+                    },
+                    {
+                      "equals": [
+                        "@body('Read_GitLab_before_BETA')?['file_path']",
+                        "@outputs('Sync_configuration_BETA')?['approvedGitLabPath']"
+                      ]
+                    },
+                    {
+                      "not": {
+                        "equals": [
+                          "@body('Read_GitLab_before_BETA')?['content']",
+                          null
+                        ]
+                      }
+                    },
+                    {
+                      "not": {
+                        "equals": [
+                          "@coalesce(body('Read_GitLab_before_BETA')?['last_commit_id'],'')",
+                          ""
+                        ]
+                      }
+                    },
+                    {
+                      "equals": [
+                        "@base64(take(base64ToString(body('Read_approved_export_BETA')?['$content']),length(base64ToString(replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')))))",
+                        "@replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')"
+                      ]
+                    },
+                    {
+                      "or": [
                         {
                           "equals": [
-                            "@actions('Read_GitLab_before_BETA')?['status']",
-                            "Failed"
+                            "@replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')",
+                            ""
                           ]
                         },
                         {
                           "equals": [
-                            "@outputs('Read_GitLab_before_BETA')?['statusCode']",
-                            404
+                            "@endsWith(base64ToString(replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')),decodeUriComponent('%0A'))",
+                            true
                           ]
                         }
                       ]
@@ -382,84 +629,40 @@
                     "type": "If",
                     "expression": {
                       "equals": [
-                        "@actions('Read_GitLab_before_BETA')?['status']",
-                        "Failed"
+                        "@replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')",
+                        "@body('Read_approved_export_BETA')?['$content']"
                       ]
                     },
-                    "actions": {
-                      "Create_approved_JSONL_BETA": {
-                        "type": "OpenApiConnection",
-                        "inputs": {
-                          "host": {
-                            "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
-                            "operationId": "CommitApprovedJsonl",
-                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46"
-                          },
-                          "parameters": {
-                            "projectId": "@outputs('Sync_configuration_BETA')?['gitLabProjectId']",
-                            "body/branch": "@outputs('Sync_configuration_BETA')?['gitLabBranch']",
-                            "body/commit_message": "@concat('approved-jsonl-sync:',outputs('Receipt_object_BETA')?['runId'])",
-                            "body/actions": "@createArray(setProperty(setProperty(setProperty(setProperty(json('{}'),'file_path',outputs('Sync_configuration_BETA')?['approvedGitLabPath']),'content',body('Read_approved_export_BETA')?['$content']),'encoding','base64'),'action','create'))"
-                          },
-                          "retryPolicy": {
-                            "type": "none"
-                          }
-                        },
-                        "runAfter": {},
-                        "runtimeConfiguration": {
-                          "secureData": {
-                            "properties": [
-                              "inputs",
-                              "outputs"
-                            ]
-                          }
-                        }
-                      }
-                    },
+                    "actions": {},
                     "else": {
                       "actions": {
-                        "Update_only_if_changed_BETA": {
-                          "type": "If",
-                          "expression": {
-                            "equals": [
-                              "@replace(replace(body('Read_GitLab_before_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')",
-                              "@body('Read_approved_export_BETA')?['$content']"
-                            ]
-                          },
-                          "actions": {},
-                          "else": {
-                            "actions": {
-                              "Update_approved_JSONL_BETA": {
-                                "type": "OpenApiConnection",
-                                "inputs": {
-                                  "host": {
-                                    "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
-                                    "operationId": "CommitApprovedJsonl",
-                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46"
-                                  },
-                                  "parameters": {
-                                    "projectId": "@outputs('Sync_configuration_BETA')?['gitLabProjectId']",
-                                    "body/branch": "@outputs('Sync_configuration_BETA')?['gitLabBranch']",
-                                    "body/commit_message": "@concat('approved-jsonl-sync:',outputs('Receipt_object_BETA')?['runId'])",
-                                    "body/actions": "@createArray(setProperty(setProperty(setProperty(setProperty(setProperty(json('{}'),'file_path',outputs('Sync_configuration_BETA')?['approvedGitLabPath']),'content',body('Read_approved_export_BETA')?['$content']),'encoding','base64'),'action','update'),'last_commit_id',body('Read_GitLab_before_BETA')?['last_commit_id']))"
-                                  },
-                                  "retryPolicy": {
-                                    "type": "none"
-                                  }
-                                },
-                                "runAfter": {},
-                                "runtimeConfiguration": {
-                                  "secureData": {
-                                    "properties": [
-                                      "inputs",
-                                      "outputs"
-                                    ]
-                                  }
-                                }
-                              }
+                        "Update_approved_JSONL_BETA": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "host": {
+                              "connectionName": "shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46",
+                              "operationId": "CommitApprovedJsonl",
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_acorn-20gitlab-20logbook-5f06923fc38f4e1ce0-5fee5c9710be0fad46"
+                            },
+                            "parameters": {
+                              "projectId": "@outputs('Sync_configuration_BETA')?['gitLabProjectId']",
+                              "body/branch": "@outputs('Sync_configuration_BETA')?['gitLabBranch']",
+                              "body/commit_message": "@concat('approved-jsonl-sync:',outputs('Receipt_object_BETA')?['runId'])",
+                              "body/actions": "@createArray(setProperty(setProperty(setProperty(setProperty(setProperty(json('{}'),'file_path',outputs('Sync_configuration_BETA')?['approvedGitLabPath']),'content',body('Read_approved_export_BETA')?['$content']),'encoding','base64'),'action','update'),'last_commit_id',body('Read_GitLab_before_BETA')?['last_commit_id']))"
+                            },
+                            "retryPolicy": {
+                              "type": "none"
                             }
                           },
-                          "runAfter": {}
+                          "runAfter": {},
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs",
+                                "outputs"
+                              ]
+                            }
+                          }
                         }
                       }
                     },
@@ -479,12 +682,17 @@
                         "ref": "@outputs('Sync_configuration_BETA')?['gitLabBranch']"
                       },
                       "retryPolicy": {
-                        "type": "none"
+                        "type": "exponential",
+                        "count": 3,
+                        "interval": "PT5S",
+                        "maximumInterval": "PT30S"
                       }
                     },
                     "runAfter": {
                       "Create_or_update_GitLab_BETA": [
-                        "Succeeded"
+                        "Succeeded",
+                        "Failed",
+                        "TimedOut"
                       ]
                     },
                     "runtimeConfiguration": {
@@ -500,6 +708,26 @@
                     "type": "If",
                     "expression": {
                       "and": [
+                        {
+                          "equals": [
+                            "@actions('Read_GitLab_after_BETA')?['status']",
+                            "Succeeded"
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@body('Read_GitLab_after_BETA')?['encoding']",
+                            "base64"
+                          ]
+                        },
+                        {
+                          "not": {
+                            "equals": [
+                              "@coalesce(body('Read_GitLab_after_BETA')?['last_commit_id'],'')",
+                              ""
+                            ]
+                          }
+                        },
                         {
                           "equals": [
                             "@replace(replace(body('Read_GitLab_after_BETA')?['content'],decodeUriComponent('%0A'),''),decodeUriComponent('%0D'),'')",
@@ -532,7 +760,10 @@
                     },
                     "runAfter": {
                       "Read_GitLab_after_BETA": [
-                        "Succeeded"
+                        "Succeeded",
+                        "Failed",
+                        "TimedOut",
+                        "Skipped"
                       ]
                     }
                   }
@@ -545,7 +776,7 @@
                         "runStatus": "Failed",
                         "runError": {
                           "code": "GitLabReadUnavailable",
-                          "message": "GitLab read failed without a confirmed missing file."
+                          "message": "An existing dedicated GitLab file with readable revision and an exact complete-line prefix of the approved snapshot is required. No write was attempted."
                         }
                       },
                       "runAfter": {}
@@ -569,7 +800,7 @@
                     "runStatus": "Failed",
                     "runError": {
                       "code": "UnverifiedApprovedExport",
-                      "message": "Receipt, finalized bytes, and SharePoint file revision do not agree."
+                      "message": "Receipt is stale or receipt, finalized bytes, and stable SharePoint file revision do not agree."
                     }
                   },
                   "runAfter": {}

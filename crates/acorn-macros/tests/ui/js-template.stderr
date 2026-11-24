@@ -1,0 +1,5 @@
+error: js!(...): interpolation inside a template literal is forbidden
+ --> tests/ui/js-template.rs:5:17
+  |
+5 |     let _ = js!("window.good(`{value}`)");
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^

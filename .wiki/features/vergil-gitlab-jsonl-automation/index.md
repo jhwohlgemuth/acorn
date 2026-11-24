@@ -15,6 +15,8 @@ phase_budget_hours: 5
 
 Automate the GitLab inbox lifecycle on Vergil: durable admission, conflict-safe inbox cleanup, routed review branch/MR, authorized graduation, human merge, scheduled report publication and authenticated callbacks. This plan is a later, independent GitLab track. The working SharePoint list -> downloaded snapshot -> local stage/inspect/apply/report workflow does not wait for it.
 
+Reusable status streaming and its later authentication phase belong to the [GitLab bot live-status plan](../gitlab-bot-live-status.md). The Vergil pilot's deployment and acceptance do not wait for a desktop or hosted browser dashboard.
+
 Supporting material: [ACRE configuration examples](configuration-examples.md), [callback schema](_assets/callback-event.schema.json), and [notification walkthrough](../powerapps-jsonl-intake/notification-walkthrough.md). Callback/bot sources and acceptance files are in `_assets/`.
 
 # Current evidence

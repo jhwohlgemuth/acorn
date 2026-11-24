@@ -2,7 +2,7 @@
 
 - [CLI coverage](cli-coverage.md) - Close the remaining high-value link, serve, SWHID, binary-error, and test-support gaps.
 - [Coverage throughput](coverage-throughput.md) - Make the local test and coverage loop fast enough to run after every change.
-- [Frontend build quality](frontend-build-quality.md) - Gate CSS/JS/TS before frontend builds and verify minified release assets across local and CI entry points.
+- [Frontend build quality](frontend-build-quality.md) - Repository-wide Oxlint and Stylelint gates are accepted; remaining phases cover compiler and release-asset checks.
 - [GitLab shell runner readiness](gitlab-shell-runner-readiness.md) - GSR-02 is blocked. Runner 55645 can start a tagged job, then loses the final status update.
 - [Portable PID verification](pid-verification.md) - Gate the pinned Verus toolchain and a feature-gated checksum crate, prove the shared ORCID/ISNI core, then connect production callers, consolidate PID helpers, and run public APIs under Miri.
 - [Report PowerPoint visual regression](powerpoint-report-visual-regression.md) - Generate report decks, verify slide content, and compare reviewed LibreOffice renders on Linux and native Windows.

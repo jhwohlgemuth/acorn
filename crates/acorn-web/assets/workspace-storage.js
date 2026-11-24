@@ -84,7 +84,7 @@ function createWorkspaceStorage(storage = () => window.localStorage, indexedDB =
             const stored = transaction.objectStore("files");
             for (const path of knownFiles.keys()) if (!files.has(path)) stored.delete(path);
             for (const file of workspace.files) if (knownFiles.get(file.path) !== file.content) stored.put(imageRecord(file));
-            const { files: omitted, ...metadata } = workspace;
+            const { files: _omitted, ...metadata } = workspace;
             state.put({ schema: 2, revision: nextRevision, workspace: metadata, bytes: nextBytes }, "workspace");
         } catch (error) {
             transaction.abort();

@@ -6,6 +6,8 @@ import subprocess
 import sys
 import time
 import urllib.request
+
+from process_control import registration
 from rust import environment as rust_environment
 
 try:
@@ -23,6 +25,18 @@ def launch(command, cwd, environment):
     return subprocess.Popen(command, cwd=cwd, env=environment, **options)
 
 
+def stop(_signum=None, _frame=None):
+    for process in processes:
+        if process.poll() is None:
+            terminate(process)
+    for process in processes:
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            terminate(process, force=True)
+            process.wait()
+
+
 def terminate(process, force=False):
     if os.name == "nt":
         if force:
@@ -36,41 +50,34 @@ def terminate(process, force=False):
         os.killpg(process.pid, signal.SIGKILL if force else signal.SIGTERM)
 
 
-def stop(_signum=None, _frame=None):
-    for process in processes:
-        if process.poll() is None:
-            terminate(process)
-    for process in processes:
-        try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            terminate(process, force=True)
-            process.wait()
-
-
 signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
-try:
-    frontend_port = int(sys.argv[sys.argv.index("--port") + 1])
-    environment = {**rust_environment(), "ACORN_WEB_DEV_ORIGIN": f"http://127.0.0.1:{frontend_port}", "ACORN_MAP_DEV_URL": "http://127.0.0.1:8083"}
-    processes.append(launch(["npm", "run", "dev"], root / "crates/acorn-web/geospatial", environment))
-    for attempt in range(100):
-        if processes[0].poll() is not None:
-            raise RuntimeError("Vite stopped before becoming ready")
-        try:
-            urllib.request.urlopen("http://127.0.0.1:8083/@vite/client", timeout=1).close()
-            break
-        except OSError:
-            time.sleep(0.2)
-    else:
-        raise RuntimeError("Vite did not become ready")
-    processes.append(launch(sys.argv[1:], root, environment))
-    while all(process.poll() is None for process in processes):
-        time.sleep(0.2)
-    sys.exit(next(process.returncode for process in processes if process.returncode is not None))
-finally:
+with registration("web-dev") as stop_request:
     try:
-        stop()
+        frontend_port = int(sys.argv[sys.argv.index("--port") + 1])
+        environment = {**rust_environment(), "ACORN_WEB_DEV_ORIGIN": f"http://127.0.0.1:{frontend_port}", "ACORN_MAP_DEV_URL": "http://127.0.0.1:8083"}
+        processes.append(launch(["npm", "run", "dev"], root / "crates/acorn-web/geospatial", environment))
+        for attempt in range(100):
+            if stop_request.exists():
+                break
+            if processes[0].poll() is not None:
+                raise RuntimeError("Vite stopped before becoming ready")
+            try:
+                urllib.request.urlopen("http://127.0.0.1:8083/@vite/client", timeout=1).close()
+                break
+            except OSError:
+                time.sleep(0.2)
+        else:
+            raise RuntimeError("Vite did not become ready")
+        if not stop_request.exists():
+            processes.append(launch(sys.argv[1:], root, environment))
+            while all(process.poll() is None for process in processes) and not stop_request.exists():
+                time.sleep(0.2)
+            if not stop_request.exists():
+                sys.exit(next(process.returncode for process in processes if process.returncode is not None))
     finally:
-        if terminal is not None and termios is not None:
-            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, terminal)
+        try:
+            stop()
+        finally:
+            if terminal is not None and termios is not None:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, terminal)

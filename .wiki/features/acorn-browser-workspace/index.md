@@ -894,6 +894,28 @@ The integration owner may use `src/ui.rs`, `src/main.rs`, `src/lib.rs`, new focu
 - Focused validation: Absent/stopped/unauthorized daemon, bounded history, job control and lifecycle fixtures, failure rollback, secret redaction, offline local loopback and native service-manager evidence per available OS.
 - Handoff: Record ACD version/host dependency, remove ABW-53, and leave unavailable OS rows open for native acceptance.
 
+## ABW-70 — Show GitLab bot status in desktop
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-11, ABW-48, and GBO-02 in the [bot live-status plan](../gitlab-bot-live-status.md)
+- Exact write set: `crates/acorn-desktop/src/commands/bot.rs` (new), `crates/acorn-desktop/src/tests.rs`, `crates/acorn-desktop/capabilities/main.json`, `crates/acorn-web/src/host/bot.rs` (new), `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/bot.rs` (new), `.wiki/features/acorn-browser-workspace/index.md`
+- Primary integration lock: desktop bot observation bridge and shared dashboard UI
+- Outcome: Add an opt-in named bot connection and a dashboard with current status, poll/processed counts, worker state, last error, and a clear reconnect/stale state. The native bridge holds the scoped credential; the webview receives only bounded status data. Keep local `acornd` lifecycle and job controls under ABW-53; do not imply GitLab bot control from an SSE subscription.
+- Focused validation: Mock bot feed and state snapshot, unavailable/unauthorized host, reconnect, stale data, cancellation, secret redaction, and typed bridge isolation tests.
+- Handoff: Record desktop connection and status evidence, remove ABW-70, and pass the shared view to ABW-71.
+
+## ABW-71 — Enable read-only bot status in hosted web
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: ABW-70 and accepted GBO-02 browser access and origin contract
+- Exact write set: `crates/acorn-web/src/bot.rs`, `crates/acorn-web/src/host.rs`, `crates/acorn-web/src/ui.rs`, `crates/acorn-web/assets/remote.js`, `crates/acorn-web/scripts/pages-smoke.mjs`, `.wiki/features/acorn-browser-workspace/index.md`
+- Primary integration lock: browser bot connection and shared dashboard UI
+- Outcome: Reuse the status dashboard for an explicitly configured, authorized bot origin. Show unsupported origin/CORS, expired access, disconnect, and stale-state feedback. Keep hosted web read-only and retain ordinary offline tools without a bot connection.
+- Focused validation: Mock authenticated cross-origin stream, forbidden origin, reconnect with fresh snapshot, no URL secret, offline and no-connection Pages smokes.
+- Handoff: Record hosted-origin and privacy evidence, then remove ABW-71.
+
 ## ABW-54 — Connect configured agents and outbound tools
 
 - Status: planned

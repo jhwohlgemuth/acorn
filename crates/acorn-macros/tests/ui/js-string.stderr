@@ -1,0 +1,5 @@
+error: js!(...): interpolation inside a string literal is forbidden
+ --> tests/ui/js-string.rs:5:17
+  |
+5 |     let _ = js!("window.good('{value}')");
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^

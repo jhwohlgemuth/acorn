@@ -1,4 +1,5 @@
 """Regression checks for browser toolchain selection and terminal cleanup."""
+from contextlib import nullcontext
 import importlib.util
 import os
 from pathlib import Path
@@ -15,6 +16,9 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "crates/acorn-web/scripts"
 SPEC = importlib.util.spec_from_file_location("rust", SCRIPTS / "rust.py")
 RUST = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RUST)
+CONTROL = MagicMock()
+CONTROL.registration.side_effect = lambda _: nullcontext(CONTROL.request)
+CONTROL.request.exists.return_value = False
 
 
 class WebDevTests(unittest.TestCase):
@@ -26,7 +30,7 @@ class WebDevTests(unittest.TestCase):
         vite.wait.side_effect = RuntimeError("cleanup failed")
         dioxus = MagicMock(returncode=7)
         dioxus.poll.return_value = 7
-        with patch.dict(sys.modules, {"rust": RUST, "termios": termios}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
+        with patch.dict(sys.modules, {"rust": RUST, "termios": termios, "process_control": CONTROL}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
                 patch.object(sys.stdin, "isatty", return_value=True), patch("termios.tcgetattr", return_value=terminal), \
                 patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("os.killpg", create=True), \
                 patch.object(RUST, "environment", return_value={"PATH": "/selected/bin"}), \
@@ -72,7 +76,7 @@ class WebDevTests(unittest.TestCase):
             self.assertIn("Dioxus CLI not executable", missing.stderr)
             self.assertFalse(marker.exists())
             with overlay.open("a") as makefile:
-                makefile.write("web-map web-editor-bundle web-prepare:\n\t@:\nweb-dev web-build:\n\t@test -x target/tools/dioxus/bin/dx\n")
+                makefile.write("web-deps web-editor-bundle web-lint web-map web-prepare:\n\t@:\nweb-dev web-build:\n\t@test -x target/tools/dioxus/bin/dx\n")
             for target in ("web-dev", "web-build"):
                 executable.unlink(missing_ok=True)
                 marker.unlink(missing_ok=True)
@@ -84,7 +88,7 @@ class WebDevTests(unittest.TestCase):
         termios = MagicMock(TCSADRAIN=1)
         vite = MagicMock(returncode=None, pid=12345)
         vite.poll.return_value = None
-        with patch.dict(sys.modules, {"rust": RUST, "termios": termios}), patch.object(sys, "argv", ["dev.py", "missing-dx", "serve", "--port", "8084"]), \
+        with patch.dict(sys.modules, {"rust": RUST, "termios": termios, "process_control": CONTROL}), patch.object(sys, "argv", ["dev.py", "missing-dx", "serve", "--port", "8084"]), \
                 patch.object(sys.stdin, "isatty", return_value=True), patch("termios.tcgetattr", return_value=[]), \
                 patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("os.killpg", create=True) as terminate, \
                 patch.object(RUST, "environment", return_value={"PATH": "/selected/bin"}), \
@@ -116,9 +120,29 @@ class WebDevTests(unittest.TestCase):
             self.assertEqual(RUST.execute(command, platform="nt"), 23)
             call.assert_called_once_with(command, env={"PATH": "C:\\selected\\bin"})
 
+    def test_stop_request_stops_both_child_groups(self):
+        termios = MagicMock(TCSADRAIN=1)
+        vite = MagicMock(returncode=None, pid=12345)
+        vite.poll.return_value = None
+        dioxus = MagicMock(returncode=None, pid=23456)
+        dioxus.poll.return_value = None
+        with patch.dict(sys.modules, {"rust": RUST, "termios": termios, "process_control": CONTROL}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
+                patch.object(sys.stdin, "isatty", return_value=False), patch("signal.signal"), \
+                patch("os.killpg", create=True) as terminate, patch.object(CONTROL.request, "exists", side_effect=[False, False, True, True]), \
+                patch.object(RUST, "environment", return_value={"PATH": "/selected/bin"}), \
+                patch("urllib.request.urlopen"), patch("subprocess.Popen", side_effect=[vite, dioxus]):
+            runpy.run_path(str(SCRIPTS / "dev.py"), run_name="__main__")
+            vite.wait.assert_called_once_with(timeout=10)
+            dioxus.wait.assert_called_once_with(timeout=10)
+            if os.name == "nt":
+                vite.send_signal.assert_called_once_with(signal.CTRL_BREAK_EVENT)
+                dioxus.send_signal.assert_called_once_with(signal.CTRL_BREAK_EVENT)
+            else:
+                self.assertEqual([call.args[0] for call in terminate.call_args_list], [vite.pid, dioxus.pid])
+
     def test_toolchain_failure_starts_no_servers_and_restores_terminal(self):
         termios = MagicMock(TCSADRAIN=1)
-        with patch.dict(sys.modules, {"rust": RUST, "termios": termios}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
+        with patch.dict(sys.modules, {"rust": RUST, "termios": termios, "process_control": CONTROL}), patch.object(sys, "argv", ["dev.py", "dx", "serve", "--port", "8084"]), \
                 patch.object(sys.stdin, "isatty", return_value=True), patch("termios.tcgetattr", return_value=[]), \
                 patch("termios.tcsetattr") as restore, patch("signal.signal"), patch("subprocess.Popen") as launch, \
                 patch.object(RUST, "environment", side_effect=subprocess.CalledProcessError(1, "rustup")):

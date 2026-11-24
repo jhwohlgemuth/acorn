@@ -1,5 +1,6 @@
 use crate::dashboard::{ChartSegment, DashboardTile, DonutTile, GridCell, MetricTile, TileLayout, PORTFOLIO_TILES};
 use crate::details::{self, Detail};
+use crate::script;
 use crate::search_ui::SearchField;
 use crate::ui::{validate_files, FileInput, Icon, Route, UrlFileInput};
 use crate::window_sync;
@@ -16,8 +17,6 @@ use dioxus::prelude::*;
 use serde_json::{json, Value};
 use strum::IntoEnumIterator;
 
-const IDENTIFIER_COLOR_COUNT: usize = 8;
-const TAG_COLOR_COUNT: usize = 8;
 const FILE_KIND_FILTERS: [(Option<MimeType>, &str, &str, &str); 6] = [
     (Some(MimeType::Json), "json", "JSON", "JSON files"),
     (Some(MimeType::Yaml), "yaml", "YAML", "YAML files"),
@@ -26,8 +25,10 @@ const FILE_KIND_FILTERS: [(Option<MimeType>, &str, &str, &str); 6] = [
     (None, "image", "Images", "Image files"),
     (None, "other", "Other", "Other files"),
 ];
+const IDENTIFIER_COLOR_COUNT: usize = 8;
+const TAG_COLOR_COUNT: usize = 8;
 #[derive(Clone, Default, serde::Deserialize)]
-struct BucketHistory {
+pub(crate) struct BucketHistory {
     repositories: Vec<String>,
     refs: Vec<String>,
 }
@@ -194,7 +195,7 @@ pub(crate) fn Loader() -> Element {
     let mut url_open = use_signal(|| false);
     let mut close_url = move || {
         url_open.set(false);
-        document::eval("document.getElementById('home-source-trigger')?.focus()");
+        script::focus_home_source_trigger();
     };
     let mut remote_url = use_signal(String::new);
     let mut remote_ref = use_signal(String::new);
@@ -206,17 +207,17 @@ pub(crate) fn Loader() -> Element {
     let mut credential_error = use_signal(String::new);
     let mut history = use_signal(BucketHistory::default);
     use_future(move || async move {
-        if let Ok(saved) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.history.read();").join::<BucketHistory>().await {
+        if let Ok(saved) = script::read_remote_history().await {
             history.set(saved);
         }
     });
     use_future(move || async move {
-        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialStatus();").join::<String>().await {
+        if let Ok(host) = script::credential_status().await {
             credential_status.set(host);
         }
     });
     use_future(move || async move {
-        let mut channel = document::eval("if (!window.acornWorkspace) await new Promise(resolve => window.addEventListener('acorn-effects-ready', resolve, {once:true})); window.acornWorkspace.connect(batch => dioxus.send(batch)); await dioxus.recv();");
+        let mut channel = script::workspace_picker_channel();
         while let Ok(batch) = channel.recv::<Selection>().await {
             remote_success.set(String::new());
             if batch.files.is_empty() {
@@ -253,7 +254,7 @@ pub(crate) fn Loader() -> Element {
         }
     });
     use_drop(move || {
-        document::eval("window.acornWorkspace?.disconnect()");
+        script::disconnect_workspace_picker();
     });
     rsx! {
         p { class: "load-caption muted", "Open research activity data" }
@@ -261,12 +262,12 @@ pub(crate) fn Loader() -> Element {
             div { class: "load-tile",
                 button { id: "home-source-trigger", class: "tile-action", "aria-expanded": choose(), "aria-controls": "loader-choices", onclick: move |_| { url_open.set(false); choose.toggle(); }, span { class: "tile-icon folder-icon", "aria-hidden": "true", Icon { name: "folder-open" } } strong { "Open file or folder" } small { "Files, folders or URL" } }
                 if choose() { div { id: "loader-choices", class: "actions", "aria-label": "Choose content source",
-                    button { onclick: move |_| { choose.set(false); document::eval("window.acornWorkspace.pick('file')"); }, Icon { name: "file" } "Files" }
-                    button { onclick: move |_| { choose.set(false); document::eval("window.acornWorkspace.pick('folder')"); }, Icon { name: "folder-open" } "Folder" }
-                    button { onclick: move |_| { choose.set(false); url_open.set(true); document::eval("requestAnimationFrame(() => document.querySelector('.url-file-loader input')?.focus())"); }, Icon { name: "link" } "URL" }
+                    button { onclick: move |_| { choose.set(false); script::pick_workspace_file(); }, Icon { name: "file" } "Files" }
+                    button { onclick: move |_| { choose.set(false); script::pick_workspace_folder(); }, Icon { name: "folder-open" } "Folder" }
+                    button { onclick: move |_| { choose.set(false); url_open.set(true); script::focus_url_loader(); }, Icon { name: "link" } "URL" }
                 } }
             }
-            div { class: "load-tile", "data-workspace-drop": "true", button { class: "tile-action", onclick: move |_| { document::eval("window.acornWorkspace.pick('file')"); }, span { class: "tile-icon upload-icon", "aria-hidden": "true", Icon { name: "upload" } } strong { "Drop content" } small { "Drop files or folders" } } }
+            div { class: "load-tile", "data-workspace-drop": "true", button { class: "tile-action", onclick: move |_| { script::pick_workspace_file(); }, span { class: "tile-icon upload-icon", "aria-hidden": "true", Icon { name: "upload" } } strong { "Drop content" } small { "Drop files or folders" } } }
         }
         if url_open() { div { class: "source-tray home-source-tray", role: "region", "aria-label": "Load content options",
             onkeydown: move |event| { if event.key() == Key::Escape { event.prevent_default(); event.stop_propagation(); close_url(); } },
@@ -288,8 +289,7 @@ pub(crate) fn Loader() -> Element {
             event.prevent_default();
             if remote_loading() { return; }
             remote_loading.set(true); remote_error.set(String::new()); remote_success.set(String::new()); message.set(String::new());
-            let args = serde_json::to_string(&(remote_url(), remote_ref())).unwrap_or_default();
-            let result = document::eval(&format!("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {{once:true}})); let result; try {{ result = {{ok: await window.acornRemote.load(...{args})}}; }} catch(error) {{ result = {{error: error.message}}; }} return {{...result, history: window.acornRemote.history.read()}};")).join::<Value>().await;
+            let result = script::load_remote_bucket(&remote_url(), &remote_ref()).await;
             match result {
                 Ok(value) => {
                     if let Ok(saved) = serde_json::from_value::<BucketHistory>(value.get("history").cloned().unwrap_or(Value::Null)) { history.set(saved); }
@@ -343,13 +343,13 @@ pub(crate) fn Loader() -> Element {
                 label { class: "field", "Access token" input { id: "repository-token", r#type: "password", autocomplete: "off", spellcheck: "false" } }
                 p { class: "small muted", "The token survives reloads, stays separate from workspace data, and is cleared when the tab session ends." }
                 div { class: "actions credential-actions", button { r#type: "button", class: "primary", onclick: move |_| async move {
-                    let result = document::eval("try { const field = document.getElementById('repository-token'); const status = window.acornRemote.setCredential(field.value); field.value = ''; return {status}; } catch(error) { return {error: error.message}; }").join::<Value>().await;
+                    let result = script::set_workspace_credential().await;
                     match result {
                         Ok(value) => if let Some(status) = value.get("status").and_then(Value::as_str) { credential_status.set(status.to_owned()); credential_message.set("Token saved for repository loads in this tab.".into()); credential_error.set(String::new()); } else { credential_error.set(value.get("error").and_then(Value::as_str).unwrap_or("Enter a valid access token.").to_owned()); credential_message.set(String::new()); },
                         Err(_) => { credential_error.set("Could not save the repository token. Try again.".into()); credential_message.set(String::new()); },
                     }
                 }, "Save token" }
-                button { r#type: "button", class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(document::eval("const removed = window.acornRemote?.clearCredential() ?? false; const field = document.getElementById('repository-token'); if (field) field.value = ''; return removed;").join::<bool>().await, Ok(true)) { credential_status.set(String::new()); credential_message.set("Token removed from this tab.".into()); credential_error.set(String::new()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Remove token" } }
+                button { r#type: "button", class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(script::clear_workspace_credential().await, Ok(true)) { credential_status.set(String::new()); credential_message.set("Token removed from this tab.".into()); credential_error.set(String::new()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Remove token" } }
                 if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
                 if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
             }
@@ -358,13 +358,13 @@ pub(crate) fn Loader() -> Element {
             datalist { id: "bucket-refs", for reference in &history.read().refs { option { value: reference.clone() } } }
             div { class: "remote-actions", label { class: "field", "Branch / tag / commit (optional)" input { disabled: remote_loading(), value: remote_ref(), oninput: move |event| remote_ref.set(event.value()), list: "bucket-refs", autocomplete: "off", placeholder: "Repository default", spellcheck: "false" } }
                 button { r#type: "submit", disabled: remote_loading() || remote_url().trim().is_empty(), "aria-busy": remote_loading(), Icon { name: "download" } if remote_loading() { "Loading…" } else { "Load bucket" } }
-                if remote_loading() { button { r#type: "button", onclick: move |_| { document::eval("window.acornRemote?.cancel()"); }, "Cancel" } }
+                if remote_loading() { button { r#type: "button", onclick: move |_| { script::cancel_remote_load(); }, "Cancel" } }
             }
             p { class: "small muted", "Public repositories, folder or file URLs. For branches containing /, enter the full branch above. Loading replaces this session after a successful download." }
             if !remote_success().is_empty() { div { class: "status bucket-success", role: "status", span { "{remote_success}" } Link { to: Route::Page { page: "portfolio".into() }, "Explore Portfolio →" } } }
             div { class: "actions small muted", span { "Recent inputs are remembered in this browser." }
                 button { r#type: "button", class: "small danger", disabled: remote_loading() || (history.read().repositories.is_empty() && history.read().refs.is_empty()), onclick: move |_| {
-                    document::eval("window.acornRemote?.history.clear()"); history.set(BucketHistory::default());
+                    script::clear_remote_history(); history.set(BucketHistory::default());
                 }, "Clear suggestions" }
             }
             if remote_loading() { p { role: "status", "Downloading research files…" } }
@@ -374,6 +374,9 @@ pub(crate) fn Loader() -> Element {
         if !message().is_empty() { p { role: "status", class: "small", "{message}" } }
         if !workspace().files.is_empty() { LoadedFiles { summary: format!("{} loaded files", workspace().files.len()) } Link { to: Route::Page { page: "portfolio".into() }, "Explore Portfolio →" } }
     }
+}
+fn notify_dashboard_kind(message: &str, kind: &'static str) {
+    script::notify_dashboard(message, kind);
 }
 #[component]
 pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
@@ -395,9 +398,7 @@ pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
     let mut drop_tile = use_signal(|| None::<String>);
     let mut drop_cell = use_signal(|| None::<GridCell>);
     use_future(move || async move {
-        let restored = document::eval("if (!window.acornDashboardLayout) await new Promise(resolve => window.addEventListener('acorn-dashboard-layout-ready', resolve, {once:true})); return window.acornDashboardLayout.load('portfolio')")
-            .join::<Option<TileLayout>>()
-            .await;
+        let restored = script::load_dashboard_layout().await;
         if let Ok(Some(saved)) = restored {
             tile_layout.set(saved.normalized());
         }
@@ -406,9 +407,7 @@ pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
     use_future(move || async move {
         let mut changes = window_sync::subscribe_storage("acorn.dashboard.layout.v1");
         while changes.recv::<bool>().await.is_ok() {
-            let layout = document::eval("return window.acornDashboardLayout.load('portfolio')")
-                .join::<Option<TileLayout>>()
-                .await;
+            let layout = script::reload_dashboard_layout().await;
             match layout {
                 | Ok(Some(saved)) => tile_layout.set(saved.normalized()),
                 | Ok(None) => tile_layout.set(TileLayout::default()),
@@ -600,7 +599,7 @@ pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
                             button { class: "dashboard-drag-handle", r#type: "button", disabled: !tile_ready(), draggable: "true", "aria-label": if arrange_tiles() { "Drag {label} to place" } else { "Drag {label} to reorder" }, title: if arrange_tiles() { "Drag {label} to an empty grid cell" } else { "Drag {label} to reorder" }, ondragstart: move |event| { let transfer = event.data_transfer(); let _ = transfer.set_data("text/plain", &drag_id); transfer.set_effect_allowed("move"); dragged_tile.set(Some(drag_id.clone())); drop_tile.set(None); drop_cell.set(None); }, ondragend: move |_| { dragged_tile.set(None); drop_tile.set(None); drop_cell.set(None); }, "⋮⋮" }
                             button { r#type: "button", disabled: !tile_ready() || position == 0, "aria-label": "Move {label} up", title: "Move {label} up", onclick: move |_| { let next = tile_layout().move_by(&up_id, -1); tile_layout.set(next.clone()); notify_dashboard_kind(&format!("Moved {label} up."), "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); }, "↑" }
                             button { r#type: "button", disabled: !tile_ready() || position + 1 == visible_tile_count, "aria-label": "Move {label} down", title: "Move {label} down", onclick: move |_| { let next = tile_layout().move_by(&down_id, 1); tile_layout.set(next.clone()); notify_dashboard_kind(&format!("Moved {label} down."), "success"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile order changed, but could not be saved on this device.", "warning"); } }); }, "↓" }
-                            button { r#type: "button", disabled: !tile_ready(), "aria-label": "Hide {label}", title: "Hide {label}", onclick: move |_| { let next = tile_layout().set_visible(&hide_id, false); tile_layout.set(next.clone()); notify_dashboard_kind(&format!("{label} hidden."), "success"); document::eval("document.querySelector('.dashboard-settings > summary')?.focus()"); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile visibility changed, but could not be saved on this device.", "warning"); } }); }, "×" }
+                            button { r#type: "button", disabled: !tile_ready(), "aria-label": "Hide {label}", title: "Hide {label}", onclick: move |_| { let next = tile_layout().set_visible(&hide_id, false); tile_layout.set(next.clone()); notify_dashboard_kind(&format!("{label} hidden."), "success"); script::focus_dashboard_settings(); spawn(async move { if !save_tile_layout(&next).await { notify_dashboard_kind("Tile visibility changed, but could not be saved on this device.", "warning"); } }); }, "×" }
                         }
                         match tile_id.as_str() {
                             "activities" => rsx! { MetricTile { tile_id: "activities", label: "Activities", count: filtered.len() } },
@@ -638,15 +637,8 @@ pub(crate) fn Portfolio(dashboard_only: bool) -> Element {
         }
     }
 }
-fn notify_dashboard_kind(message: &str, kind: &'static str) {
-    let value = serde_json::to_string(message).unwrap_or_default();
-    document::eval(&format!("window.acornChrome?.notifications.notify({value}, '{kind}')"));
-}
 async fn reset_tile_layout() -> bool {
-    document::eval("return window.acornDashboardLayout?.reset('portfolio') ?? false")
-        .join::<bool>()
-        .await
-        .unwrap_or(false)
+    script::reset_dashboard_layout().await.unwrap_or(false)
 }
 fn route_tool(route: &Route) -> Option<Tool> {
     match route {
@@ -655,11 +647,7 @@ fn route_tool(route: &Route) -> Option<Tool> {
     }
 }
 async fn save_tile_layout(layout: &TileLayout) -> bool {
-    let value = serde_json::to_string(layout).unwrap_or_default();
-    document::eval(&format!("return window.acornDashboardLayout?.save('portfolio', {value}) ?? false"))
-        .join::<bool>()
-        .await
-        .unwrap_or(false)
+    script::save_dashboard_layout(layout).await.unwrap_or(false)
 }
 fn status_color(status: &str) -> &'static str {
     match status {
@@ -695,7 +683,6 @@ fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
 fn tile_label(id: &str) -> &'static str {
     PORTFOLIO_TILES.iter().find(|(tile, _)| *tile == id).map_or("Tile", |(_, label)| *label)
 }
-
 fn top_topics(records: &[(&SuppliedFile, &Value)]) -> Vec<(String, usize)> {
     let counts = records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
         session::many(value.pointer("/meta/keywords").unwrap_or(&Value::Null))
@@ -766,6 +753,7 @@ fn visible_file_paths(
         .map(|file| file.path.clone())
         .collect()
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

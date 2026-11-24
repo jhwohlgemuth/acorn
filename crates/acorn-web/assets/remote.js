@@ -229,6 +229,7 @@ async function loadRemoteFile(input, maximum, signal, fetcher = fetch, workspace
     const bytes = await readRemoteBytes(response, maximum);
     signal.throwIfAborted();
     const name = decodeURIComponent(url.pathname.split("/").pop() || "download.txt");
+    // oxlint-disable-next-line no-control-regex -- Remote file names must reject control characters.
     const path = !name || name === "." || name === ".." || /[\\/\x00-\x1f\x7f]/.test(name) ? "download.txt" : name;
     const extension = /json/i.test(response.headers.get("content-type") || "") ? ".json" : /yaml/i.test(response.headers.get("content-type") || "") ? ".yaml" : ".txt";
     const resolved = path.includes(".") ? path : path + extension;
@@ -261,6 +262,7 @@ function parseRemoteBucket(input, branch = "") {
     const url = new URL(/^[\w.-]+\/[\w.-]+$/.test(value) ? `https://github.com/${value}` : value);
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || url.port || !url.hostname.includes(".") || /^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname) || url.hostname.startsWith("[")) throw new Error("Use a public HTTPS GitHub or GitLab repository URL without credentials or query parameters.");
     const parts = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    // oxlint-disable-next-line no-control-regex -- Remote repository paths must reject control characters.
     if (parts.some((part) => !part || part === "." || part === ".." || /[\\\x00-\x1f\x7f]/.test(part))) throw new Error("Invalid repository path.");
     const github = url.hostname === "github.com" || url.hostname === "www.github.com";
     const marker = github ? 2 : parts.indexOf("-");

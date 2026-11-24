@@ -7,7 +7,11 @@
   },
   "devDependencies": {
     "esbuild": "0.28.2",
-    "playwright": "1.65.0"
+    "oxfmt": "0.80.0",
+    "oxlint": "1.95.0",
+    "playwright": "1.65.0",
+    "stylelint": "18.1.0",
+    "stylelint-config-recommended": "19.1.0"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",

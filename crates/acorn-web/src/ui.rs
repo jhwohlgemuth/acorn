@@ -2,6 +2,7 @@ use crate::geospatial_page::{Geospatial, MapPins};
 use crate::icon::IconName;
 use crate::results::ResultView;
 use crate::sample;
+use crate::script;
 use crate::skill::{Install, Skill};
 use crate::syntax::CodeEditor;
 use crate::window_sync::{self, ToolSignals};
@@ -61,17 +62,6 @@ enum WindowType {
     CodeEditor,
     Dashboard,
     Workspace,
-}
-impl WindowType {
-    fn for_route(route: &Route, window_name: &str) -> Self {
-        if window_name.starts_with("acorn-editor:") {
-            return Self::CodeEditor;
-        }
-        match route {
-            | Route::Page { page } if page == "dashboard" => Self::Dashboard,
-            | Route::Home {} | Route::Page { .. } => Self::Workspace,
-        }
-    }
 }
 /// In-memory tool forms and results retained while navigating between tools.
 #[derive(Clone, Copy)]
@@ -157,6 +147,54 @@ impl ToolSessions {
         }
     }
 }
+impl WindowType {
+    fn for_route(route: &Route, window_name: &str) -> Self {
+        if window_name.starts_with("acorn-editor:") {
+            return Self::CodeEditor;
+        }
+        match route {
+            | Route::Page { page } if page == "dashboard" => Self::Dashboard,
+            | Route::Home {} | Route::Page { .. } => Self::Workspace,
+        }
+    }
+}
+#[component]
+fn AppName() -> Element {
+    rsx! { "{APP_NAME}" }
+}
+#[component]
+fn ChoiceField(
+    label: &'static str,
+    value: String,
+    choices: Vec<(String, &'static str, &'static str)>,
+    width: usize,
+    widths: Vec<usize>,
+    onchange: EventHandler<String>,
+) -> Element {
+    let widths: Vec<_> = (0..choices.len()).map(|index| widths.get(index).copied().unwrap_or(width)).collect();
+    let selected = choices.iter().position(|(option, _, _)| option == &value).unwrap_or_default();
+    let offset = widths.iter().take(selected).sum::<usize>().saturating_add(selected);
+    let selected_width = widths.get(selected).copied().unwrap_or(width);
+    let columns = widths.iter().map(|width| format!("{width}px")).collect::<Vec<_>>().join(" ");
+    use_effect(move || {
+        script::scroll_choice_into_view(label);
+    });
+    rsx! {
+        fieldset { class: "field vocabulary-field choice-field", legend { "{label}" }
+            div { class: "choice-scroll", "data-choice-group": label,
+                div { class: if label == "Format" { "choice-bar format-choice-bar" } else { "choice-bar" }, style: "grid-template-columns:{columns};--choice-offset:{offset}px;--choice-width:{selected_width}px", role: "group", "aria-label": "{label}",
+                    for (option, abbreviation, title) in choices {
+                        button { r#type: "button", title, "aria-pressed": value.as_str() == option.as_str(),
+                            onclick: move |_| onchange.call(option.clone()), "{abbreviation}" }
+                    }
+                }
+            }
+        }
+    }
+}
+fn editor_save_allowed(workspace: &Workspace, file: &SuppliedFile, input: &str, limit: usize) -> bool {
+    input.len() <= limit.min(FILE_LIMIT) && workspace.bytes().saturating_sub(file.content.len()).saturating_add(input.len()) <= TOTAL_LIMIT
+}
 fn editor_source_file(workspace: &Workspace, source: Option<&SuppliedFile>) -> Option<SuppliedFile> {
     source.and_then(|source| {
         workspace
@@ -166,44 +204,10 @@ fn editor_source_file(workspace: &Workspace, source: Option<&SuppliedFile>) -> O
             .cloned()
     })
 }
-fn editor_save_allowed(workspace: &Workspace, file: &SuppliedFile, input: &str, limit: usize) -> bool {
-    input.len() <= limit.min(FILE_LIMIT) && workspace.bytes().saturating_sub(file.content.len()).saturating_add(input.len()) <= TOTAL_LIMIT
-}
-#[cfg(test)]
-mod editor_source_tests {
-    use super::*;
-
-    #[test]
-    fn save_source_follows_editor_input_across_workspace_selection_changes() {
-        let source = SuppliedFile {
-            path: "a.json".into(),
-            content: "original A".into(),
-        };
-        let other = SuppliedFile {
-            path: "b.json".into(),
-            content: "original B".into(),
-        };
-        let mut workspace = Workspace {
-            files: vec![source.clone(), other],
-            selected: Some("b.json".into()),
-            ..Workspace::default()
-        };
-        assert_eq!(
-            editor_source_file(&workspace, Some(&source)).as_ref().map(|file| file.path.as_str()),
-            Some("a.json")
-        );
-        workspace.files.get_mut(0).expect("source file in fixture").content = "newer A".into();
-        assert!(editor_source_file(&workspace, Some(&source)).is_none());
-    }
-}
-#[component]
-fn AppName() -> Element {
-    rsx! { "{APP_NAME}" }
-}
 /// The single dispatch seam for browser operations: the operation worker when available, otherwise in-thread.
 pub(crate) async fn execute(tool: Tool, request: Request) -> Result<Value, String> {
     let message = serde_json::to_string(&(tool, &request)).unwrap_or_default();
-    let channel = document::eval("const message = await dioxus.recv(); return await (window.acornOperations?.run(message) ?? { unavailable: 'The operation client is unavailable.' });");
+    let channel = script::operation_channel();
     let reply = match channel.send(message) {
         | Ok(()) => channel.join::<Value>().await.unwrap_or(Value::Null),
         | Err(_) => Value::Null,
@@ -213,7 +217,7 @@ pub(crate) async fn execute(tool: Tool, request: Request) -> Result<Value, Strin
         | (None, Some(message)) => Err(message.to_owned()),
         | (None, None) => {
             // Let the busy state paint before the synchronous computation holds the main thread.
-            let _ = document::eval("await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve)))").await;
+            let _ = script::yield_main_thread().await;
             operations::run(tool, &request)
         }
     }
@@ -233,22 +237,22 @@ pub(crate) fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool) 
         error.set(String::new());
         via_url.set(false);
         onload.call(file.content);
-        document::eval("requestAnimationFrame(() => document.getElementById('content-editor')?.focus())");
+        script::focus_content_editor();
     };
     rsx! {
         div { class: "file-picker",
             div { class: "source-choices",
                 button { r#type: "button", class: "source-option", onclick: move |_| {
                     via_url.set(false); error.set(String::new());
-                    document::eval(&format!("const picker = document.getElementById('source-file-{}'); if (picker) {{ picker.value = ''; picker.click(); }}", tool.slug()));
+                    script::open_file_picker(tool.slug());
                 }, span { class: "source-option-icon", Icon { name: "folder-open" } } span { strong { "Choose file" } small { "From your device" } } }
                 button { r#type: "button", class: "source-option source-option-link", "aria-expanded": via_url(), onclick: move |_| {
                     let next = !via_url(); via_url.set(next); error.set(String::new());
-                    if next { document::eval("requestAnimationFrame(() => { const input = document.querySelector('.file-picker .url-file-loader input'); if (input) input.focus(); })"); }
+                    if next { script::focus_url_file_input(); }
                 }, span { class: "source-option-icon", Icon { name: "link" } } span { strong { "From URL" } small { "A link from the web" } } }
             }
             input { id: "source-file-{tool.slug()}", r#type: "file", hidden: true, "aria-label": "Choose file", onchange: move |event: FormEvent| async move {
-                document::eval("window.acornRemote?.file.cancel()");
+                script::cancel_remote_file_load();
                 let started = generation();
                 if let Some(file) = event.files().into_iter().next() {
                     let path = file.name();
@@ -287,7 +291,7 @@ fn Home() -> Element {
             div { class: "home-cta",
                 p { class: "home-tagline", "Plant an acorn, grow your science 🌱" }
                 div { id: "home-actions", class: "actions centered",
-                    button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { document::eval("window.acornChrome?.tour.start()"); }, Icon { name: "compass" } "Take a tour" }
+                    button { id: "tour-start", class: "primary", "data-driver": asset!("/assets/vendor/driver.js"), onclick: move |_| { script::start_tour(); }, Icon { name: "compass" } "Take a tour" }
                     if !sample_loaded { button { id: "sample-data", class: "sample-action", disabled: loading(), "aria-busy": loading(), onclick: move |_| async move {
                         loading.set(true);
                         let mut loaded = Workspace::default().replace(Selection { files: sample::files(), skipped: 0 });
@@ -295,7 +299,7 @@ fn Home() -> Element {
                         loaded.selected = sample_activity_path(&loaded);
                         loading.set(false);
                         session.set(loaded.content()); workspace.set(loaded); nav.push(Route::Page { page: "portfolio".into() });
-                        document::eval("window.acornChrome?.notifications.notify('Synthetic research bucket loaded.', 'success')");
+                        script::notify_sample_loaded();
                     }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } } }
                 }
             }
@@ -322,6 +326,28 @@ pub(crate) fn Icon(name: &'static str) -> Element {
         }
     }
 }
+fn identifier_choices() -> Vec<(String, &'static str, &'static str)> {
+    once((String::new(), "AUTO", "Auto-detect identifier kind"))
+        .chain(PID::iter().filter_map(|kind| {
+            let label = match &kind {
+                | PID::ARK => Some(("ARK", "Archival Resource Key")),
+                | PID::Arxiv => Some(("ARXIV", "arXiv identifier")),
+                | PID::DOI => Some(("DOI", "Digital Object Identifier")),
+                | PID::Handle => Some(("HDL", "Handle identifier")),
+                | PID::ISBN => Some(("ISBN", "International Standard Book Number")),
+                | PID::ISNI => Some(("ISNI", "International Standard Name Identifier")),
+                | PID::ORCID => Some(("ORCID", "Open Researcher and Contributor ID")),
+                | PID::Patent => Some(("PAT", "Patent number")),
+                | PID::RAID => Some(("RAiD", "Research Activity Identifier")),
+                | PID::ROR => Some(("ROR", "Research Organization Registry")),
+                | PID::RRID => Some(("RRID", "Research Resource Identifier")),
+                | PID::SWHID => Some(("SWHID", "Software Heritage Identifier")),
+                | _ => None,
+            };
+            label.map(|(abbreviation, title)| (kind.to_string(), abbreviation, title))
+        }))
+        .collect()
+}
 #[component]
 fn InfoPage(page: String) -> Element {
     let mut collapsed = use_context::<Signal<bool>>();
@@ -338,20 +364,17 @@ fn InfoPage(page: String) -> Element {
     let mut credential_message = use_signal(String::new);
     let mut recent_inputs = use_signal(|| (0_usize, 0_usize));
     use_future(move || async move {
-        if let Ok(value) = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); return await window.acornWorkspaceStorage.status()")
-            .join::<Value>()
-            .await
-        {
+        if let Ok(value) = script::read_storage_status().await {
             storage_status.set(parse_storage_status(&value));
         }
     });
     use_future(move || async move {
-        if let Ok(host) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); return window.acornRemote.credentialStatus();").join::<String>().await {
+        if let Ok(host) = script::credential_status().await {
             credential_status.set(host);
         }
     });
     use_future(move || async move {
-        if let Ok(counts) = document::eval("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {once:true})); const history = window.acornRemote.history.read(); return [history.repositories.length, history.refs.length];").join::<(usize, usize)>().await {
+        if let Ok(counts) = script::read_remote_history_counts().await {
             recent_inputs.set(counts);
         }
     });
@@ -414,11 +437,11 @@ fn InfoPage(page: String) -> Element {
                                 span { class: "theme-selector-name", "ACORN" }
                                 div { class: "theme-choices", role: "group", "aria-label": "ACORN color mode",
                                     for mode in ["Light", "Dark", "System"] {
-                                        button { "aria-label": mode, "data-theme-choice": mode.to_lowercase(), "aria-pressed": "false", onclick: move |_| { let mode = mode.to_lowercase(); document::eval(&format!("window.acornChrome?.theme.choose('{mode}')")); }, "{mode}" }
+                                        button { "aria-label": mode, "data-theme-choice": mode.to_lowercase(), "aria-pressed": "false", onclick: move |_| { let mode = mode.to_lowercase(); script::choose_theme(&mode); }, "{mode}" }
                                     }
                                 }
                             }
-                            button { class: "theme-selector theme-selector-uswds", "data-theme-choice": "uswds", "aria-pressed": "false", onclick: move |_| { document::eval("window.acornChrome?.theme.choose('uswds')"); },
+                            button { class: "theme-selector theme-selector-uswds", "data-theme-choice": "uswds", "aria-pressed": "false", onclick: move |_| { script::choose_theme("uswds"); },
                                 span { class: "theme-thumbnail", "aria-hidden": "true", span { class: "theme-thumbnail-sidebar" } span { class: "theme-thumbnail-content" } }
                                 span { class: "theme-selector-name", "USWDS" }
                                 span { class: "theme-selector-note", "Light only" }
@@ -429,10 +452,7 @@ fn InfoPage(page: String) -> Element {
                             button { onclick: move |_| async move {
                                 collapsed.set(false);
                                 let _ = js_sys::Reflect::set(&js_sys::global(), &"acornInitialSidebarCollapsed".into(), &false.into());
-                                let cleared = document::eval("if (window.acornChrome) window.acornChrome.theme.reset(); try { sessionStorage.removeItem('acorn-sidebar-collapsed'); } catch {} const tourCleared = window.acornChrome?.tour.reset() ?? false; const layoutCleared = window.acornDashboardLayout?.clear() ?? false; return tourCleared && layoutCleared")
-                                    .join::<bool>()
-                                    .await
-                                    .unwrap_or(false);
+                                let cleared = script::clear_appearance().await.unwrap_or(false);
                                 settings_message.set(if cleared {
                                     "Saved appearance, sidebar, tour, and dashboard settings cleared."
                                 } else {
@@ -448,9 +468,7 @@ fn InfoPage(page: String) -> Element {
                         div { class: "actions",
                             button { disabled: workspace.read().files.is_empty(), onclick: move |_| {
                                 if let Ok(content) = serde_json::to_string(&workspace()) {
-                                    if let Ok(argument) = serde_json::to_string(&content) {
-                                        document::eval(&format!("window.acornDownload({argument}, 'acorn-workspace.json')"));
-                                    }
+                                    script::download_workspace(&content);
                                 }
                             }, "Download open workspace" }
                         }
@@ -469,7 +487,7 @@ fn InfoPage(page: String) -> Element {
                         div { class: "actions",
                             button { onclick: move |_| async move {
                                 storage_message.set("Refreshing browser estimate…".into());
-                                let estimate = document::eval("return await window.acornWorkspaceStorage.status()").join::<Value>().await;
+                                let estimate = script::refresh_storage_status().await;
                                 if let Ok(value) = estimate {
                                     storage_status.set(parse_storage_status(&value));
                                     storage_message.set("Browser estimate refreshed.".into());
@@ -478,9 +496,7 @@ fn InfoPage(page: String) -> Element {
                                 }
                             }, "Refresh estimate" }
                             button { class: "danger", disabled: recovery_timed_out(), onclick: move |_| async move {
-                                let deleted = document::eval("window.acornWorkspace?.cancel(); window.acornRemote?.cancel(); let workspaceDeleted = false; let remoteDeleted = false; let layoutDeleted = false; let tourDeleted = false; try { workspaceDeleted = await window.acornWorkspaceStorage?.delete() ?? false; } catch {} try { remoteDeleted = window.acornRemote?.clearData() ?? false; } catch {} try { layoutDeleted = window.acornDashboardLayout?.clear() ?? false; } catch {} try { tourDeleted = window.acornChrome?.tour.reset() ?? false; } catch {} return [workspaceDeleted, remoteDeleted, layoutDeleted, tourDeleted]")
-                                    .join::<(bool, bool, bool, bool)>()
-                                    .await;
+                                let deleted = script::clear_app_data().await;
                                 workspace.set(Workspace::default());
                                 session.set(String::new());
                                 map_pins.set(MapPins::default());
@@ -491,7 +507,7 @@ fn InfoPage(page: String) -> Element {
                                     if remote_deleted { recent_inputs.set((0, 0)); credential_status.set(String::new()); }
                                     if workspace_deleted && remote_deleted && layout_deleted && tour_deleted {
                                         storage_error.set(String::new());
-                                        document::eval("window.acornChrome?.theme.reset(); window.acornChrome?.notifications.notify('All app data deleted.', 'success')");
+                                        script::notify_workspace_deleted();
                                     } else {
                                         storage_error.set("Open session cleared, but some saved browser data could not be deleted. Clear this site's data in your browser and retry.".into());
                                     }
@@ -508,7 +524,7 @@ fn InfoPage(page: String) -> Element {
                         p { class: "small muted", "One token is available in this tab for repositories on its provider and HTTPS host. Add or replace it beside the repository loader on Home." }
                         p { class: "small", if credential_status().is_empty() { "No repository token in this tab." } else { "Token •••••••• configured for {credential_status}." } }
                         div { class: "actions credential-actions", Link { to: Route::Home {}, "Add or replace token on Home →" }
-                            button { class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(document::eval("return window.acornRemote?.clearCredential() ?? false").join::<bool>().await, Ok(true)) { credential_status.set(String::new()); credential_error.set(String::new()); credential_message.set("Token removed from this tab.".into()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Forget repository token" } }
+                            button { class: "danger", disabled: credential_status().is_empty(), onclick: move |_| async move { if matches!(script::clear_credential().await, Ok(true)) { credential_status.set(String::new()); credential_error.set(String::new()); credential_message.set("Token removed from this tab.".into()); } else { credential_error.set("Could not remove the repository token from this tab.".into()); credential_message.set(String::new()); } }, "Forget repository token" } }
                         if !credential_message().is_empty() { p { role: "status", class: "status", "{credential_message}" } }
                         if !credential_error().is_empty() { p { role: "alert", class: "error", "{credential_error}" } }
                         p { class: "small muted", "Tokens use session storage only in a secure browser context. They survive reloads in this tab, remain separate from saved workspace data, and expire when this tab session ends. Revoke a token at its provider if needed." }
@@ -517,7 +533,7 @@ fn InfoPage(page: String) -> Element {
                         p { class: "small muted", "This browser remembers repository URLs and branch, tag, or commit entries for suggestions. It does not store a token in this history." }
                         p { class: "small", "{recent_inputs().0} repository URLs · {recent_inputs().1} refs remembered" }
                         button { class: "danger", disabled: recent_inputs() == (0, 0), onclick: move |_| async move {
-                            if let Ok(counts) = document::eval("window.acornRemote?.history.clear(); const history = window.acornRemote?.history.read(); return [history?.repositories.length ?? 0, history?.refs.length ?? 0];").join::<(usize, usize)>().await { recent_inputs.set(counts); }
+                            if let Ok(counts) = script::clear_remote_history_counts().await { recent_inputs.set(counts); }
                         }, "Clear recent bucket inputs" }
                     }
                     div { class: "card", h2 { "📦 Release" } p { title: RAD_TITLE, "{APP_NAME} · v{VERSION}" } Skill { compact: true }
@@ -566,20 +582,6 @@ pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool, usize, usize)
         value["quota"].as_u64().unwrap_or(0) as usize,
     )
 }
-fn storage_size(bytes: usize) -> String {
-    const KIB: usize = 1024;
-    const MIB: usize = KIB * KIB;
-    const GIB: usize = MIB * KIB;
-    if bytes >= GIB {
-        format!("{:.1} GiB", bytes as f64 / GIB as f64)
-    } else if bytes >= MIB {
-        format!("{:.1} MiB", bytes as f64 / MIB as f64)
-    } else if bytes >= KIB {
-        format!("{:.1} KiB", bytes as f64 / KIB as f64)
-    } else {
-        format!("{bytes} B")
-    }
-}
 async fn read_local_file(file: FileData, limit: usize) -> Result<String, String> {
     if file.size() > limit as u64 {
         Err(format!("File exceeds the {limit}-byte limit. Current content is unchanged."))
@@ -599,105 +601,6 @@ async fn read_local_file(file: FileData, limit: usize) -> Result<String, String>
                     })
             })
     }
-}
-#[component]
-pub(crate) fn ResultTree(value: Value, depth: usize) -> Element {
-    match value {
-        | Value::Object(fields) => {
-            rsx! { dl { class: "result-fields", for (name, value) in fields { div { class: "result-field", dt { "{name}" } dd { ResultTree { value, depth: depth.saturating_add(1) } } } } } }
-        }
-        | Value::Array(items) => {
-            let count = items.len();
-            rsx! { div { if count == 0 { span { class: "muted", "None" } } for (index, item) in items.into_iter().take(100).enumerate() { div { class: "result-item", key: "{index}", ResultTree { value: item, depth: depth.saturating_add(1) } } } if count > 100 { p { "Showing 100 of {count} entries. Download JSON for the full result." } } } }
-        }
-        | Value::String(text) => rsx! { span { class: "result-text", "{text}" } },
-        | Value::Null => rsx! { span { class: "muted", "Not provided" } },
-        | other => rsx! { span { "{other}" } },
-    }
-}
-fn review_tab(fragment: &str) -> Tool {
-    match fragment {
-        | "fair" => Tool::Fair,
-        | "readability" => Tool::Readability,
-        | _ => Tool::Standard,
-    }
-}
-fn sample_activity_path(workspace: &Workspace) -> Option<String> {
-    workspace
-        .activities()
-        .into_iter()
-        .find(|(file, _)| file.path.ends_with("/index.json"))
-        .map(|(file, _)| file.path.clone())
-}
-fn identifier_choices() -> Vec<(String, &'static str, &'static str)> {
-    once((String::new(), "AUTO", "Auto-detect identifier kind"))
-        .chain(PID::iter().filter_map(|kind| {
-            let label = match &kind {
-                | PID::ARK => Some(("ARK", "Archival Resource Key")),
-                | PID::Arxiv => Some(("ARXIV", "arXiv identifier")),
-                | PID::DOI => Some(("DOI", "Digital Object Identifier")),
-                | PID::Handle => Some(("HDL", "Handle identifier")),
-                | PID::ISBN => Some(("ISBN", "International Standard Book Number")),
-                | PID::ISNI => Some(("ISNI", "International Standard Name Identifier")),
-                | PID::ORCID => Some(("ORCID", "Open Researcher and Contributor ID")),
-                | PID::Patent => Some(("PAT", "Patent number")),
-                | PID::RAID => Some(("RAiD", "Research Activity Identifier")),
-                | PID::ROR => Some(("ROR", "Research Organization Registry")),
-                | PID::RRID => Some(("RRID", "Research Resource Identifier")),
-                | PID::SWHID => Some(("SWHID", "Software Heritage Identifier")),
-                | _ => None,
-            };
-            label.map(|(abbreviation, title)| (kind.to_string(), abbreviation, title))
-        }))
-        .collect()
-}
-#[component]
-fn ChoiceField(
-    label: &'static str,
-    value: String,
-    choices: Vec<(String, &'static str, &'static str)>,
-    width: usize,
-    widths: Vec<usize>,
-    onchange: EventHandler<String>,
-) -> Element {
-    let widths: Vec<_> = (0..choices.len()).map(|index| widths.get(index).copied().unwrap_or(width)).collect();
-    let selected = choices.iter().position(|(option, _, _)| option == &value).unwrap_or_default();
-    let offset = widths.iter().take(selected).sum::<usize>().saturating_add(selected);
-    let selected_width = widths.get(selected).copied().unwrap_or(width);
-    let columns = widths.iter().map(|width| format!("{width}px")).collect::<Vec<_>>().join(" ");
-    use_effect(move || {
-        document::eval(&format!(
-            "requestAnimationFrame(() => {{ const bar = document.querySelector('.choice-scroll[data-choice-group=\"{label}\"]'); const selected = bar?.querySelector('[aria-pressed=\"true\"]'); if (selected) bar.scrollLeft = selected.offsetLeft - (bar.clientWidth - selected.clientWidth) / 2; }})"
-        ));
-    });
-    rsx! {
-        fieldset { class: "field vocabulary-field choice-field", legend { "{label}" }
-            div { class: "choice-scroll", "data-choice-group": label,
-                div { class: if label == "Format" { "choice-bar format-choice-bar" } else { "choice-bar" }, style: "grid-template-columns:{columns};--choice-offset:{offset}px;--choice-width:{selected_width}px", role: "group", "aria-label": "{label}",
-                    for (option, abbreviation, title) in choices {
-                        button { r#type: "button", title, "aria-pressed": value.as_str() == option.as_str(),
-                            onclick: move |_| onchange.call(option.clone()), "{abbreviation}" }
-                    }
-                }
-            }
-        }
-    }
-}
-#[component]
-fn StandardField(label: &'static str, value: String, crosswalk: bool, onchange: EventHandler<String>) -> Element {
-    let choices = STANDARD_CHOICES
-        .iter()
-        .copied()
-        .filter(|(standard, _, _)| {
-            !crosswalk
-                || matches!(
-                    standard,
-                    Standard::Datacite | Standard::DublinCore | Standard::Raid | Standard::ResearchActivityData
-                )
-        })
-        .map(|(standard, abbreviation, title)| (standard.to_string(), abbreviation, title))
-        .collect();
-    rsx! { ChoiceField { label, value, choices, width: 37, widths: Vec::new(), onchange } }
 }
 #[component]
 fn ReadabilityControls(
@@ -729,6 +632,35 @@ fn ReadabilityControls(
     }
 }
 #[component]
+pub(crate) fn ResultTree(value: Value, depth: usize) -> Element {
+    match value {
+        | Value::Object(fields) => {
+            rsx! { dl { class: "result-fields", for (name, value) in fields { div { class: "result-field", dt { "{name}" } dd { ResultTree { value, depth: depth.saturating_add(1) } } } } } }
+        }
+        | Value::Array(items) => {
+            let count = items.len();
+            rsx! { div { if count == 0 { span { class: "muted", "None" } } for (index, item) in items.into_iter().take(100).enumerate() { div { class: "result-item", key: "{index}", ResultTree { value: item, depth: depth.saturating_add(1) } } } if count > 100 { p { "Showing 100 of {count} entries. Download JSON for the full result." } } } }
+        }
+        | Value::String(text) => rsx! { span { class: "result-text", "{text}" } },
+        | Value::Null => rsx! { span { class: "muted", "Not provided" } },
+        | other => rsx! { span { "{other}" } },
+    }
+}
+fn review_tab(fragment: &str) -> Tool {
+    match fragment {
+        | "fair" => Tool::Fair,
+        | "readability" => Tool::Readability,
+        | _ => Tool::Standard,
+    }
+}
+fn sample_activity_path(workspace: &Workspace) -> Option<String> {
+    workspace
+        .activities()
+        .into_iter()
+        .find(|(file, _)| file.path.ends_with("/index.json"))
+        .map(|(file, _)| file.path.clone())
+}
+#[component]
 fn Shell() -> Element {
     let mut collapsed = use_context::<Signal<bool>>();
     let mut drawer = use_signal(|| false);
@@ -752,7 +684,7 @@ fn Shell() -> Element {
         || Tool::iter().any(|tool| tool.is_review() && current == tool.slug());
     use_effect(use_reactive!(|current| {
         let _ = current;
-        document::eval("window.acornChrome?.tour.cancel(); window.acornChrome?.theme.sync(); requestAnimationFrame(() => { const heading = document.querySelector('#content-main h1'); if (heading) { heading.tabIndex = -1; heading.focus(); } window.scrollTo(0, 0); })");
+        script::sync_page_navigation();
     }));
     if window_type.is_dashboard() || window_type.is_code_editor() {
         return rsx! {
@@ -770,9 +702,9 @@ fn Shell() -> Element {
     }
     rsx! {
         document::Link { rel: "stylesheet", href: asset!("/assets/vendor/driver.css") }
-        div { class: format!("workspace {} {}", if collapsed() { "compact" } else { "" }, if drawer() { "drawer-open" } else { "" }), onkeydown: move |event| { if event.key() == Key::Escape && drawer() { drawer.set(false); document::eval("document.getElementById('nav-toggle')?.focus()"); } }, "data-theme": initial_theme,
+        div { class: format!("workspace {} {}", if collapsed() { "compact" } else { "" }, if drawer() { "drawer-open" } else { "" }), onkeydown: move |event| { if event.key() == Key::Escape && drawer() { drawer.set(false); script::focus_nav_toggle(); } }, "data-theme": initial_theme,
             a { class: "skip", href: "#content-main", "Skip to content" }
-            header { class: "mobile-bar", span { AppName {} } button { id: "nav-toggle", onclick: move |_| { drawer.toggle(); if drawer() { document::eval("requestAnimationFrame(() => document.querySelector('#workspace-navigation a')?.focus())"); } }, "aria-expanded": drawer(), "aria-controls": "workspace-navigation", "aria-label": "Toggle navigation", Icon { name: match drawer() { true => "panel", false => "panel-open" } } } }
+            header { class: "mobile-bar", span { AppName {} } button { id: "nav-toggle", onclick: move |_| { drawer.toggle(); if drawer() { script::focus_nav_link(); } }, "aria-expanded": drawer(), "aria-controls": "workspace-navigation", "aria-label": "Toggle navigation", Icon { name: match drawer() { true => "panel", false => "panel-open" } } } }
             aside { id: "workspace-navigation", class: "sidebar", "aria-label": "Workspace navigation",
                 div { class: "nav-controls",
                     Link { to: Route::Home {}, class: "sidebar-brand", title: "ACORN home", "aria-label": "ACORN home", onclick: move |_| { if drawer() { drawer.set(false); } },
@@ -785,11 +717,11 @@ fn Shell() -> Element {
                         let next = !collapsed();
                         collapsed.set(next);
                         let _ = js_sys::Reflect::set(&js_sys::global(), &"acornInitialSidebarCollapsed".into(), &next.into());
-                        document::eval(&format!("try {{ sessionStorage.setItem('acorn-sidebar-collapsed', '{next}'); }} catch {{}}"));
+                        script::set_sidebar_collapsed(next);
                     }, title: if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-label": if collapsed() { "Expand sidebar" } else { "Collapse sidebar" }, "aria-expanded": !collapsed(), "aria-controls": "workspace-navigation", Icon { name: match collapsed() { true => "panel-open", false => "panel" } } }
                 }
-                SidebarSession { onopen: move |_| { if drawer() { drawer.set(false); document::eval("requestAnimationFrame(() => document.querySelector('#content-main h1')?.focus())"); } } }
-                nav { "aria-label": "Primary", onclick: move |_| { if drawer() { drawer.set(false); document::eval("requestAnimationFrame(() => document.querySelector('#content-main h1')?.focus())"); } },
+                SidebarSession { onopen: move |_| { if drawer() { drawer.set(false); script::focus_main_heading(); } } }
+                nav { "aria-label": "Primary", onclick: move |_| { if drawer() { drawer.set(false); script::focus_main_heading(); } },
                     p { class: "nav-heading", "WORKSPACE" }
                     Link { to: Route::Home {}, class: if current == "home" { "nav-item active" } else { "nav-item" }, title: "Home", "aria-label": "Home", "aria-current": if current == "home" { "page" } else { "false" }, Icon { name: "home" } span { class: "nav-label", "Home" } }
                     Link { to: Route::Page { page: "portfolio".into() }, class: if current == "portfolio" { "nav-item active" } else { "nav-item" }, title: "Portfolio", "aria-label": "Portfolio", "aria-current": if current == "portfolio" { "page" } else { "false" }, Icon { name: "portfolio" } span { class: "nav-label", "Portfolio" } }
@@ -822,7 +754,7 @@ fn Shell() -> Element {
                 span { class: "notification-icon notification-icon-info", Icon { name: "info" } }
                 span { class: "notification-text" }
                 button { "aria-label": "Dismiss notification", "Dismiss" } }
-            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": if initially_dark { "Switch to light theme (current: Dark)" } else if initially_uswds { "Switch to dark theme (current: USWDS)" } else { "Switch to dark theme (current: Light)" }, title: "Switch between dark and light themes", "aria-pressed": if initially_uswds { None } else { Some(initially_dark) }, onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", if initially_uswds { "USWDS" } else if initially_dark { "Dark" } else { "Light" } } } span { class: "theme-static", span { class: "theme-flag", "aria-hidden": "true", "🇺🇸" } a { href: "https://designsystem.digital.gov/", target: "_blank", rel: "noopener noreferrer", "USWDS" } } } Outlet::<Route> {} }
+            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": if initially_dark { "Switch to light theme (current: Dark)" } else if initially_uswds { "Switch to dark theme (current: USWDS)" } else { "Switch to dark theme (current: Light)" }, title: "Switch between dark and light themes", "aria-pressed": if initially_uswds { None } else { Some(initially_dark) }, onclick: move |_| { script::toggle_theme(); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", if initially_uswds { "USWDS" } else if initially_dark { "Dark" } else { "Light" } } } span { class: "theme-static", span { class: "theme-flag", "aria-hidden": "true", "🇺🇸" } a { href: "https://designsystem.digital.gov/", target: "_blank", rel: "noopener noreferrer", "USWDS" } } } Outlet::<Route> {} }
             crate::details::DetailsDrawer {}
         }
     }
@@ -842,6 +774,36 @@ fn SidebarSession(onopen: EventHandler<()>) -> Element {
             span { class: "session-stats session-detail", "{validated} {activity_label} · {files} {file_label}" }
             span { class: "session-count", "{validated} · {files}" }
         }
+    }
+}
+#[component]
+fn StandardField(label: &'static str, value: String, crosswalk: bool, onchange: EventHandler<String>) -> Element {
+    let choices = STANDARD_CHOICES
+        .iter()
+        .copied()
+        .filter(|(standard, _, _)| {
+            !crosswalk
+                || matches!(
+                    standard,
+                    Standard::Datacite | Standard::DublinCore | Standard::Raid | Standard::ResearchActivityData
+                )
+        })
+        .map(|(standard, abbreviation, title)| (standard.to_string(), abbreviation, title))
+        .collect();
+    rsx! { ChoiceField { label, value, choices, width: 37, widths: Vec::new(), onchange } }
+}
+fn storage_size(bytes: usize) -> String {
+    const KIB: usize = 1024;
+    const MIB: usize = KIB * KIB;
+    const GIB: usize = MIB * KIB;
+    if bytes >= GIB {
+        format!("{:.1} GiB", bytes as f64 / GIB as f64)
+    } else if bytes >= MIB {
+        format!("{:.1} MiB", bytes as f64 / MIB as f64)
+    } else if bytes >= KIB {
+        format!("{:.1} KiB", bytes as f64 / KIB as f64)
+    } else {
+        format!("{bytes} B")
     }
 }
 #[component]
@@ -911,7 +873,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut editor_source = signals.editor_source;
     window_sync::use_tool_sync(tool, signals, session);
     use_hook(|| {
-        document::eval("window.acornOperations?.warm()");
+        script::warm_operations();
     });
     use_effect(move || {
         let current = request();
@@ -922,7 +884,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
             } else {
                 result.set(None);
             }
-            document::eval("window.acornRemote?.file.cancel()");
+            script::cancel_remote_file_load();
         }
     });
     use_effect(move || {
@@ -999,7 +961,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         selected_tool.set(mode);
                         if sync_review_url {
                             let fragment = match mode { Tool::Fair => "fair", Tool::Readability => "readability", Tool::Activity | Tool::Standard | Tool::Crosswalk | Tool::Diff | Tool::Discover | Tool::Inspect | Tool::BigO => "" };
-                            document::eval(&format!("if (!window.acornUrl) await new Promise(resolve => window.addEventListener('acorn-url-ready', resolve, {{once:true}})); window.acornInitialReviewFragment = ''; window.acornUrl.setFragment('{fragment}')"));
+                            script::set_review_fragment(fragment);
                         }
                     }, Icon { name: mode.icon() } "{mode}" }
                 }
@@ -1164,7 +1126,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         let celebrate = matches!(tool, Tool::Activity | Tool::Standard) && output.as_ref().is_ok_and(|value| value["valid"] == true);
                         // Edits made while the operation ran supersede its result.
                         if *request.peek() == submitted {
-                            result.set(Some(output)); document::eval(&format!("requestAnimationFrame(() => {{ const fullscreen = document.querySelector('.code-editor.is-fullscreen'); const heading = document.querySelector('[data-tool=\"{}\"] #result-heading'); if (fullscreen) fullscreen.querySelector('.editor-run-action')?.focus({{preventScroll:true}}); else heading?.focus(); if (heading && {celebrate}) window.acornCelebrate?.(); }})", tool.slug()));
+                            result.set(Some(output)); script::show_tool_result(tool.slug(), celebrate);
                         }
                     }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
@@ -1185,7 +1147,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                                 }
                                 div { class: "operation-error-actions",
                                     button { r#type: "button", onclick: move |_| {
-                                        document::eval("(document.getElementById('content-editor') || document.getElementById('content'))?.focus()");
+                                        script::focus_content();
                                     }, Icon { name: "code" } "Back to input" }
                                 }
                             }
@@ -1214,10 +1176,10 @@ pub(crate) fn UrlFileInput(
         url.set(String::new());
         loading.set(false);
         error.set(String::new());
-        document::eval("window.acornRemote?.file.cancel()");
+        script::cancel_remote_file_load();
     }));
     use_drop(move || {
-        document::eval("window.acornRemote?.file.cancel()");
+        script::cancel_remote_file_load();
     });
     let cancelled = error().contains("cancelled");
     let feedback_icon = if cancelled { "info" } else { "alert" };
@@ -1227,8 +1189,7 @@ pub(crate) fn UrlFileInput(
             if loading() { return; }
             loading.set(true); error.set(String::new());
             let started = generation();
-            let args = serde_json::to_string(&(url(), limit, workspace_file)).unwrap_or_default();
-            let result = document::eval(&format!("if (!window.acornRemote) await new Promise(resolve => window.addEventListener('acorn-remote-ready', resolve, {{once:true}})); try {{ return {{ok: await window.acornRemote.file.load(...{args})}}; }} catch(error) {{ return {{error: error.message}}; }}")).join::<Value>().await;
+            let result = script::load_url_file(&url(), limit, workspace_file).await;
             if started != generation() { return; }
             loading.set(false);
             match result {
@@ -1247,7 +1208,7 @@ pub(crate) fn UrlFileInput(
             div { class: "url-file-controls",
                 label { class: "field", "File URL" input { r#type: "url", required: true, disabled: loading(), value: url(), oninput: move |event| url.set(event.value()), placeholder: "https://example.org/file.json", spellcheck: "false" } }
                 button { r#type: "submit", class: "source-submit", disabled: loading() || url().trim().is_empty(), "aria-busy": loading(), if loading() { span { class: "source-spinner", "aria-hidden": "true" } "Loading…" } else { Icon { name: "download" } "Load URL" } }
-                if loading() { button { r#type: "button", onclick: move |_| { document::eval("window.acornRemote?.file.cancel()"); }, "Cancel" } }
+                if loading() { button { r#type: "button", onclick: move |_| { script::cancel_remote_file_load(); }, "Cancel" } }
             }
             p { class: "small muted", "Direct file links · GitHub · GitLab" }
             details { class: "source-tips", summary { Icon { name: "info" } "Link tips" }
@@ -1273,4 +1234,32 @@ pub(crate) async fn validate_files(files: Vec<SuppliedFile>) -> Vec<(String, Res
         results.push((file.path, result));
     }
     results
+}
+
+#[cfg(test)]
+mod editor_source_tests {
+    use super::*;
+
+    #[test]
+    fn test_save_source_follows_editor_input_across_workspace_selection_changes() {
+        let source = SuppliedFile {
+            path: "a.json".into(),
+            content: "original A".into(),
+        };
+        let other = SuppliedFile {
+            path: "b.json".into(),
+            content: "original B".into(),
+        };
+        let mut workspace = Workspace {
+            files: vec![source.clone(), other],
+            selected: Some("b.json".into()),
+            ..Workspace::default()
+        };
+        assert_eq!(
+            editor_source_file(&workspace, Some(&source)).as_ref().map(|file| file.path.as_str()),
+            Some("a.json")
+        );
+        workspace.files.get_mut(0).expect("source file in fixture").content = "newer A".into();
+        assert!(editor_source_file(&workspace, Some(&source)).is_none());
+    }
 }

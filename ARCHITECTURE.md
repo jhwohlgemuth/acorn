@@ -109,6 +109,8 @@ The remaining critical portability edges are agent source resolution, embedded t
 
 `acorn-web` is the Dioxus browser presentation root. It links `acorn-wasm` into one application payload and reuses its portable operations for manual tools and optional WebMCP. It imports neither `acorn-lib` nor `acorn-host`. DOM-local file selection, clipboard and download effects belong to this concrete UI consumer; they do not introduce native capabilities or duplicate domain algorithms. See `crates/acorn-web/README.md` for the browser scope and local Make workflow.
 
+`acorn-web/src/script` is the sole page-origin JavaScript evaluation boundary. Its named fire, typed query, and channel functions use `acorn-macros` to bind Rust values only as JSON; long bodies are authored under `acorn-web/assets/scripts`. Clippy rejects `document::eval` outside this module. The default-off host `js-lint` feature parses the catalog with OxC and checks referenced `window.acorn*` names against their defining assets. The parser is absent from the default WASM graph; runtime browser tests remain necessary for API behavior.
+
 ### Interface crates
 
 `acorn-cli` and `acorn-tui` are composition roots. They select concrete runtime capabilities and translate library results into terminal or application behavior. CLI argument parsing and exit/report presentation stay outside portable domain crates.

@@ -1,0 +1,32 @@
+error[E0277]: the trait bound `NotSerializable: serde::Serialize` is not satisfied
+ --> tests/ui/js-unserializable.rs:7:13
+  |
+7 |     let _ = js!("window.good({value})");
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+  |
+help: the trait `serde_core::ser::Serialize` is not implemented for `NotSerializable`
+ --> tests/ui/js-unserializable.rs:3:1
+  |
+3 | struct NotSerializable;
+  | ^^^^^^^^^^^^^^^^^^^^^^
+  = note: for local types consider adding `#[derive(serde::Serialize)]` to your `NotSerializable` type
+  = note: for types from other crates check whether the crate offers a `serde` feature flag
+  = help: the following other types implement trait `serde_core::ser::Serialize`:
+            &'a T
+            &'a mut T
+            ()
+            (T,)
+            (T0, T1)
+            (T0, T1, T2)
+            (T0, T1, T2, T3)
+            (T0, T1, T2, T3, T4)
+          and $N others
+note: required by a bound in `serde_json::to_string`
+ --> $CARGO/serde_json-$VERSION/src/ser.rs
+  |
+  | pub fn to_string<T>(value: &T) -> Result<String>
+  |        --------- required by a bound in this function
+  | where
+  |     T: ?Sized + Serialize,
+  |                 ^^^^^^^^^ required by this bound in `to_string`
+  = note: this error originates in the macro `js` (in Nightly builds, run with -Z macro-backtrace for more info)

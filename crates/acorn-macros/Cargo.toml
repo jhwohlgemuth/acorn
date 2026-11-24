@@ -13,17 +13,23 @@ proc-macro = true
 
 [dependencies]
 acorn-core = { workspace = true, default-features = false, features = ["alloc"], optional = true }
+oxc_allocator = { version = "=0.160.0", optional = true }
+oxc_diagnostics = { version = "=0.160.0", optional = true }
+oxc_parser = { version = "=0.160.0", optional = true }
+oxc_span = { version = "=0.160.0", optional = true }
 proc-macro2 = "1.0"
 proc-macro-crate = "3.5"
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
 
 [dev-dependencies]
+serde_json.workspace = true
 trybuild = "1.0"
 
 [features]
 default = ["bigo"]
 bigo = ["dep:acorn-core"]
+js-lint = ["dep:oxc_allocator", "dep:oxc_diagnostics", "dep:oxc_parser", "dep:oxc_span"]
 
 [package.metadata.cargo-shear]
 ignored-paths = ["tests/ui/*.rs"]

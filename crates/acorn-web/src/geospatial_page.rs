@@ -1,4 +1,5 @@
 use crate::details::{self, Detail};
+use crate::script;
 use crate::search_ui::SearchField;
 use crate::ui::{Icon, Route};
 use acorn_core::util::suffix;
@@ -51,10 +52,7 @@ pub(crate) fn Geospatial() -> Element {
         } else {
             format!("{base}/map.css")
         };
-        let args = serde_json::to_string(&(module, css)).unwrap_or_default();
-        let mut channel = document::eval(&format!(
-            "if (!window.acornMap) await new Promise(resolve => window.addEventListener('acorn-effects-ready', resolve, {{once:true}})); await window.acornMap.connect(...{args}, event => dioxus.send(event)); await dioxus.recv();"
-        ));
+        let mut channel = script::map_channel(&module, &css);
         while let Ok(event) = channel.recv::<Value>().await {
             if event.get("type").unwrap_or(&Value::Null) == "select" {
                 let id = event.get("id").and_then(Value::as_str).map(str::to_owned);
@@ -80,7 +78,7 @@ pub(crate) fn Geospatial() -> Element {
         }
     });
     use_drop(move || {
-        document::eval("window.acornMap?.disconnect()");
+        script::disconnect_map();
     });
     let data = index.read();
     let snapshot = workspace.read();
@@ -136,7 +134,7 @@ pub(crate) fn Geospatial() -> Element {
     let organization_noun = format!("organization{}", suffix(filtered.len()));
     let payload = geospatial::map_payload(&filtered, &catalog.projects, selection.as_deref());
     use_effect(use_reactive((&payload,), move |(payload,)| {
-        document::eval(&format!("window.acornMap?.update({payload})"));
+        script::update_map(&payload);
     }));
     rsx! {
         p { class: "lede", "Organizations from validated activities and selected ROR identifiers · local ROR lookup" }
@@ -197,9 +195,8 @@ pub(crate) fn Geospatial() -> Element {
     }
 }
 async fn load_index(mut index: Signal<Option<Result<LocationIndex, String>>>) {
-    let url = serde_json::to_string(&asset!("/assets/geospatial/ror-locations.json").to_string()).unwrap_or_default();
-    let script = format!("const response = await fetch({url}, {{credentials:'omit', redirect:'error'}}); if(!response.ok) throw new Error('Local registry unavailable'); const bytes = await response.arrayBuffer(); if(bytes.byteLength > 33554432) throw new Error('Local registry too large'); return JSON.parse(new TextDecoder().decode(bytes));");
-    index.set(Some(document::eval(&script).join::<LocationIndex>().await.map_err(|_| {
+    let url = asset!("/assets/geospatial/ror-locations.json").to_string();
+    index.set(Some(script::load_ror_index(&url).await.map_err(|_| {
         "The bundled ROR location index could not load. Retry to read the local asset again; no online registry was contacted.".into()
     })));
 }

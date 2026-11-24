@@ -1257,7 +1257,7 @@ main:has(.home) .page-toolbar{position:fixed;top:12px;right:80px;margin:0;z-inde
 .workspace[data-theme=uswds] button.primary{background:#005ea2;border-color:#005ea2;color:#fff}
 .workspace[data-theme=uswds] button.primary:hover:enabled{background:#1a4480;border-color:#1a4480}
 .workspace[data-theme=uswds] a,.workspace[data-theme=uswds] .sidebar-brand:hover{color:var(--link)!important}
-.workspace[data-theme=uswds] :is(*,*::before,*::after){border-radius:0!important}
+.workspace[data-theme=uswds] *{border-radius:0!important}
 .workspace[data-theme=uswds] :is(.donut-chart,.donut-center,.source-spinner){border-radius:50%!important}
 .workspace[data-theme=uswds] input[type=file]::file-selector-button{border-radius:0!important}
 .workspace[data-theme=uswds] :is(input,select,textarea){border-color:#565c65}

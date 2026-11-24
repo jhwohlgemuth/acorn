@@ -686,7 +686,7 @@ try {
             assert.equal(await example.evaluate((button) => getComputedStyle(button).backgroundColor), "rgb(0, 94, 162)");
             assert.equal(await example.evaluate((button) => getComputedStyle(button).color), "rgb(255, 255, 255)");
             await example.hover();
-            await page.waitForFunction(() => getComputedStyle(document.querySelector(".input-heading .sample-action")).backgroundColor === "rgb(11, 71, 120)");
+            await page.waitForFunction(() => getComputedStyle(document.querySelector(".input-heading .sample-action")).backgroundColor === "rgb(26, 68, 128)");
         }
         await shot(`${name}-uswds`);
     }

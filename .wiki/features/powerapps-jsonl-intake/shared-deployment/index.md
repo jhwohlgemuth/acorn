@@ -17,7 +17,7 @@ Deploy the accepted SharePoint contributor and approval apps, review ledger, app
 
 # Current evidence
 
-The owner-context pilot is accepted for contributor intake, recovery, corrections, standard-license access, collected export, native backup, and local reporting. The new approval release is not yet implemented or accepted. No shared target environment, capacity allocation, maker/owner group, contributor group, reviewer/finalizer group, SharePoint site/library, connection owner, DLP decision, or Teams destination is recorded as approved.
+The owner-context pilot is accepted for contributor intake, recovery, corrections, standard-license access, collected export, native backup, and local reporting. The approval workflow is implemented and technically accepted in isolation; participant acceptance, release service checks, and operational cutover remain in the [pilot release plan](../approval-release/index.md). The November 24 repository review found no evidence completing those gates. No shared target environment, capacity allocation, maker/owner group, contributor group, reviewer/finalizer group, SharePoint site/library, connection owner, DLP decision, or Teams destination is recorded as approved.
 
 Two-person pilot access does not establish organization-wide licensing, connector policy, capacity, or performance. A private site’s membership does not authorize raw receipt/review/export access for every app user.
 
@@ -46,8 +46,8 @@ The target approval exporter starts from an explicitly chosen baseline. If the t
 
 - Named target, groups, owners, licensing/capacity, DLP, storage, connections, notification destination, baseline policy, and rollback are approved.
 - Intended contributors can use only contributor surfaces; reviewers/finalizers/operators have distinct tested access; unauthorized identities are denied.
-- Both apps use the accepted component revision and retain usability/accessibility behavior.
-- Submission, immutable receipt, correction, review, finalization, approved export, browser/Graph download, local stage/inspect/apply, and PDF report pass in the target.
+- Both apps use the accepted component revision and retain accepted usability behavior; further accessibility features and checks remain deferred by user direction.
+- Submission, immutable receipt, correction, review, finalization, approved export, browser download (or separately accepted Graph download), local stage/inspect/apply, and PDF report pass in the target.
 - Retry/replay, competing review, exporter failure, monitoring, backup import, owner rotation, and freeze-only rollback pass.
 - Cutover changes only future entry/notification links after acceptance; old receipts and destinations remain recoverable.
 

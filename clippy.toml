@@ -4,5 +4,6 @@
 
 # Allow unwrap()/expect() inside #[test] functions and #[cfg(test)] modules so
 # test code doesn't need per-module `#![allow(clippy::unwrap_used)]`.
-allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+disallowed-methods = ["dioxus_document::eval"]

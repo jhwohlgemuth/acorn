@@ -4,6 +4,7 @@
   @bottom-left {
     background-position: left center;
     background-repeat: no-repeat;
+    /* stylelint-disable-next-line at-rule-descriptor-no-unknown -- Page margin boxes accept background properties in the PDF renderer. */
     background-size: contain;
     content: "";
     margin-left: 0.15in;

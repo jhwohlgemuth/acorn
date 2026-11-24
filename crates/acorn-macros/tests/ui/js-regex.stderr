@@ -1,0 +1,5 @@
+error: js!(...): interpolation inside a regular expression is forbidden
+ --> tests/ui/js-regex.rs:5:17
+  |
+5 |     let _ = js!("const pattern = /{value}/;");
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

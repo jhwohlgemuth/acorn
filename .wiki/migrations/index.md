@@ -6,6 +6,6 @@
 
 ## Planned
 
-- [acorn-web shadcn-style component transition](acorn-web-shadcn-components.md) — Adopt visually matched Dioxus components across the browser UI and official shadcn/ui in the React map widget without changing ACORN's appearance.
+- [acorn-web shadcn-style component transition](acorn-web-shadcn-components.md) — Prove locally bundled UI SDK Web Components in Dioxus, use unstyled UI SDK React controls in the map where parity holds, and preserve ACORN's appearance.
 - [Mise development-tool integration](mise-toolchain-integration.md) — Use one locked, multiplatform tool inventory for local Make workflows and CI while preserving `rust-toolchain.toml` as the stable Rust contract.
 - [Podman-only Makefile migration](podman-makefile.md) — Replace Docker CLI and Buildx recipes with Podman-native build, run, publication, and multi-architecture manifest workflows across Linux, macOS, and Windows.

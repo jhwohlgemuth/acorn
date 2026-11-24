@@ -10,6 +10,7 @@ mod icon;
 mod location;
 mod results;
 mod sample;
+mod script;
 mod search_ui;
 mod skill;
 mod syntax;
@@ -34,7 +35,7 @@ fn app() -> Element {
     let mut skip_save = use_signal(|| false);
     let mut recovery_timed_out = use_context_provider(|| RecoveryTimedOut(Signal::new(false))).0;
     use_future(move || async move {
-        let saved = document::eval("if (!window.acornWorkspaceStorage) await new Promise(resolve => window.addEventListener('acorn-workspace-storage-ready', resolve, {once:true})); const storage = window.acornWorkspaceStorage; const workspace = await storage.restore(); return {workspace, recoveryTimedOut: storage.recoveryTimedOut}").join::<serde_json::Value>().await;
+        let saved = script::restore_workspace_snapshot().await;
         recovery_timed_out.set(
             saved
                 .as_ref()
@@ -78,13 +79,13 @@ fn app() -> Element {
                 skip_save.set(false);
             } else if let Ok(value) = serde_json::to_string(&current) {
                 window_sync::publish_json("acorn.workspace.live.v1", &value);
-                let evaluator = document::eval(&format!("const storage = window.acornWorkspaceStorage; const saved = await storage.save({value}); return {{...await storage.status(), newFailure: !saved}}"));
+                let evaluator = script::save_workspace(&value);
                 spawn(async move {
-                    let result = evaluator.join::<serde_json::Value>().await;
+                    let result = evaluator.await;
                     if let Ok(status) = result {
                         storage_status.set(ui::parse_storage_status(&status));
                         if status.get("newFailure") == Some(&serde_json::Value::Bool(true)) {
-                            document::eval("window.acornChrome?.notifications.notify('Workspace saving stopped. Browser storage may be full, unavailable, or changed in another tab. Your current session remains open.', 'warning')");
+                            script::notify_workspace_save_failure("Workspace saving stopped. Browser storage may be full, unavailable, or changed in another tab. Your current session remains open.");
                         } else {
                             window_sync::notify_storage("acorn.workspace.changed.v1");
                         }
@@ -119,9 +120,7 @@ fn app() -> Element {
     use_future(move || async move {
         let mut changes = window_sync::subscribe_storage("acorn.workspace.changed.v1");
         while changes.recv::<bool>().await.is_ok() {
-            let saved = document::eval("return await window.acornWorkspaceStorage.restore()")
-                .join::<serde_json::Value>()
-                .await;
+            let saved = script::restore_saved_workspace().await;
             let next = saved
                 .as_ref()
                 .ok()

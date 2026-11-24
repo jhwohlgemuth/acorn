@@ -1,5 +1,6 @@
 use crate::details::DiagnosticButton;
 use crate::geospatial_page::RorMapButton;
+use crate::script;
 use crate::search_ui::SearchField;
 use crate::syntax::{Code, CodeBlock, CopyButton};
 use crate::ui::{Icon, ResultTree, Route};
@@ -576,8 +577,7 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
         div { class: "actions result-actions",
             button { onclick: move |_| {
                 let artifact = artifact.read();
-                let args = serde_json::to_string(&(&artifact.content, &artifact.filename, artifact.mime)).unwrap_or_default();
-                document::eval(&format!("window.acornDownload(...{args})"));
+                script::download_result(&artifact.content, &artifact.filename, artifact.mime);
             }, Icon { name: "download" } "Download result" }
             CopyButton { text: artifact.read().content.clone(), label: "Copy result" }
         }
@@ -728,7 +728,7 @@ fn Validation(value: Rc<Value>, source: Option<Rc<String>>, tool: Tool) -> Eleme
                         p { "{text(diagnostic, \"message\")}" }
                         small { class: "diagnostic-meta", "{text(diagnostic, \"kind\")}" if diagnostic["code"].is_string() { " · Code: {text(diagnostic, \"code\")}" }
                             if let Some((line, character)) = location { " · " button { class: "diagnostic-location", r#type: "button", title: "Highlight this value in the source", onclick: move |_| {
-                                    document::eval(&format!("const tab = document.getElementById('details-tab-source'); if (tab?.closest('dialog')?.open) {{ window.acornPendingEditorReveal = {{ id: 'drawer-source', line: {line}, character: {character}, endLine: {end_line}, endCharacter: {end_character} }}; tab.click(); }} else window.acornEditors?.reveal('content', {line}, {character}, {end_line}, {end_character});"));
+                                    script::reveal_diagnostic(line, character, end_line, end_character);
                             }, "Line {line}, character {character}" } }
                         }
                         if let Some(source) = &source { DiagnosticButton { finding: diagnostic.clone(), source: source.clone(), checks: value.clone(), tool } }

@@ -1,3 +1,4 @@
+use crate::script;
 use crate::syntax::{CodeBlock, CopyButton};
 use crate::ui::{Icon, Route};
 use dioxus::prelude::*;
@@ -41,11 +42,7 @@ pub(crate) fn Skill(compact: bool) -> Element {
     use_future(move || {
         let base = load_base.clone();
         async move {
-            let args = serde_json::to_string(&(base, VERSION)).unwrap_or_default();
-            let script =
-                format!("try {{ if (!window.acornSkill) await new Promise(resolve => window.addEventListener('acorn-effects-ready', resolve, {{once:true}})); return {{ok: await window.acornSkill.load(...{args})}}; }} catch(error) {{ return {{error: error.message}}; }}");
-            let result = document::eval(&script)
-                .join::<Value>()
+            let result = script::load_skill(&base, VERSION)
                 .await
                 .map_err(|_| "Could not read the bundled skill. Reload the app and try again.".into())
                 .and_then(|value| {
@@ -73,8 +70,8 @@ pub(crate) fn Skill(compact: bool) -> Element {
                     if !compact {
                         div { class: "card", h2 { "🚀 Install and start" }
                             ol { li { "Read the bundled definition and review its workflows." } li { "Download and extract the complete skill folder into your repository’s agent skill directory." } li { "Start a new compatible agent session and invoke the ACORN skill." } }
-                            button { class: "primary", onclick: move |_| { let args = serde_json::to_string(&(download_base.clone(), VERSION)).unwrap_or_default(); document::eval(&format!("window.acornSkill.download(...{args})")); }, "Download skill folder" }
-                            div { class: "actions", button { onclick: move |_| { let text = serde_json::to_string(&raw).unwrap_or_default(); document::eval(&format!("window.acornDownload({text}, 'SKILL.md', 'text/plain;charset=utf-8')")); }, "Download SKILL.md" }
+                            button { class: "primary", onclick: move |_| { script::download_skill_folder(&download_base, VERSION); }, "Download skill folder" }
+                            div { class: "actions", button { onclick: move |_| { script::download_skill_definition(&raw); }, "Download SKILL.md" }
                                 CopyButton { text: copied, label: "Copy definition" }
                             }
                             p { id: "output-status", role: "status", class: "small muted" }
@@ -154,8 +151,7 @@ fn WorkflowExamples() -> Element {
                                 div { class: "workflow-menu-items",
                                     Link { to: Route::Page { page: tool.into() }, Icon { name: "play" } "Open related tool" }
                                     button { r#type: "button", onclick: move |_| {
-                                        let args = serde_json::to_string(&(prompt, format!("acorn-{tool}-prompt.txt"), "text/plain;charset=utf-8")).unwrap_or_default();
-                                        document::eval(&format!("window.acornDownload(...{args}); document.querySelectorAll('.workflow-menu[open]').forEach(menu => menu.removeAttribute('open'))"));
+                                        script::download_workflow_prompt(prompt, &format!("acorn-{tool}-prompt.txt"));
                                     }, Icon { name: "download" } "Download prompt" }
                                 }
                             }

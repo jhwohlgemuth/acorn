@@ -1,5 +1,11 @@
 # Browser assets
 
+## Authored browser scripts
+
+`scripts/*.js` holds the 16 browser evaluation bodies above the frozen 240-byte inline threshold. They are compiled into `acorn-web` through `js_file!`, which validates each file and emits `include_str!` so edits trigger a Rust rebuild. The macro passes exactly one JSON value as `__acornArgs`; the files do not interpolate Rust text. These are source files, not separately fetched browser assets. Frontend lint discovery should include `crates/acorn-web/assets/scripts/*.js`.
+
+The files cover map and window-sync channels; workspace deletion, appearance reset, remote bucket and file loading, ROR index and skill loading; diagnostic reveal, choice scrolling, result focus, page navigation, editor sync, workspace restore, and review-fragment synchronization. Each file carries an MIT SPDX notice. Named functions and result types remain in `src/script/mod.rs`.
+
 ## PID label colors
 
 Checked November 13, 2026. Labels use the following brand accents, with lighter or darker text and tinted backgrounds for readable contrast in both themes. The small dot retains the source color. Text always identifies the scheme; color does not convey validation status. No logos are bundled.
