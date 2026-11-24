@@ -6,7 +6,7 @@ difficulty: high
 impact: medium
 package: [acorn-web]
 tags: [browser, theme, uswds, accessibility, design-system]
-status: planned
+status: in-progress
 execution: phased
 phase_budget_hours: 5
 ---
@@ -15,91 +15,54 @@ phase_budget_hours: 5
 
 Add **USWDS** (the U.S. Web Design System; “USDWS” in the request appears to be a transposition) as a fourth appearance choice in the Dioxus browser workspace. It is an opt-in light appearance. Retain Dark, Light, and System as existing choices and defaults. Apply the new appearance to shared chrome, forms, tables, cards, results, overlays, the code editor, and embedded map controls where ACORN owns their styling. Preserve routes, data, operations, and the current light/dark appearance.
 
+First establish an **ACORN browser design system** describing the components actually in use today. Publish it as a standalone static test website with a visual specimen for each component family and state, alongside a machine-readable catalog. This is the current-state reference against which USWDS styling is mapped and reviewed. It must be useful without starting Dioxus, loading WASM, or accessing a network.
+
 This is a **USWDS-informed theme for ACORN**, not a claim that the entire application implements official USWDS components or meets federal conformance requirements. The linked [designer guide](https://designsystem.digital.gov/documentation/getting-started-for-designers/) points to official Figma/Sketch kits, live component HTML, design tokens, and component-specific accessibility notes. Use those as the visual and behavioral reference. The [developer guide](https://designsystem.digital.gov/documentation/getting-started-for-developers/) describes installing and compiling USWDS Sass; decide whether a scoped, pinned Sass build is justified in USW-01 before changing dependencies. A token translation into existing CSS is the initial implementation path because the current browser build has one app stylesheet and no USWDS pipeline. If fidelity requires the actual package, document its version, license, asset weight, and build integration in a revised bounded phase before adoption.
 
 The terminal theme picker, report/PDF/PPTX templates, public documentation site, and a future full React/shadcn migration are outside this plan. Do not add a government banner, agency identifier, or claim of official endorsement to an ACORN research tool merely to make it look federal. Keep the current brand and task content; adapt the style of appropriate controls.
 
 # Current evidence — November 23, 2026
 
-- **Verified repository:** `crates/acorn-web/index.html:25-36` reads `acorn.theme.v1` and recognizes only `dark`, `light`, `system` during boot, also accepting `?theme=dark|light` for preview. `crates/acorn-web/assets/effects.js:95-120,190-221` represents the chosen style as a dark boolean, persists the same values, updates DOM theme state, labels, favicon, and settings controls. `crates/acorn-web/src/ui.rs:525-533,840-858,909` renders three Settings choices and a binary header toggle. The baseline CSS tokens are in `crates/acorn-web/assets/app.css:1-20`; many later selectors explicitly match `[data-theme=light]`. The React map island has its own `geospatial/src/map.css`. These are source observations, not an acceptance run.
-- **Verified repository:** `crates/acorn-web/assets/effects.test.mjs`, `scripts/acceptance.test.mjs`, and `scripts/parity-smoke.mjs` exercise theme persistence, token contrast, and browser behavior. Existing parity checks and screenshots assume exactly two rendered palettes; they must be extended without weakening their present checks. `scripts/preload-wasm.mjs:15-21` expects one staged app stylesheet. The current worktree has uncommitted browser files; recheck ownership before implementation and do not treat those edits as this plan's progress.
-- **Verified external guidance, opened November 23:** The [designer guide](https://designsystem.digital.gov/documentation/getting-started-for-designers/) says the maintained USWDS 3 design kits are Figma and Sketch, points to live component HTML for measurements, and asks teams to recheck accessibility after customization. [Design tokens](https://designsystem.digital.gov/design-tokens/) organize color, typography, spacing, and other choices; USWDS Sass settings and helpers resolve token names to values. The [accessibility guidance](https://designsystem.digital.gov/documentation/accessibility/) says teams must test their own implementations, including contrast, keyboard use, zoom, and assistive technology. Thus adopting its colors alone does not establish accessibility or conformance.
-- **Unresolved:** Exact official token values, fonts and permitted self-hosted assets for the pinned reference release, contrast across ACORN-specific result/chart states, and whether the map/CodeMirror styles need component-specific overrides. USW-01 inventories and freezes these before any visual implementation. No USWDS theme is implemented or validated yet.
+- **USW-00–04 accepted on the current worktree:** The offline static [16-family catalog](../../crates/acorn-web/design-system/README.md) links every JSON record to one specimen and source locator, imports production app and map CSS, and has Dark, Light, and USWDS displays. The catalog test passed three checks in Chromium at desktop and 390px; `target/catalog-{dark,light,uswds}.png` contains visual handoff captures. Static editor, drawer, and map shells are explicitly identified as non-interactive specimens.
+- **USWDS reference:** [USWDS 3.14.0](https://github.com/uswds/uswds/releases/tag/v3.14.0) system/theme tokens and official button, input, table, alert, accessibility, and designer guidance were inspected. The [official Figma kit manifest](https://github.com/uswds/uswds-for-designers) describes components, tokens, fonts, and smart layouts; the binary kit is not bundled. The browser README records resolved token values, ACORN exceptions, font and Sass decision, and measured CSS delta. The theme uses one app stylesheet and no runtime theme download.
+- **Implementation:** `index.html` restores `uswds` before paint; `assets/effects.js` persists and previews named modes; `src/ui.rs` exposes the fourth Settings choice and an unlinked flag followed by a USWDS text link to the official homepage in place of the light/dark toggle. Scoped CSS styles shared controls, diagnostics/results, and map controls. The **Use example** action uses the USWDS primary button colors. The Dark/Light parity path remains separate. Focused JS/contrast tests passed 25 cases, catalog 3, map 8, and `cargo check -p acorn-web` and `make web-check` passed. Final root and `/acorn/` Pages builds and smokes passed; prefixed Chromium parity passed 49 checks with mobile, zoom, focus, URL, and route screenshots. The latest root Pages artifact passed 49 Chromium parity checks, including the USWDS text link and unlinked flag; Firefox 159 and WebKit 27.2 passed USWDS persistence and Settings exit checks.
+- **Icon and banner follow-up:** The shared `Icon` component maps all 42 ACORN icon names to the locally bundled USWDS 3.14.0 sprite; one SVG per control preserves existing interaction selectors and labels. The user-saved `docs/src/_assets/uswds/banner.png` replaces the ACORN Home illustration only in USWDS mode. The icon and banner parity pass checked the sprite load and clear banner/subtitle spacing at desktop and 390×667 mobile sizes. `make web-test-pages` and the offline catalog test passed. The official government-site banner component is not used.
+- **Theme artwork layout:** `docs/src/_assets/{dark,light,uswds}/` now gives each theme `app-icon.svg`, `app-icon.png`, and `banner.png`; the browser build stages matching generated paths. The Light PNG is rendered from its existing vector. The unused dark flag artwork remains at `uswds/banner-dark.png`. README and book image references point to the new paths. The `/acorn/` Pages build, 49-check parity, and route smoke passed after the move.
+- **Manual keyboard observation:** On the local root Pages artifact in native Chrome, Settings exposed the selected USWDS choice and a visible focus ring; Tab moved from Portfolio search to its regular-expression control; the file tree exposed its search control in order; a selected file opened the details drawer with focus on Close; Right Arrow selected the Source tab; Escape closed the drawer and returned focus to the selected file. The Geospatial organization table opened a labeled drawer. The map did not initialize in this native session, so its controls were not observed there.
+- **Remaining acceptance:** Record actual screen-reader announcements on representative forms, editor, navigation, drawer, and map controls, plus keyboard behavior on the live map when available. macOS VoiceOver was enabled for a review attempt and restored to off afterward; its caption panel was configured to show spoken text, but the available window capture did not expose that panel or audio. The native browser accessibility tree is useful evidence for roles and focus, not a substitute for an observed screen-reader pass.
 
 # Design contract
 
+0. **Current ACORN catalog.** Inventory every current browser component family and its meaningful variants/states, with route/source ownership and accessible behavior. Build `crates/acorn-web/design-system/index.html` as a navigable, responsive, static specimen site using the real app stylesheet and a small catalog-only layout sheet; `components.json` is its stable machine-readable index with a top-level schema version. Each catalog item has a unique ID shared by the JSON record, HTML section, and test selector; a name, category, source path and line/symbol locator, production CSS selector, variants/states, semantic role/accessible name, keyboard expectations, and specimen anchor. Include both existing light and dark rendered modes, with a theme switch that can later expose the USWDS mode without rebuilding the catalog. Group shared primitives (type/color/spacing, icon, button/link, input/select/textarea, status/badge/alert, card/table, navigation/tabs, dialog/drawer), composite route patterns (workspace tree, Portfolio tiles/list, results/charts, editor diagnostics, map controls), and empty/loading/error/disabled/focus states. For complex live widgets, provide a static representative shell plus a clearly labeled link to the production smoke fixture; do not imply a static specimen proves its interactive behavior. Static examples use synthetic, nonprivate text/data. The page must work when served from the crate root over a simple static server and from a local file where feasible; no Dioxus/WASM, external font, network fetch, or separate CSS copy is required. Document how a person browses/compares specimens and how a test runner reads/selects them.
 1. **Reference and mapping.** Pin a USWDS 3 release and record the official source URL, token keys, resolved values, and target ACORN roles in a compact mapping table: canvas/surface, primary/action/link, text/muted, border, focus, success/warning/error, selected/hover/disabled, and chart series. Include type family/size/line height, spacing, radius, and button/input/table patterns. Record deliberate ACORN exceptions. Prefer local fonts/assets only after license and bundle review; use documented fallbacks. Do not copy a generic color palette and call it USWDS.
-2. **Theme state.** Use `uswds` as the stable stored, DOM, and preview URL value. Treat render mode as a named value rather than a dark boolean. `System` continues to resolve to light/dark according to the operating system; USWDS never changes with that preference. A saved USWDS choice survives reload and route changes; URL override is temporary. Invalid stored/URL values retain existing fallback. Reset removes the saved choice. The header light/dark toggle remains a quick action: from USWDS it selects Dark, and Settings remains the place to choose USWDS again. Give the header control an accurate accessible name and state for the current mode; do not present a misleading pressed binary when USWDS is active.
+2. **Theme state.** Use `uswds` as the stable stored, DOM, and preview URL value. Treat render mode as a named value rather than a dark boolean. `System` continues to resolve to light/dark according to the operating system; USWDS never changes with that preference. A saved USWDS choice survives reload and route changes; URL override is temporary. Invalid stored/URL values retain existing fallback. Reset removes the saved choice. Show an unlinked 🇺🇸 flag followed by a USWDS text link to the official homepage in place of the header light/dark toggle while USWDS is rendered; use Settings to choose another appearance. The toggle remains available with an accurate accessible name and state in Dark and Light.
 3. **Scope styles.** Activate via `[data-theme=uswds]` on the existing workspace and document root. Build on existing role variables where possible; explicitly audit hard-coded colors and light-only rules. Scope any USWDS styles so baseline themes and external widgets remain stable. Preserve focus order, native controls, reduced-motion behavior, editor diagnostics, alert meaning, chart data equivalents, and map attribution. Avoid a global reset, duplicate stylesheet, or new network dependency.
 4. **Meaningful validation.** Test normal, hover, focus, selected, disabled, busy, error, and success states. Measure text/control contrast and visible focus against the chosen WCAG AA criteria, including ACORN-specific badges and charts; verify labels, keyboard actions, 390px mobile, 200% zoom, reduced motion, and browser engines. Manual assistive-technology review is a separate acceptance observation, not inferred from passing automated checks.
 
 # Dependencies and decisions
 
-- USW-01 freezes the reference and inventory; USW-02 implements named theme state; USW-03 styles shared surfaces; USW-04 covers specialized views; USW-05 performs integrated acceptance and docs. The sequence is serial where CSS or Settings files overlap.
+- USW-00–04 are implemented and accepted in the current worktree. USW-05 holds final manual accessibility acceptance and plan retirement. Shared browser files remain under the browser UI/style lock until acceptance closes.
 - Share the browser UI/style lock with [browser workspace](acorn-browser-workspace/index.md), [shadcn-style component transition](../migrations/acorn-web-shadcn-components.md), [browser performance](../refactors/browser-performance.md), and [frontend build quality](../testing/frontend-build-quality.md). Coordinate exact write sets before touching active web files. SCU's visual parity baseline applies to existing light/dark; its screenshots should use an explicit theme and exclude the new opt-in state from its zero-difference claim. A future React migration must carry forward the `uswds` preference contract, not block this theme.
 - No dependency on ABW-19 hosted private-provider acceptance, desktop creation, or the shadcn component migration. Final local acceptance uses synthetic data and a built Pages artifact. Recheck static asset size against existing browser performance budgets; a future hosted publication remains ABW's owner.
 
 # Acceptance criteria
 
+- The current ACORN catalog covers every browser component family and meaningful state discovered in the source inventory. Every JSON record resolves to exactly one HTML specimen with a stable selector and production source locator; every HTML specimen has a corresponding JSON record. The static site loads offline, shows existing light/dark specimens at desktop and mobile widths, and has no broken local asset links. Human reviewers can inspect it; machine consumers can enumerate components/states and capture a named specimen without scraping prose.
 - A documented token/component mapping cites the pinned official USWDS sources, identifies every adapted ACORN surface and exception, and records whether packaged Sass was declined or adopted with evidence.
-- Settings chooses USWDS, announces the selected mode, persists it, and restores it before first paint; URL override, reset, system preference, and header toggle follow the design contract. Existing dark/light behavior and screenshots stay stable.
+- Settings chooses USWDS, announces the selected mode, persists it, and restores it before first paint; URL override, reset, system preference, and header toggle/text link visibility follow the design contract. Existing dark/light behavior and screenshots stay stable.
 - Shared and specialized views show consistent USWDS styling without unreadable hard-coded states or broken chart/diagnostic distinctions. No package or asset is fetched at runtime solely for the theme.
 - Focused unit and browser checks pass, including all four preference modes, root and `/acorn/` builds, mobile and zoom states, and a documented manual keyboard/screen-reader review. Record any unresolved accessibility defect as a bounded repair phase before claiming acceptance.
 - `make web-check`, `make web-build`, `make web-test-pages`, and relevant focused JS/map checks pass on a stable tree; inspect CSS/asset size and first-paint behavior. Run broader gates only after shared browser edits settle.
 
 # Execution phases
 
-## USW-01 — Freeze official reference and ACORN surface inventory
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: stable local snapshot for comparison; coordinate current browser write owners
-- Exact write set: `crates/acorn-web/README.md`, `.wiki/features/uswds-browser-theme.md`
-- Primary integration lock: browser theme specification
-- Outcome: Pin a USWDS release and inspect its official token, type, button, form, table, alert, and accessibility pages plus live HTML/Figma kit. Record resolved value/role mapping, asset/license and Sass decision, current theme-specific selectors, and representative screenshot states for ACORN routes. Flag any unsupported or conflicting pattern explicitly.
-- Focused validation: Review each mapping against opened official source and inspect baseline Dark/Light/System screenshots at desktop/mobile; verify every listed ACORN state has a current UI owner.
-- Handoff: Record pinned links/version, baseline revision, mapping, exceptions, and CSS/build decision; remove USW-01 and make USW-02 ready.
-
-## USW-02 — Add named theme selection and first-paint restoration
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: USW-01
-- Exact write set: `crates/acorn-web/index.html`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/src/ui.rs`, `.wiki/features/uswds-browser-theme.md`
-- Primary integration lock: browser theme state and Settings
-- Outcome: Accept `uswds` in stored and preview choices; render a fourth Settings choice and correct selected-state/header semantics; restore the named mode before paint; preserve existing system, reset, and URL behavior. The CSS can temporarily use light fallback until USW-03, with no public release between phases.
-- Focused validation: Run `node --test crates/acorn-web/assets/effects.test.mjs`, focused Rust checks, and a browser boot/reload/URL/reset matrix for all modes; check the initial document theme before Dioxus mounts.
-- Handoff: Record mode matrix and first-paint evidence; remove USW-02 and make USW-03 ready.
-
-## USW-03 — Style shared shell, navigation, and forms
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: USW-02
-- Exact write set: `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/acceptance.test.mjs`, `crates/acorn-web/scripts/parity-smoke.mjs`, `.wiki/features/uswds-browser-theme.md`
-- Primary integration lock: browser shared CSS
-- Outcome: Add scoped USWDS role tokens and styles for typography, layout rhythm, sidebar, links, buttons, controls, cards, tables, notifications, and focus/disabled/busy states. Include token contrast assertions and explicit screenshots for Home, Settings, Review, Portfolio, and one tool result.
-- Focused validation: Run `node --test crates/acorn-web/scripts/acceptance.test.mjs`, relevant parity scope, computed-style/contrast checks, and visual comparison showing no unexplained Dark/Light changes.
-- Handoff: Record token mapping and view evidence; remove USW-03 and make USW-04 ready.
-
-## USW-04 — Finish specialized editor, results, and map surfaces
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: USW-03; no concurrent map/editor CSS owner
-- Exact write set: `crates/acorn-web/assets/app.css`, `crates/acorn-web/editor/editor.js`, `crates/acorn-web/geospatial/src/map.css`, `crates/acorn-web/geospatial/src/map.tsx`, `crates/acorn-web/scripts/parity-smoke.mjs`, `.wiki/features/uswds-browser-theme.md`
-- Primary integration lock: browser specialized visual surfaces
-- Outcome: Resolve inherited and hard-coded colors for CodeMirror, diagnostics, result charts/statuses, details overlays, map layer controls, and map attribution under USWDS mode. Touch JS/TSX only where CSS cannot express the state; keep charts' noncolor meaning and the map's existing behavior.
-- Focused validation: Run focused editor/map tests and parity screenshots for diagnostics, errors, charts, drawer, and map; inspect contrast, focus, and reduced-motion states; compare baseline themes for regressions.
-- Handoff: Record exceptional styling and measured asset delta; remove USW-04 and make USW-05 ready.
-
 ## USW-05 — Accept accessibility, build, and user documentation
 
-- Status: planned
+- Status: in-progress
 - Budget: 5 active hours maximum
-- Prerequisites: USW-04; stable shared browser tree
-- Exact write set: `crates/acorn-web/README.md`, `crates/acorn-web/scripts/parity-smoke.mjs`, `.wiki/features/uswds-browser-theme.md`
+- Prerequisites: stable shared browser tree
+- Exact write set: `crates/acorn-web/README.md`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/scripts/cross-engine-smoke.mjs`, `.wiki/features/uswds-browser-theme.md`
 - Primary integration lock: browser theme acceptance
-- Outcome: Run full named-mode/browser matrix and document how to select, reset, and preview USWDS, the pinned reference, intentional differences, and limits of the claim. Review keyboard and available screen-reader behavior on representative forms, editor, navigation, dialogs, and map controls; record actual results.
+- Outcome: Complete the screen-reader announcement review on representative forms, editor, navigation, dialogs, and map controls, and the live-map keyboard row. Record actual results, then retire the plan if the acceptance criteria hold. The full named-mode/browser matrix, user documentation, and available native Chrome keyboard rows are recorded above.
 - Focused validation: `make web-check`, `make web-build`, `make web-test-pages`, focused JS/map tests, root and `/acorn/` smoke, CSS/asset-size comparison, and manual mobile/200%-zoom/keyboard/assistive-technology pass.
 - Handoff: If all acceptance criteria hold, preserve durable details in README/tests and retire this plan and its index/network/lane entries. If a concrete defect remains, add a bounded repair phase with its exact write set.

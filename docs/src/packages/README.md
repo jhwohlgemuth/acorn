@@ -2,6 +2,8 @@
 
 ACORN publishes separate packages for its portable schemas, host services, CLI, and WebAssembly bindings. The Python bindings are maintained in a companion project.
 
+Browse the [Rust Crates](rust-crates.md) section for crate APIs and development guides. The remaining pages cover shared workflows, optional features, external Python bindings, and MCP Bundles.
+
 ```mermaid
 graph LR
     CORE["acorn-core</br>portable values"] --> H["acorn-host</br>native adapters"]

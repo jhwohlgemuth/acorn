@@ -203,7 +203,7 @@ Link checks require network access. Use `acorn --offline check ./CITATION.cff` o
 
 The command can validate data against its schema, assess evidence of support for the FAIR principles, analyze prose and readability, check links, find inconsistent or incomplete data, and enforce naming or organization-specific conventions.[^metrics]
 
-FAIR checks evaluate all 41 indicators in the RDA FAIR Data Maturity Model. They report an evidence profile rather than a compliance grade. Native assessment is available for ACORN Research Activity Data, DataCite, DCAT, Dublin Core, Huwise, InvenioRDM, and RAiD metadata. See [FAIR evidence assessment](../../concepts/fair-assessment.md) for the evidence states and output contract.
+FAIR checks evaluate all 41 indicators in the RDA FAIR Data Maturity Model. They report an evidence profile rather than a compliance grade. Native assessment is available for RADS records, DataCite, DCAT, Dublin Core, Huwise, InvenioRDM, and RAiD metadata. See [FAIR evidence assessment](../../concepts/fair-assessment.md) for the evidence states and output contract.
 
 ## Customization options
 Use command options to select or skip checks and to control when the command exits.

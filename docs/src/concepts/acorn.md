@@ -1,6 +1,6 @@
-# ACORN Schemas and Ontologies
+# RADS and Ontologies
 
-The research activity schema organizes identity, metadata, technology context, narrative sections, contact information, and extension notes into one portable record. Field names below follow the serialized JSON, YAML, and [ZON](zon.md) form.
+The research activity data schema (RADS, pronounced “radish”) organizes identity, metadata, technology context, narrative sections, contact information, and extension notes into one portable record. Field names below follow the serialized JSON, YAML, and [ZON](zon.md) form.
 
 ## Context awareness
 

@@ -8,7 +8,7 @@ ACORN is managed by the Research Enablement Initiative (REI) at Oak Ridge Nation
 REI provides:
 
 - A cross-domain model of research activity data (<span title="Research Activity Data">RAD</span>)
-    - [ACORN](acorn.md): schemas, controlled vocabularies, and ontologies for describing research activities
+    - [RADS](acorn.md): the research activity data schema, controlled vocabularies, and ontologies for describing research activities
     - [ASPECT](aspect/): classifications for technology associated with a research activity
 - A Rust command-line application, [`acorn-cli`](https://crates.io/crates/acorn-cli)
 - Rust libraries for schemas and RAD workflows, [`acorn-schema`](https://crates.io/crates/acorn-schema) and [`acorn-lib`](https://docs.rs/acorn-lib/latest/acorn/)

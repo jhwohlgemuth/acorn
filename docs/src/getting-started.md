@@ -47,11 +47,11 @@ If you are running ACORN locally, choose one method from the table below. For ba
 
 - Add the custom tap:
     ```sh
-    brew tap research-enablement/acorn https://code.ornl.gov/research-enablement/homebrew-acorn.git/
+    brew tap ornl/acorn https://code.ornl.gov/research-enablement/homebrew-acorn.git/
     ```
 - Trust the custom tap:
     ```sh
-    brew trust research-enablement/acorn
+    brew trust ornl/acorn
     ```
 - Install ACORN:
     ```sh
