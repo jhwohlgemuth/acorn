@@ -1,8 +1,12 @@
 # Browser artwork notices
 
-Retrieved November 11, 2026. `technology.svg` embeds the following source bytes unchanged as separate SVG images; SVG view fragments select each mark. No brand endorsement is implied. ACORN banners and navigation geometry come from the repository's documentation assets and design specification under its MIT license. The dark and light app icons are staged unchanged from `docs/src/_assets/acorn-app-icon-brown.svg` and `docs/src/_assets/acorn-app-icon-light.svg`.
+Retrieved November 11, 2026. `technology.svg` embeds the following source bytes unchanged as separate SVG images; SVG view fragments select each mark. No brand endorsement is implied. ACORN banners and navigation geometry come from the repository's documentation assets and design specification under its MIT license. The dark, light, and USWDS app icons are staged unchanged from each theme's `docs/src/_assets/<theme>/app-icon.svg` source. Each theme also has an `app-icon.png` and `banner.png` source.
 
 `javascript-logo.svg` is a locally drawn JavaScript mark used for the Driver.js entry on the About page.
+
+The USWDS Home illustration is staged unchanged from `docs/src/_assets/uswds/banner.png`; the other appearances keep their existing Home banners. The unused dark flag variant is retained as `docs/src/_assets/uswds/banner-dark.png`. It is ACORN artwork and does not identify the site as an official government website.
+
+The USWDS theme uses the `dist/img/sprite.svg` symbols from [`@uswds/uswds` 3.14.0](https://www.npmjs.com/package/@uswds/uswds/v/3.14.0), plus unchanged icon paths from that package's `dist/img/material-icons` for `difference`, `fullscreen`, `fullscreen_exit`, `menu_book`, `pause`, `play_arrow`, `shuffle`, `storage`, and `wrap_text`. They are bundled in [`vendor/uswds-sprite.svg`](vendor/uswds-sprite.svg) (SHA-256 `409581dfe45d02abd999772e7fd4231f7e2006ecf834b0e0d165b18b058b64f6`). The package's combined Apache-2.0 and CC0 terms are preserved in [`vendor/uswds.LICENSE`](vendor/uswds.LICENSE). The sprite is served locally; other themes retain ACORN's existing icon artwork.
 
 | Mark | Source | SHA-256 |
 |---|---|---|

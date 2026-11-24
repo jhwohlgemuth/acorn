@@ -500,6 +500,9 @@ web-cli: ## Ensure the local Dioxus CLI exists, or validate an explicit override
 	@if [ "$(DIOXUS)" = "$(CURDIR)/target/tools/dioxus/bin/dx" ]; then case "$$("$(DIOXUS)" --version 2>/dev/null)" in "dioxus 0.7.10"*) ;; *) $(MAKE) web-setup ;; esac; fi
 	@command -v "$(DIOXUS)" >/dev/null 2>&1 || { echo "Dioxus CLI not executable: $(DIOXUS). Check DIOXUS or run make web-setup." >&2; exit 1; }
 
+design-preview: ## Serve and open the browser component catalog.
+	@python3 crates/acorn-web/scripts/preview.py crates/acorn-web --port $(DESIGN_SYSTEM_PORT) --path /design-system/ --open
+
 web-dev: web-cli web-map web-prepare ## Run coordinated Dioxus and map Fast Refresh servers on loopback.
 	@python3 crates/acorn-web/scripts/dev.py "$(DIOXUS)" serve --package acorn-web --platform web --addr 127.0.0.1 --port $(WEB_PORT) --open false --interactive false
 
@@ -676,6 +679,7 @@ TASKS = \
 	ci-watch \
 	clean \
 	cover \
+	design-preview \
 	doc \
 	fuzz \
 	fuzz-repro \
@@ -732,6 +736,7 @@ TASKS = \
 TEST_OLLAMA_BASE_URL ?= http://localhost:11434
 VERSION = `awk -F ' = ' '$$1 ~ /^version/ { gsub(/["\r]/, "", $$2); printf("%s",$$2) }' Cargo.toml`
 WASM_PACK_BUILD_ARGS =
+DESIGN_SYSTEM_PORT ?= 8000
 WEB_BASE_PATH ?= /
 WEB_PORT ?= 8080
 WEB_PUBLIC = target/dx/acorn-web/release/web/public

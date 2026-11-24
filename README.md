@@ -1,8 +1,8 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/src/_assets/banner_dark_mode.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/src/_assets/banner_light_mode.png">
-    <img src="docs/src/_assets/banner_light_mode.png" alt="ACORN Banner" width="350px">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/src/_assets/dark/banner.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/src/_assets/light/banner.png">
+    <img src="docs/src/_assets/light/banner.png" alt="ACORN Banner" width="350px">
   </picture>
 </div>
 <br>

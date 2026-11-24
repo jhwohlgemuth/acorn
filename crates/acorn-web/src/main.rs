@@ -6,6 +6,7 @@ use dioxus::prelude::*;
 mod dashboard;
 mod details;
 mod geospatial_page;
+mod icon;
 mod location;
 mod results;
 mod sample;
@@ -155,10 +156,12 @@ fn app() -> Element {
             id: "app-favicon",
             rel: "icon",
             r#type: "image/svg+xml",
-            href: asset!("/assets/generated/acorn-app-icon.svg"),
-            "data-dark-icon": asset!("/assets/generated/acorn-app-icon.svg"),
-            "data-light-icon": asset!("/assets/generated/acorn-app-icon-light.svg"),
+            href: asset!("/assets/generated/dark/app-icon.svg"),
+            "data-dark-icon": asset!("/assets/generated/dark/app-icon.svg"),
+            "data-light-icon": asset!("/assets/generated/light/app-icon.svg"),
+            "data-uswds-icon": asset!("/assets/generated/uswds/app-icon.svg"),
         }
+        document::Link { rel: "license", title: "USWDS icon license", href: asset!("/assets/vendor/uswds.LICENSE") }
         document::Link { rel: "license", title: "Lucide icon license", href: asset!("/assets/vendor/lucide.LICENSE") }
         document::Link { rel: "license", title: "Devicon icon license", href: asset!("/assets/vendor/devicon.LICENSE") }
         document::Link { rel: "license", title: "Simple Icons license", href: asset!("/assets/vendor/simple-icons.LICENSE") }

@@ -9,4 +9,6 @@ pub mod search;
 pub mod session;
 
 #[cfg(test)]
+mod icon;
+#[cfg(test)]
 mod tests;

@@ -24,21 +24,26 @@ fn main() -> io::Result<()> {
         return Err(io::Error::other("could not prepare the bundled ACORN skill"));
     }
     let assets = [
-        ("../../docs/src/_assets/acorn-app-icon-brown.svg", "assets/generated/acorn-app-icon.svg"),
-        (
-            "../../docs/src/_assets/acorn-app-icon-light.svg",
-            "assets/generated/acorn-app-icon-light.svg",
-        ),
         ("../../docs/src/_assets/acorn.svg", "assets/generated/acorn.svg"),
-        ("../../docs/src/_assets/banner_dark_mode.png", "assets/generated/banner_dark_mode.png"),
-        ("../../docs/src/_assets/banner_light_mode.png", "assets/generated/banner_light_mode.png"),
+        ("../../docs/src/_assets/dark/app-icon.png", "assets/generated/dark/app-icon.png"),
+        ("../../docs/src/_assets/dark/app-icon.svg", "assets/generated/dark/app-icon.svg"),
+        ("../../docs/src/_assets/dark/banner.png", "assets/generated/dark/banner.png"),
+        ("../../docs/src/_assets/light/app-icon.png", "assets/generated/light/app-icon.png"),
+        ("../../docs/src/_assets/light/app-icon.svg", "assets/generated/light/app-icon.svg"),
+        ("../../docs/src/_assets/light/banner.png", "assets/generated/light/banner.png"),
         ("../../docs/src/_assets/schema-logos/github.svg", "assets/generated/github.svg"),
         ("../../docs/src/_assets/schema-logos/gitlab.svg", "assets/generated/gitlab.svg"),
+        ("../../docs/src/_assets/uswds/app-icon.png", "assets/generated/uswds/app-icon.png"),
+        ("../../docs/src/_assets/uswds/app-icon.svg", "assets/generated/uswds/app-icon.svg"),
+        ("../../docs/src/_assets/uswds/banner.png", "assets/generated/uswds/banner.png"),
         ("../acorn-wasm/web/webmcp.js", "assets/generated/webmcp.js"),
     ];
-    fs::create_dir_all("assets/generated/geospatial")
+    fs::create_dir_all("assets/generated/dark")
         .and_then(|()| fs::create_dir_all("assets/generated/editor"))
+        .and_then(|()| fs::create_dir_all("assets/generated/geospatial"))
+        .and_then(|()| fs::create_dir_all("assets/generated/light"))
         .and_then(|()| fs::create_dir_all("assets/generated/skill"))
+        .and_then(|()| fs::create_dir_all("assets/generated/uswds"))
         .and_then(|()| {
             ["manifest.json", "SKILL.md", "acorn-skill.zip"].into_iter().try_for_each(|file| {
                 let source = format!("../../target/acorn-skill/{file}");

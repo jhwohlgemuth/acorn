@@ -69,7 +69,7 @@ pub(crate) fn Skill(compact: bool) -> Element {
                 let copied = definition.clone();
                 let download_base = base.clone();
                 rsx! {
-                    p { class: "status", "App and bundled skill match · v{VERSION}" }
+                    p { class: "status skill-match-status", "App and bundled skill match · v{VERSION}" }
                     if !compact {
                         div { class: "card", h2 { "🚀 Install and start" }
                             ol { li { "Read the bundled definition and review its workflows." } li { "Download and extract the complete skill folder into your repository’s agent skill directory." } li { "Start a new compatible agent session and invoke the ACORN skill." } }

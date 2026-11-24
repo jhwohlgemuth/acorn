@@ -1,4 +1,5 @@
 use crate::geospatial_page::{Geospatial, MapPins};
+use crate::icon::IconName;
 use crate::results::ResultView;
 use crate::sample;
 use crate::skill::{Install, Skill};
@@ -279,7 +280,7 @@ fn Home() -> Element {
     rsx! {
         document::Title { "{APP_NAME}" }
         section { class: "home",
-            div { class: "home-banner", img { class: "banner-dark", src: asset!("/assets/generated/banner_dark_mode.png"), alt: "ACORN", width: "320" } img { class: "banner-light", src: asset!("/assets/generated/banner_light_mode.png"), alt: "ACORN", width: "320" } }
+            div { class: "home-banner", img { class: "banner-dark", src: asset!("/assets/generated/dark/banner.png"), alt: "ACORN", width: "320" } img { class: "banner-light", src: asset!("/assets/generated/light/banner.png"), alt: "ACORN", width: "320" } img { class: "banner-uswds", src: asset!("/assets/generated/uswds/banner.png"), alt: "ACORN", width: "320" } }
             div { class: "home-brand",
                 h1 { class: "home-subtitle", "Research Intelligence" }
             }
@@ -307,95 +308,19 @@ fn Home() -> Element {
 }
 #[component]
 pub(crate) fn Icon(name: &'static str) -> Element {
-    let artwork = match name {
-        | "alert" => r#"<path d="m10.3 4-8 14a2 2 0 0 0 1.7 3h16a2 2 0 0 0 1.7-3l-8-14a2 2 0 0 0-3.4 0ZM12 9v4m0 4h.01"/>"#,
-        | "book" => {
-            r#"<path class="s" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z" />
-      <path class="s" d="M4 6.5v13M9 10l2 2 4-4" />"#
+    let icon = name.parse::<IconName>().unwrap_or(IconName::Unknown);
+    let artwork = icon.legacy_artwork();
+    let uswds_artwork = icon
+        .uswds_symbol()
+        .map(|id| format!(r#"<use href="{}#{id}"></use>"#, asset!("/assets/vendor/uswds-sprite.svg")));
+    rsx! {
+        svg { class: "nav-icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "1.6", stroke_linecap: "round", stroke_linejoin: "round", "aria-hidden": "true", "focusable": "false", role: "img",
+            g { class: "legacy-icon", dangerous_inner_html: artwork }
+            if let Some(uswds_artwork) = uswds_artwork {
+                g { class: "usa-icon", dangerous_inner_html: uswds_artwork }
+            }
         }
-        | "chart" => r#"<path d="M4 3v17h17M7 16l4-3 4-5 5-4" fill="none" stroke="currentColor" stroke-width="1.6" />"#,
-        | "check" => r#"<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>"#,
-        | "code" => r#"<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/>"#,
-        | "compass" => {
-            r#"<circle class="s" cx="12" cy="12" r="9" />
-      <path class="s" d="m16 8-2.5 5.5L8 16l2.5-5.5Z" />"#
-        }
-        | "copy" => {
-            r#"<rect class="s" x="8" y="8" width="12" height="13" rx="2"/><path class="s" d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>"#
-        }
-        | "database" => {
-            r#"<ellipse class="s" cx="12" cy="5" rx="8" ry="3"/><path class="s" d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>"#
-        }
-        | "diff" => r#"<path class="s" d="M18 3v18M6 8V3M3 6l3-3 3 3M3 18l3 3 3-3M6 21v-5M15 7h6M15 17h6" />"#,
-        | "download" => {
-            r#"<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />"#
-        }
-        | "expand" => r#"<path d="m8 6 4-4 4 4M12 2v7m-4 9 4 4 4-4m-4 4v-7M4 12h16"/>"#,
-        | "external" => r#"<path class="s" d="M14 3h7v7M21 3l-9 9M20 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"/>"#,
-        | "eye" => r#"<path class="s" d="M2 12c2.5-4 6-6 10-6s7.5 2 10 6c-2.5 4-6 6-10 6S4.5 16 2 12Z"/><circle class="s" cx="12" cy="12" r="2.5"/>"#,
-        | "file" => r#"<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>"#,
-        | "filecheck" => {
-            r#"<path class="s" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-      <path class="s" d="M14 2v6h6M9 15l2 2 4-4" />"#
-        }
-        | "fold" => r#"<path d="m8 3 4 4 4-4m-4-1v5m-4 14 4-4 4 4m-4 1v-5M4 12h16"/>"#,
-        | "folder-open" => {
-            r#"<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>"#
-        }
-        | "font-big" => r#"<path class="s" d="M2 19 8 5l6 14M4 14h8M18 18V7m-3 3 3-3 3 3"/>"#,
-        | "font-small" => r#"<path class="s" d="M2 19 8 5l6 14M4 14h8M18 7v11m-3-3 3 3 3-3"/>"#,
-        | "globe" => {
-            r#"<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
-      <ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" />
-      <path d="M3 12h18" stroke="currentColor" />"#
-        }
-        | "home" => r#"<path class="s" d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" />"#,
-        | "info" => {
-            r#"<circle class="s" cx="12" cy="12" r="9" />
-      <path class="s" d="M12 11v5M12 8h.01" />"#
-        }
-        | "link" => r#"<path d="m10 13 4-4m-6 6-2 2a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m4 1 2-2a3.5 3.5 0 0 1 5 5l-4 4a3.5 3.5 0 0 1-5 0"/>"#,
-        | "list" => r#"<path class="s" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />"#,
-        | "maximize" => r#"<path class="s" d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" />"#,
-        | "minimize" => r#"<path class="s" d="M3 8h5V3m13 5h-5V3M3 16h5v5m13-5h-5v5" />"#,
-        | "panel" => {
-            r#"<rect class="s" x="3" y="4" width="18" height="16" rx="2" />
-      <path class="s" d="M9 4v16M14 8l-3 4 3 4" />"#
-        }
-        | "panel-open" => r#"<rect class="s" x="3" y="4" width="18" height="16" rx="2" /><path class="s" d="M9 4v16m4-12 3 4-3 4" />"#,
-        | "pause" => r#"<rect class="s" x="6" y="4" width="4" height="16" rx="1"/><rect class="s" x="14" y="4" width="4" height="16" rx="1"/>"#,
-        | "play" => r#"<path class="s" d="m8 4 12 8-12 8Z" />"#,
-        | "portfolio" => {
-            r#"<rect class="s" x="3" y="3" width="7" height="7" rx="1" />
-      <rect class="s" x="14" y="3" width="7" height="7" rx="1" />
-      <rect class="s" x="3" y="14" width="7" height="7" rx="1" />
-      <rect class="s" x="14" y="14" width="7" height="7" rx="1" />"#
-        }
-        | "search" => {
-            r#"<circle class="stroke" cx="11" cy="11" r="7" />
-      <path class="stroke" d="m20 20-4-4" />"#
-        }
-        | "settings" => {
-            r#"<circle class="s" cx="12" cy="12" r="3" />
-      <path class="s" d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />"#
-        }
-        | "shield" => {
-            r#"<path class="s" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
-      <path class="s" d="m9 12 2 2 4-4" />"#
-        }
-        | "shuffle" => r#"<path class="s" d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />"#,
-        | "sort-asc" => r#"<path class="s" d="M7 20V4m-4 4 4-4 4 4M15 7h6m-6 5h5m-5 5h4"/>"#,
-        | "sort-desc" => r#"<path class="s" d="M7 4v16m-4-4 4 4 4-4M15 7h6m-6 5h5m-5 5h4"/>"#,
-        | "sort-title" => r#"<path class="s" d="m3 20 5-16 5 16M5 14h6M16 6h5m-5 6h5m-5 6h5"/>"#,
-        | "upload" => r#"<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>"#,
-        | "users" => {
-            r#"<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>"#
-        }
-        | "wrap" => r#"<path class="s" d="M3 6h18M3 10h12a4 4 0 0 1 0 8H9m3-3-3 3 3 3M3 14h5M3 18h3"/>"#,
-        | "x" => r#"<path class="s" d="M5 5l14 14M19 5 5 19"/>"#,
-        | _ => "",
-    };
-    rsx! { svg { class: "nav-icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor", stroke_width: "1.6", stroke_linecap: "round", stroke_linejoin: "round", "aria-hidden": "true", "focusable": "false", dangerous_inner_html: artwork } }
+    }
 }
 #[component]
 fn InfoPage(page: String) -> Element {
@@ -483,9 +408,20 @@ fn InfoPage(page: String) -> Element {
                 "skill" => rsx! { Skill { compact: false } },
                 "settings" => rsx! { p { class: "lede", "Appearance and your local session." }
                     div { class: "card", h2 { "🎨 Appearance" }
-                        div { class: "theme-choices", "aria-label": "Appearance",
-                            for mode in ["Dark", "Light", "System"] {
-                                button { "aria-label": mode, "data-theme-choice": mode.to_lowercase(), "aria-pressed": "false", onclick: move |_| { let mode = mode.to_lowercase(); document::eval(&format!("window.acornChrome?.theme.choose('{mode}')")); }, "{mode}" }
+                        div { class: "theme-selector-grid", role: "group", "aria-label": "Themes",
+                            div { class: "theme-selector theme-selector-acorn", role: "group", "aria-label": "ACORN theme",
+                                span { class: "theme-thumbnail", "aria-hidden": "true", span { class: "theme-thumbnail-sidebar" } span { class: "theme-thumbnail-content" } }
+                                span { class: "theme-selector-name", "ACORN" }
+                                div { class: "theme-choices", role: "group", "aria-label": "ACORN color mode",
+                                    for mode in ["Light", "Dark", "System"] {
+                                        button { "aria-label": mode, "data-theme-choice": mode.to_lowercase(), "aria-pressed": "false", onclick: move |_| { let mode = mode.to_lowercase(); document::eval(&format!("window.acornChrome?.theme.choose('{mode}')")); }, "{mode}" }
+                                    }
+                                }
+                            }
+                            button { class: "theme-selector theme-selector-uswds", "data-theme-choice": "uswds", "aria-pressed": "false", onclick: move |_| { document::eval("window.acornChrome?.theme.choose('uswds')"); },
+                                span { class: "theme-thumbnail", "aria-hidden": "true", span { class: "theme-thumbnail-sidebar" } span { class: "theme-thumbnail-content" } }
+                                span { class: "theme-selector-name", "USWDS" }
+                                span { class: "theme-selector-note", "Light only" }
                             }
                         }
                         p { id: "theme-mode", class: "small muted", "Following your system preference." }
@@ -801,6 +737,7 @@ fn Shell() -> Element {
         .and_then(|value| value.as_string())
         .unwrap_or_else(|| "light".into());
     let initially_dark = initial_theme == "dark";
+    let initially_uswds = initial_theme == "uswds";
     let route = use_route::<Route>();
     let window_name = js_sys::Reflect::get(&js_sys::global(), &"name".into())
         .ok()
@@ -839,8 +776,9 @@ fn Shell() -> Element {
             aside { id: "workspace-navigation", class: "sidebar", "aria-label": "Workspace navigation",
                 div { class: "nav-controls",
                     Link { to: Route::Home {}, class: "sidebar-brand", title: "ACORN home", "aria-label": "ACORN home", onclick: move |_| { if drawer() { drawer.set(false); } },
-                        img { class: "brand-icon-dark", src: asset!("/assets/generated/acorn-app-icon.svg"), alt: "", width: "28", height: "28" }
-                        img { class: "brand-icon-light", src: asset!("/assets/generated/acorn-app-icon-light.svg"), alt: "", width: "28", height: "28" }
+                        img { class: "brand-icon-dark", src: asset!("/assets/generated/dark/app-icon.svg"), alt: "", width: "28", height: "28" }
+                        img { class: "brand-icon-light", src: asset!("/assets/generated/light/app-icon.svg"), alt: "", width: "28", height: "28" }
+                        img { class: "brand-icon-uswds", src: asset!("/assets/generated/uswds/app-icon.svg"), alt: "", width: "28", height: "28" }
                         span { class: "sidebar-brand-name", "aria-hidden": "true", "ACORN" }
                     }
                     button { class: "collapse", onclick: move |_| {
@@ -884,7 +822,7 @@ fn Shell() -> Element {
                 span { class: "notification-icon notification-icon-info", Icon { name: "info" } }
                 span { class: "notification-text" }
                 button { "aria-label": "Dismiss notification", "Dismiss" } }
-            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": if initially_dark { "Dark theme" } else { "Light theme" }, title: "Toggle dark or light theme", "aria-pressed": initially_dark, onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", if initially_dark { "Dark" } else { "Light" } } } } Outlet::<Route> {} }
+            main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": if initially_dark { "Switch to light theme (current: Dark)" } else if initially_uswds { "Switch to dark theme (current: USWDS)" } else { "Switch to dark theme (current: Light)" }, title: "Switch between dark and light themes", "aria-pressed": if initially_uswds { None } else { Some(initially_dark) }, onclick: move |_| { document::eval("window.acornChrome?.theme.toggle()"); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", if initially_uswds { "USWDS" } else if initially_dark { "Dark" } else { "Light" } } } span { class: "theme-static", span { class: "theme-flag", "aria-hidden": "true", "🇺🇸" } a { href: "https://designsystem.digital.gov/", target: "_blank", rel: "noopener noreferrer", "USWDS" } } } Outlet::<Route> {} }
             crate::details::DetailsDrawer {}
         }
     }

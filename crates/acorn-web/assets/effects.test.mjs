@@ -63,21 +63,38 @@ test("chrome follows system changes until an explicit theme choice and resets to
     const context = { window: {}, document: { getElementById: () => null, querySelector: () => null }, setTimeout, clearTimeout };
     runInNewContext(await readFile(new URL("effects.js", import.meta.url), "utf8"), context);
     const states = [];
-    const theme = context.createTheme(true, (dark, system) => states.push([dark, system]));
+    const theme = context.createTheme(true, (rendered, mode) => states.push([rendered, mode]));
     theme.sync();
     theme.update(false);
     theme.toggle();
     theme.update(false);
     theme.reset();
     theme.update(true);
-    assert.deepEqual(states, [[true, true], [false, true], [true, false], [true, false], [false, true], [true, true]]);
+    assert.deepEqual(states, [["dark", "system"], ["light", "system"], ["dark", "dark"], ["dark", "dark"], ["light", "system"], ["dark", "system"]]);
 });
 test("explicit theme tiles remain selected across system changes", async () => {
     const context = await effectContext();
     const states = [];
-    const theme = context.createTheme(true, (dark, system) => states.push([dark, system]));
+    const theme = context.createTheme(true, (rendered, mode) => states.push([rendered, mode]));
     theme.choose("light"); theme.update(true); theme.choose("dark"); theme.update(false); theme.choose("system"); theme.choose("invalid");
-    assert.deepEqual(states, [[false, false], [false, false], [true, false], [true, false], [false, true]]);
+    assert.deepEqual(states, [["light", "light"], ["light", "light"], ["dark", "dark"], ["dark", "dark"], ["light", "system"]]);
+});
+test("USWDS persists, ignores system changes, and URL preview stays temporary", async () => {
+    const context = await effectContext();
+    const saved = new Map();
+    const storage = () => ({ getItem: (key) => saved.get(key), setItem: (key, value) => saved.set(key, value), removeItem: (key) => saved.delete(key) });
+    const states = [];
+    const theme = context.createTheme(true, (rendered, mode, fromUrl) => states.push([rendered, mode, fromUrl]), storage);
+    theme.choose("uswds");
+    theme.update(false);
+    assert.equal(saved.get("acorn.theme.v1"), "uswds");
+    const preview = context.createTheme(true, (rendered, mode, fromUrl) => states.push([rendered, mode, fromUrl]), storage, "dark");
+    preview.sync();
+    assert.equal(saved.get("acorn.theme.v1"), "uswds");
+    theme.toggle();
+    theme.reset();
+    assert.deepEqual(states, [["uswds", "uswds", false], ["uswds", "uswds", false], ["dark", "dark", true], ["dark", "dark", false], ["light", "system", false]]);
+    assert.equal(saved.has("acorn.theme.v1"), false);
 });
 test("folder drops exhaust directory batches and preserve sorted relative paths", async () => {
     const context = await effectContext();
@@ -232,7 +249,7 @@ test("theme choices persist and resetting clears the saved choice", async () => 
         removeItem: (key) => values.delete(key),
     };
     const states = [];
-    const apply = (dark, system) => states.push([dark, system]);
+    const apply = (rendered, mode) => states.push([rendered, mode]);
     const first = context.createTheme(false, apply, () => storage);
     first.sync();
     first.choose("dark");
@@ -242,7 +259,7 @@ test("theme choices persist and resetting clears the saved choice", async () => 
     restored.reset();
     assert.equal(values.has("acorn.theme.v1"), false);
     context.createTheme(false, apply, () => storage).sync();
-    assert.deepEqual(states, [[false, true], [true, false], [true, false], [false, true], [false, true]]);
+    assert.deepEqual(states, [["light", "system"], ["dark", "dark"], ["dark", "dark"], ["light", "system"], ["light", "system"]]);
 });
 test("tour handles reduced motion, completion, route teardown and missing targets", async () => {
     const { readFile } = await import("node:fs/promises");
@@ -255,6 +272,7 @@ test("tour handles reduced motion, completion, route teardown and missing target
     let missing = false;
     let sampleLoaded = false;
     let mobile = false;
+    let tourTheme = "light";
     let completed = 0;
     let reset = 0;
     const notices = [];
@@ -262,7 +280,7 @@ test("tour handles reduced motion, completion, route teardown and missing target
     const tour = context.createTour(async () => ({ driver: (options) => {
         config = options;
         return { drive: () => { driven += 1; }, destroy: () => {} };
-    } }), { complete: () => { completed += 1; }, find: (selector) => missing && selector === "#local-entry" || sampleLoaded && selector === "#sample-data" ? null : trigger, notify: (message) => notices.push(message), reducedMotion: () => true, mobile: () => mobile, reset: () => { reset += 1; return true; }, theme: () => "light" });
+    } }), { complete: () => { completed += 1; }, find: (selector) => missing && selector === "#local-entry" || sampleLoaded && selector === "#sample-data" ? null : trigger, notify: (message) => notices.push(message), reducedMotion: () => true, mobile: () => mobile, reset: () => { reset += 1; return true; }, theme: () => tourTheme });
     await tour.start();
     assert.equal(config.animate, false);
     assert.equal(config.allowKeyboardControl, true);
@@ -285,9 +303,13 @@ test("tour handles reduced motion, completion, route teardown and missing target
     await tour.start();
     assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Open your data", "Load a repository bucket", "Use the ACORN Skill", "Explore the workspace", "Switch appearance"]);
     tour.cancel();
+    tourTheme = "uswds";
+    await tour.start();
+    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Open your data", "Load a repository bucket", "Use the ACORN Skill", "Explore the workspace"]);
+    tour.cancel();
     missing = true;
     await tour.start();
-    assert.equal(driven, 3);
+    assert.equal(driven, 4);
     assert.match(notices.at(-1), /unavailable/);
 });
 test("URL theme overrides a saved choice without changing storage", async () => {
@@ -299,12 +321,12 @@ test("URL theme overrides a saved choice without changing storage", async () => 
         removeItem: (key) => values.delete(key),
     };
     const states = [];
-    const theme = context.createTheme(true, (dark, system, fromUrl) => states.push([dark, system, fromUrl]), () => storage, "light");
+    const theme = context.createTheme(true, (rendered, mode, fromUrl) => states.push([rendered, mode, fromUrl]), () => storage, "light");
     theme.sync();
     theme.update(false);
     assert.equal(values.get("acorn.theme.v1"), "dark");
     theme.choose("dark");
-    assert.deepEqual(states, [[false, false, true], [false, false, true], [true, false, false]]);
+    assert.deepEqual(states, [["light", "light", true], ["light", "light", true], ["dark", "dark", false]]);
     assert.equal(values.get("acorn.theme.v1"), "dark");
 });
 test("WebMCP survives cached navigation and disposes on final unload", async (t) => {

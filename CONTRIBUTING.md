@@ -45,8 +45,23 @@ If you would like to generously provide a pull request to correct a verified iss
 | Run security audit on dependencies       | `make audit`       |
 | Generate documentation                   | `make doc`         |
 | Build the documentation book              | `make book`        |
+| Open the browser design system preview     | `make design-preview` |
 | Regenerate command-line help              | `make help`        |
 | Generate CHANGELOG<sup>[[1]](#1)</sup>   | `make changelog`   |
+
+### Browser design system preview
+
+From the repository root, run:
+
+```shell
+make design-preview
+```
+
+This serves the [component catalog](crates/acorn-web/design-system/README.md) at `http://127.0.0.1:8000/design-system/` and opens it in your default browser. To use another port, run `make design-preview DESIGN_SYSTEM_PORT=8001`.
+
+Use the appearance selector to compare Light, Dark, and USWDS. Refer to examples by their visible IDs, such as `#buttons-primary`, and hover an ID for its full name. Press Ctrl+C in the terminal to stop the preview.
+
+The catalog uses synthetic examples and production CSS. Use the browser smoke tests to check interactive behavior.
 
 ### Preparing and publishing a release
 

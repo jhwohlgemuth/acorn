@@ -1,8 +1,21 @@
-//! Cross-module browser workspace and research index tests.
+//! Cross-module browser workspace, icon, and research index tests.
+use crate::icon::IconName;
 use crate::research_index::{CatalogSort, ResearchIndex};
 use crate::search::SearchPattern;
 use crate::session::{Selection, SuppliedFile, Workspace, WorkspaceSource};
 use serde_json::json;
+
+#[test]
+fn test_icon_name_parses_existing_names() {
+    assert_eq!("filecheck".parse::<IconName>(), Ok(IconName::FileCheck));
+    assert_eq!("folder-open".parse::<IconName>(), Ok(IconName::FolderOpen));
+    assert_eq!("font-big".parse::<IconName>(), Ok(IconName::FontBig));
+    assert_eq!("sort-title".parse::<IconName>(), Ok(IconName::SortTitle));
+    assert_eq!("x".parse::<IconName>(), Ok(IconName::X));
+    assert!("missing".parse::<IconName>().is_err());
+    assert!(!IconName::FileCheck.legacy_artwork().is_empty());
+    assert_eq!(IconName::FileCheck.uswds_symbol(), Some("verified"));
+}
 
 #[test]
 fn test_index_ignores_invalid_and_replaced_records() {

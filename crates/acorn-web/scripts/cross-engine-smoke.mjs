@@ -120,6 +120,20 @@ try {
         await choose("Files", resolve("crates/acorn-web/assets/examples/publications.json"));
         await page.locator(".sidebar-session").getByText("1 activity · 1 file", { exact: true }).waitFor();
     }
+    await page.locator('nav a[title="Settings"]').click();
+    await page.locator('[data-theme-choice="uswds"]').click();
+    await page.locator('.workspace[data-theme=uswds]').waitFor();
+    await page.reload();
+    await page.locator('.workspace[data-theme=uswds]').waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'uswds');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    assert.equal(await page.locator('.workspace').getAttribute('data-theme'), 'uswds');
+    assert.equal(await page.locator('#theme-toggle').isVisible(), false);
+    assert.equal(await page.locator('.theme-static').isVisible(), true);
+    await page.locator('[data-theme-choice="dark"]').click();
+    assert.equal(await page.locator('.workspace').getAttribute('data-theme'), 'dark');
+    assert.equal(await page.locator('#theme-toggle').isVisible(), true);
+    assert.equal(await page.locator('.theme-static').isVisible(), false);
     assert.deepEqual(failures, []);
     const cancelPage = await context.newPage();
     await cancelPage.goto(`${origin}${prefix}/`);
@@ -140,7 +154,7 @@ try {
     await cancelPage.waitForFunction(() => !document.querySelector('input[type="file"]'));
     assert.equal(await cancelPage.locator(".sidebar-session").innerText(), beforeCancel, "Cancelling the picker preserves the prior session");
     await cancelPage.close();
-    console.log(`${engine} ${browser.version()}: ${engine === "firefox" ? "synthetic chooser cancellation and file selection" : "native chooser cancellation and file selection"}, ${folderResult}, copy feedback, JSON download, URL cleanup, and no external requests passed; native clipboard API ${nativeClipboard ? "present" : "unavailable"}.`);
+    console.log(`${engine} ${browser.version()}: ${engine === "firefox" ? "synthetic chooser cancellation and file selection" : "native chooser cancellation and file selection"}, ${folderResult}, copy feedback, JSON download, URL cleanup, USWDS persistence and flag label, and no external requests passed; native clipboard API ${nativeClipboard ? "present" : "unavailable"}.`);
 } finally {
     await browser.close();
     await new Promise((closed) => server.close(closed));

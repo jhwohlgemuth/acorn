@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "baselineRevision": "44cdd382",
+  "themes": ["dark", "light", "uswds"],
+  "components": [
+    {"id":"type-color","name":"Type and color","category":"foundation","source":"assets/app.css:1","selector":".workspace, h1, .muted","states":["heading","body","muted","surface"],"role":"text and decorative swatches","keyboard":"none","anchor":"#type-color"},
+    {"id":"icons","name":"Icons","category":"foundation","source":"src/ui.rs:309","selector":".nav-icon","states":["decorative","labeled"],"role":"image or hidden decoration","keyboard":"none","anchor":"#icons"},
+    {"id":"buttons","name":"Buttons","category":"control","source":"assets/app.css:8","selector":"button, button.primary, button.danger","states":["default","primary","danger","disabled","focus"],"role":"button with visible name","keyboard":"Enter and Space","anchor":"#buttons"},
+    {"id":"links","name":"Links","category":"control","source":"assets/app.css:7","selector":"a, .nav-item","states":["normal","hover","active","focus"],"role":"link with destination","keyboard":"Enter","anchor":"#links"},
+    {"id":"fields","name":"Fields","category":"control","source":"assets/app.css:4","selector":"input, select, textarea, .field","states":["normal","required","disabled","error","focus"],"role":"labeled form controls","keyboard":"Tab, typing, and native selection","anchor":"#fields"},
+    {"id":"status","name":"Status and alerts","category":"feedback","source":"assets/app.css:208","selector":".status, .notification, .source-feedback","states":["success","warning","error","busy"],"role":"status or alert with text","keyboard":"dismiss button uses Enter or Space","anchor":"#status"},
+    {"id":"cards","name":"Cards","category":"container","source":"assets/app.css:60","selector":".card, .skill-card","states":["standard","linked","selected"],"role":"section or link","keyboard":"linked card uses Enter","anchor":"#cards"},
+    {"id":"tables","name":"Tables","category":"data","source":"assets/app.css:803","selector":".activity-table, .organization-table","states":["header","row","selected","empty"],"role":"table with column headers","keyboard":"Tab to row actions","anchor":"#tables"},
+    {"id":"navigation","name":"Navigation and tabs","category":"navigation","source":"assets/app.css:37","selector":".nav-item, .details-tabs","states":["normal","active","focus"],"role":"navigation links and tabs","keyboard":"Tab and Enter","anchor":"#navigation"},
+    {"id":"disclosure","name":"Disclosure","category":"container","source":"assets/app.css:264","selector":"details, summary","states":["closed","open","focus"],"role":"details with named summary","keyboard":"Enter or Space","anchor":"#disclosure"},
+    {"id":"drawer","name":"Details drawer","category":"overlay","source":"src/details.rs:235","selector":".details-drawer","states":["open","empty","error"],"role":"dialog with close control","keyboard":"Escape closes the production drawer","anchor":"#drawer"},
+    {"id":"workspace-tree","name":"Workspace tree","category":"workspace","source":"assets/app.css:593","selector":".loaded-tree, .file-leaf","states":["folder","file","selected","empty"],"role":"list of files with named buttons","keyboard":"Tab and Enter in production","anchor":"#workspace-tree"},
+    {"id":"portfolio","name":"Portfolio tiles and list","category":"workspace","source":"assets/app.css:803","selector":".catalog-activity-card, .catalog-activity-row","states":["tile","list","empty"],"role":"named activity buttons","keyboard":"Tab and Enter in production","anchor":"#portfolio"},
+    {"id":"results","name":"Results and charts","category":"workspace","source":"assets/app.css:260","selector":".results, .result-controls","states":["success","warning","chart","empty"],"role":"named result with data equivalent","keyboard":"Tab to filters in production","anchor":"#results"},
+    {"id":"editor","name":"Editor diagnostics","category":"workspace","source":"assets/app.css:430","selector":".diagnostic, .code-editor","states":["error","warning","suggestion","empty"],"role":"code editor with diagnostic text","keyboard":"editor keyboard behavior in smoke test","anchor":"#editor"},
+    {"id":"map","name":"Map controls","category":"workspace","source":"geospatial/src/map.css:1","selector":".map-layer-widget, .map-project-legend","states":["layer","selected","attribution","fallback"],"role":"named layer controls and attribution","keyboard":"Tab, Enter, and Space in production","anchor":"#map"}
+  ]
+}

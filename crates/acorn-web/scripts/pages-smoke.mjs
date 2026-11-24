@@ -65,7 +65,10 @@ try {
     const page = await browser.newPage({ colorScheme: "light" });
     page.setDefaultTimeout(15000);
     page.on("pageerror", (error) => failures.push(error.message));
-    page.on("requestfailed", (request) => failures.push(`${request.url()}: ${request.failure()?.errorText}`));
+    page.on("requestfailed", (request) => {
+        const cancelledSprite = request.url().includes("/assets/uswds-sprite-") && request.failure()?.errorText === "net::ERR_ABORTED";
+        if (!cancelledSprite) failures.push(`${request.url()}: ${request.failure()?.errorText}`);
+    });
     page.on("response", (response) => {
         if (response.status() >= 400 && response.request().resourceType() !== "document") failures.push(`${response.status()} ${response.url()}`);
     });

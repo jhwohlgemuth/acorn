@@ -74,3 +74,11 @@ details.map-layer-widget > summary svg { width: 24px; height: 24px; fill: none; 
     border: 0;
     border-radius: 0;
 }
+[data-theme=uswds] .map-project-legend,[data-theme=uswds] .map-layer-panel{color:#1b1b1b;background:#fff;border-color:#adadad}
+[data-theme=uswds] details.map-layer-widget > summary{color:#005ea2;background:#fff;border-color:#adadad}
+[data-theme=uswds] details.map-layer-widget > summary:hover{color:#fff;background:#005ea2;border-color:#005ea2}
+[data-theme=uswds] .map-layer-widget :is(small,.map-basemap,.map-ion-options > summary span){color:#5c5c5c}
+[data-theme=uswds] .map-basemap-option strong{color:#1b1b1b}
+[data-theme=uswds] .map-basemap-option.selected{background:#cfe8ff;border-color:#005ea2}
+[data-theme=uswds] .map-layer-widget input{accent-color:#005ea2}
+[data-theme=uswds] .map-layer-widget .map-token input{color:#1b1b1b;background:#fff;border-color:#5c5c5c}

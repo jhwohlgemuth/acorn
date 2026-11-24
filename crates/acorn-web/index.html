@@ -19,19 +19,21 @@ html[data-loader-preview] #main[data-styles-ready]:has(.workspace)+#boot{display
 html[data-theme=light],html[data-theme=light] #boot{background:#f7f8fa;color:#242931}
 html[data-theme=dark],html[data-theme=dark] #boot{background:#1f2229;color:#abb2bf}
 html[data-theme=dark] #boot img{color-scheme:dark}
+html[data-theme=uswds],html[data-theme=uswds] #boot{background:#fff;color:#1b1b1b;color-scheme:light}
 </style>
 <script>
 if (new URLSearchParams(location.search).get('preview-loader') === '1') document.documentElement.setAttribute('data-loader-preview', '');
 window.acornThemeOverride = new URLSearchParams(location.search).get('theme');
-if (window.acornThemeOverride !== 'light' && window.acornThemeOverride !== 'dark') window.acornThemeOverride = '';
+if (!['dark', 'light', 'uswds'].includes(window.acornThemeOverride)) window.acornThemeOverride = '';
 window.acornInitialThemeMode = 'system';
 try {
     const savedTheme = localStorage.getItem('acorn.theme.v1');
-    if (['dark', 'light', 'system'].includes(savedTheme)) window.acornInitialThemeMode = savedTheme;
+    if (['dark', 'light', 'system', 'uswds'].includes(savedTheme)) window.acornInitialThemeMode = savedTheme;
 } catch {}
 const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 window.acornInitialTheme = 'light';
 if (window.acornInitialThemeMode === 'dark' || (window.acornInitialThemeMode === 'system' && systemDark)) window.acornInitialTheme = 'dark';
+if (window.acornInitialThemeMode === 'uswds') window.acornInitialTheme = 'uswds';
 if (window.acornThemeOverride) window.acornInitialTheme = window.acornThemeOverride;
 document.documentElement.dataset.theme = window.acornInitialTheme;
 window.acornInitialReviewFragment = '';

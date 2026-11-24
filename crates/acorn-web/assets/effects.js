@@ -97,18 +97,18 @@ function createTheme(preference, apply, storage = () => window.localStorage, ove
     let mode = "system";
     try {
         const saved = storage().getItem("acorn.theme.v1");
-        if (["dark", "light", "system"].includes(saved)) mode = saved;
+        if (["dark", "light", "system", "uswds"].includes(saved)) mode = saved;
     } catch {}
-    let fromUrl = ["dark", "light"].includes(override);
+    let fromUrl = ["dark", "light", "uswds"].includes(override);
     if (fromUrl) mode = override;
-    const currentDark = () => (mode === "system" && systemDark) || mode === "dark";
+    const rendered = () => mode === "system" ? systemDark ? "dark" : "light" : mode;
     const save = () => { try { storage().setItem("acorn.theme.v1", mode); } catch {} };
-    const sync = () => apply(currentDark(), mode === "system", fromUrl);
+    const sync = () => apply(rendered(), mode, fromUrl);
     return {
-        choose(choice) { if (["dark", "light", "system"].includes(choice)) { mode = choice; fromUrl = false; save(); sync(); } },
+        choose(choice) { if (["dark", "light", "system", "uswds"].includes(choice)) { mode = choice; fromUrl = false; save(); sync(); } },
         reset() { mode = "system"; fromUrl = false; try { storage().removeItem("acorn.theme.v1"); } catch {} sync(); },
         sync,
-        toggle() { const dark = currentDark(); mode = "dark"; if (dark) mode = "light"; fromUrl = false; save(); sync(); },
+        toggle() { mode = rendered() === "dark" ? "light" : "dark"; fromUrl = false; save(); sync(); },
         update(dark) { systemDark = dark; sync(); },
     };
 }
@@ -151,7 +151,7 @@ function createTour(loadDriver, environment) {
                         ['#workspace-navigation a[aria-label="Content diff"]', "Compare and analyze", "Compare content changes, estimate algorithm complexity, or explore geospatial and research data tools."],
                         ['#workspace-navigation a[aria-label="Settings"]', "Manage your workspace", "Choose a theme, check saved workspace status, or clear data when you are finished."],
                     ]),
-                    ["#theme-toggle", "Switch appearance", "Toggle between light and dark themes at any time."],
+                    ...(environment.theme() === "uswds" ? [] : [["#theme-toggle", "Switch appearance", "Switch between light and dark themes. Choose USWDS in Settings."]]),
                 ].filter(([element]) => environment.find(element)).map(([element, title, description]) => ({ element, popover: { title, description } }));
                 silent = false;
                 active = driver({
@@ -191,25 +191,25 @@ function installChrome() {
     const workspace = document.querySelector(".workspace");
     if (!workspace || !window.matchMedia) return;
     const preference = window.matchMedia("(prefers-color-scheme: dark)");
-    const theme = createTheme(preference.matches, (dark, system, fromUrl) => {
-        workspace.dataset.theme = dark ? "dark" : "light";
+    const theme = createTheme(preference.matches, (rendered, mode, fromUrl) => {
+        workspace.dataset.theme = rendered;
         window.acornInitialTheme = workspace.dataset.theme;
         document.documentElement.dataset.theme = workspace.dataset.theme;
         const favicon = document.getElementById("app-favicon");
-        if (favicon) favicon.href = dark ? favicon.dataset.darkIcon : favicon.dataset.lightIcon;
+        if (favicon) favicon.href = rendered === "dark" ? favicon.dataset.darkIcon : rendered === "uswds" ? favicon.dataset.uswdsIcon : favicon.dataset.lightIcon;
         const button = document.getElementById("theme-toggle");
-        button?.setAttribute("aria-pressed", String(dark));
-        button?.setAttribute("aria-label", dark ? "Dark theme" : "Light theme");
+        button?.setAttribute("aria-label", `Switch to ${rendered === "dark" ? "light" : "dark"} theme (current: ${mode === "system" ? `System ${rendered}` : mode === "uswds" ? "USWDS" : rendered})`);
+        if (rendered === "uswds") button?.removeAttribute("aria-pressed");
+        else button?.setAttribute("aria-pressed", String(rendered === "dark"));
         const label = document.getElementById("theme-label");
-        if (label) label.textContent = dark ? "Dark" : "Light";
-        for (const choice of ["dark", "light", "system"]) {
-            document.querySelector(`[data-theme-choice="${choice}"]`)?.setAttribute("aria-pressed", String(choice === (system ? "system" : dark ? "dark" : "light")));
+        if (label) label.textContent = rendered === "uswds" ? "USWDS" : rendered === "dark" ? "Dark" : "Light";
+        for (const choice of ["dark", "light", "system", "uswds"]) {
+            document.querySelector(`[data-theme-choice="${choice}"]`)?.setAttribute("aria-pressed", String(choice === mode));
         }
-        const mode = document.getElementById("theme-mode");
-        if (mode) {
-            mode.textContent = "Using your saved theme preference.";
-            if (system) mode.textContent = "Following your system preference.";
-            if (fromUrl) mode.textContent = "Using the theme from this URL.";
+        const modeLabel = document.getElementById("theme-mode");
+        if (modeLabel) {
+            modeLabel.textContent = mode === "system" ? "Following your system preference." : mode === "uswds" ? "Using the USWDS appearance." : "Using your saved theme preference.";
+            if (fromUrl) modeLabel.textContent = "Using the theme from this URL.";
         }
     }, () => window.localStorage, window.acornThemeOverride);
     const notifications = createNotifier((message, kind, id) => {

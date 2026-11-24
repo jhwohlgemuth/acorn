@@ -10,7 +10,7 @@ const luminance = (color) => color.slice(1).match(/../g).map((hex) => parseInt(h
 const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
 
 test("both themes retain readable normal, hover, selected and disabled text and visible focus", () => {
-    for (const theme of [tokens(/\.workspace\{([^}]+)/), tokens(/\.workspace\[data-theme=light\]\{([^}]+)/)]) {
+    for (const theme of [tokens(/\.workspace\{([^}]+)/), tokens(/\.workspace:is\(\[data-theme=light\],\[data-theme=uswds\]\)\{([^}]+)/), tokens(/\.workspace\[data-theme=uswds\]\{([^}]+)/)]) {
         for (const foreground of [theme.text, theme.muted]) {
             for (const background of [theme.canvas, theme.side, theme.card, theme.hover, theme.active]) {
                 assert.ok(contrast(foreground, background) >= 4.5, `${foreground} on ${background}`);
@@ -38,9 +38,8 @@ test("technology views embed unchanged attributed bytes with no external image r
 });
 
 test("staged theme banners match the canonical repository artwork", async () => {
-    for (const theme of ["dark", "light"]) {
-        const name = `banner_${theme}_mode.png`;
-        assert.deepEqual(await readFile(new URL(`generated/${name}`, assets)), await readFile(new URL(`../../../docs/src/_assets/${name}`, assets)));
+    for (const theme of ["dark", "light", "uswds"]) {
+        assert.deepEqual(await readFile(new URL(`generated/${theme}/banner.png`, assets)), await readFile(new URL(`../../../docs/src/_assets/${theme}/banner.png`, assets)));
     }
 });
 
