@@ -194,6 +194,7 @@ pub(crate) fn run_check_at_until(
     let input = job.root().join(job.input());
     let mut command = Command::new(binary);
     command
+        .arg("--quiet")
         .arg("check")
         .arg(&input)
         .args(["--output", "json"])

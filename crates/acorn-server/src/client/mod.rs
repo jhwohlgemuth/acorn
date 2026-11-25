@@ -1,4 +1,6 @@
 //! Bounded authenticated JSON-RPC client for the canonical ACORN operations.
+#[cfg(unix)]
+use acorn_service::Memory;
 use acorn_service::{
     CheckReadabilityRequest, CheckReadabilityResponse, ProcessRepositoryRequest, ProcessRepositoryResponse, RequestId, RpcError,
     ValidateResearchActivityRequest, ValidateResearchActivityResponse, ValidateStandardRequest,
@@ -11,6 +13,8 @@ use reqwest::{Client, Url};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
+#[cfg(unix)]
+use std::path::Path;
 
 /// One entry in an ordered JSON-RPC batch.
 #[derive(Clone, Debug)]
@@ -99,6 +103,35 @@ impl JsonRpcClient {
                     }
                 }),
         }
+    }
+    /// Construct a client that sends requests only through a Unix socket.
+    /// The caller must verify ownership and write protection of the socket path before supplying a bearer token.
+    #[cfg(unix)]
+    pub fn new_unix_socket(socket: &Path, token: impl Into<Arc<str>>, timeout: Duration, max_payload: Memory) -> Result<Self, JsonRpcClientError> {
+        max_payload
+            .checked_bytes()
+            .and_then(|bytes| usize::try_from(bytes).ok())
+            .filter(|bytes| *bytes > 0)
+            .ok_or(JsonRpcClientError::PayloadBounds(0))
+            .and_then(|max_payload_bytes| {
+                Url::parse("http://localhost/rpc")
+                    .map_err(|error| JsonRpcClientError::Endpoint(error.to_string()))
+                    .and_then(|endpoint| {
+                        Client::builder()
+                            .timeout(timeout)
+                            .unix_socket(socket)
+                            .redirect(reqwest::redirect::Policy::none())
+                            .build()
+                            .map_err(JsonRpcClientError::from)
+                            .map(|http| Self {
+                                endpoint,
+                                http,
+                                max_payload_bytes,
+                                next_id: Arc::new(AtomicI64::new(1)),
+                                token: token.into(),
+                            })
+                    })
+            })
     }
     /// Call one arbitrary method and decode its typed result.
     pub async fn call<I, O>(&self, method: &str, params: &I) -> Result<O, JsonRpcClientError>

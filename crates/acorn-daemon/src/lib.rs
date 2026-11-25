@@ -109,6 +109,7 @@ async fn run_composed<F>(
     store: Arc<DaemonStore>,
     binary: PathBuf,
     token: String,
+    local_socket: Option<PathBuf>,
     shutdown: F,
 ) -> DaemonResult<()>
 where
@@ -138,14 +139,25 @@ where
                     let registry = JobControl::new(config_path, config, handle.clone(), store).registry();
                     let served = match registry {
                         | Err(error) => Err(DaemonError::Service(error)),
-                        | Ok(registry) => acorn_server::serve_with_registry(server, registry, async move {
-                            tokio::select! {
-                                signal = shutdown => signal.map_err(|error| Box::new(error) as Box<dyn core::error::Error + Send + Sync>),
-                                _ = ended_receiver => Err("daemon worker stopped unexpectedly".into()),
-                            }
-                        })
-                        .await
-                        .map_err(|source| DaemonError::Server { source }),
+                        | Ok(registry) => {
+                            let stop = async move {
+                                tokio::select! {
+                                    signal = shutdown => signal.map_err(|error| Box::new(error) as Box<dyn core::error::Error + Send + Sync>),
+                                    _ = ended_receiver => Err("daemon worker stopped unexpectedly".into()),
+                                }
+                            };
+                            #[cfg(unix)]
+                            let result = match local_socket {
+                                | Some(path) => acorn_server::serve_with_registry_on_unix(server, registry, path, stop).await,
+                                | None => acorn_server::serve_with_registry(server, registry, stop).await,
+                            };
+                            #[cfg(not(unix))]
+                            let result = {
+                                let _ = local_socket;
+                                acorn_server::serve_with_registry(server, registry, stop).await
+                            };
+                            result.map_err(|source| DaemonError::Server { source })
+                        }
                     };
                     handle.stop();
                     worker
@@ -167,7 +179,7 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
             let prepared = TargetPaths::resolve()
                 .map_err(DaemonError::from)
                 .and_then(|targets| {
-                    fs::create_dir_all(targets.data())
+                    prepare_data_directory(targets.data())
                         .map_err(|source| DaemonError::DataDirectory { source })
                         .map(|()| targets)
                 })
@@ -181,12 +193,20 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
                 | Err(error) => Err(error),
                 | Ok((targets, token, store)) => {
                     info!(config = %path.display(), jobs = config.jobs().len(), "Daemon configuration validated");
+                    #[cfg(unix)]
+                    let local_socket = config
+                        .bind()
+                        .rpc()
+                        .map(|address| acorn_server::local::socket_path(targets.data(), address.port()));
+                    #[cfg(not(unix))]
+                    let local_socket = None;
                     run_composed(
                         config,
                         path.to_path_buf(),
                         Arc::new(store),
                         targets.binary().to_path_buf(),
                         token,
+                        local_socket,
                         tokio::signal::ctrl_c(),
                     )
                     .await
@@ -195,6 +215,13 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
         }
         | Err(error) => Err(DaemonError::Config(error)),
     }
+}
+fn prepare_data_directory(path: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    let result = acorn_server::local::prepare_private_dir(path);
+    #[cfg(not(unix))]
+    let result = fs::create_dir_all(path);
+    result
 }
 fn server_config(config: &DaemonConfig, token: String) -> DaemonResult<acorn_server::ServerConfig> {
     let rpc = config.bind().rpc();

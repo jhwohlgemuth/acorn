@@ -12,6 +12,13 @@ use axum_server::tls_rustls::RustlsConfig;
 use core::future::Future;
 use core::sync::atomic::{AtomicBool, Ordering};
 use rustls::crypto::ring;
+use std::path::PathBuf;
+#[cfg(unix)]
+use std::{
+    fs, io,
+    os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt},
+    os::unix::net::UnixStream,
+};
 use std::{fs::read, net::TcpListener};
 use tokio::net;
 use tokio::sync::watch;
@@ -71,21 +78,44 @@ async fn serve_registry<F: Future<Output = ServerResult<()>>>(
     service: AcornService,
     context: InvocationContext,
     registry: OperationRegistry,
+    local_socket: Option<PathBuf>,
     shutdown: F,
 ) -> ServerResult<()> {
     let ready = Arc::new(AtomicBool::new(false));
     let (stop, receiver) = watch::channel(false);
     let mut listeners = JoinSet::new();
-    match spawn_json_rpc(&config, registry, context, Arc::clone(&ready), &receiver, &mut listeners).await {
+    match spawn_json_rpc(&config, registry.clone(), context.clone(), Arc::clone(&ready), &receiver, &mut listeners).await {
         | Err(error) => Err(error),
-        | Ok(()) => match spawn_grpc(&config, service, Arc::clone(&ready), &receiver, &mut listeners) {
+        | Ok(()) => match spawn_local_json_rpc(&config, registry, context, Arc::clone(&ready), &receiver, local_socket, &mut listeners).await {
             | Err(error) => Err(error),
-            | Ok(()) => finish(&config, ready, shutdown, stop, &mut listeners).await,
+            | Ok(()) => match spawn_grpc(&config, service, Arc::clone(&ready), &receiver, &mut listeners) {
+                | Err(error) => Err(error),
+                | Ok(()) => finish(&config, ready, shutdown, stop, &mut listeners).await,
+            },
         },
     }
 }
 /// Serve an injected operation registry until the supplied shutdown future completes.
 pub async fn serve_with_registry<F>(config: ServerConfig, registry: OperationRegistry, shutdown: F) -> ServerResult<()>
+where
+    F: Future<Output = ServerResult<()>>,
+{
+    serve_with_registry_inner(config, registry, None, shutdown).await
+}
+/// Serve the registry with an additional owner-protected Unix control socket.
+#[cfg(unix)]
+pub async fn serve_with_registry_on_unix<F>(config: ServerConfig, registry: OperationRegistry, socket: PathBuf, shutdown: F) -> ServerResult<()>
+where
+    F: Future<Output = ServerResult<()>>,
+{
+    serve_with_registry_inner(config, registry, Some(socket), shutdown).await
+}
+async fn serve_with_registry_inner<F>(
+    config: ServerConfig,
+    registry: OperationRegistry,
+    local_socket: Option<PathBuf>,
+    shutdown: F,
+) -> ServerResult<()>
 where
     F: Future<Output = ServerResult<()>>,
 {
@@ -98,7 +128,7 @@ where
         max_output: max_request,
         ..InvocationContext::default()
     };
-    serve_registry(config, service, context, registry, shutdown).await
+    serve_registry(config, service, context, registry, local_socket, shutdown).await
 }
 /// Run every enabled listener with an optional durable-operation adapter.
 pub async fn serve_with_durable(config: ServerConfig, durable: Option<Arc<dyn DurableOperations>>) -> ServerResult<()> {
@@ -161,6 +191,91 @@ fn spawn_grpc(
             })
         }
     }
+}
+#[cfg(unix)]
+struct SocketGuard {
+    inode: u64,
+    path: PathBuf,
+}
+#[cfg(unix)]
+impl Drop for SocketGuard {
+    fn drop(&mut self) {
+        let current = fs::symlink_metadata(&self.path);
+        if current.is_ok_and(|metadata| metadata.file_type().is_socket() && metadata.ino() == self.inode) {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+#[cfg(unix)]
+fn prepare_socket_path(path: &std::path::Path) -> io::Result<()> {
+    path.parent()
+        .ok_or_else(|| io::Error::other("Local daemon socket has no parent directory"))
+        .and_then(crate::local::verify_private_dir)
+        .and_then(|()| match fs::symlink_metadata(path) {
+            | Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            | Err(error) => Err(error),
+            | Ok(metadata) if metadata.file_type().is_socket() => match UnixStream::connect(path) {
+                | Ok(_) => Err(io::Error::new(io::ErrorKind::AddrInUse, "Local daemon socket is already active")),
+                | Err(error) if error.kind() == io::ErrorKind::ConnectionRefused => fs::remove_file(path),
+                | Err(error) => Err(error),
+            },
+            | Ok(_) => Err(io::Error::new(io::ErrorKind::AlreadyExists, "Local daemon socket path is not a socket")),
+        })
+}
+#[cfg(unix)]
+fn bind_local_socket(path: PathBuf) -> io::Result<(net::UnixListener, SocketGuard)> {
+    prepare_socket_path(&path)
+        .and_then(|()| net::UnixListener::bind(&path))
+        .and_then(|listener| {
+            let secured = fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
+                .and_then(|()| fs::symlink_metadata(&path).map(|metadata| metadata.ino()));
+            match secured {
+                | Ok(inode) => Ok((listener, SocketGuard { inode, path })),
+                | Err(error) => {
+                    drop(listener);
+                    let _ = fs::remove_file(&path);
+                    Err(error)
+                }
+            }
+        })
+}
+#[cfg(unix)]
+async fn spawn_local_json_rpc(
+    config: &ServerConfig,
+    registry: OperationRegistry,
+    context: InvocationContext,
+    ready: Arc<AtomicBool>,
+    receiver: &watch::Receiver<bool>,
+    socket: Option<PathBuf>,
+    listeners: &mut JoinSet<Result<(), String>>,
+) -> ServerResult<()> {
+    match socket {
+        | None => Ok(()),
+        | Some(path) => bind_local_socket(path).map_err(Into::into).map(|(listener, guard)| {
+            let router =
+                HttpState::new(registry, Arc::<str>::from(config.token()), context, ready, config.request_timeout).router(config.max_request_bytes);
+            let mut receiver = receiver.clone();
+            listeners.spawn(async move {
+                let _guard = guard;
+                axum::serve(listener, router)
+                    .with_graceful_shutdown(async move { wait_for_shutdown(&mut receiver).await })
+                    .await
+                    .map_err(|error| format!("Local JSON-RPC server failed: {error}"))
+            });
+        }),
+    }
+}
+#[cfg(not(unix))]
+async fn spawn_local_json_rpc(
+    _config: &ServerConfig,
+    _registry: OperationRegistry,
+    _context: InvocationContext,
+    _ready: Arc<AtomicBool>,
+    _receiver: &watch::Receiver<bool>,
+    socket: Option<PathBuf>,
+    _listeners: &mut JoinSet<Result<(), String>>,
+) -> ServerResult<()> {
+    socket.map_or(Ok(()), |_| Err("Local control socket is unsupported on this platform".into()))
 }
 async fn spawn_json_rpc(
     config: &ServerConfig,

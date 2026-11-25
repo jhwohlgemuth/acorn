@@ -82,6 +82,7 @@ async fn test_authenticated_job_control_and_history() {
         Arc::clone(&store),
         binary,
         "test-secret".into(),
+        None,
         async move { stopped.await.map_err(io::Error::other) },
     ));
     let client = reqwest::Client::new();
@@ -209,6 +210,7 @@ async fn test_shutdown_cancels_active_worker_and_drains_listener() {
         Arc::clone(&store),
         binary,
         "test-secret".into(),
+        None,
         async move { stopped.await.map_err(io::Error::other) },
     ));
     let client = reqwest::Client::new();
@@ -269,6 +271,7 @@ async fn test_worker_failure_prevents_listener_readiness() {
         store,
         temp.path().join("unused-acorn"),
         "test-secret".into(),
+        None,
         core::future::pending(),
     )
     .await;
@@ -291,6 +294,7 @@ async fn test_worker_failure_stops_ready_listener() {
         Arc::clone(&store),
         temp.path().join("unused-acorn"),
         "test-secret".into(),
+        None,
         async move { stopped.await.map_err(io::Error::other) },
     ));
     let client = reqwest::Client::new();
@@ -359,7 +363,7 @@ mod reload_tests {
         let binary = temp.path().join("acorn");
         fs::write(
             &binary,
-            "#!/bin/sh\nprintf '%s\\n' \"$2\" >> trace\nwhile [ ! -f release ]; do sleep 0.05; done\nprintf '[]\\n'\n",
+            "#!/bin/sh\nprintf '%s\\n' \"$3\" >> trace\nwhile [ ! -f release ]; do sleep 0.05; done\nprintf '[]\\n'\n",
         )
         .expect("fake binary");
         fs::set_permissions(&binary, fs::Permissions::from_mode(0o700)).expect("executable permission");
@@ -371,6 +375,7 @@ mod reload_tests {
             Arc::clone(&store),
             binary,
             "test-secret".into(),
+            None,
             async move { stopped.await.map_err(io::Error::other) },
         ));
         let client = reqwest::Client::new();
@@ -542,7 +547,8 @@ mod runner_tests {
     }
     #[test]
     fn test_check_uses_fixed_arguments_and_project_directory() {
-        let (folder, config, store, id, binary) = fixture(r#"printf '{"args":["%s","%s","%s","%s"],"cwd":"%s"}' "$1" "$2" "$3" "$4" "$PWD""#);
+        let (folder, config, store, id, binary) =
+            fixture(r#"printf '{"args":["%s","%s","%s","%s","%s"],"cwd":"%s"}' "$1" "$2" "$3" "$4" "$5" "$PWD""#);
         let report = folder.path().join("report.json");
         let result = run_check_at(
             config.jobs().first().expect("configured job"),
@@ -555,9 +561,10 @@ mod runner_tests {
         .expect("fixture");
         assert_eq!(result.exit_code, Some(0));
         let value: serde_json::Value = serde_json::from_slice(&fs::read(&report).expect("fixture")).expect("fixture");
-        assert_eq!(value["args"][0], "check");
+        assert_eq!(value["args"][0], "--quiet");
+        assert_eq!(value["args"][1], "check");
         assert_eq!(
-            value["args"][1],
+            value["args"][2],
             config
                 .jobs()
                 .first()
@@ -567,8 +574,8 @@ mod runner_tests {
                 .to_string_lossy()
                 .as_ref()
         );
-        assert_eq!(value["args"][2], "--output");
-        assert_eq!(value["args"][3], "json");
+        assert_eq!(value["args"][3], "--output");
+        assert_eq!(value["args"][4], "json");
         assert_eq!(
             value["cwd"],
             config.jobs().first().expect("configured job").root().to_string_lossy().as_ref()
@@ -747,7 +754,7 @@ mod runner_tests {
 mod scheduler_tests {
     use crate::config::JobConfig;
     use crate::runner::RunLimits;
-    use crate::scheduler::{ActiveRun, Event, Runtime, Scheduler, SchedulerError, SchedulerSnapshot, Slot};
+    use crate::scheduler::{ActiveRun, Event, EventKindExt, Runtime, Scheduler, SchedulerError, SchedulerSnapshot, Slot};
     use acorn::io::config::DaemonJobConfiguration;
     use acorn_core::time::{Seconds, UnitOfTime};
     use acorn_service::{CoalescingState, JobSchedule, JobTrigger};
@@ -755,6 +762,8 @@ mod scheduler_tests {
     use alloc::{collections::BTreeMap, sync::Arc};
     use core::cell::Cell;
     use core::time::Duration;
+    use notify::event::{AccessKind, CreateKind, ModifyKind, RemoveKind};
+    use notify::EventKind;
     use std::fs;
     use std::thread;
     use std::time::Instant;
@@ -866,6 +875,14 @@ mod scheduler_tests {
         fs::write(&input, "{\"changed\":true}").expect("modified input");
         assert!(matches!(scheduler.receiver.recv_timeout(Duration::from_secs(3)), Ok(Event::File(_, 1))));
         drop(watchers);
+    }
+    #[test]
+    fn test_file_trigger_accepts_mutations_but_not_reads() {
+        assert!(!EventKind::Access(AccessKind::Read).is_content_change());
+        assert!(!EventKind::Any.is_content_change());
+        assert!(EventKind::Create(CreateKind::Any).is_content_change());
+        assert!(EventKind::Modify(ModifyKind::Any).is_content_change());
+        assert!(EventKind::Remove(RemoveKind::Any).is_content_change());
     }
     #[test]
     fn test_pause_and_resume_gate_triggers() {
@@ -1104,6 +1121,8 @@ mod scheduler_tests {
         let store = Arc::new(DaemonStore::open(folder.path().join("runs.db")).expect("store"));
         let (scheduler, _handle) = Scheduler::new(vec![job.clone()], store, folder.path().join("acorn"), RunLimits::default());
         let watchers = scheduler.watch_inputs(&[job], 1).expect("watch input");
+        fs::read_to_string(&input).expect("read watched input");
+        assert!(scheduler.receiver.recv_timeout(Duration::from_millis(200)).is_err());
         fs::write(folder.path().join("other.json"), "{}").expect("unwatched file");
         assert!(scheduler.receiver.recv_timeout(Duration::from_millis(200)).is_err());
         fs::write(&input, "{\"changed\":true}").expect("modified input");

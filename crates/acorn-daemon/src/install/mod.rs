@@ -7,6 +7,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+#[cfg(target_os = "linux")]
+pub mod linux;
+
 /// Failure while resolving platform daemon targets.
 #[derive(Debug, Error)]
 pub enum TargetPathError {

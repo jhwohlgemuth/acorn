@@ -18,8 +18,8 @@ use crate::{
     analyzer::host::{
         context::{ExecutionExtension, ExecutionOptions},
         runtime::{
-            check_schema_path, collect_validation_checks, vale_package_url, ContentPaths, KitfileStandard, LinkEvidence, LinkOutcome,
-            ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
+            check_schema_path, collect_validation_checks, parse_vale_checksums, vale_package_url, ContentPaths, KitfileStandard, LinkEvidence,
+            LinkOutcome, ModelKitStandard, StaticAnalyzer, StaticAnalyzerConfig,
         },
         service::Analysis,
         vale::{parse_vale_output, preprocess_vale_output, try_parse_vale_output, Vale, ValeConfig, ValeOutputItem, ValeOutputItemSeverity},
@@ -1095,7 +1095,8 @@ fn test_vale_managed_directory_uses_project_cache() {
     )
     .unwrap()
     .cache_dir()
-    .join("vale");
+    .join("vale")
+    .join(crate::util::constants::vale::VALE_VERSION);
     let vale = Vale::default();
     assert_eq!(vale.managed_directory().unwrap(), expected);
     let config = ValeConfig {
@@ -1103,6 +1104,16 @@ fn test_vale_managed_directory_uses_project_cache() {
         ..ValeConfig::default()
     };
     assert!(!config.custom_directory());
+    let previous = Vale::init().version(acorn_core::util::SemanticVersion::from("3.9.4")).build();
+    assert_eq!(previous.managed_directory().unwrap(), expected.parent().unwrap().join("3.9.4"));
+}
+#[test]
+fn test_vale_checksums_accept_variable_length_versions() {
+    let content = "abc123  vale_3.28.1_Linux_64-bit.tar.gz\ndef456  vale_3.28.1_macOS_arm64.tar.gz\nold789  vale_3.9.4_Linux_64-bit.tar.gz\n";
+    let checksums = parse_vale_checksums(content, acorn_core::util::SemanticVersion::from("3.28.1"));
+    assert_eq!(checksums.get("Linux_64-bit.tar.gz").map(String::as_str), Some("abc123"));
+    assert_eq!(checksums.get("macOS_arm64.tar.gz").map(String::as_str), Some("def456"));
+    assert_eq!(checksums.len(), 2);
 }
 #[test]
 fn test_vale_materialization_preserves_ini_order_and_names() {

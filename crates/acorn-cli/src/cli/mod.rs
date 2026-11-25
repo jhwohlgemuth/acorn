@@ -86,6 +86,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<CreateCommands>,
     },
+    /// Manage the local ACORN daemon and its configured jobs.
+    Daemon {
+        #[command(subcommand)]
+        command: arguments::DaemonCommand,
+    },
     /// Diagnose and correct system requirements for using acorn
     ///
     ///     Print system diagnostics and identify issues

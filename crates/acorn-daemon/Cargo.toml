@@ -15,6 +15,7 @@ name = "acornd"
 path = "src/main.rs"
 
 [dependencies]
+acorn-cmd = { workspace = true }
 acorn-core = { workspace = true, features = ["std"] }
 acorn-host = { workspace = true, features = ["fs"] }
 acorn-lib = { workspace = true, features = ["analysis"] }

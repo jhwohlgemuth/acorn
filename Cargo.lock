@@ -140,6 +140,7 @@ dependencies = [
 name = "acorn-daemon"
 version = "0.6.3"
 dependencies = [
+ "acorn-cmd",
  "acorn-core",
  "acorn-host",
  "acorn-lib",
@@ -390,12 +391,14 @@ dependencies = [
  "axum-server",
  "clap",
  "futures",
+ "nix 0.31.3",
  "prost",
  "protoc-bin-vendored",
  "reqwest 0.13.4",
  "rustls",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tonic",

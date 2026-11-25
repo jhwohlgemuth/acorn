@@ -10,7 +10,7 @@ use crate::{
     util::{
         constants::{
             app::{APPLICATION, ORGANIZATION, QUALIFIER},
-            vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES},
+            vale::{DISABLED_VALE_RULES, ENABLED_VALE_PACKAGES, VALE_VERSION},
         },
         is_uri_or_path,
     },
@@ -72,10 +72,11 @@ pub struct ValeConfig {
     pub disabled: Vec<String>,
 }
 impl Vale {
-    /// Return the platform-standard directory for ACORN-managed Vale artifacts.
+    /// Return the platform-standard, versioned directory for ACORN-managed Vale artifacts.
     pub fn managed_directory(&self) -> ApiResult<PathBuf> {
+        let version = self.version.unwrap_or_else(|| SemanticVersion::from(VALE_VERSION));
         ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
-            .map(|directories| directories.cache_dir().join(self.command()))
+            .map(|directories| directories.cache_dir().join(self.command()).join(version.to_string()))
             .ok_or_else(|| eyre!("Failed to determine the ACORN cache directory for Vale"))
     }
 }

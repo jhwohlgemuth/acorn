@@ -114,3 +114,49 @@ async fn test_external_shutdown_drains_inflight_request() {
     assert!(request.await.expect("request task").expect("drained request").status().is_success());
     server.await.expect("server task").expect("graceful drain");
 }
+#[cfg(unix)]
+#[tokio::test]
+async fn test_local_socket_recovers_stale_path_and_handles_authenticated_call() {
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("socket fixture");
+    let data = directory.path().join("daemon");
+    crate::local::prepare_private_dir(&data).expect("private socket directory");
+    let address = free_address();
+    let socket = crate::local::socket_path(&data, address.port());
+    drop(std::os::unix::net::UnixListener::bind(&socket).expect("stale socket"));
+    let definition =
+        OperationDefinition::new::<Value, Value>(MethodName::from(["test", "echo"]), OperationEffects::default()).expect("operation definition");
+    let registry = OperationRegistry::default()
+        .register_definition(definition, |input: Value, _| async move { Ok(input) })
+        .expect("injected operation");
+    let (stop, stopped) = oneshot::channel::<()>();
+    let server = tokio::spawn(serve_with_registry_on_unix(config(address), registry, socket.clone(), async move {
+        stopped.await.map_err(Into::into)
+    }));
+    wait_for_ready(&reqwest::Client::new(), address).await;
+    let client = crate::client::JsonRpcClient::new_unix_socket(&socket, "injected-secret", core::time::Duration::from_secs(2), Memory::mb(1))
+        .expect("local client");
+    let response = client
+        .call::<_, Value>("acorn.test.echo", &json!({"value":"local"}))
+        .await
+        .expect("local call");
+    assert_eq!(response, json!({"value":"local"}));
+    let mode = fs::symlink_metadata(&socket).expect("bound socket").permissions().mode();
+    assert_eq!(mode & 0o077, 0);
+    stop.send(()).expect("shutdown receiver");
+    server.await.expect("server task").expect("graceful shutdown");
+    assert!(!socket.exists());
+}
+#[cfg(unix)]
+#[test]
+fn test_live_local_socket_is_not_replaced() {
+    let directory = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("socket fixture");
+    let data = directory.path().join("daemon");
+    crate::local::prepare_private_dir(&data).expect("private socket directory");
+    let socket = crate::local::socket_path(&data, 19477);
+    let active = std::os::unix::net::UnixListener::bind(&socket).expect("active socket");
+    let error = bind_local_socket(socket.clone()).err().expect("second listener must fail");
+    assert_eq!(error.kind(), io::ErrorKind::AddrInUse);
+    assert!(socket.exists());
+    drop(active);
+}

@@ -1,7 +1,7 @@
 /// URL for Vale releases.
 pub const VALE_RELEASES_URL: &str = "https://github.com/errata-ai/vale/releases";
 /// Version of Vale to use with ACORN.
-pub const VALE_VERSION: &str = "3.9.4";
+pub const VALE_VERSION: &str = "3.28.1";
 /// URL for custom ORNL Science Vale package.
 pub const DEFAULT_VALE_PACKAGE_URL: &str = "https://code.ornl.gov/research-enablement/vale-package/-/archive/v0.0.1/vale-package-v0.0.1.zip";
 /// Repository URL for the custom ORNL Science Vale package.

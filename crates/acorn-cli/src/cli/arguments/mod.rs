@@ -20,7 +20,7 @@ use acorn_schema::validation::{Validate, ValidationReport};
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use bon::Builder;
 use clap::ValueEnum;
-use clap::{Args, ValueHint};
+use clap::{Args, Subcommand, ValueHint};
 use clap_verbosity_flag::Verbosity;
 use core::net::SocketAddr;
 use derive_more::Display;
@@ -140,6 +140,84 @@ pub(crate) mod bot {
     }
 }
 pub(crate) mod osti;
+/// Local daemon service and job operations.
+#[derive(Debug, Subcommand)]
+pub enum DaemonCommand {
+    /// Register the Linux user service with a configuration file.
+    Install {
+        /// ACRE configuration path.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: PathBuf,
+        /// Ask logind to keep this user's service manager after logout.
+        #[arg(long)]
+        linger: bool,
+    },
+    /// Remove the registered user service.
+    Uninstall,
+    /// Start the registered user service.
+    Start,
+    /// Stop the registered user service.
+    Stop,
+    /// Restart the registered user service.
+    Restart,
+    /// Show the user service manager's status.
+    ServiceStatus,
+    /// List configured daemon jobs.
+    List {
+        /// ACRE configuration path used to locate the local listener.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+    /// Show a job and its latest run.
+    Status {
+        /// Configured job identifier.
+        job_id: String,
+        /// ACRE configuration path used to locate the local listener.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+    /// Show a job's recent runs.
+    History {
+        /// Configured job identifier.
+        job_id: String,
+        /// Maximum number of runs, up to 100.
+        #[arg(long, value_parser = clap::value_parser!(u8).range(1..=100))]
+        limit: Option<u8>,
+        /// ACRE configuration path used to locate the local listener.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+    /// Queue a job immediately.
+    Run {
+        /// Configured job identifier.
+        job_id: String,
+        /// ACRE configuration path used to locate the local listener.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+    /// Pause a configured job.
+    Pause {
+        /// Configured job identifier.
+        job_id: String,
+        /// ACRE configuration path used to locate the local listener.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+    /// Resume a configured job.
+    Resume {
+        /// Configured job identifier.
+        job_id: String,
+        /// ACRE configuration path used to locate the local listener.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+    /// Reload configured jobs atomically.
+    Reload {
+        /// ACRE configuration path used to locate the local listener.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        config: Option<PathBuf>,
+    },
+}
 /// ACP agent selected for local process inference.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
 pub(crate) enum AcpAgentKind {

@@ -28,6 +28,7 @@ use tracing::info;
 
 pub mod check;
 pub mod create;
+pub mod daemon;
 pub mod db;
 pub mod diff;
 pub mod doctor;
@@ -234,6 +235,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             | Some(CreateCommands::Secret { paste }) => create::secret::run(*paste),
             | None => Err(eyre::eyre!("No subcommand provided for 'create'")),
         },
+        | Some(Commands::Daemon { command }) => with_runtime(daemon::run(command)),
         | Some(Commands::Doctor(arguments)) => {
             let arguments::Doctor {
                 fix,

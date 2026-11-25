@@ -87,6 +87,19 @@ use tracing::{debug, error, info, warn};
 use which::which;
 use zip::ZipArchive;
 
+fn parse_vale_checksums(content: &str, release: SemanticVersion) -> HashMap<String, String> {
+    let prefix = format!("vale_{release}_");
+    content
+        .lines()
+        .filter_map(|line| {
+            line.split_once("  ").and_then(|(checksum, filename)| {
+                filename
+                    .strip_prefix(&prefix)
+                    .map(|platform| (platform.to_string(), checksum.to_string()))
+            })
+        })
+        .collect()
+}
 macro_rules! impl_schema_check {
     ($($schema:ty),+ $(,)?) => {
         $(
@@ -1346,14 +1359,7 @@ impl StaticAnalyzer<ValeConfig> for Vale {
         let url = format!("{VALE_RELEASES_URL}/download/v{release}/{}_{release}_checksums.txt", self.command());
         let checksums = match get(url).send().await {
             | Ok(response) => match response.text().await {
-                | Ok(content) => Ok(content.lines().clone().fold(HashMap::new(), |mut acc: HashMap<String, String>, line| {
-                    let mut values: Vec<&str> = line.split("  ").collect();
-                    if let (Some(raw_key), Some(raw_value)) = (values.pop(), values.pop()) {
-                        let key = raw_key["vale_#.#.#_".len()..].to_string();
-                        acc.insert(key, raw_value.to_string());
-                    }
-                    acc
-                })),
+                | Ok(content) => Ok(parse_vale_checksums(&content, release)),
                 | Err(why) => Err(eyre!("Failed to read checksums response — {why}")),
             },
             | Err(why) => Err(eyre!("Failed to download checksums — {why}")),

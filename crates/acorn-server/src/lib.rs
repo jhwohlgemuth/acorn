@@ -7,6 +7,8 @@ pub mod durable;
 pub mod grpc;
 pub mod health;
 pub mod http;
+#[cfg(unix)]
+pub mod local;
 pub mod runtime;
 pub mod util;
 
@@ -22,6 +24,8 @@ pub mod health_proto {
 }
 
 pub use config::{ServerArgs, ServerConfig};
+#[cfg(unix)]
+pub use runtime::serve_with_registry_on_unix;
 pub use runtime::{serve, serve_with_durable, serve_with_registry};
 
 /// Server result type with thread-safe error context.

@@ -33,11 +33,15 @@ tonic-prost = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt"] }
 
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.31.3", features = ["user"] }
+
 [build-dependencies]
 protoc-bin-vendored = { workspace = true }
 tonic-prost-build = { workspace = true }
 
 [dev-dependencies]
+tempfile = "3"
 tower = { workspace = true, features = ["util"] }
 
 [lints]

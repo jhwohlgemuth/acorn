@@ -7,7 +7,7 @@ use acorn_store::daemon::{DaemonStore, StoreError};
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use core::time::Duration;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::RwLock;
@@ -18,6 +18,14 @@ use tokio::sync::oneshot;
 
 const DEBOUNCE_MS: u64 = 250;
 const TICK: Duration = Duration::from_millis(50);
+pub(crate) trait EventKindExt {
+    fn is_content_change(&self) -> bool;
+}
+impl EventKindExt for EventKind {
+    fn is_content_change(&self) -> bool {
+        self.is_create() || self.is_modify() || self.is_remove()
+    }
+}
 pub(crate) enum Event {
     File(JobId, u64),
     Manual(JobId, oneshot::Sender<Result<bool, SchedulerError>>),
@@ -245,11 +253,12 @@ impl Scheduler {
                 let id = job.id().clone();
                 notify::recommended_watcher(move |result: notify::Result<notify::Event>| {
                     if let Ok(event) = result {
-                        if event
+                        let content_change = event.kind.is_content_change();
+                        let matches_input = event
                             .paths
                             .iter()
-                            .any(|path| path == &input || (recursive == RecursiveMode::Recursive && path.starts_with(&input)))
-                        {
+                            .any(|path| path == &input || (recursive == RecursiveMode::Recursive && path.starts_with(&input)));
+                        if content_change && matches_input {
                             let _ = sender.send(Event::File(id.clone(), generation));
                         }
                     }

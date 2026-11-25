@@ -8,6 +8,7 @@ use acorn::{
 };
 use acorn_host::terminal::Label;
 use clap::Parser;
+use clap_verbosity_flag::VerbosityFilter;
 use color_eyre::eyre::eyre;
 use dotenvy::dotenv;
 use owo_colors::OwoColorize;
@@ -27,7 +28,7 @@ mod commands;
 mod io;
 #[cfg(feature = "pdf")]
 mod template;
-use cli::{Arguments, Void};
+use cli::{Arguments, Commands, Void};
 use commands::{run, DatabaseConfig};
 const DISPLAY_LEVEL: bool = true;
 const DISPLAY_LINE_NUMBER: bool = false;
@@ -38,10 +39,17 @@ const DISPLAY_THREAD_NAME: bool = false;
 const LOG_LEVEL: &str = "ACORN_LOG_LEVEL";
 fn init_tracing(args: &Arguments) {
     let writer = IndicatifWriter::<Stderr>::new(progress_renderer());
+    let default_level = match (&args.command, args.verbose.filter()) {
+        | (Some(Commands::Daemon { .. }), VerbosityFilter::Off) => "off".to_string(),
+        | (Some(Commands::Daemon { .. }), VerbosityFilter::Error) => "info".to_string(),
+        | (Some(Commands::Daemon { .. }), VerbosityFilter::Warn) => "debug".to_string(),
+        | (Some(Commands::Daemon { .. }), _) => "trace".to_string(),
+        | _ => args.verbose.log_level_filter().as_trace().to_string(),
+    };
     let filter = dotenvy::var(LOG_LEVEL)
         .ok()
         .filter(|value| !value.is_empty())
-        .map_or_else(|| EnvFilter::new(args.verbose.log_level_filter().as_trace().to_string()), EnvFilter::new);
+        .map_or_else(|| EnvFilter::new(default_level), EnvFilter::new);
     let format = fmt::layer()
         .with_ansi(true)
         .with_ansi_sanitization(false)
