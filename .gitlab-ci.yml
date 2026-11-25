@@ -783,6 +783,14 @@ publish-release:
     ref: "${CI_COMMIT_SHA}"
     assets:
       links:
+        - name: "acornd v${PKG_VERSION} (Linux x86_64 bundle)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_TARGET}.tar.gz"
+        - name: "acornd v${PKG_VERSION} (Linux x86_64 signature)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_TARGET}.tar.gz.minisig"
+        - name: "acornd v${PKG_VERSION} (Linux ARM64 bundle)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_ARM64_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_ARM64_TARGET}.tar.gz"
+        - name: "acornd v${PKG_VERSION} (Linux ARM64 signature)"
+          url: "${PKG_REGISTRY_URL}/${DEFAULT_ARM64_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_ARM64_TARGET}.tar.gz.minisig"
         - name: "ACORN browser preview v${PKG_VERSION} (static site ZIP)"
           url: "${PKG_REGISTRY_URL}/acorn-web/v${PKG_VERSION}/acorn-web-v${PKG_VERSION}.zip"
         - name: "ACORN browser preview v${PKG_VERSION} (SHA-256)"
