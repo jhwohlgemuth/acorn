@@ -55,7 +55,7 @@ fn token_requires_private_regular_file() {
 async fn test_occupied_loopback_port_receives_no_token() {
     use std::net::TcpListener;
     use std::os::unix::fs::PermissionsExt;
-    let directory = tempfile::tempdir_in(std::env::current_dir().unwrap()).unwrap();
+    let directory = tempfile::tempdir_in(std::env::var_os("HOME").expect("home directory")).unwrap();
     let data = directory.path().join("daemon");
     acorn_server::local::prepare_private_dir(&data).unwrap();
     let token = data.join("token");

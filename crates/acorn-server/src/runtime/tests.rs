@@ -118,7 +118,7 @@ async fn test_external_shutdown_drains_inflight_request() {
 #[tokio::test]
 async fn test_local_socket_recovers_stale_path_and_handles_authenticated_call() {
     use std::os::unix::fs::PermissionsExt;
-    let directory = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("socket fixture");
+    let directory = tempfile::tempdir_in(std::env::var_os("HOME").expect("home directory")).expect("socket fixture");
     let data = directory.path().join("daemon");
     crate::local::prepare_private_dir(&data).expect("private socket directory");
     let address = free_address();
@@ -150,7 +150,7 @@ async fn test_local_socket_recovers_stale_path_and_handles_authenticated_call() 
 #[cfg(unix)]
 #[test]
 fn test_live_local_socket_is_not_replaced() {
-    let directory = tempfile::tempdir_in(std::env::current_dir().unwrap()).expect("socket fixture");
+    let directory = tempfile::tempdir_in(std::env::var_os("HOME").expect("home directory")).expect("socket fixture");
     let data = directory.path().join("daemon");
     crate::local::prepare_private_dir(&data).expect("private socket directory");
     let socket = crate::local::socket_path(&data, 19477);

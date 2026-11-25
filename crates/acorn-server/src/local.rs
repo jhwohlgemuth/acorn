@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn test_rejects_writable_socket_directory() {
-        let directory = tempfile::tempdir_in(std::env::current_dir().unwrap()).unwrap();
+        let directory = tempfile::tempdir_in(std::env::var_os("HOME").expect("home directory")).unwrap();
         let data = directory.path().join("data");
         prepare_private_dir(&data).unwrap();
         assert!(verify_private_dir(&data).is_ok());
