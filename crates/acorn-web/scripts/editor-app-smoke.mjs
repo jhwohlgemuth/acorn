@@ -128,6 +128,8 @@ try {
     }
     assert.ok((await search.locator("button[name='next']").boundingBox()).height <= 32, "search buttons match compact controls");
     await editor.locator(".cm-search button[name='close']").click();
+    await page.getByRole("button", { name: "Use example" }).click();
+    const reviewExample = await page.locator("#content").inputValue();
     const normalRunColor = await page.locator("#tool-run").evaluate(node => getComputedStyle(node).backgroundColor);
     const normalRunHeight = (await page.locator("#tool-run").boundingBox()).height;
     await editor.getByRole("button", { name: "Full screen", exact: true }).click();
@@ -141,9 +143,6 @@ try {
     assert.equal(await editor.locator(".editor-fullscreen-group").evaluate(node => getComputedStyle(node).borderLeftWidth), "1px", "divider separates Run and Exit full screen");
     assert.ok((await fullscreenRun.boundingBox()).x < (await exitFullscreen.boundingBox()).x, "Run sits left of Exit full screen");
     assert.ok(await exitFullscreen.evaluate(node => node.scrollWidth <= node.clientWidth), "Exit full screen shows its full label");
-    await page.locator("#content-editor").press("ControlOrMeta+A");
-    await page.keyboard.insertText("{invalid");
-    await page.waitForFunction(() => document.getElementById("content")?.value === "{invalid");
     await page.keyboard.press("Control+r");
     await page.locator(".results .empty").waitFor({ state: "hidden" });
     await exitFullscreen.focus();
@@ -176,7 +175,7 @@ try {
     assert.match(await issueMessage.innerText(), /^(Error|Warning), line /, "navigation updates the current issue");
     assert.equal(await editor.locator(".editor-run-status").count(), 0, "completed runs have no status message");
     assert.ok(await editor.evaluate(node => node.classList.contains("is-fullscreen")), "Run keeps the editor full screen");
-    assert.equal(await page.locator("#content").inputValue(), "{invalid", "Run keeps the latest editor content");
+    assert.equal(await page.locator("#content").inputValue(), reviewExample, "Run keeps the latest editor content");
     await page.waitForFunction(() => document.activeElement?.closest(".code-editor.is-fullscreen"));
     assert.ok(await editor.evaluate(node => node.contains(document.activeElement)), "Run keeps focus in the full-screen editor");
     await editor.getByRole("button", { name: "Exit full screen" }).click();
