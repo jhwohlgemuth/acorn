@@ -22,7 +22,7 @@ acorn-lib = { workspace = true, features = ["analysis"] }
 acorn-schema = { workspace = true, features = ["std"] }
 acorn-server = { workspace = true }
 acorn-service = { workspace = true, features = ["std"] }
-acorn-store = { version = "0.6.3", path = "../acorn-store" }
+acorn-store = { workspace = true }
 clap = { version = "4.4.2", features = ["derive"] }
 command-group = { workspace = true }
 directories = { workspace = true }
