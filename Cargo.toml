@@ -3,7 +3,7 @@ members = ["crates/acorn-analysis", "crates/acorn-cli", "crates/acorn-cmd", "cra
 resolver = "2"
 
 [workspace.package]
-version = "0.6.3"
+version = "0.7.0"
 rust-version = "1.98.0"
 license = "MIT"
 authors = ["Jason Wohlgemuth <wohlgemuthjh@ornl.gov>"]
@@ -61,18 +61,18 @@ unsafe_code = "forbid"
 broken_intra_doc_links = "forbid"
 
 [workspace.dependencies]
-acorn-analysis = { version = "0.6.3", path = "crates/acorn-analysis", default-features = false }
-acorn-cmd = { version = "0.6.3", path = "crates/acorn-cmd", default-features = false }
-acorn-core = { version = "0.6.3", path = "crates/acorn-core", default-features = false }
-acorn-diff = { version = "0.6.3", path = "crates/acorn-diff", default-features = false }
-acorn-host = { version = "0.6.3", path = "crates/acorn-host", default-features = false }
-acorn-lib = { version = "0.6.3", path = "crates/acorn-lib", default-features = false }
-acorn-macros = { version = "0.6.3", path = "crates/acorn-macros", default-features = false }
-acorn-schema = { version = "0.6.3", path = "crates/acorn-schema", default-features = false }
-acorn-server = { version = "0.6.3", path = "crates/acorn-server", default-features = false }
-acorn-service = { version = "0.6.3", path = "crates/acorn-service", default-features = false }
-acorn-store = { version = "0.6.3", path = "crates/acorn-store", default-features = false }
-acorn-tui = { version = "0.6.3", path = "crates/acorn-tui", default-features = false }
+acorn-analysis = { version = "0.7.0", path = "crates/acorn-analysis", default-features = false }
+acorn-cmd = { version = "0.7.0", path = "crates/acorn-cmd", default-features = false }
+acorn-core = { version = "0.7.0", path = "crates/acorn-core", default-features = false }
+acorn-diff = { version = "0.7.0", path = "crates/acorn-diff", default-features = false }
+acorn-host = { version = "0.7.0", path = "crates/acorn-host", default-features = false }
+acorn-lib = { version = "0.7.0", path = "crates/acorn-lib", default-features = false }
+acorn-macros = { version = "0.7.0", path = "crates/acorn-macros", default-features = false }
+acorn-schema = { version = "0.7.0", path = "crates/acorn-schema", default-features = false }
+acorn-server = { version = "0.7.0", path = "crates/acorn-server", default-features = false }
+acorn-service = { version = "0.7.0", path = "crates/acorn-service", default-features = false }
+acorn-store = { version = "0.7.0", path = "crates/acorn-store", default-features = false }
+acorn-tui = { version = "0.7.0", path = "crates/acorn-tui", default-features = false }
 agent-client-protocol = { version = "=2.2.0", default-features = false }
 anydoc = { version = "0.1.6", default-features = false }
 infer = { version = "0.22.0", default-features = false }
@@ -97,6 +97,7 @@ dprint-core = "0.69.1"
 dprint-plugin-json = "0.25.0"
 duckdb = { version = "~1.10505.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
+flate2 = "1.1.9"
 regex = "1.12"
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }
 glob = { version = "0.3.1", default-features = false }
@@ -110,6 +111,7 @@ jsonschema = { version = "0.57.0", default-features = false }
 insta = { version = "1.47.2", default-features = false }
 itertools = { version = "0.14.0", features = ["use_alloc"], default-features = false }
 lazy_static = { version = "1.5.0", default-features = false }
+minisign-verify = "0.3.0"
 nanoid = { version = "0.5.0", default-features = false }
 oauth2 = { version = "5.0.0", default-features = false }
 openidconnect = { version = "4.0.1", default-features = false }
@@ -138,6 +140,7 @@ eserde = { version = "0.1", features = ["derive", "json"], default-features = fa
 sophia = { version = "0.9.0", default-features = false }
 strum = { version = "0.28.0", features = ["derive"], default-features = false }
 swhid = { version = "0.2.2", default-features = false }
+tar = "0.4.46"
 tokio = { version = "1.48.0", default-features = false }
 thiserror = { version = "2.0.18", default-features = false }
 tonic = { version = "=0.14.6", features = [

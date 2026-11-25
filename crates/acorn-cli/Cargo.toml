@@ -49,9 +49,11 @@ directories = { workspace = true }
 dotenvy = { workspace = true }
 exitcode = { version = "1.1.2", default-features = false }
 fast_qr = { version = "0.13.0", features = ["image"], optional = true }
+flate2 = { workspace = true }
 futures = { workspace = true }
 is-terminal = "0.4.16"
 itertools = { workspace = true }
+minisign-verify = { workspace = true }
 nanoid = { workspace = true }
 notify = { workspace = true }
 notify-debouncer-mini = { workspace = true }
@@ -67,6 +69,7 @@ serde_json = { workspace = true }
 schemars = { version = "1.0.4", features = ["derive"], default-features = false }
 serde_norway = { workspace = true }
 strum = { workspace = true }
+tar = { workspace = true }
 tokio = { workspace = true, features = ["rt", "signal", "sync", "time"] }
 tracing = { workspace = true }
 tracing-indicatif = { workspace = true }
@@ -94,6 +97,7 @@ exec = ["acorn-lib/exec", "dep:rhai"]
 assert_cmd = "2.0.16"
 axum = { workspace = true, features = ["http1", "json", "query", "tokio"] }
 insta = { workspace = true }
+minisign = "0.10.0"
 temp-env = "0.3.6"
 tempfile = "3"
 

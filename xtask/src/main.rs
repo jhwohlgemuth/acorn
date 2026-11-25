@@ -1,4 +1,5 @@
 mod application_release;
+mod acornd_sign;
 mod benchmark_history;
 
 use serde::Deserialize;
@@ -53,6 +54,7 @@ fn main() {
         eprintln!("  package-web [--source DIR] [--output DIR]  Package browser assets");
         eprintln!("  publish-web [--output DIR] Upload a verified browser release");
         eprintln!("  release-version <version>  Update workspace version and sync internal deps");
+        eprintln!("  sign-acornd-bundle FILE  Sign a paired daemon bundle with the protected release key");
         eprintln!("  upload-artifact FILE URL   Upload immutable release bytes");
         eprintln!("  verify-web [--output DIR]  Verify a browser archive and checksum");
         std::process::exit(1);
@@ -70,9 +72,10 @@ fn main() {
             }
             cmd_release_version(&args[2])
         }
+        | "sign-acornd-bundle" => acornd_sign::run(&args[2..]),
         | _ => {
             eprintln!("Error: unknown command '{}'", args[1]);
-            eprintln!("Available commands: benchmark-history, check-release-apps, check-release-crates, check-version, package-web, publish-web, release-version, upload-artifact, verify-web");
+            eprintln!("Available commands: benchmark-history, check-release-apps, check-release-crates, check-version, package-web, publish-web, release-version, sign-acornd-bundle, upload-artifact, verify-web");
             std::process::exit(1);
         }
     };

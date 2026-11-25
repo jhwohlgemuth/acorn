@@ -160,6 +160,24 @@ build-linux-arm64: ## Build the ARM64 Linux release binary.
 	@mkdir -p ./bin
 	@$(MUSL_BUILD) --release --package acorn-cli --target $(DEFAULT_ARM64_TARGET)
 
+acornd-build-linux-amd64: ## Build paired AMD64 Linux daemon release binaries.
+	@$(MUSL_BUILD) --release --package acorn-cli --package acorn-daemon --target $(DEFAULT_TARGET)
+	@mkdir -p "bin/acornd-staging/$(DEFAULT_TARGET)"
+	@cp "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acorn" "bin/acornd-staging/$(DEFAULT_TARGET)/acorn"
+	@cp "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_TARGET)/release/acornd" "bin/acornd-staging/$(DEFAULT_TARGET)/acornd"
+
+acornd-build-linux-arm64: ## Build paired ARM64 Linux daemon release binaries.
+	@$(MUSL_BUILD) --release --package acorn-cli --package acorn-daemon --target $(DEFAULT_ARM64_TARGET)
+	@mkdir -p "bin/acornd-staging/$(DEFAULT_ARM64_TARGET)"
+	@cp "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_ARM64_TARGET)/release/acorn" "bin/acornd-staging/$(DEFAULT_ARM64_TARGET)/acorn"
+	@cp "$(ARTIFACT_TARGET_DIR)/$(DEFAULT_ARM64_TARGET)/release/acornd" "bin/acornd-staging/$(DEFAULT_ARM64_TARGET)/acornd"
+
+acornd-bundle-linux-amd64: acornd-build-linux-amd64 ## Sign and verify the paired AMD64 daemon bundle.
+	@sh scripts/package-acornd.sh "$(VERSION)" "$(DEFAULT_TARGET)" "bin/acornd-staging/$(DEFAULT_TARGET)/acorn" "bin/acornd-staging/$(DEFAULT_TARGET)/acornd" bin
+
+acornd-bundle-linux-arm64: acornd-build-linux-arm64 ## Sign and verify the paired ARM64 daemon bundle.
+	@sh scripts/package-acornd.sh "$(VERSION)" "$(DEFAULT_ARM64_TARGET)" "bin/acornd-staging/$(DEFAULT_ARM64_TARGET)/acorn" "bin/acornd-staging/$(DEFAULT_ARM64_TARGET)/acornd" bin
+
 build-wasm: ## Build and test the WebAssembly package.
 	@wasm-pack build $(WASM_PACK_BUILD_ARGS) crates/acorn-wasm --target web --out-dir ../../target/acorn-wasm/pkg --out-name acorn
 	@cp crates/acorn-wasm/web/webmcp.js crates/acorn-wasm/web/webmcp.d.ts target/acorn-wasm/pkg/
@@ -670,6 +688,10 @@ TASKS = \
 	acorn-push \
 	acorn-push-docker \
 	acorn-push-ghcr \
+	acornd-build-linux-amd64 \
+	acornd-build-linux-arm64 \
+	acornd-bundle-linux-amd64 \
+	acornd-bundle-linux-arm64 \
 	audit \
 	bench \
 	bench-baseline \

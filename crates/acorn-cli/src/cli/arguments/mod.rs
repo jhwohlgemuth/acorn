@@ -143,11 +143,20 @@ pub(crate) mod osti;
 /// Local daemon service and job operations.
 #[derive(Debug, Subcommand)]
 pub enum DaemonCommand {
-    /// Register the Linux user service with a configuration file.
+    /// Verify a signed paired release archive without installing it.
+    VerifyBundle {
+        /// Bundle archive; its detached signature must be beside it.
+        #[arg(value_hint = ValueHint::FilePath)]
+        bundle: PathBuf,
+    },
+    /// Install or update the local daemon service with a configuration file.
     Install {
         /// ACRE configuration path.
         #[arg(long, value_hint = ValueHint::FilePath)]
         config: PathBuf,
+        /// Signed paired acorn/acornd release archive to stage and activate.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        bundle: Option<PathBuf>,
         /// Ask logind to keep this user's service manager after logout.
         #[arg(long)]
         linger: bool,
