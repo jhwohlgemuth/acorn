@@ -28,6 +28,8 @@ pub enum WorkflowAction {
     Enrich,
     /// Normalize and deterministically serialize content.
     Format,
+    /// Gather research activity into a report from a configured source.
+    Gather,
     /// Create a linked-data companion artifact.
     Link,
     /// Parse and validate content.

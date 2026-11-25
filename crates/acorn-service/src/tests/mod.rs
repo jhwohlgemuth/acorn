@@ -15,107 +15,6 @@ use futures::executor::block_on;
 const VALID_RESEARCH_ACTIVITY: &str = include_str!("../../../../tests/fixtures/data/valid_project/index.json");
 
 #[test]
-fn test_research_activity_skips_categories_before_evaluation() {
-    let request = ValidateResearchActivityRequest {
-        content: VALID_RESEARCH_ACTIVITY.to_string(),
-        format: MimeType::Json,
-        source_uri: None,
-        vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
-    };
-    let full = AcornService.validate_research_activity(request.clone()).expect("full validation");
-    assert!(full.diagnostics.iter().any(|issue| issue.category == CheckCategory::Prose));
-    assert!(full.diagnostics.iter().any(|issue| issue.category == CheckCategory::Fair));
-    let activity = ResearchActivity::decode(VALID_RESEARCH_ACTIVITY, &MimeType::Json).expect("RAD fixture");
-    let expected_readability = check_readability_for_text(&activity.to_prose(), ReadabilityType::default(), None)
-        .into_iter()
-        .next()
-        .expect("CLI-equivalent readability check");
-    assert_eq!(
-        full.diagnostics
-            .iter()
-            .find(|issue| issue.category == CheckCategory::Readability)
-            .map(|issue| issue.message.as_str()),
-        Some(expected_readability.message.as_str()),
-    );
-    let skipped = AcornService
-        .validate_research_activity_with_skip(request.clone(), &[CheckCategory::Prose, CheckCategory::Fair])
-        .expect("selected validation");
-    assert!(skipped.valid);
-    assert!(skipped
-        .diagnostics
-        .iter()
-        .all(|issue| !matches!(issue.category, CheckCategory::Prose | CheckCategory::Fair)));
-    assert!(skipped.diagnostics.iter().any(|issue| issue.category == CheckCategory::Readability));
-    let without_readability = AcornService
-        .validate_research_activity_with_skip(request.clone(), &[CheckCategory::Readability])
-        .expect("readability skipped");
-    assert!(without_readability.valid);
-    assert!(without_readability
-        .diagnostics
-        .iter()
-        .all(|issue| issue.category != CheckCategory::Readability));
-    let custom = AcornService
-        .validate_research_activity_with_readability(request.clone(), &[], ReadabilityType::FRES, Some(70.0))
-        .expect("custom readability");
-    let expected_custom = check_readability_for_text_with_threshold(&activity.to_prose(), ReadabilityType::FRES, 70.0, None)
-        .into_iter()
-        .next()
-        .expect("custom score");
-    assert_eq!(
-        custom
-            .diagnostics
-            .iter()
-            .find(|issue| issue.category == CheckCategory::Readability)
-            .map(|issue| issue.message.as_str()),
-        Some(expected_custom.message.as_str()),
-    );
-    assert!(AcornService
-        .validate_research_activity_with_readability(request.clone(), &[], ReadabilityType::FRES, Some(f64::NAN))
-        .is_err());
-    assert!(AcornService
-        .validate_research_activity_with_readability(request.clone(), &[CheckCategory::Readability], ReadabilityType::FRES, Some(f64::NAN))
-        .is_ok());
-    let no_checks = AcornService
-        .validate_research_activity_with_skip(
-            request,
-            &[
-                CheckCategory::Schema,
-                CheckCategory::Prose,
-                CheckCategory::Fair,
-                CheckCategory::Readability,
-            ],
-        )
-        .expect("skipped validation");
-    assert!(!no_checks.valid);
-    assert!(no_checks.diagnostics.is_empty());
-    let invalid = ValidateResearchActivityRequest {
-        content: VALID_RESEARCH_ACTIVITY.replace(r#""title": "Valid Project""#, r#""title": "x""#),
-        format: MimeType::Json,
-        source_uri: None,
-        vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
-    };
-    let unchecked = AcornService
-        .validate_research_activity_with_skip(invalid, &[CheckCategory::Schema])
-        .expect("schema skipped");
-    assert!(!unchecked.valid);
-    assert!(unchecked.diagnostics.iter().all(|issue| issue.category != CheckCategory::Schema));
-    assert!(unchecked.diagnostics.iter().any(|issue| issue.category == CheckCategory::Fair));
-    let standard = AcornService
-        .validate_standard_with_skip(
-            ValidateStandardRequest {
-                content: VALID_RESEARCH_ACTIVITY.to_string(),
-                format: MimeType::Json,
-                source_uri: None,
-                standard: Standard::ResearchActivityData,
-            },
-            &[CheckCategory::Fair],
-        )
-        .expect("standard validation with skipped FAIR checks");
-    assert!(standard.valid);
-    assert!(standard.diagnostics.iter().all(|issue| issue.category != CheckCategory::Fair));
-}
-
-#[test]
 fn test_json_rpc_keeps_version_informational_and_registers_canonical_operations() {
     let registry = OperationRegistry::acorn(AcornService, "9.8.7", None).expect("operation registry");
     assert_eq!(
@@ -241,6 +140,11 @@ fn test_repository_actions_are_distinct_and_validated() {
         .process_repository(request(vec![WorkflowAction::Enrich]))
         .expect_err("enrichment requires a host capability");
     assert_eq!(denied.kind, ServiceErrorKind::PolicyDenied);
+    let gather_denied = AcornService
+        .process_repository(request(vec![WorkflowAction::Gather]))
+        .expect_err("gather requires the daemon runner");
+    assert_eq!(gather_denied.kind, ServiceErrorKind::PolicyDenied);
+    assert_eq!(serde_json::to_string(&WorkflowAction::Gather).unwrap(), "\"gather\"");
     let linked = AcornService
         .process_repository(ProcessRepositoryRequest {
             actions: vec![WorkflowAction::Link],
@@ -385,6 +289,106 @@ fn test_research_activity_rejects_invalid_typed_identifier_in_every_format() {
             response.diagnostics
         );
     }
+}
+#[test]
+fn test_research_activity_skips_categories_before_evaluation() {
+    let request = ValidateResearchActivityRequest {
+        content: VALID_RESEARCH_ACTIVITY.to_string(),
+        format: MimeType::Json,
+        source_uri: None,
+        vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+    };
+    let full = AcornService.validate_research_activity(request.clone()).expect("full validation");
+    assert!(full.diagnostics.iter().any(|issue| issue.category == CheckCategory::Prose));
+    assert!(full.diagnostics.iter().any(|issue| issue.category == CheckCategory::Fair));
+    let activity = ResearchActivity::decode(VALID_RESEARCH_ACTIVITY, &MimeType::Json).expect("RAD fixture");
+    let expected_readability = check_readability_for_text(&activity.to_prose(), ReadabilityType::default(), None)
+        .into_iter()
+        .next()
+        .expect("CLI-equivalent readability check");
+    assert_eq!(
+        full.diagnostics
+            .iter()
+            .find(|issue| issue.category == CheckCategory::Readability)
+            .map(|issue| issue.message.as_str()),
+        Some(expected_readability.message.as_str()),
+    );
+    let skipped = AcornService
+        .validate_research_activity_with_skip(request.clone(), &[CheckCategory::Prose, CheckCategory::Fair])
+        .expect("selected validation");
+    assert!(skipped.valid);
+    assert!(skipped
+        .diagnostics
+        .iter()
+        .all(|issue| !matches!(issue.category, CheckCategory::Prose | CheckCategory::Fair)));
+    assert!(skipped.diagnostics.iter().any(|issue| issue.category == CheckCategory::Readability));
+    let without_readability = AcornService
+        .validate_research_activity_with_skip(request.clone(), &[CheckCategory::Readability])
+        .expect("readability skipped");
+    assert!(without_readability.valid);
+    assert!(without_readability
+        .diagnostics
+        .iter()
+        .all(|issue| issue.category != CheckCategory::Readability));
+    let custom = AcornService
+        .validate_research_activity_with_readability(request.clone(), &[], ReadabilityType::FRES, Some(70.0))
+        .expect("custom readability");
+    let expected_custom = check_readability_for_text_with_threshold(&activity.to_prose(), ReadabilityType::FRES, 70.0, None)
+        .into_iter()
+        .next()
+        .expect("custom score");
+    assert_eq!(
+        custom
+            .diagnostics
+            .iter()
+            .find(|issue| issue.category == CheckCategory::Readability)
+            .map(|issue| issue.message.as_str()),
+        Some(expected_custom.message.as_str()),
+    );
+    assert!(AcornService
+        .validate_research_activity_with_readability(request.clone(), &[], ReadabilityType::FRES, Some(f64::NAN))
+        .is_err());
+    assert!(AcornService
+        .validate_research_activity_with_readability(request.clone(), &[CheckCategory::Readability], ReadabilityType::FRES, Some(f64::NAN))
+        .is_ok());
+    let no_checks = AcornService
+        .validate_research_activity_with_skip(
+            request,
+            &[
+                CheckCategory::Schema,
+                CheckCategory::Prose,
+                CheckCategory::Fair,
+                CheckCategory::Readability,
+            ],
+        )
+        .expect("skipped validation");
+    assert!(!no_checks.valid);
+    assert!(no_checks.diagnostics.is_empty());
+    let invalid = ValidateResearchActivityRequest {
+        content: VALID_RESEARCH_ACTIVITY.replace(r#""title": "Valid Project""#, r#""title": "x""#),
+        format: MimeType::Json,
+        source_uri: None,
+        vocabulary_fuzzy: VocabularyFuzzyMode::Relaxed,
+    };
+    let unchecked = AcornService
+        .validate_research_activity_with_skip(invalid, &[CheckCategory::Schema])
+        .expect("schema skipped");
+    assert!(!unchecked.valid);
+    assert!(unchecked.diagnostics.iter().all(|issue| issue.category != CheckCategory::Schema));
+    assert!(unchecked.diagnostics.iter().any(|issue| issue.category == CheckCategory::Fair));
+    let standard = AcornService
+        .validate_standard_with_skip(
+            ValidateStandardRequest {
+                content: VALID_RESEARCH_ACTIVITY.to_string(),
+                format: MimeType::Json,
+                source_uri: None,
+                standard: Standard::ResearchActivityData,
+            },
+            &[CheckCategory::Fair],
+        )
+        .expect("standard validation with skipped FAIR checks");
+    assert!(standard.valid);
+    assert!(standard.diagnostics.iter().all(|issue| issue.category != CheckCategory::Fair));
 }
 #[test]
 fn test_research_activity_validation_includes_every_fair_rule_description() {

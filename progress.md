@@ -88,6 +88,16 @@
 - Next action: Start ACD-03, SPD-04, or DBA-02 under their separate locks; serialize ACD-03 with SPD-24 and PID-06 workspace-graph phases.
 - Review repair: `DocumentPath::from_source` now rejects requests outside an explicit source scope restriction; seven table cases cover equal/subset and unrestricted acceptance plus broader/disjoint/empty rejection. Resolver production code and its mock handler no longer use question-mark propagation or early returns; explicit server token validation uses a result expression. Seven resolver tests and 14 server tests passed, along with each package's all-target Clippy and changed-file formatting. The shared wiki validator passed. The later workspace Clippy and `make test` attempts were blocked by missing variant documentation in concurrently developed `crates/acorn-web/src/operations.rs`; the earlier full-suite pass above predates these review repairs and browser additions.
 
+## Implementation — acornd history, runners, scheduler, and control
+
+- Plan: `.wiki/features/acornd-service.md`; ACD-03–06, ACD-08, and ACD-08A accepted and pruned.
+- Authorized scope and decision: Execute daemon work concurrently with TPL without editing its browser files. The user selected a distinct `Gather` action in the shared service/config schema; supplied-content repository processing rejects it.
+- Baseline and local work: Started at `4fc72c19`; added `acorn-store` SQLite schema v1, fixed check/gather runners, single-worker foreground scheduling, authenticated job control, coordinated listener shutdown, and atomic ACRE job reload. The ACD-05 Gather variant also needed a one-arm gRPC client conversion repair. A bounded ACD-08R storage repair added transactional active-job replacement and queued-run retirement. TPL browser changes remain owned by its other agent. Cargo validation used `/private/tmp/acd-target` to avoid the shared build lock.
+- Verified state: `cargo test -p acorn-server --lib --target-dir /private/tmp/acd-target` passed 14 tests after the gRPC repair; `cargo test -p acorn-store -p acorn-daemon --lib --target-dir /private/tmp/acd-target -- --test-threads=1` passed 11 + 43 tests after reload. Focused daemon/store Clippy with `-D warnings`, package formatting, earlier daemon/store rustdoc, and the alloc-only service WASM check passed. HTTP tests cover auth, read and mutation methods, bounded history, pre-ready failure, worker failure after readiness, active-job shutdown, complete reload, duplicate generation, and in-flight old/new snapshot ordering. Fake watcher and scheduler tests cover stale callbacks, watcher preparation failure, control ordering, and job replacement. A daemon test of subprocess group cleanup failed transiently under parallel execution with `PermissionDenied`; its isolated rerun and the serial full suite passed.
+- Remaining work: ACD-12 Windows SCM wrapping is eligible on its workspace graph lock. ACD-09 local CLI management follows release of the CLI syntax lock. Native registration, bundles, and host acceptance remain later plan phases.
+- Budget: Each accepted phase remained within its five-hour active ceiling.
+- Next action: Start ACD-12 on its workspace graph lock, or ACD-09 once the CLI syntax owner releases its lock; BLZ-12 may consume the accepted reload contract after BLZ-11.
+
 ## Implementation — ACORN browser
 
 - Plan: `.wiki/features/acorn-browser-workspace/index.md`; authorized November 12 parity-review items 1–5 are implemented in the uncommitted tree. ABW-10 is accepted/pruned; remaining stable phase IDs contain only unfinished acceptance or native/publication integration.
@@ -264,3 +274,13 @@ Git commit message: Add bounded raster catalog images and complete local Researc
 - Remaining work: named isolated source/destination and protected connections; native import/binding, real permissions/pagination/ETag/fault acceptance; then PA-41A-dependent operational mirror rollout, ownership, monitoring and recovery. See SGS-01/02/03 rather than inferring completion from simulations.
 - Budget: approximately 20 active minutes of local review/implementation; no external phase started and no integration lock remains held.
 - Next action: after owners identify isolated targets, run SGS-01 or SGS-02 with the generated definitions and preserve actual run/native-package evidence. Do not enable operational copies from the historical config.
+
+## Implementation — Browser RADS templates and URL entry
+
+- Plan: `.wiki/features/browser-rads-templates.md`; active phase: TPL-06; state: web implementation complete, packaged desktop acceptance blocked by ABW-11.
+- Authorized scope: execute TPL while another agent owns ACD. TPL changes stay in `acorn-web`, its build/docs, and TPL wiki records; ACD files and workspace-wide formatting are left to that agent.
+- Baseline and local work: `4fc72c19` plus concurrent ACD changes. Three bundled fictional projects, a shared catalog/preview/create path, a styled Review popout dropdown, bounded `code`/`template`/`url` intents through `window.acornUrl`, explicit URL draft creation, and local ZIP export are implemented.
+- Verified state: all four files across three templates pass schema and browser WASM validation; `cargo test -p acorn-web` passed (45 library and 31 binary tests); `node --test` URL/ZIP tests, `make web-lint`, `make web-check`, and full `make web-pages` plus `make web-test-pages` suites passed at root and `/acorn/` after the final source revision.
+- Remaining work: TPL-01–05 are pruned from the active plan. TPL-06 packaged desktop acceptance awaits the nonexistent `crates/acorn-desktop/` from ABW-11; native save follows ABW-12/17.
+- Budget: each web phase remained within its five-hour active ceiling; TPL-06 has not started desktop acceptance.
+- Next action: after ABW-11 creates the Tauri shell, run TPL-06 packaged desktop acceptance with the shared frontend, then retire the plan.

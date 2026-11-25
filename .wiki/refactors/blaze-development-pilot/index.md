@@ -24,7 +24,7 @@ Expected benefit is an architectural inference, not a measured speedup. ACORN co
 
 The [development-loop contract](development-loop.md) connects this compiler review to [acornd](../../features/acornd-service.md). The daemon plan already proposed job configuration reload and an optional Hotcode function experiment; these were insufficiently connected in the initial Blaze review. Measure the complete save → build → verify → activate → ready → observed result path, including state recovery and failure behavior.
 
-ACD-08A owns production configuration reload. BLZ-11 owns an isolated Cargo-first build/restart supervisor; BLZ-12 accepts that supervisor against the implemented daemon and adds its optional development target. BLZ-13 evaluates function hot reload separately from stateful daemon operation. Dioxus/Vite continue to own browser updates. No new coordination epic or second copy of the daemon implementation plan is needed.
+The accepted ACD-08A implementation owns production configuration reload. BLZ-11 owns an isolated Cargo-first build/restart supervisor; BLZ-12 accepts that supervisor against the implemented daemon and adds its optional development target. BLZ-13 evaluates function hot reload separately from stateful daemon operation. Dioxus/Vite continue to own browser updates. No new coordination epic or second copy of the daemon implementation plan is needed.
 
 # Review scope and evidence boundary
 
@@ -150,9 +150,9 @@ If no representative workload qualifies for Blaze, publish a short no-go record 
 
 # Dependencies and ownership
 
-BLZ-01 → BLZ-02 → BLZ-03 → BLZ-04 → BLZ-05 → BLZ-06. BLZ-07 follows BLZ-05; BLZ-08 follows BLZ-03. BLZ-09 requires a passing native representative workload from BLZ-05/06 and the finalized compatibility allowlist; browser success is not required. BLZ-11 follows the BLZ-01 recording harness and independent Cargo binary-launch checks for a Cargo-first supervised development loop; Blaze is admitted only after BLZ-06/07 qualification. BLZ-12 follows BLZ-11 and ACD-08A for real daemon reload/restart acceptance. BLZ-13 follows BLZ-02 for an isolated live-function comparison. BLZ-10 accepts or rejects the resulting workflow after every retained branch is resolved; negative results may prune branches without implementation. Negative findings can prune later dependent phases immediately after durable recording.
+BLZ-01 → BLZ-02 → BLZ-03 → BLZ-04 → BLZ-05 → BLZ-06. BLZ-07 follows BLZ-05; BLZ-08 follows BLZ-03. BLZ-09 requires a passing native representative workload from BLZ-05/06 and the finalized compatibility allowlist; browser success is not required. BLZ-11 follows the BLZ-01 recording harness and independent Cargo binary-launch checks for a Cargo-first supervised development loop; Blaze is admitted only after BLZ-06/07 qualification. BLZ-12 follows BLZ-11 and consumes accepted daemon reload behavior for real reload/restart acceptance. BLZ-13 follows BLZ-02 for an isolated live-function comparison. BLZ-10 accepts or rejects the resulting workflow after every retained branch is resolved; negative results may prune branches without implementation. Negative findings can prune later dependent phases immediately after durable recording.
 
-- [Daemon service](../../features/acornd-service.md) owns ACD-08A job reload and runtime recovery. BLZ-11 fake-process supervisor development need not wait for the scheduler; BLZ-12 real acceptance waits for ACD-08A. The optional compiler/hot-function branches are not daemon shipping prerequisites.
+- [Daemon service](../../features/acornd-service.md) provides accepted atomic job reload and runtime recovery. BLZ-11 fake-process supervisor development need not wait for the scheduler; BLZ-12 real acceptance consumes the accepted behavior. The optional compiler/hot-function branches are not daemon shipping prerequisites.
 - [Coverage throughput](../../testing/coverage-throughput.md) owns cleaning, coverage profiles and slow-test policy. It is independent; baseline again after its changes land. Blaze does not replace tarpaulin or resolve its forced clean stage.
 - [Mise integration](../../migrations/mise-toolchain-integration.md) owns broader tool provisioning. Record a Blaze pin but add no installer/backend under this plan. BLZ-09 serializes with mise and all other CI/build owners.
 - [Frontend quality](../../testing/frontend-build-quality.md) and [browser workspace](../../features/acorn-browser-workspace/index.md) retain asset staging, minification, HMR and desktop assembly. BLZ-08 is isolated evidence only and blocks none of their phases.
@@ -277,7 +277,7 @@ All phases reserve this plan for lifecycle updates. Serialize root/nearest index
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: BLZ-11, ACD-08A; use BLZ-06/07 evidence only when admitting the optional Blaze backend; daemon recovery/worker/listener contracts accepted; disposable local store/config/ports; CI/build lock available
+- Prerequisites: BLZ-11 and accepted daemon reload behavior; use BLZ-06/07 evidence only when admitting the optional Blaze backend; daemon recovery/worker/listener contracts accepted; disposable local store/config/ports; CI/build lock available
 - Exact write set: `Makefile`, `scripts/acorn-dev.py`, `scripts/test-acorn-dev.py`, `docs/src/development/blaze.md`, `.wiki/refactors/blaze-development-pilot/_assets/daemon-loop.json`; external system: isolated foreground daemon and fixture workspace
 - Primary integration lock: CI/build
 - Outcome: Add optional `make daemon-dev` only after actual paired-binary restart and authenticated configuration reload pass the [acceptance matrix](development-loop.md#acceptance-matrix). Keep Cargo as usable default backend and require explicit qualified Blaze selection. Optional config watching invokes the existing reload API; it never implements its own scheduler/config semantics.

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Validate configuration and wait in the foreground.
+    /// Serve authenticated ACORN APIs and scheduled jobs in the foreground.
     Run {
         /// Optional ACRE JSONC path; platform defaults are used when omitted.
         #[arg(value_name = "CONFIG")]

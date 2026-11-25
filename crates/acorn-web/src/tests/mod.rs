@@ -16,7 +16,6 @@ fn test_icon_name_parses_existing_names() {
     assert!(!IconName::FileCheck.legacy_artwork().is_empty());
     assert_eq!(IconName::FileCheck.uswds_symbol(), Some("verified"));
 }
-
 #[test]
 fn test_index_ignores_invalid_and_replaced_records() {
     let files = ["a.json", "b.json", "invalid.json"]
@@ -662,5 +661,85 @@ mod session_tests {
         });
         assert!(replaced.activities().is_empty());
         assert_eq!(replaced.selected.as_deref(), Some("new.json"));
+    }
+}
+mod template_tests {
+    #[cfg(target_arch = "wasm32")]
+    use crate::operations::{self, Request, Tool};
+    use crate::session::{Selection, Workspace};
+    use crate::templates::*;
+    use acorn_schema::research_activity::ResearchActivity;
+    use acorn_schema::Validate;
+
+    #[test]
+    fn test_template_projects_fit_workspace_and_validate() {
+        assert_eq!(TEMPLATES.len(), 3, "all bundled templates must load");
+        for template in TEMPLATES.iter() {
+            let loaded = Workspace::default().replace(Selection {
+                files: template.files(),
+                skipped: 0,
+            });
+            assert_eq!(loaded.files.len(), template.files.len(), "{} files", template.id);
+            assert_eq!(loaded.skipped, 0, "{} skipped files", template.id);
+            for file in &loaded.files {
+                let activity: ResearchActivity = serde_json::from_str(&file.content).expect("template must deserialize");
+                assert!(activity.validate().is_ok(), "{} must validate", file.path);
+            }
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn test_template_projects_pass_browser_validation() {
+        for template in TEMPLATES.iter() {
+            for file in template.files() {
+                let request = Request {
+                    input: file.content,
+                    ..Request::default()
+                };
+                let result = operations::run(Tool::Activity, &request).expect("template operation");
+                assert_eq!(result["valid"], true, "{}: {}", file.path, result);
+            }
+        }
+    }
+}
+mod url_intent_tests {
+    use crate::url_intent::*;
+
+    fn entry(code: &[&str], template: &[&str], url: &[&str]) -> UrlEntry {
+        UrlEntry {
+            href: "https://example.org/acorn/review#fair".into(),
+            parameters: Parameters {
+                code: code.iter().map(ToString::to_string).collect(),
+                template: template.iter().map(ToString::to_string).collect(),
+                url: url.iter().map(ToString::to_string).collect(),
+            },
+            malformed: false,
+        }
+    }
+
+    #[test]
+    fn test_url_intent_accepts_one_value() {
+        assert_eq!(entry(&["é + ?"], &[], &[]).intent(), Intent::Code("é + ?".into()));
+        assert_eq!(entry(&[], &["single-activity"], &[]).intent(), Intent::Template("single-activity".into()));
+        assert_eq!(
+            entry(&[], &[], &["https://example.org/a.json"]).intent(),
+            Intent::Url("https://example.org/a.json".into())
+        );
+    }
+    #[test]
+    fn test_url_intent_rejects_conflicts_and_bad_encoding() {
+        assert!(matches!(entry(&["a", "b"], &[], &[]).intent(), Intent::Invalid(_)));
+        assert!(matches!(entry(&["a"], &["single-activity"], &[]).intent(), Intent::Invalid(_)));
+        assert!(matches!(entry(&[""], &[], &[]).intent(), Intent::Invalid(_)));
+        assert!(matches!(entry(&[], &[], &["http://example.org/a.json"]).intent(), Intent::Invalid(_)));
+        let mut malformed = entry(&["a"], &[], &[]);
+        malformed.malformed = true;
+        assert!(matches!(malformed.intent(), Intent::Invalid(_)));
+    }
+    #[test]
+    fn test_url_intent_rejects_long_links() {
+        let mut too_long = entry(&["a"], &[], &[]);
+        too_long.href = "a".repeat(8 * 1024 + 1);
+        assert!(matches!(too_long.intent(), Intent::Invalid(_)));
     }
 }

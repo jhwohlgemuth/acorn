@@ -23,19 +23,9 @@ function fixture(href = "https://example.org/acorn/review?topic=one#fair") {
     return { state: context.createUrlState(environment), location, events };
 }
 
-test("URL state preserves path, unrelated parameters, and fragment", () => {
-    const { state, location } = fixture();
-    assert.deepEqual(Array.from(state.getParameters("topic")), ["one"]);
-    assert.equal(state.setParameters("filter", ["A & B", "C"]), true);
-    assert.deepEqual(new URL(location.href).searchParams.getAll("filter"), ["A & B", "C"]);
-    assert.equal(state.getFragment(), "fair");
-    assert.equal(state.setFragment("readability"), true);
-    assert.equal(new URL(location.href).pathname, "/acorn/review");
-    assert.equal(new URL(location.href).hash, "#readability");
-    assert.equal(state.setFragment("readability"), false);
-    assert.equal(state.setParameters("filter", null), true);
-    assert.deepEqual(new URL(location.href).searchParams.getAll("filter"), []);
-    assert.deepEqual(Array.from(state.getParameters("topic")), ["one"]);
+test("malformed fragments remain readable", () => {
+    const { state } = fixture("https://example.org/acorn/review#%GG");
+    assert.equal(state.getFragment(), "%GG");
 });
 
 test("subscribers receive initial state and browser history changes once", () => {
@@ -51,7 +41,39 @@ test("subscribers receive initial state and browser history changes once", () =>
     assert.deepEqual(seen, ["fair", "readability", "fair"]);
 });
 
-test("malformed fragments remain readable", () => {
-    const { state } = fixture("https://example.org/acorn/review#%GG");
-    assert.equal(state.getFragment(), "%GG");
+test("template parameters preserve a Review fragment and unrelated options", () => {
+    const { state, location } = fixture("https://example.org/acorn/review?theme=uswds#fair");
+    assert.equal(state.setParameters("template", "single-activity"), true);
+    assert.deepEqual(Array.from(state.getParameters("template")), ["single-activity"]);
+    assert.equal(new URL(location.href).searchParams.get("theme"), "uswds");
+    assert.equal(state.getFragment(), "fair");
+    assert.equal(state.setParameters("template", null), true);
+    assert.equal(state.getFragment(), "fair");
+});
+
+test("URL entry preserves Unicode and detects malformed percent encoding", () => {
+    const { state } = fixture("https://example.org/acorn/review?code=%C3%A9+%2B+%3F#fair");
+    assert.deepEqual(Array.from(state.getParameters("code")), ["é + ?"]);
+    assert.equal(state.hasMalformedEncoding("code"), false);
+    assert.equal(state.getHref(), "https://example.org/acorn/review?code=%C3%A9+%2B+%3F#fair");
+    assert.equal(fixture("https://example.org/review?code=%GG").state.hasMalformedEncoding("code"), true);
+    assert.equal(fixture("https://example.org/review?code=%C3%28").state.hasMalformedEncoding("code"), true);
+    assert.equal(fixture("https://example.org/review?%63ode=%C3%28").state.hasMalformedEncoding("code"), true);
+    assert.equal(fixture("https://example.org/review?c%6Fde=%GG").state.hasMalformedEncoding("code"), true);
+    assert.equal(fixture("https://example.org/review?%63ode=%C3%A9").state.hasMalformedEncoding("code"), false);
+    assert.equal(fixture("https://example.org/review?%74heme=%C3%28").state.hasMalformedEncoding("code"), false);
+});
+test("URL state preserves path, unrelated parameters, and fragment", () => {
+    const { state, location } = fixture();
+    assert.deepEqual(Array.from(state.getParameters("topic")), ["one"]);
+    assert.equal(state.setParameters("filter", ["A & B", "C"]), true);
+    assert.deepEqual(new URL(location.href).searchParams.getAll("filter"), ["A & B", "C"]);
+    assert.equal(state.getFragment(), "fair");
+    assert.equal(state.setFragment("readability"), true);
+    assert.equal(new URL(location.href).pathname, "/acorn/review");
+    assert.equal(new URL(location.href).hash, "#readability");
+    assert.equal(state.setFragment("readability"), false);
+    assert.equal(state.setParameters("filter", null), true);
+    assert.deepEqual(new URL(location.href).searchParams.getAll("filter"), []);
+    assert.deepEqual(Array.from(state.getParameters("topic")), ["one"]);
 });

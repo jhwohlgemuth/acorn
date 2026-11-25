@@ -1,6 +1,7 @@
 //! ACORN's Dioxus browser composition root
 extern crate alloc;
 pub(crate) use acorn_web::media;
+pub(crate) use acorn_web::url_intent;
 use dioxus::prelude::*;
 
 mod dashboard;
@@ -23,6 +24,7 @@ struct RecoveryTimedOut(Signal<bool>);
 
 fn app() -> Element {
     let mut session = use_context_provider(|| Signal::new(String::new()));
+    let mut url_entry = use_context_provider(|| Signal::new(None::<url_intent::UrlEntry>));
     use_context_provider(ui::ToolSessions::new);
     let initially_collapsed = js_sys::Reflect::get(&js_sys::global(), &"acornInitialSidebarCollapsed".into())
         .ok()
@@ -34,6 +36,12 @@ fn app() -> Element {
     let mut restored = use_signal(|| false);
     let mut skip_save = use_signal(|| false);
     let mut recovery_timed_out = use_context_provider(|| RecoveryTimedOut(Signal::new(false))).0;
+    use_future(move || async move {
+        let mut channel = script::url_entry_channel();
+        while let Ok(entry) = channel.recv::<url_intent::UrlEntry>().await {
+            url_entry.set(Some(entry));
+        }
+    });
     use_future(move || async move {
         let saved = script::restore_workspace_snapshot().await;
         recovery_timed_out.set(

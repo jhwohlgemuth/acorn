@@ -163,7 +163,7 @@ fn validate_request(request: &ProcessRepositoryRequest) -> ServiceResult<()> {
         request.revision.trim().is_empty(),
         request.actions.is_empty(),
         duplicate_action,
-        request.actions.contains(&WorkflowAction::Enrich),
+        request.actions.contains(&WorkflowAction::Enrich) || request.actions.contains(&WorkflowAction::Gather),
         duplicate_path,
     ) {
         | (true, _, _, _, _, _) => {
@@ -180,7 +180,7 @@ fn validate_request(request: &ProcessRepositoryRequest) -> ServiceResult<()> {
         }
         | (false, false, false, false, true, _) => Err(ServiceError::new(
             ServiceErrorKind::PolicyDenied,
-            "Repository enrichment requires an explicitly configured capability",
+            "Repository enrichment or gather requires an explicitly configured capability",
         )),
         | (false, false, false, false, false, true) => {
             Err(ServiceError::new(ServiceErrorKind::InvalidInput, "Repository file paths must be unique").with_path("files"))

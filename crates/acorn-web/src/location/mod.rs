@@ -35,6 +35,13 @@ pub(crate) fn annotate(value: &mut Value, source: &str, format: &str) {
         }
     }
 }
+fn compact_identifier(value: &str) -> String {
+    value
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|character| character.to_ascii_lowercase())
+        .collect()
+}
 pub(crate) fn identifier_location(source: &str, kind: &str, normalized: &str) -> Option<(u64, u64, u64, u64)> {
     identifier_locations(source, kind, normalized).into_iter().next()
 }
@@ -96,13 +103,6 @@ pub(crate) fn identifier_locations(source: &str, kind: &str, normalized: &str) -
                 | _ => None,
             },
         )
-        .collect()
-}
-fn compact_identifier(value: &str) -> String {
-    value
-        .chars()
-        .filter(char::is_ascii_alphanumeric)
-        .map(|character| character.to_ascii_lowercase())
         .collect()
 }
 fn position(source: &str, offset: usize) -> Option<(usize, usize)> {

@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "archive": false,
+    "draft": true,
+    "status": "active",
+    "identifier": "publication-project",
+    "doi": "10.5072/acorn-template-publication-project-2",
+    "ror": "https://ror.org/052rrw050",
+    "contributors": [
+      {
+        "name": "Sample Person",
+        "identifiers": [
+          {
+            "value": "https://orcid.org/0000-0000-0000-0001",
+            "scheme": "ORCID"
+          }
+        ],
+        "affiliations": [],
+        "roles": []
+      }
+    ],
+    "organizations": [
+      {
+        "name": "National Astronomical Observatory of Japan",
+        "identifiers": [
+          {
+            "value": "https://ror.org/052rrw050",
+            "scheme": "ROR"
+          }
+        ],
+        "roles": []
+      }
+    ],
+    "keywords": [
+      "astronomy",
+      "data-science",
+      "visualization"
+    ],
+    "publications": [
+      "https://example.org/fictional-publication"
+    ]
+  },
+  "title": "Publication project: second output",
+  "subtitle": "Fictional starter. Replace names and details with your research.",
+  "sections": {
+    "mission": "A fictional team prepares a follow-up research output.",
+    "challenge": "The follow-up must explain what changed since the first output.",
+    "approach": [
+      "Compare the new evidence with the earlier result and draft the update."
+    ],
+    "impact": [
+      "Readers can follow the sequence of project outputs."
+    ],
+    "research": {
+      "focus": "A fictional follow-up publication activity.",
+      "areas": [
+        "Research metadata"
+      ]
+    }
+  },
+  "contact": {
+    "jobTitle": "Researcher",
+    "givenName": "Sample",
+    "familyName": "Person",
+    "email": "sample.person@example.org",
+    "organization": "National Astronomical Observatory of Japan",
+    "telephone": "202-555-0101",
+    "url": "https://example.org/sample-person"
+  }
+}

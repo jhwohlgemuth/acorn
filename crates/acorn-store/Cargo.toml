@@ -1,0 +1,19 @@
+[package]
+name = "acorn-store"
+version.workspace = true
+edition = "2021"
+exclude.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Durable daemon job and run history storage for ACORN"
+documentation.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+acorn-service = { workspace = true, features = ["std"] }
+rusqlite = { workspace = true, features = ["bundled"] }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

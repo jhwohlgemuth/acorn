@@ -1,0 +1,33 @@
+[
+  {
+    "id": "single-activity",
+    "title": "Single activity",
+    "description": "One fictional research activity with the core narrative sections.",
+    "includes": "Status, identifiers, contributors, and research narrative",
+    "replace": "Title, people, identifiers, and narrative",
+    "files": [
+      { "path": "starter/index.json", "asset": "single-activity/index.json" }
+    ]
+  },
+  {
+    "id": "publication-project",
+    "title": "Publication project",
+    "description": "Two linked fictional activities to organize research outputs.",
+    "includes": "Two activities, publications, contributors, and identifiers",
+    "replace": "Titles, publication details, people, and identifiers",
+    "files": [
+      { "path": "publication/activity-1.json", "asset": "publication-project/activity-1.json" },
+      { "path": "publication/activity-2.json", "asset": "publication-project/activity-2.json" }
+    ]
+  },
+  {
+    "id": "collaboration-project",
+    "title": "Collaboration project",
+    "description": "A fictional team project with contributors and organizations.",
+    "includes": "Project narrative, contributors, organizations, and identifiers",
+    "replace": "Project details, team, organizations, and identifiers",
+    "files": [
+      { "path": "collaboration/index.json", "asset": "collaboration-project/index.json" }
+    ]
+  }
+]

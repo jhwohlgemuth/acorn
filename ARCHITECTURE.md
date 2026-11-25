@@ -111,9 +111,15 @@ The remaining critical portability edges are agent source resolution, embedded t
 
 `acorn-web/src/script` is the sole page-origin JavaScript evaluation boundary. Its named fire, typed query, and channel functions use `acorn-macros` to bind Rust values only as JSON; long bodies are authored under `acorn-web/assets/scripts`. Clippy rejects `document::eval` outside this module. The default-off host `js-lint` feature parses the catalog with OxC and checks referenced `window.acorn*` names against their defining assets. The parser is absent from the default WASM graph; runtime browser tests remain necessary for API behavior.
 
+The bundled RADS starters and their catalog manifest live in `acorn-web/assets/templates`; the library `templates` module embeds and loads the catalog and project files. Home and the Review editor popout copy them through `Workspace::replace` and the existing browser validation worker before changing the local workspace. URL entry reuses `window.acornUrl` for parameter reads, subscriptions, and template link updates; a named script channel passes entries into the library `url_intent` module for bounded validation before Dioxus updates tool state. Inline code remains an editor draft until the user explicitly validates or creates a project.
+
 ### Interface crates
 
 `acorn-cli` and `acorn-tui` are composition roots. They select concrete runtime capabilities and translate library results into terminal or application behavior. CLI argument parsing and exit/report presentation stay outside portable domain crates.
+
+### Daemon jobs and history
+
+`acorn-service` defines portable job identifiers, schedules, run states, and coalescing. `acorn-store` is the native SQLite adapter for daemon pause state and run history; its versioned schema is separate from existing `acorn-lib` databases. `acorn-daemon` owns fixed check/gather subprocesses and the single-worker file and interval scheduler. It invokes the paired `acorn` binary without a shell, stores bounded reports under the per-user project cache, and keeps host processes and filesystem watching outside portable crates. The daemon composes `acorn-server` with the shared operation catalog and JSON-RPC job control after the scheduler announces readiness. Authenticated `acorn.jobs.reload` validates a complete ACRE document and prepares watchers before publishing a new job generation; listener and TLS settings require restart. The scheduler serializes control requests, rejects stale watcher callbacks by epoch, and lets an in-flight run finish on its original job snapshot. The store replaces active jobs and retires superseded queued runs in one transaction while retaining run history and pause state. It loads a protected local token before starting the worker; listener failure, worker failure, and shutdown drain both components.
 
 ### Export and assets
 

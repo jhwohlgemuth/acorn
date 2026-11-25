@@ -32,13 +32,15 @@ The bot can also consume a GitLab JSONL logbook inbox, durably admit authorized 
 
 ACRE application configuration accepts JSON, JSONC, YAML, and RON. See the [ACRE format guide](docs/src/concepts/acre.md) for filenames, validation, and formatting behavior.
 
+The source-built `acornd run [CONFIG]` serves authenticated requests and runs configured check/gather jobs in the foreground. Its authenticated `acorn.jobs.reload` JSON-RPC method applies a complete job configuration without restarting the process and returns the active generation. Listener and TLS changes require a restart. Service installation and management commands are planned separately.
+
 Logbooks accept both dated activity entries and project status updates. Status updates record the monthly change, its significance, project health, optional evidence and risk, and the reporting range used by reports. Existing activity entries retain their JSON format.
 For existing local project indexes, `acorn intake stage --batch --source <URI-or-path>` groups JSONL into one reviewable multi-project batch. Sources can be local paths, `file:` URIs, or GitLab file URLs; remote sources are captured at an immutable commit for offline review. `intake inspect` previews routes and diffs before `intake apply --batch-id` writes them. After ingestion, `intake run --index` supports `--dry-run` previews, `--interactive` review, and `--force` to accept all eligible promotions. See [intake sources and review](docs/src/cli-reference/commands/intake.md).
 
 ## Installation
 See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](https://acorn.ornl.gov/getting-started.html#installation) and [🦀Rust packages](http://acorn.ornl.gov/packages/README.html). Portable integrations can use `acorn-schema`, `acorn-analysis`, and `acorn-service` directly; authenticated JSON-RPC and typed gRPC deployments use `acorn-server`. Python users can use the independently maintained [🐍`acorn-py` companion project](https://code.ornl.gov/research-enablement/acorn-py). Contributors can check the portable Rust surface using the [WebAssembly development guide](http://acorn.ornl.gov/packages/acorn-web.html).
 
-The local [browser](crates/acorn-web/README.md) provides nine research tools without a backend. Run `make web-setup` once, then `make web-dev`; use `make web-check`, `make web-test`, `make web-build` and `make web-preview` for validation and release-preview review.
+The local [browser](crates/acorn-web/README.md) provides nine research tools without a backend. Its RADS project catalog offers three validated starters, and Review accepts bounded `code`, `template`, and HTTPS file `url` links. Run `make web-setup` once, then `make web-dev`; use `make web-check`, `make web-test`, `make web-build` and `make web-preview` for validation and release-preview review.
 
 ## Architecture
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)

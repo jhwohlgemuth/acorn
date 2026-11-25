@@ -1,0 +1,1 @@
+INSERT OR IGNORE INTO jobs (id) VALUES (?1)

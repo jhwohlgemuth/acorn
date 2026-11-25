@@ -16,10 +16,10 @@ Coordinate the remaining extraction from `acorn-lib` into portable domains, adap
 
 # Current evidence
 
-- `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-cmd`, `acorn-host`, `acorn-service`, and `acorn-server` exist under `crates/`. Portable values, schema codecs, analysis data, command execution, initial native capabilities, application policy, and protocol listeners have distinct owners.
+- `acorn-core`, `acorn-schema`, `acorn-analysis`, `acorn-cmd`, `acorn-host`, `acorn-service`, `acorn-server`, `acorn-daemon`, and `acorn-store` exist under `crates/`. Portable values, schema codecs, analysis data, command execution, initial native capabilities, application policy, protocol listeners, foreground scheduling, and daemon history have distinct owners.
 - `acorn-lib` still combines analyzer host execution, provider clients, persistence, export, and workflows. Its broad `std` feature enables unrelated native capabilities.
 - The outbound MCP client still combines service policy with native child-process and HTTP transports; extraction must preserve its landed contract.
-- The [shared API client](api/shared-client-contract.md) plan prepares `acorn-api` without creating its target package. The [acornd plan](../features/acornd-service.md) owns an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
+- The [shared API client](api/shared-client-contract.md) plan prepares `acorn-api` without creating its target package. The [acornd plan](../features/acornd-service.md) has delivered an initial `acorn-store` adapter for daemon history; it does not extract existing `acorn-lib` persistence.
 - The [browser and Tauri workspace plan](../features/acorn-browser-workspace/index.md) is the atomic consumer plan for two new interface roots. `acorn-web` composes the portable crates with `acorn-wasm` into one static Dioxus/WASM application; `acorn-desktop` embeds that application and delegates selected-file operations and bounded selected-root traversal to `acorn-host`. Neither interface may depend on `acorn-lib` or absorb reusable adapter/domain ownership.
 
 # Target package graph
@@ -62,7 +62,7 @@ crates/
 ├── acorn-schema
 ├── acorn-analysis
 ├── acorn-api        (planned)
-├── acorn-store      (planned)
+├── acorn-store      (daemon history implemented)
 ├── acorn-export     (planned)
 ├── acorn-host
 ├── acorn-wasm
@@ -70,7 +70,7 @@ crates/
 ├── acorn-desktop     (planned)
 ├── acorn-service
 ├── acorn-server
-├── acorn-daemon      (planned)
+├── acorn-daemon      (foreground scheduler implemented)
 └── acorn-cmd
 ```
 
@@ -103,7 +103,7 @@ This record owns package direction, not implementation files or phases. The [sha
 # Plan dependencies
 
 - **Satisfied prerequisite:** the implemented portability matrix proves the analyzer boundary in-tree; that result does not itself authorize package extraction.
-- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, and initial `acorn-host` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`. The [acornd plan](../features/acornd-service.md) creates a narrow `acorn-store` package; extraction of existing persistence is still unassigned.
+- **Boundary inputs:** the analyzer/service/server extraction, `acorn-cmd`, initial `acorn-host`, and daemon history `acorn-store` boundaries are implemented; the [shared API client contract](api/shared-client-contract.md) prepares `acorn-api`. Extraction of existing persistence is still unassigned.
 - **Downstream:** the implemented portability matrix expands with each accepted extraction. Browser adapters or consumer-owned host ports require a concrete alternate implementation and a new atomic plan.
 - **Concrete browser/desktop consumer:** The accepted browser proves `acorn-web` consumes narrow portable owners plus `acorn-wasm` without `acorn-lib`/`acorn-host`; ABW-12 and ABW-17 must keep selected-file and selected-root filesystem primitives in `acorn-host` while `acorn-desktop` owns only Tauri dialog and authorization composition.
 - The complete ordering and shared-file collision map is maintained in the [plan dependency network](../plan-network.md).

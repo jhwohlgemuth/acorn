@@ -38,7 +38,7 @@ fn test_catalog_owns_every_script_and_host_api() {
         .filter(|name| name.ends_with(".js"))
         .collect::<BTreeSet<_>>();
     assert_eq!(referenced, available, "authored scripts and macro references differ");
-    assert_eq!(scripts.len(), 87, "browser script catalog changed without inventory review");
+    assert_eq!(scripts.len(), 95, "browser script catalog changed without inventory review");
 
     let used = scripts
         .iter()

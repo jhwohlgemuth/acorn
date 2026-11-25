@@ -436,6 +436,7 @@ fn wire_action(value: WorkflowAction) -> proto::RepositoryAction {
         | WorkflowAction::Check => proto::RepositoryAction::Check,
         | WorkflowAction::Enrich => proto::RepositoryAction::Enrich,
         | WorkflowAction::Format => proto::RepositoryAction::Format,
+        | WorkflowAction::Gather => proto::RepositoryAction::Unspecified,
         | WorkflowAction::Link => proto::RepositoryAction::Link,
         | WorkflowAction::Validate => proto::RepositoryAction::Validate,
     }

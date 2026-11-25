@@ -575,6 +575,7 @@ web-test-engines: ## Smoke-test browser effects in Firefox and WebKit (install t
 	@node crates/acorn-web/scripts/cross-engine-smoke.mjs webkit "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
 
 web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and playwright install first).
+	@node crates/acorn-web/scripts/template-smoke.mjs "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
 	@node crates/acorn-web/scripts/editor-app-smoke.mjs "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
 	@node crates/acorn-web/scripts/tab-sync-smoke.mjs "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"
 	@node crates/acorn-web/scripts/pages-smoke.mjs "$(WEB_PUBLIC)" "$(WEB_BASE_PATH)"

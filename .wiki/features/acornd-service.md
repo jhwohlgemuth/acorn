@@ -17,32 +17,36 @@ Ship `acornd` as a long-running ACORN host application. It serves the existing a
 
 # Current evidence
 
-- `acorn-service` already owns transport-neutral validation, readability, repository processing, operation effects, a JSON-RPC registry, and the portable daemon job contract. Its `DurableOperations` port covers operation status/replay, but there is no scheduler or job-history implementation.
+- `acorn-service` owns transport-neutral operations and portable daemon job values. The distinct `Gather` action now has its own serialized spelling; supplied-content repository processing rejects it because that path has no gather capability. `acorn-store` implements the existing `DurableOperations` status/replay port using run IDs.
 - `acorn-server` has authenticated `/rpc`, health/readiness endpoints, typed gRPC, loopback defaults, non-loopback TLS validation, and graceful listener shutdown. `ServerConfig::resolve_with_token` accepts a caller-supplied secret and redacts it from Debug output. `serve_with_registry` accepts a caller-owned operation registry and shutdown future while the standalone `serve`/`serve_with_durable` entry points retain their signal handling and mutation-adapter guard. The 14 `acorn-server` tests pass, including injected operation, external shutdown, listener failure, and in-flight drain cases; package clippy passes with warnings denied. The standalone binary is not a background-service installer.
 - `acorn check` and `acorn gather` already support watch mode and have mature host behavior. Their command modules remain inside the CLI, so a typed, fixed subprocess invocation preserves current behavior without first moving broad host workflows across crate boundaries. `check` can emit JSON to stdout; `gather` accepts `--output`.
 - `standard_project_folder(namespace, None)` creates a fresh path under the per-user ACORN project cache. It does not mean the watched repository. The daemon must index those paths in durable run history; `gather` needs an explicit output path.
-- The current release targets package the CLI and SHA-256 files, not a paired signed `acorn`/`acornd` bundle. There is no daemon service registration or SSH installer in the tree. `acorn-store` is a planned package in the [crate boundary record](../refactors/crate-boundary-architecture.md), with no implementation yet.
-- `acorn-service::job` now exports validated job IDs, kinds, trigger schedules and causes, durable run states, and pure run coalescing. Module tests pin the serialized spellings, validation boundaries, terminal states, and complete transition matrix. All 21 `acorn-service` tests, the host alloc-only check, and the alloc-only `wasm32-unknown-unknown` check pass without adding host I/O or dependencies.
-- Current source review on November 12 at `6c2a51b8` confirms an ACRE-backed foreground shell: `DaemonConfig::load` reads the shared `ApplicationConfiguration.daemon` section, and `acornd run [CONFIG]` currently accepts a positional path. `TargetPaths` defaults to the platform `.acorn.jsonc` path and resolves the sibling `acorn` binary. The manifest already depends on `acorn-lib` with `analysis`, `acorn-schema` with `std` and `acorn-host/fs`. Earlier standalone YAML/narrow-manifest descriptions are superseded. Configuration and safe-path tests exist; this source review did not rerun them or re-establish earlier host build failures. Runtime watchers, reload, scheduler and history remain unimplemented in `run_foreground`.
+- The current release targets package the CLI and SHA-256 files, not a paired signed `acorn`/`acornd` bundle. There is no daemon service registration or SSH installer in the tree. `acorn-store` now owns only daemon SQLite history schema version 1; existing `acorn-lib` tables are untouched.
+- `acorn-service::job` exports validated job IDs, kinds, trigger schedules and causes, durable run states, and pure run coalescing. Module tests pin the serialized spellings, validation boundaries, terminal states, and complete transition matrix. All 27 `acorn-service` tests and the alloc-only `wasm32-unknown-unknown` check pass without adding host I/O or dependencies.
+- November 24 source and focused execution at `4fc72c19` plus this worktree confirm that `acornd run [CONFIG]` opens per-user daemon history, starts one worker, watches configured inputs, and schedules startup, debounced file-change, and interval runs. Fixed check/gather subprocesses use the paired binary, a project-root working directory, process-group timeout/cancellation, bounded captured streams, and indexed reports. Pause state, claims, recovery, replay, and 100-run/30-day per-job retention are covered by store tests. Focused `acorn-store` (7) and `acorn-service` (27) tests, package formatting, daemon/store rustdoc, and the alloc-only service WASM check passed in an isolated target directory.
+- ACD-08 composes the accepted server with the scheduler only after watches and startup queues initialize. It loads the per-user daemon token from `<data>/acornd/token`, requires an owner-only regular file on Unix, and injects it without environment mutation. Authenticated JSON-RPC reads are `acorn.jobs.list` → `{jobs:[{id,kind,paused}]}`, `acorn.jobs.status` → `{job,latest}`, and `acorn.jobs.history` → `{runs}` with an optional 1–100 `limit`; mutations are `acorn.jobs.run` → `{accepted}` and `acorn.jobs.pause|resume` → `{paused}`. Run records expose `id`, `jobId`, `trigger`, `state`, timestamps, `exitCode`, `reportPath`, and bounded `detail`. The daemon allows mutation on its loopback JSON-RPC endpoint; the typed gRPC service keeps its existing methods. The worker and server drain together on shutdown or failure. Focused `acorn-daemon` (31) and `acorn-server` (14) tests, targeted Clippy with warnings denied, and package formatting passed. Installation and release bundles remain unimplemented.
+- The reload prerequisite repair added `DaemonStore::activate_jobs`: one SQLite transaction replaces active job IDs, interrupts superseded queued records, and inserts startup runs only for enabled jobs. Running and completed records keep their IDs, and pause state survives; rollback on duplicate IDs is tested. All 11 focused `acorn-store` tests pass.
+- ACD-08A applies a complete replacement ACRE job snapshot through authenticated mutation-gated `acorn.jobs.reload` and returns its generation. Invalid or partial documents, unsupported actions, watcher preparation failure, and restart-only listener/TLS changes leave the active generation intact. Unchanged jobs retain scheduling state and pause/history; changed in-flight jobs finish on their old snapshot and receive one new run; removed in-flight jobs finish without requeue. Watcher epochs discard stale callbacks, and the scheduler serializes control events while keeping one worker. A live HTTP test confirms process identity and non-overlapping old/new runs. Serial focused tests passed (43 daemon, 11 store), as did package Clippy with warnings denied and formatting.
+- The distinct Gather action exposed one missing `acorn-server` gRPC client conversion arm. It now maps to the existing unspecified repository action, which the typed server rejects; all 14 focused `acorn-server` tests pass. No protobuf action was added because supplied-content repository processing does not support gather.
 
 # Boundaries and dependencies
 
 - `acorn-service` owns portable job identifiers, trigger/state values, and coalescing policy; host paths remain in daemon config. `acorn-store` initially owns only the SQLite daemon-history adapter; migration of the existing `acorn-lib` database remains separate. `acorn-daemon` owns filesystem watching, clock, process execution, host control, installation, and service-manager integration. It calls the existing `acorn-lib` cache-path helper rather than copying its path convention. `acorn-server` remains the protocol boundary.
 - The daemon ships the existing portable request methods unchanged. Host job-control methods are registered by the daemon on JSON-RPC only; the typed gRPC service stays limited to its present supplied-content operations. Neither path exposes arbitrary process execution or config mutation.
-- The portable service contract, composable server lifecycle, and daemon configuration shell are available. ACD-03 is ready under the workspace-graph lock; ACD-04 through ACD-06 follow their stated store/runner prerequisites, and ACD-08 follows ACD-03/06. ACD-09 and ACD-19 claim the CLI contract only after the active [CLI composition plan](../refactors/core/cli-composition-boundary.md) releases the parser/dispatch roots. Release wiring serializes with [Podman](../migrations/podman-makefile.md), runner-pool, and other CI/build owners. Windows live validation needs a native host; the [shell-runner plan](../testing/gitlab-shell-runner-readiness.md) may supply one but is not a code prerequisite.
+- The portable service contract, composable server lifecycle, versioned history store, fixed runners, foreground scheduler, authenticated listener composition, job-control methods, and atomic job reload are available. ACD-09 and ACD-19 claim the CLI contract only after the active [CLI composition plan](../refactors/core/cli-composition-boundary.md) releases the parser/dispatch roots. Release wiring serializes with [Podman](../migrations/podman-makefile.md), runner-pool, and other CI/build owners. Windows live validation needs a native host; the [shell-runner plan](../testing/gitlab-shell-runner-readiness.md) may supply one but is not a code prerequisite.
 - Service registration requires explicit elevation when the host requires it. Linux user lingering, macOS system LaunchDaemon registration, and Windows Service registration are platform-specific gates; the daemon process still runs as the chosen user. Do not claim persistent operation on a host that cannot pass the registration and reboot/logout smoke test. See [systemd lingering](https://www.freedesktop.org/software/systemd/man/257/loginctl.html), [Apple launch daemons](https://developer.apple.com/documentation/servicemanagement/updating-helper-executables-from-earlier-versions-of-macos), and [Windows service creation](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-create).
 
 # Decisions and public contract
 
 - Add a `crates/acorn-daemon` package with an `acornd` binary. Keep the current `acorn-server` binary and APIs available. Add narrow `acorn-server` entry points for an explicitly supplied bearer secret, injected operation registry, and external shutdown signal; preserve the existing `serve`/`serve_with_durable` behavior. Load the daemon token from its protected file before threads start, without mutating process-global environment.
 - Reuse one ACRE application document and its `daemon` section; do not introduce a second daemon-only config schema. Preserve the current `acornd run [CONFIG]` foreground syntax unless a separately scoped CLI change adds an alias. Validate the complete replacement daemon configuration before listener/worker activation. Initial runners support only check/gather: explicitly reject other shared `WorkflowAction` values at runtime admission until their runner is implemented. Resolve relative inputs against each canonical job root, never the service working directory.
-- A daemon job invokes its co-installed, same-version `acorn` binary with a constructed argument vector, fixed working directory, and no shell. It supplies `check --path ... --output json` or `gather ... --output <run-path>`; it never passes `--watch`. No free-form command or flag list is accepted in config. Preserve normal CLI validation findings and command errors in the stored report and exit record.
+- A daemon job invokes its co-installed, same-version `acorn` binary with a constructed argument vector, fixed working directory, and no shell. It supplies `check <path> --output json` (the current positional CLI form) or `gather <path> --output <run-path> --format json`; it never passes `--watch`. No free-form command or flag list is accepted in config. Preserve normal CLI validation findings and command errors in the stored report and exit record.
 - Schedule one enabled run per job at startup, then at each fixed interval and after debounced file changes. Use one global worker so jobs do not overlap; while a job runs, collapse further triggers for that job into one pending rerun. On restart mark in-flight runs interrupted and schedule one fresh startup run, rather than replaying every missed interval. A failed run waits for the next trigger or manual run. Pause state survives restart.
 - Store job pause state and run records in SQLite under the daemon's per-user data directory. Record job ID, trigger, timestamps, state (`queued`, `running`, `succeeded`, `failed`, `interrupted`), exit status, bounded diagnostic, and report path. Use `standard_project_folder("check" | "gather", None)` for each run's artifacts and index the path; only daemon-owned run paths are eligible for retention cleanup. Bound subprocess duration and captured stdout/stderr, and retain at most 100 runs or 30 days per job. Replay and manual run create a new run ID; prior history stays immutable.
 - Register `acorn.jobs.list`, `acorn.jobs.status`, and `acorn.jobs.history` as authenticated reads; register `acorn.jobs.run`, `acorn.jobs.pause`, `acorn.jobs.resume`, and `acorn.jobs.reload` as mutation-gated operations. Inputs use job IDs and an optional bounded history limit; results return stable states and report paths, not report bodies or secrets. Reload validates the whole replacement config before swapping jobs; removed jobs stop scheduling while their history remains queryable. The daemon enables the mutation policy for its loopback control endpoint and supplies a durable adapter that maps existing `acorn.operations.status`/`replay` keys to run IDs; it never weakens the standalone server's adapter requirement. The local CLI uses loopback JSON-RPC and a protected token file; `--host ssh://…` executes the corresponding fixed management command on the host so the token never leaves it.
 - The portable service contract supplies validated `JobId`, `JobSchedule`, `JobTrigger`, `RunState` and coalescing policy. The current ACRE job kind uses `WorkflowAction`, not a separate `JobKind`. Job IDs are 1–64 lowercase ASCII letters/digits/interior hyphens; schedules serialize `onChange` and optional positive `everySeconds`, requiring a trigger. Host paths and process settings stay in daemon config. Initial check/gather runtime admission must be tested independently of the broader shared action enum.
 - Model coalescing as one pure state transition over `idle`, `queued`, `running`, and `running-pending`. A trigger changes idle to queued, leaves queued unchanged, changes running to running-pending, and leaves running-pending unchanged. Starting is valid only from queued and produces running. Finishing running produces idle; finishing running-pending produces queued. Invalid start/finish transitions return a typed error. Pause is a persisted scheduler gate, not another coalescing state; while paused the scheduler does not submit trigger events. Unit tests pin identifier bounds, deserialization rejection, exact serialized spellings, schedule validation, terminal-state classification, every transition, and invalid transitions.
-- The daemon currently defines only `acornd run [CONFIG]`; without a path it uses the platform `.acorn.jsonc`. It loads and validates the ACRE daemon section, logs path/job count and waits for Ctrl-C. It starts no listeners, workers, store, token handling or service registration. Installed-target resolution creates no directories and does not search PATH.
+- The daemon currently defines only `acornd run [CONFIG]`; without a path it uses the platform `.acorn.jsonc`. It loads and validates the ACRE daemon section, opens the local store, reads the protected token, starts the scheduler and worker, and serves the configured listeners until Ctrl-C or failure. Service registration remains planned. Installed-target resolution does not search PATH.
 - Preserve the current ACRE and host dependencies in `crates/acorn-daemon/Cargo.toml`; do not remove the existing library/schema dependencies to recover an obsolete standalone-YAML design. Add only dependencies consumed by the next bounded runtime phase under the workspace-graph lock.
 - ACRE owns `DaemonConfiguration` with `bind`, `jobs` and optional paired `tls` paths. RPC defaults to `127.0.0.1:8001`, gRPC to `127.0.0.1:50051`; explicit null disables a listener and both disabled is rejected by daemon validation. Compose with the existing `ServerConfig` validation before binding non-loopback endpoints. Listener/TLS changes are restart-only for the initial job reload contract.
 - Each shared ACRE daemon job has `id`, `root`, `input`, `kind` and `triggers`, with unknown fields rejected. Host validation requires an existing absolute root and an existing portable relative input beneath its canonical root, rejecting traversal, remote/stdio input and symlink escape. Shared schedules use `onChange`/`everySeconds`; preserve shared schema validation and duplicate-ID checks.
@@ -63,77 +67,11 @@ Ship `acornd` as a long-running ACORN host application. It serves the existing a
 
 # Execution phases
 
-## ACD-03 — Persist daemon job and run history
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-store/Cargo.toml`, `crates/acorn-store/src/lib.rs`, `crates/acorn-store/src/daemon.rs`, `crates/acorn-daemon/Cargo.toml`
-- Primary integration lock: Workspace graph
-- Outcome: Add a narrow SQLite adapter for job pause state and run history with atomic claim/finish, interrupted-run recovery, ordered queries, bounded retention, and the existing durable status/replay port mapped to run IDs; do not migrate existing `acorn-lib` tables.
-- Focused validation: `cargo test -p acorn-store`; reopen/recovery, concurrent claim, migration, and retention fixtures.
-- Handoff: Remove ACD-03, record the storage schema version, and release the workspace graph lock.
-
-## ACD-04 — Execute fixed check jobs
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-03
-- Exact write set: `crates/acorn-daemon/src/runner.rs`, `crates/acorn-daemon/src/lib.rs`
-- Primary integration lock: Daemon runtime
-- Outcome: Invoke the typed `acorn check` form using the paired CLI binary; capture its JSON report in a fresh standard project cache path and persist exit/report metadata.
-- Focused validation: Fake executable tests for check arguments, working directory, findings, exit failure, timeout, bounded streams, and no shell expansion.
-- Handoff: Remove ACD-04 after recording the check executable and artifact contract.
-
-## ACD-05 — Execute fixed gather jobs
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-04
-- Exact write set: `crates/acorn-daemon/src/runner.rs`
-- Primary integration lock: Daemon runtime
-- Outcome: Add the typed `acorn gather` form and an explicit report path under a fresh standard project cache path, reusing the check runner's process limits and history contract.
-- Focused validation: Fake executable tests for gather arguments, report contents, expected command failure, timeout, and exclusion of the report path from watched inputs.
-- Handoff: Remove ACD-05 after preserving gather-specific report behavior.
-
-## ACD-06 — Add watcher and interval scheduling
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-03, ACD-04, ACD-05
-- Exact write set: `crates/acorn-daemon/src/scheduler.rs`, `crates/acorn-daemon/src/lib.rs`
-- Primary integration lock: Daemon runtime
-- Outcome: Run one global worker with startup, debounced file-change, and fixed-interval triggers; persist pause state and collapse pending work into one rerun while active.
-- Focused validation: Fake clock/event tests for duplicate events, missed intervals, in-flight changes, pause/resume, failed runs, and clean shutdown.
-- Handoff: Remove ACD-06 and publish the observed trigger semantics for control integration.
-
-## ACD-08 — Register job control and coordinate daemon shutdown
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-03, ACD-06; use the accepted `serve_with_registry` and `ServerConfig::resolve_with_token` contracts
-- Exact write set: `crates/acorn-daemon/src/control.rs`, `crates/acorn-daemon/src/lib.rs`, `crates/acorn-daemon/src/main.rs`
-- Primary integration lock: Daemon runtime
-- Outcome: Compose worker and server; expose authenticated, mutation-gated job-control methods other than reload (ACD-08A owns its activation), and only report readiness after store and scheduler initialization.
-- Focused validation: Local HTTP integration tests for existing and job methods, auth/policy, unavailable reload rejection, worker failure, readiness, and drain.
-- Handoff: Remove ACD-08 and freeze the CLI-facing control method names and result fields.
-
-## ACD-08A — Apply validated job configuration without restarting
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-08; accepted scheduler/store shutdown and recovery contracts
-- Exact write set: `crates/acorn-daemon/src/reload.rs`, `crates/acorn-daemon/src/control.rs`, `crates/acorn-daemon/src/scheduler.rs`, `crates/acorn-daemon/src/lib.rs`, `crates/acorn-daemon/src/config/tests.rs`
-- Primary integration lock: Daemon runtime
-- Outcome: Implement authenticated mutation-gated `acorn.jobs.reload` using the shared ACRE loader and the [atomic reload contract](../refactors/blaze-development-pilot/development-loop.md#atomic-configuration-reload-contract). Prepare and validate a replacement snapshot/watcher set, then publish atomically; preserve in-flight run identity, pause/history and unchanged job state. Reject listener/TLS changes without partial application.
-- Focused validation: Deterministic fake watcher/clock tests for malformed and partial config, watcher preparation failure, duplicate reload, concurrent control ordering, removed/changed/new/paused jobs, stale callback generation, in-flight completion and restart-required settings. Assert process identity unchanged and no overlapping global workers.
-- Handoff: Preserve the reload contract and fixtures in code/docs, remove ACD-08A, and make ACD-09 and real BLZ-12 acceptance eligible. Unexpected storage/API changes require a separate bounded repair phase.
-
 ## ACD-09 — Add local CLI daemon management
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-08, ACD-08A; CLI syntax lock released by its current owner
+- Prerequisites: accepted job-control and atomic reload methods; CLI syntax lock released by its current owner
 - Exact write set: `crates/acorn-cli/src/cli/mod.rs`, `crates/acorn-cli/src/cli/arguments/mod.rs`, `crates/acorn-cli/src/commands/mod.rs`, `crates/acorn-cli/src/commands/daemon/mod.rs`, `crates/acorn-cli/src/commands/daemon/tests.rs`
 - Primary integration lock: CLI contract
 - Outcome: Add local status/history/run/pause/resume/reload and lifecycle command syntax using the protected local token, without changing existing `serve` commands.
@@ -144,7 +82,7 @@ Ship `acornd` as a long-running ACORN host application. It serves the existing a
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-08, ACD-09
+- Prerequisites: ACD-09 and accepted foreground daemon composition
 - Exact write set: `crates/acorn-daemon/src/install/linux.rs`, `crates/acorn-daemon/src/install/mod.rs`
 - Primary integration lock: Host service registration
 - Outcome: Generate/install an owner-scoped systemd user unit, enable lingering where authorized, and provide start/stop/status/uninstall with idempotent cleanup.
@@ -155,7 +93,7 @@ Ship `acornd` as a long-running ACORN host application. It serves the existing a
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-08, ACD-09
+- Prerequisites: ACD-09 and accepted foreground daemon composition
 - Exact write set: `crates/acorn-daemon/src/install/macos.rs`, `crates/acorn-daemon/src/install/mod.rs`
 - Primary integration lock: Host service registration
 - Outcome: Register a system LaunchDaemon that runs as the chosen user, with correct ownership, boot startup, status, and uninstall behavior.
@@ -166,7 +104,7 @@ Ship `acornd` as a long-running ACORN host application. It serves the existing a
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-08
+- Prerequisites: accepted foreground daemon composition
 - Exact write set: `crates/acorn-daemon/Cargo.toml`, `crates/acorn-daemon/src/main.rs`, `crates/acorn-daemon/src/windows_service.rs`, `Cargo.lock`
 - Primary integration lock: Workspace graph
 - Outcome: Use a safe Windows Service wrapper to accept SCM start/stop events and drain worker/listeners within the service timeout while retaining foreground development mode; preserve the workspace ban on unsafe code.
@@ -298,7 +236,7 @@ Ship `acornd` as a long-running ACORN host application. It serves the existing a
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-03 through ACD-23, including ACD-08A; five bundles and all three OS acceptance records available
+- Prerequisites: remaining ACD-09 through ACD-23 phases; five bundles and all three OS acceptance records available
 - Exact write set: repository CI and named Linux, macOS, and Windows acceptance records
 - Primary integration lock: CI/build
 - Outcome: Run final workspace gates, review native host evidence against every acceptance criterion, and retire this plan only when no required work remains.

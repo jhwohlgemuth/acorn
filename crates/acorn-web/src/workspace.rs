@@ -118,6 +118,7 @@ fn IdentifierDonut(counts: BTreeMap<String, usize>) -> Element {
 #[component]
 pub(crate) fn LoadedFiles(
     summary: String,
+    #[props(default)] initial_url: String,
     #[props(default)] onload: Option<EventHandler<String>>,
     #[props(default)] onselect: Option<EventHandler<SuppliedFile>>,
     #[props(default)] selected_tool: Option<Tool>,
@@ -144,11 +145,11 @@ pub(crate) fn LoadedFiles(
         .as_ref()
         .map(|pattern| visible_file_paths(&snapshot.files, pattern, &kind(), tool, (tool.is_none()).then_some(&selected)))
         .unwrap_or_default();
-    rsx! { details { class: "loaded-tree", summary {
+    rsx! { details { class: "loaded-tree", open: !initial_url.is_empty(), summary {
         span { class: "loaded-tree-icon", Icon { name: "folder-open" } }
         span { class: "loaded-tree-label", "{summary}" }
     }
-        if let (Some(tool), Some(onload)) = (tool, onload) { FileInput { onload, limit: tool.limit(), tool } }
+        if let (Some(tool), Some(onload)) = (tool, onload) { FileInput { onload, limit: tool.limit(), tool, initial_url: initial_url.clone() } }
         if !snapshot.files.is_empty() {
             div { class: "loaded-files-controls result-controls",
                 SearchField { label: "Find a file", placeholder: "Search paths…", query, regex, case_sensitive, error: pattern.as_ref().err().cloned() }

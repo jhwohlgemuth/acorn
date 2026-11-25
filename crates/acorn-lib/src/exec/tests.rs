@@ -111,6 +111,9 @@ fn test_application_configuration_has_hook() {
     assert!(configuration.has_hook(Hook::Format));
     assert!(!configuration.has_hook(Hook::Link));
     assert_eq!(WorkflowAction::from(Hook::Check), WorkflowAction::Check);
+    assert!([Hook::Check, Hook::Enrich, Hook::Format, Hook::Link, Hook::Validate]
+        .into_iter()
+        .all(|hook| hook != WorkflowAction::Gather));
 }
 #[test]
 fn test_application_configuration_validates_entries_and_duplicate_paths() {

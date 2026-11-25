@@ -202,6 +202,7 @@ impl PartialEq<WorkflowAction> for Hook {
             | WorkflowAction::Check => self.is_check(),
             | WorkflowAction::Enrich => self.is_enrich(),
             | WorkflowAction::Format => self.is_format(),
+            | WorkflowAction::Gather => false,
             | WorkflowAction::Link => self.is_link(),
             | WorkflowAction::Validate => self.is_validate(),
         }

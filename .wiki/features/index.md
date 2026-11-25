@@ -8,7 +8,7 @@
 
 ## Planned
 
-- [Browser RADS project templates and editor URL intake](browser-rads-templates.md) - Bundle three validated starter projects with a styled dropdown in the new-tab code editor toolbar, explicit create/export, and bounded `code`, `template`, and `url` search parameters in the shared web/desktop frontend; desktop acceptance follows ABW-11.
+- [Browser RADS project templates and editor URL intake](browser-rads-templates.md) - The shared frontend now has three validated starters, a new-tab editor dropdown, project ZIP export, and bounded URL entry. TPL-06 awaits ABW-11 for packaged desktop acceptance.
 - [Live bot observability over SSE](sse-bot-observability.md) - Coordination epic for the GitLab bot feed, later observation authentication, desktop dashboard, and authorized hosted-web view.
 - [Live GitLab bot status feed](gitlab-bot-live-status.md) - Add a bounded SSE view of bot state first, then authenticate bot observation before desktop or hosted browser connections.
 - [Browser and WebMCP metadata formatting parity](browser-format-parity.md) - Ship RAD JSON formatting through one portable WASM function, a tenth read-only WebMCP tool, and `/format`; expand only tested standard/syntax pairs, then reconcile the page with ABW-50 desktop local format.

@@ -212,6 +212,18 @@ References: [GitHub custom Pages workflows](https://docs.github.com/en/pages/get
 
 Local hosting evidence: release builds and Chromium 158 smoke tests passed for `/acorn/` and an empty root base path. Both loaded assets, ran Research Activity validation, navigated within the configured prefix, and refreshed a direct Readability route through the Pages-style 404 response. The optimizer fallback was subsequently removed by the verified debug-symbol repair; this local hosting evidence does not claim a live GitHub deployment or a full browser matrix.
 
+## RADS project templates and URL entry
+
+Home offers three bundled, fictional RADS starters: `single-activity` (one file), `publication-project` (two files), and `collaboration-project` (one file). Preview the files, then choose **Create from template** to validate and replace the local workspace. The Review code editor opened in a new tab has the same catalog in its **Start from template** dropdown. Cancel preserves the current draft; creation copies the complete project and synchronizes it to the opener. **Try Sample Data** remains a separate demonstration dataset. Use **Download current project ZIP** on Home to export all files when the workspace content is at most 2 MiB; all three bundled starters fit that bound.
+
+The catalog labels, descriptions, and file paths are defined in `assets/templates/catalog.json`; each file's content is stored beside it under `assets/templates/`.
+
+**Copy template link** adds `?template=<id>` through the existing URL state helper and copies the link. The preview opens when a recipient visits the link; creation is always explicit. **Clear template link** removes that parameter while retaining unrelated parameters and the Review fragment. Creating a project from a template link also clears the parameter, so a later refresh does not reopen the preview.
+
+On `/review`, `?code=<URL-encoded UTF-8 text>` fills an editor draft. For example, `/review?code=%7B%7D` fills `{}`. The link must be at most 8 KiB after URL encoding, and the decoded content must fit the editor limit. The draft does not run a check or replace a workspace until the user acts. **Create project from draft** validates it as RADS JSON, asks for replacement confirmation, and saves it as `draft/index.json`. `?url=<encoded HTTPS file URL>` opens the existing file URL field with that address; **Load URL** is still required. Duplicate, conflicting, empty, malformed, or oversized parameters show an error without changing content. Query startup uses `window.acornUrl.getParameters` and `subscribe`; sharing and clearing use `setParameters`. The same routes work under a configured Pages base path such as `/acorn/`.
+
+The desktop distribution will expose these shared controls once its Tauri shell is available. Native save behavior is tracked separately in the desktop workspace plan.
+
 ## Interface conventions
 
 The shared shell and information pages follow the [OKF Plan Browser](https://www.jasonwohlgemuth.com/okf-plan-browser/) layout: 220px navigation, a theme-aware ACORN Home banner, 420px welcome column, paired load tiles, a sample action to the right of the tour button, and rounded cards with consistent section spacing. The published Home, Settings and About components were compared on November 12, 2026; the reference's direct `/home` HTTP route returned 404, so the app root and its published page assets supplied the comparison. ACORN accepts both `/` and `/home`.

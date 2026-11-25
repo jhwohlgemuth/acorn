@@ -144,9 +144,18 @@ dependencies = [
  "acorn-host",
  "acorn-lib",
  "acorn-schema",
+ "acorn-server",
  "acorn-service",
+ "acorn-store",
  "clap",
+ "command-group",
  "directories",
+ "notify",
+ "reqwest 0.13.4",
+ "rusqlite",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -412,6 +421,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "acorn-store"
+version = "0.6.3"
+dependencies = [
+ "acorn-service",
+ "rusqlite",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "acorn-tui"
 version = "0.6.3"
 dependencies = [
@@ -461,6 +479,7 @@ dependencies = [
  "js-sys",
  "jsonc-parser 0.33.0",
  "regex",
+ "rust-embed",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
