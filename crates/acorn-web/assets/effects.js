@@ -132,7 +132,7 @@ function createTour(loadDriver, environment) {
             try {
                 const { driver } = await loadDriver();
                 if (request !== generation) return;
-                if (!trigger?.isConnected || !environment.find("#skill-entry") || !environment.find("#local-entry")) {
+                if (!trigger?.isConnected || !environment.find("#local-entry")) {
                     environment.notify("The tour is unavailable on this page. Return Home and try again.", "warning");
                     return;
                 }
@@ -140,7 +140,6 @@ function createTour(loadDriver, environment) {
                     ["#sample-data", "Start with an example", "Load a fictional research bucket to try Portfolio and the review tools."],
                     ["#local-entry", "Open your data", "Choose files or a folder, or drop them here. Supported files stay in this browser workspace."],
                     [".remote-entry > summary", "Load a repository bucket", "Open a GitHub or GitLab bucket by URL. Private repositories can use a token saved for this tab."],
-                    ["#skill-entry", "Use the ACORN Skill", "Find workflows and installation guidance for using ACORN with a coding agent."],
                     ...(environment.mobile() ? [
                         ["#nav-toggle", "Explore the workspace", "Open this menu to reach Portfolio, Review, discovery, conversion, analysis, and app settings."],
                     ] : [

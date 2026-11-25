@@ -102,6 +102,16 @@ fn publish(tool: Tool, message: &ToolMessage) {
 pub(crate) fn publish_json(topic: &str, payload: &str) {
     script::publish_json(topic, payload);
 }
+pub(crate) fn publish_snapshot(tool: Tool, signals: ToolSignals) {
+    let millis = u64::try_from(js_sys::Date::now() as i64).unwrap_or_default();
+    publish(
+        tool,
+        &ToolMessage::State {
+            revision: millis.saturating_mul(1000).saturating_add(1),
+            snapshot: Box::new(signals.snapshot()),
+        },
+    );
+}
 pub(crate) fn subscribe(topic: &str) -> document::Eval {
     script::subscribe_window_sync_channel(topic)
 }

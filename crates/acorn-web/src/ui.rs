@@ -1541,7 +1541,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         let celebrate = matches!(tool, Tool::Activity | Tool::Standard) && output.as_ref().is_ok_and(|value| value["valid"] == true);
                         // Edits made while the operation ran supersede its result.
                         if *request.peek() == submitted {
-                            result.set(Some(output)); script::show_tool_result(tool.slug(), celebrate);
+                            result.set(Some(output)); window_sync::publish_snapshot(tool, signals); script::show_tool_result(tool.slug(), celebrate);
                         }
                     }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); if tool == Tool::Discover { script::sync_popout_input("content", ""); } request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
