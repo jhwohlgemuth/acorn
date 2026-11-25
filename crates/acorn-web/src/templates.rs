@@ -1,5 +1,6 @@
 //! Bundled, editable RADS starter projects.
 use crate::session::SuppliedFile;
+use acorn_core::util::MimeType;
 use rust_embed::Embed;
 use serde::Deserialize;
 use std::sync::LazyLock;
@@ -16,25 +17,19 @@ pub static TEMPLATES: LazyLock<Vec<Template>> = LazyLock::new(|| {
     entries
         .into_iter()
         .filter_map(|entry| {
-            let files = entry
-                .files
-                .into_iter()
-                .map(|file| {
-                    TemplateAssets::get(&file.asset)
-                        .and_then(|asset| String::from_utf8(asset.data.into_owned()).ok())
-                        .map(|content| SuppliedFile { path: file.path, content })
-                })
-                .collect::<Option<Vec<_>>>();
-            if files.is_none() {
+            let files = load_files(entry.files);
+            let yaml_files = load_files(entry.yaml_files);
+            if files.is_none() || yaml_files.is_none() {
                 tracing::error!(template = entry.id, "Bundled template file is unavailable or is not UTF-8");
             }
-            files.map(|files| Template {
+            files.zip(yaml_files).map(|(files, yaml_files)| Template {
                 id: entry.id,
                 title: entry.title,
                 description: entry.description,
                 includes: entry.includes,
                 replace: entry.replace,
                 files,
+                yaml_files,
             })
         })
         .collect()
@@ -47,6 +42,7 @@ struct CatalogEntry {
     includes: String,
     replace: String,
     files: Vec<CatalogFile>,
+    yaml_files: Vec<CatalogFile>,
 }
 #[derive(Deserialize)]
 struct CatalogFile {
@@ -67,17 +63,32 @@ pub struct Template {
     pub replace: String,
     /// Relative paths and UTF-8 content, in display order.
     pub files: Vec<SuppliedFile>,
+    /// YAML equivalents of the JSON starter files.
+    pub yaml_files: Vec<SuppliedFile>,
 }
 #[derive(Embed)]
 #[folder = "assets/templates/"]
 struct TemplateAssets;
 impl Template {
-    /// Copy bundled content into user-owned supplied files.
-    pub fn files(&self) -> Vec<SuppliedFile> {
-        self.files.clone()
+    /// Return the bundled files for the selected format.
+    pub fn files_for(&self, format: &MimeType) -> &[SuppliedFile] {
+        if *format == MimeType::Yaml {
+            &self.yaml_files
+        } else {
+            &self.files
+        }
     }
 }
-
+fn load_files(files: Vec<CatalogFile>) -> Option<Vec<SuppliedFile>> {
+    files
+        .into_iter()
+        .map(|file| {
+            TemplateAssets::get(&file.asset)
+                .and_then(|asset| String::from_utf8(asset.data.into_owned()).ok())
+                .map(|content| SuppliedFile { path: file.path, content })
+        })
+        .collect()
+}
 /// Find a project starter by its stable identifier.
 pub fn find(id: &str) -> Option<&'static Template> {
     TEMPLATES.iter().find(|template| template.id == id)

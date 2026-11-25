@@ -88,3 +88,31 @@ fn test_validation_places_unlocated_checks_before_source_groups() {
         );
     }
 }
+#[test]
+fn test_validation_truncates_visible_diagnostics_and_reports_full_count() {
+    let diagnostics = (0..101)
+        .map(|index| json!({"category": "schema", "severity": "error", "path": format!("field.{index}"), "message": format!("Issue {index}")}))
+        .collect::<Vec<_>>();
+    let value = Rc::new(json!({"valid": false, "diagnostics": diagnostics}));
+    let mut dom = VirtualDom::new_with_props(
+        Validation,
+        ValidationProps {
+            value,
+            source: None,
+            tool: Tool::Activity,
+        },
+    );
+    let mutations = dom.rebuild_to_vec();
+    let text = mutations
+        .edits
+        .iter()
+        .filter_map(|edit| match edit {
+            | Mutation::CreateTextNode { value, .. } | Mutation::SetText { value, .. } => Some(value.as_str()),
+            | _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(text.iter().any(|item| item.contains("101 diagnostics")), "full count: {text:?}");
+    assert!(text.contains(&"Showing 100 of 101 diagnostics"));
+    assert_eq!(text.iter().filter(|item| item.starts_with("Issue ")).count(), 100);
+    assert!(!text.contains(&"Issue 100"));
+}

@@ -668,6 +668,7 @@ mod template_tests {
     use crate::operations::{self, Request, Tool};
     use crate::session::{Selection, Workspace};
     use crate::templates::*;
+    use acorn_core::util::MimeType;
     use acorn_schema::research_activity::ResearchActivity;
     use acorn_schema::Validate;
 
@@ -675,15 +676,22 @@ mod template_tests {
     fn test_template_projects_fit_workspace_and_validate() {
         assert_eq!(TEMPLATES.len(), 3, "all bundled templates must load");
         for template in TEMPLATES.iter() {
-            let loaded = Workspace::default().replace(Selection {
-                files: template.files(),
-                skipped: 0,
-            });
-            assert_eq!(loaded.files.len(), template.files.len(), "{} files", template.id);
-            assert_eq!(loaded.skipped, 0, "{} skipped files", template.id);
-            for file in &loaded.files {
-                let activity: ResearchActivity = serde_json::from_str(&file.content).expect("template must deserialize");
-                assert!(activity.validate().is_ok(), "{} must validate", file.path);
+            assert_eq!(template.files.len(), template.yaml_files.len(), "{} format variants", template.id);
+            for (json, yaml) in template.files.iter().zip(&template.yaml_files) {
+                let json_value: serde_json::Value = serde_json::from_str(&json.content).expect("JSON template must parse");
+                let yaml_value: serde_json::Value = serde_norway::from_str(&yaml.content).expect("YAML template must parse");
+                assert_eq!(json_value, yaml_value, "{} format variants must match", template.id);
+                let activity: ResearchActivity = serde_json::from_value(yaml_value).expect("template must deserialize");
+                assert!(activity.validate().is_ok(), "{} must validate", yaml.path);
+            }
+            for format in [MimeType::Json, MimeType::Yaml] {
+                let files = template.files_for(&format);
+                let loaded = Workspace::default().replace(Selection {
+                    files: files.to_vec(),
+                    skipped: 0,
+                });
+                assert_eq!(loaded.files.len(), files.len(), "{} {format} files", template.id);
+                assert_eq!(loaded.skipped, 0, "{} {format} skipped files", template.id);
             }
         }
     }
@@ -691,12 +699,21 @@ mod template_tests {
     #[wasm_bindgen_test::wasm_bindgen_test]
     fn test_template_projects_pass_browser_validation() {
         for template in TEMPLATES.iter() {
-            for file in template.files() {
+            for file in template.files_for(&MimeType::Json) {
                 let request = Request {
-                    input: file.content,
+                    input: file.content.clone(),
                     ..Request::default()
                 };
                 let result = operations::run(Tool::Activity, &request).expect("template operation");
+                assert_eq!(result["valid"], true, "{}: {}", file.path, result);
+            }
+            for file in template.files_for(&MimeType::Yaml) {
+                let request = Request {
+                    input: file.content.clone(),
+                    format: MimeType::Yaml.file_type(),
+                    ..Request::default()
+                };
+                let result = operations::run(Tool::Standard, &request).expect("YAML template operation");
                 assert_eq!(result["valid"], true, "{}: {}", file.path, result);
             }
         }

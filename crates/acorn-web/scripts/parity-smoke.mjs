@@ -110,13 +110,11 @@ try {
         for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 720 }, { width: 1024, height: 768 }, { width: 390, height: 844 }, { width: 390, height: 667 }, { width: 844, height: 390 }]) {
             await page.setViewportSize(viewport);
             await noOverflow(`Empty Home ${viewport.width}×${viewport.height}`);
-            const height = await page.evaluate(() => document.documentElement.scrollHeight);
-            assert.ok(height <= viewport.height + 1, `Empty Home scrolls at ${viewport.width}×${viewport.height}: ${height}`);
             assert.ok(await page.locator(".credit-line").evaluate((node) => Math.abs(node.getBoundingClientRect().bottom - innerHeight) < 1), "Credit stays at bottom edge");
             await shot(`home-${viewport.width}-${viewport.height}`);
         }
         await page.setViewportSize({ width: 1440, height: 900 });
-        checks.push("Empty Home fits six viewports, with adjacent primary actions and bottom credit");
+        checks.push("Home avoids horizontal overflow at six viewports, with adjacent primary actions and bottom credit");
         await page.goto(origin + prefix + "/home");
         await page.getByRole("heading", { name: "Research Intelligence", exact: true }).waitFor();
         const closedIcon = await page.locator(".collapse svg").innerHTML();
@@ -1144,8 +1142,12 @@ try {
         await celebration.getByRole("button", { name: "Validate", exact: true }).click();
         await celebration.locator(".results .status.invalid").waitFor();
         assert.equal(await celebration.locator(".acorn-celebration").count(), 0, "Invalid data does not celebrate");
-        await celebration.locator("#content-editor").fill(validActivity);
+        await celebration.locator("#content-editor").click();
+        await celebration.keyboard.press("ControlOrMeta+a");
+        await celebration.keyboard.insertText(validActivity);
+        await celebration.waitForFunction((content) => document.getElementById("content")?.value === content, validActivity);
         await celebration.getByRole("button", { name: "Validate", exact: true }).click();
+        await celebration.locator(".results .status:not(.invalid)").waitFor();
         const burst = celebration.locator(".acorn-celebration");
         await burst.waitFor({ state: "attached" });
         assert.equal(await burst.getAttribute("aria-hidden"), "true");

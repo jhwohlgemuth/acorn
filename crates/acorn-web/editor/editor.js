@@ -397,6 +397,7 @@ function installEditors() {
         openInNewTab(id, state) {
             if (find(id)) popouts.open(id, state);
         },
+        syncPopoutInput(id, value) { popouts.sendInput(id, value); },
         fold(id) { const editor = find(id); if (editor) { foldDocument(editor.view); editor.view.focus(); } },
         expand(id) { const editor = find(id); if (editor) { unfoldAll(editor.view); editor.view.focus(); } },
         openFind(id) { const editor = find(id); if (editor) openSearchPanel(editor.view); },

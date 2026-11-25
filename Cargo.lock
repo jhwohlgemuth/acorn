@@ -483,6 +483,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
+ "serde_norway",
  "strum 0.28.0",
  "tracing",
  "wasm-bindgen",

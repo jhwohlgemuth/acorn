@@ -3,8 +3,9 @@ use crate::icon::IconName;
 use crate::results::ResultView;
 use crate::sample;
 use crate::script;
+use crate::search_ui::SearchField;
 use crate::skill::{Install, Skill};
-use crate::syntax::CodeEditor;
+use crate::syntax::{Code, CodeEditor};
 use crate::url_intent::{Intent, UrlEntry};
 use crate::window_sync::{self, ToolSignals};
 use crate::workspace::{file_format, LoadedFiles, Loader, Portfolio};
@@ -13,6 +14,7 @@ use acorn_core::util::MimeType;
 use acorn_schema::{pid::PID, standard::Standard};
 use acorn_web::operations::{self, Request, Tool};
 use acorn_web::presentation;
+use acorn_web::search::SearchPattern;
 use acorn_web::session::{Selection, SuppliedFile, Workspace, FILE_LIMIT, TOTAL_LIMIT};
 use acorn_web::templates;
 use alloc::collections::BTreeMap;
@@ -168,7 +170,7 @@ fn AppName() -> Element {
 fn ChoiceField(
     label: &'static str,
     value: String,
-    choices: Vec<(String, &'static str, &'static str)>,
+    choices: Vec<(String, String, &'static str)>,
     width: usize,
     widths: Vec<usize>,
     onchange: EventHandler<String>,
@@ -245,14 +247,22 @@ pub(crate) async fn execute(tool: Tool, request: Request) -> Result<Value, Strin
     }
 }
 #[component]
-pub(crate) fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool, #[props(default)] initial_url: String) -> Element {
+pub(crate) fn FileInput(
+    onload: EventHandler<String>,
+    limit: usize,
+    tool: Tool,
+    ontemplate: EventHandler<(String, MimeType)>,
+    #[props(default)] initial_url: String,
+) -> Element {
     let mut error = use_signal(String::new);
     let mut via_url = use_signal(|| false);
+    let mut via_template = use_signal(|| false);
     let mut generation = use_signal(|| 0_usize);
     use_effect(use_reactive((&tool,), move |_| {
         let next = generation.peek().wrapping_add(1);
         generation.set(next);
         via_url.set(false);
+        via_template.set(false);
         error.set(String::new());
     }));
     use_effect(use_reactive((&initial_url,), move |(initial_url,)| {
@@ -270,13 +280,16 @@ pub(crate) fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool, 
         div { class: "file-picker",
             div { class: "source-choices",
                 button { r#type: "button", class: "source-option", onclick: move |_| {
-                    via_url.set(false); error.set(String::new());
+                    via_url.set(false); via_template.set(false); error.set(String::new());
                     script::open_file_picker(tool.slug());
                 }, span { class: "source-option-icon", Icon { name: "folder-open" } } span { strong { "Choose file" } small { "From your device" } } }
                 button { r#type: "button", class: "source-option source-option-link", "aria-expanded": via_url(), onclick: move |_| {
-                    let next = !via_url(); via_url.set(next); error.set(String::new());
+                    let next = !via_url(); via_url.set(next); via_template.set(false); error.set(String::new());
                     if next { script::focus_url_file_input(); }
                 }, span { class: "source-option-icon", Icon { name: "link" } } span { strong { "From URL" } small { "A link from the web" } } }
+                button { r#type: "button", class: "source-option source-option-link", "data-template-trigger": "true", "aria-expanded": via_template(), onclick: move |_| {
+                    let next = !via_template(); via_template.set(next); via_url.set(false); error.set(String::new());
+                }, span { class: "source-option-icon", Icon { name: "filecheck" } } span { strong { "From Template" } small { "Start a RADS project" } } }
             }
             input { id: "source-file-{tool.slug()}", r#type: "file", hidden: true, "aria-label": "Choose file", onchange: move |event: FormEvent| async move {
                 script::cancel_remote_file_load();
@@ -293,9 +306,78 @@ pub(crate) fn FileInput(onload: EventHandler<String>, limit: usize, tool: Tool, 
                 }
             } }
             if via_url() { UrlFileInput { limit, reset_key: tool.slug().to_owned(), initial_url, onload: finish } }
+            if via_template() { TemplatePicker { onselect: move |template| { via_template.set(false); ontemplate.call(template); } } }
             if !error().is_empty() { p { role: "alert", class: "source-feedback", "data-tone": "error", Icon { name: "alert" } "{error}" } }
         }
     }
+}
+fn template_format_choices() -> Vec<(String, String, &'static str)> {
+    [(MimeType::Json, "JSON starter files"), (MimeType::Yaml, "YAML starter files")]
+        .into_iter()
+        .map(|(format, title)| {
+            let value = format.file_type();
+            (value.clone(), value.to_uppercase(), title)
+        })
+        .collect()
+}
+#[component]
+pub(crate) fn TemplatePicker(onselect: EventHandler<(String, MimeType)>) -> Element {
+    let template_query = use_signal(String::new);
+    let template_regex = use_signal(|| false);
+    let template_case_sensitive = use_signal(|| false);
+    let mut template_format = use_signal(|| MimeType::Json);
+    let mut template_descending = use_signal(|| false);
+    let pattern = SearchPattern::new(&template_query(), template_regex(), template_case_sensitive());
+    let mut visible_templates = pattern
+        .as_ref()
+        .map(|pattern| {
+            templates::TEMPLATES
+                .iter()
+                .filter(|template| {
+                    [
+                        template.title.as_str(),
+                        template.description.as_str(),
+                        template.includes.as_str(),
+                        template.replace.as_str(),
+                    ]
+                    .iter()
+                    .any(|text| pattern.matches(text))
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    visible_templates.sort_by(|left, right| {
+        left.title
+            .to_lowercase()
+            .cmp(&right.title.to_lowercase())
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    if template_descending() {
+        visible_templates.reverse();
+    }
+    rsx! { div { class: "template-picker", role: "region", "aria-label": "Project templates",
+        div { class: "template-picker-controls",
+            SearchField { label: "Search templates", visible_label: Some("Search"), placeholder: "Search templates…", query: template_query, regex: template_regex, case_sensitive: template_case_sensitive, error: pattern.as_ref().err().cloned(), compact: true }
+            ChoiceField { label: "Format", value: template_format().file_type(), choices: template_format_choices(), width: 48, widths: vec![48, 52], onchange: move |value: String| template_format.set(MimeType::from(value.as_str())) }
+            div { class: "template-sort", role: "group", "aria-label": "Sort templates",
+                span { "Sort" }
+                div { class: "template-sort-buttons",
+                    button { r#type: "button", "aria-label": "Name A to Z", title: "Name A–Z", "aria-pressed": !template_descending(), onclick: move |_| template_descending.set(false), Icon { name: "sort-asc" } }
+                    button { r#type: "button", "aria-label": "Name Z to A", title: "Name Z–A", "aria-pressed": template_descending(), onclick: move |_| template_descending.set(true), Icon { name: "sort-desc" } }
+                }
+            }
+        }
+        p { class: "small muted template-picker-count", role: "status", "{visible_templates.len()} of {templates::TEMPLATES.len()} templates" }
+        if visible_templates.is_empty() && pattern.is_ok() { p { class: "small muted template-picker-empty", "No templates match your search." } }
+        if !visible_templates.is_empty() { div { class: "template-list",
+            for template in visible_templates {
+                button { r#type: "button", class: "template-option", "data-template-id": template.id.as_str(), onclick: move |_| onselect.call((template.id.clone(), template_format())),
+                    span { strong { "{template.title}" } small { if template.files.len() == 1 { "1 file" } else { "{template.files.len()} files" } } }
+                    small { "{template.description}" }
+                }
+            }
+        } }
+    } }
 }
 #[component]
 fn Footer() -> Element {
@@ -308,7 +390,7 @@ fn Home() -> Element {
     let mut workspace = use_context::<Signal<Workspace>>();
     let mut loading = use_signal(|| false);
     let url_entry = use_context::<Signal<Option<UrlEntry>>>();
-    let mut selected_template = use_signal(String::new);
+    let mut selected_template = use_signal(|| None::<(String, MimeType)>);
     let mut template_error = use_signal(String::new);
     let mut last_intent = use_signal(|| None::<Intent>);
     use_effect(move || {
@@ -318,7 +400,7 @@ fn Home() -> Element {
                 last_intent.set(Some(intent.clone()));
                 template_error.set(String::new());
                 match intent {
-                    | Intent::Template(id) => selected_template.set(id),
+                    | Intent::Template(id) => selected_template.set(Some((id, MimeType::Json))),
                     | Intent::Invalid(message) => template_error.set(message.into()),
                     | _ => {}
                 }
@@ -348,45 +430,33 @@ fn Home() -> Element {
                     }, span { "aria-hidden": "true", "✨" } if loading() { "Loading samples…" } else { "Try Sample Data" } } }
                 }
             }
-            section { class: "template-catalog", "aria-label": "Project templates",
-                h2 { "Start a RADS project" }
-                p { "Choose a fictional starter, then replace its example details with your research." }
-                div { class: "template-cards",
-                    for template in templates::TEMPLATES.iter() {
-                        button { r#type: "button", class: "card template-card", "data-template-id": template.id.as_str(), onclick: move |_| selected_template.set(template.id.clone()),
-                            strong { "{template.title}" }
-                            span { "{template.description}" }
-                            small { "{template.files.len()} files" }
-                            small { "Includes: {template.includes}" }
-                            small { "Replace: {template.replace}" }
-                        }
+            Loader { ontemplate: move |selection| { template_error.set(String::new()); selected_template.set(Some(selection)); } }
+            if let Some((id, format)) = selected_template() { TemplatePrompt { id, initial_format: format, busy: loading(), shareable: true, oncancel: move |_| selected_template.set(None), oncreate: move |(id, format): (String, MimeType)| async move {
+                loading.set(true);
+                let prepared = prepare_template(&id, &format).await;
+                loading.set(false);
+                match prepared {
+                    Ok(loaded) => {
+                        session.set(loaded.content());
+                        workspace.set(loaded);
+                        selected_template.set(None);
+                        script::clear_template_link();
+                        nav.push(Route::Page { page: "review".into() });
                     }
+                    Err(message) => template_error.set(message),
                 }
-                if !template_error().is_empty() { p { role: "alert", class: "source-feedback", "{template_error()}" } }
-                if !selected_template().is_empty() { TemplatePrompt { id: selected_template(), busy: loading(), shareable: true, oncancel: move |_| selected_template.set(String::new()), oncreate: move |id: String| async move {
-                    loading.set(true);
-                    let prepared = prepare_template(&id).await;
-                    loading.set(false);
-                    match prepared {
-                        Ok(loaded) => {
-                            session.set(loaded.content());
-                            workspace.set(loaded);
-                            selected_template.set(String::new());
-                            script::clear_template_link();
-                            nav.push(Route::Page { page: "review".into() });
-                        }
-                        Err(message) => template_error.set(message),
+            } } }
+            if !template_error().is_empty() || url_entry().is_some_and(|entry| !entry.parameters.template.is_empty()) || (!workspace.read().files.is_empty() && workspace.read().bytes() <= 2 * 1024 * 1024) {
+                div { class: "home-project-actions",
+                    if !template_error().is_empty() { p { role: "alert", class: "source-feedback", "{template_error()}" } }
+                    if url_entry().is_some_and(|entry| !entry.parameters.template.is_empty()) {
+                        button { r#type: "button", class: "source-submit", onclick: move |_| script::clear_template_link(), "Clear template link" }
                     }
-                } } }
-                if url_entry().is_some_and(|entry| !entry.parameters.template.is_empty()) {
-                    button { r#type: "button", class: "source-submit", onclick: move |_| script::clear_template_link(), "Clear template link" }
-                }
-                if !workspace.read().files.is_empty() && workspace.read().bytes() <= 2 * 1024 * 1024 {
-                    button { r#type: "button", class: "source-submit", onclick: move |_| script::download_project(&workspace().files), "Download current project ZIP" }
+                    if !workspace.read().files.is_empty() && workspace.read().bytes() <= 2 * 1024 * 1024 {
+                        button { r#type: "button", class: "source-submit", onclick: move |_| script::download_project(&workspace().files), "Download current project ZIP" }
+                    }
                 }
             }
-            Link { id: "skill-entry", to: Route::Page { page: "skill".into() }, class: "skill-card", span { "The home of the ACORN Skill" } p { "Validate metadata, convert formats and inspect identifiers, then use ACORN in your agent environment." } span { class: "muted", "Explore the skill guide →" } }
-            Loader {}
             Link { to: Route::Page { page: "install".into() }, "Prefer a desktop app? View install options →" }
             Footer {}
         }
@@ -664,32 +734,54 @@ pub(crate) fn parse_storage_status(value: &Value) -> (usize, bool, usize, usize)
         value["quota"].as_u64().unwrap_or(0) as usize,
     )
 }
-async fn prepare_template(id: &str) -> Result<Workspace, String> {
+async fn prepare_template(id: &str, format: &MimeType) -> Result<Workspace, String> {
     match templates::find(id) {
         | Some(template) => {
-            let files = template.files();
+            let files = template.files_for(format).to_vec();
             let mut loaded = Workspace::default().replace(Selection { files, skipped: 0 });
-            if loaded.files.len() != template.files.len() || loaded.skipped != 0 {
+            if loaded.files.len() != template.files_for(format).len() || loaded.skipped != 0 {
                 Err("This template could not fit in the workspace.".into())
             } else {
-                let validations = validate_files(loaded.files.clone()).await;
-                let invalid = validations.iter().find_map(|(path, result)| match result {
-                    | Ok(value) if value.get("valid").and_then(Value::as_bool) == Some(true) => None,
-                    | Ok(_) | Err(_) => Some(path.clone()),
-                });
-                match invalid {
-                    | Some(path) => Err(format!("The bundled template file {path} did not validate.")),
-                    | None => {
-                        loaded.validations = validations
-                            .into_iter()
-                            .filter_map(|(path, result)| result.ok().map(|value| (path, value)))
-                            .collect();
-                        Ok(loaded)
+                let checked_files = loaded
+                    .files
+                    .iter()
+                    .map(|file| {
+                        let content = match MimeType::from(file.path.as_str()) {
+                            | MimeType::Yaml => serde_norway::from_str::<Value>(&file.content)
+                                .ok()
+                                .and_then(|value| serde_json::to_string(&value).ok()),
+                            | MimeType::Json => Some(file.content.clone()),
+                            | _ => None,
+                        };
+                        content.map(|content| SuppliedFile {
+                            path: file.path.clone(),
+                            content,
+                        })
+                    })
+                    .collect::<Option<Vec<_>>>();
+                match checked_files {
+                    | None => Err("The bundled template file could not be parsed.".into()),
+                    | Some(files) => {
+                        let validations = validate_files(files).await;
+                        let invalid = validations.iter().find_map(|(path, result)| match result {
+                            | Ok(value) if value.get("valid").and_then(Value::as_bool) == Some(true) => None,
+                            | Ok(_) | Err(_) => Some(path.clone()),
+                        });
+                        match invalid {
+                            | Some(path) => Err(format!("The bundled template file {path} did not validate.")),
+                            | None => {
+                                loaded.validations = validations
+                                    .into_iter()
+                                    .filter_map(|(path, result)| result.ok().map(|value| (path, value)))
+                                    .collect();
+                                Ok(loaded)
+                            }
+                        }
                     }
                 }
             }
         }
-        | None => Err("This template is unavailable. Choose one from the catalog.".into()),
+        | None => Err("This template is unavailable. Choose one from the template picker.".into()),
     }
 }
 async fn prepare_url_draft(content: String) -> Result<Workspace, String> {
@@ -914,7 +1006,7 @@ fn StandardField(label: &'static str, value: String, crosswalk: bool, onchange: 
                     Standard::Datacite | Standard::DublinCore | Standard::Raid | Standard::ResearchActivityData
                 )
         })
-        .map(|(standard, abbreviation, title)| (standard.to_string(), abbreviation, title))
+        .map(|(standard, abbreviation, title)| (standard.to_string(), abbreviation.to_owned(), title))
         .collect();
     rsx! { ChoiceField { label, value, choices, width: 37, widths: Vec::new(), onchange } }
 }
@@ -963,12 +1055,15 @@ fn Technology() -> Element {
 #[component]
 fn TemplatePrompt(
     id: String,
+    #[props(default = MimeType::Json)] initial_format: MimeType,
     #[props(default)] busy: bool,
     #[props(default)] shareable: bool,
     oncancel: EventHandler<()>,
-    oncreate: EventHandler<String>,
+    oncreate: EventHandler<(String, MimeType)>,
 ) -> Element {
     let template = templates::find(&id);
+    let mut format = use_signal(|| initial_format);
+    let chosen_format = format();
     let share_id = id.clone();
     let cancel_id = id.clone();
     let close_id = id.clone();
@@ -980,15 +1075,16 @@ fn TemplatePrompt(
                 p { "{template.description}" }
                 p { class: "small", "Includes: {template.includes}. Replace: {template.replace}." }
                 p { class: "muted small", "These fictional details are editable. Creating a project replaces the current workspace." }
-                ul { for file in &template.files { li { "{file.path}" } } }
-                if let Some(file) = template.files.first() { pre { class: "template-preview", "{file.content}" } }
+                ChoiceField { label: "Format", value: chosen_format.file_type(), choices: template_format_choices(), width: 48, widths: vec![48, 52], onchange: move |value: String| format.set(MimeType::from(value.as_str())) }
+                ul { for file in template.files_for(&chosen_format) { li { "{file.path}" } } }
+                if let Some(file) = template.files_for(&chosen_format).first() { pre { class: "template-preview", Code { text: file.content.clone(), language: chosen_format.file_type() } } }
                 div { class: "actions",
-                    button { r#type: "button", class: "primary template-create", disabled: busy, "aria-busy": busy, onclick: move |_| oncreate.call(id.clone()), if busy { "Creating…" } else { "Create from template" } }
+                    button { r#type: "button", class: "primary template-create", disabled: busy, "aria-busy": busy, onclick: move |_| oncreate.call((id.clone(), chosen_format.clone())), if busy { "Creating…" } else { "Create from template" } }
                     button { r#type: "button", disabled: busy, onclick: move |_| { oncancel.call(()); script::focus_template_trigger(&cancel_id); }, "Cancel" }
                     if shareable { button { r#type: "button", disabled: busy, onclick: move |_| script::share_template_link(&share_id), "Copy template link" } }
                 }
             } else {
-                p { role: "alert", "This template is unavailable. Choose one from the catalog." }
+                p { role: "alert", "This template is unavailable. Choose one from the template picker." }
                 button { r#type: "button", onclick: move |_| { oncancel.call(()); script::focus_template_trigger(&close_id); }, "Close" }
             }
         }
@@ -1046,7 +1142,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut draft_error = use_signal(String::new);
     let mut url_prefill = use_signal(String::new);
     let mut url_error = use_signal(String::new);
-    let mut toolbar_template = use_signal(String::new);
+    let mut toolbar_template = use_signal(|| None::<(String, MimeType)>);
     let mut toolbar_template_error = use_signal(String::new);
     let mut template_loading = use_signal(|| false);
     use_effect(move || {
@@ -1071,7 +1167,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             });
                             result.set(None);
                         }
-                        | Intent::Template(id) => toolbar_template.set(id),
+                        | Intent::Template(id) => toolbar_template.set(Some((id, MimeType::Json))),
                         | Intent::Url(url) => url_prefill.set(url),
                         | Intent::Invalid(message) => url_error.set(message.into()),
                         | Intent::None => {}
@@ -1114,9 +1210,22 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 .iter()
                 .find(|file| Some(&file.path) == snapshot.selected.as_ref() && file.content == content)
                 .cloned();
-            editor_source.set(source);
             let previous = request.peek().clone();
-            request.set(Request { input: content, ..previous });
+            let format = if matches!(tool, Tool::Standard | Tool::Crosswalk) {
+                source
+                    .as_ref()
+                    .and_then(|file| file_format(&file.path))
+                    .unwrap_or(&previous.format)
+                    .to_owned()
+            } else {
+                previous.format.clone()
+            };
+            editor_source.set(source);
+            request.set(Request {
+                input: content,
+                format,
+                ..previous
+            });
         }
     });
     let title = if review { "Review".to_owned() } else { tool.to_string() };
@@ -1237,16 +1346,16 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 }
             }
             if !toolbar_template_error().is_empty() { p { class: "source-feedback", role: "alert", "{toolbar_template_error()}" } }
-            if !toolbar_template().is_empty() { TemplatePrompt { id: toolbar_template(), busy: template_loading(), oncancel: move |_| toolbar_template.set(String::new()), oncreate: move |id: String| async move {
+            if let Some((id, format)) = toolbar_template() { TemplatePrompt { id, initial_format: format, busy: template_loading(), oncancel: move |_| toolbar_template.set(None), oncreate: move |(id, format): (String, MimeType)| async move {
                 template_loading.set(true);
-                let prepared = prepare_template(&id).await;
+                let prepared = prepare_template(&id, &format).await;
                 template_loading.set(false);
                 match prepared {
                     Ok(loaded) => {
                         session.set(loaded.content());
                         workspace.set(loaded);
                         selected_tool.set(Tool::Standard);
-                        toolbar_template.set(String::new());
+                        toolbar_template.set(None);
                         toolbar_template_error.set(String::new());
                         script::clear_template_link();
                     }
@@ -1269,10 +1378,11 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
             } }
             div { class: if is_editor_popout && !results_expanded() { "tool-grid results-collapsed" } else { "tool-grid" },
                 div { class: "tool-input-column",
-                LoadedFiles {
+                if !is_editor_popout { LoadedFiles {
                     summary: "Select content".to_owned(),
                     initial_url: url_prefill(),
                     selected_tool: Some(tool),
+                    ontemplate: move |template: (String, MimeType)| toolbar_template.set(Some(template)),
                     onload: move |text: String| { workspace.write().selected = None; editor_source.set(None); request.set(Request { input: text, ..request() }); result.set(None); },
                     onselect: move |file: SuppliedFile| {
                         let previous = request();
@@ -1286,11 +1396,11 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         request.set(Request { input: content, format, ..previous });
                         result.set(None);
                     },
-                }
+                } }
                 section { class: "card editor",
                     div { class: "input-heading",
                         h2 { class: "section-heading", "Input" }
-                        button { class: "sample-action", title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" }, onclick: move |_| { workspace.write().selected = None; editor_source.set(None); request.set(operations::example_request(tool)); result.set(None); }, span { "aria-hidden": "true", "✨" } "Use example" }
+                        button { class: "sample-action", title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" }, onclick: move |_| { workspace.write().selected = None; editor_source.set(None); let example = operations::example_request(tool); if tool == Tool::Discover { script::sync_popout_input("content", &example.input); } request.set(example); result.set(None); }, span { "aria-hidden": "true", "✨" } "Use example" }
                     }
                     if tool != Tool::Discover { details { class: "tool-settings",
                         summary { Icon { name: "settings" } "Settings"
@@ -1299,7 +1409,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         div { class: "options",
                         if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Fair) { StandardField { label: "Standard", value: current.standard.clone(), crosswalk: tool == Tool::Crosswalk, onchange: move |v| request.set(Request { standard: v, ..request() }) } }
                         if matches!(tool, Tool::Standard | Tool::Crosswalk) {
-                            ChoiceField { label: "Format", value: current.format.clone(), choices: FORMAT_CHOICES.into_iter().map(|(format, abbreviation, title)| (format.metadata_format_key().into(), abbreviation, title)).collect(), width: 42, widths: FORMAT_WIDTHS.to_vec(), onchange: move |v| request.set(Request { format: v, ..request() }) }
+                            ChoiceField { label: "Format", value: current.format.clone(), choices: FORMAT_CHOICES.into_iter().map(|(format, abbreviation, title)| (format.metadata_format_key().into(), abbreviation.to_owned(), title)).collect(), width: 42, widths: FORMAT_WIDTHS.to_vec(), onchange: move |v| request.set(Request { format: v, ..request() }) }
                         }
                         if !skip_choices.is_empty() {
                             div { class: "check-settings-row",
@@ -1346,10 +1456,10 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                                 onthreshold: move |v| request.set(Request { threshold: v, ..request() }) }
                         }
                         if tool == Tool::Diff {
-                            ChoiceField { label: "Diff format", value: current.mode.clone(), choices: vec![("unified".into(), "Unified", "Unified diff"), ("json-patch".into(), "JSON Patch", "JSON Patch")], width: 76, widths: Vec::new(), onchange: move |v| request.set(Request { mode: v, ..request() }) }
+                            ChoiceField { label: "Diff format", value: current.mode.clone(), choices: vec![("unified".into(), "Unified".into(), "Unified diff"), ("json-patch".into(), "JSON Patch".into(), "JSON Patch")], width: 76, widths: Vec::new(), onchange: move |v| request.set(Request { mode: v, ..request() }) }
                         }
                         if tool == Tool::Inspect {
-                            ChoiceField { label: "Identifier", value: current.kind.clone(), choices: identifier_choices(), width: 40, widths: Vec::new(), onchange: move |v| request.set(Request { kind: v, ..request() }) }
+                            ChoiceField { label: "Identifier", value: current.kind.clone(), choices: identifier_choices().into_iter().map(|(kind, abbreviation, title)| (kind, abbreviation.to_owned(), title)).collect(), width: 40, widths: Vec::new(), onchange: move |v| request.set(Request { kind: v, ..request() }) }
                         }
                         if tool == Tool::BigO { div { class: "field", span { "Symbol assumptions (JSON)" } CodeEditor { id: "assumptions", label: "Symbol assumptions (JSON)", language: "json", rows: 2, value: current.assumptions.clone(), oninput: move |value| request.set(Request { assumptions: value, ..request() }) } } }
                         if tool == Tool::Crosswalk {
@@ -1396,7 +1506,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             if !is_editor_popout || matches!(tool, Tool::Diff | Tool::BigO) {
                                 span { "{field_label}" }
                             }
-                            CodeEditor { id: "content", label: editor_label, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, popout_state: window_sync::handoff(tool, signals), template_options: if review && is_editor_popout { templates::TEMPLATES.iter().map(|template| (template.id.clone(), template.title.clone(), template.description.clone())).collect() } else { Vec::new() }, ontemplate: if review && is_editor_popout { Some(EventHandler::new(move |id: String| toolbar_template.set(id))) } else { None }, oninput: move |value: String| {
+                            CodeEditor { id: "content", label: editor_label, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, popout_state: window_sync::handoff(tool, signals), title_icon: if is_editor_popout { Some(tool.icon()) } else { None }, oninput: move |value: String| {
                                 if let Some(file) = &selected_file {
                                     if value == file.content { drafts.write().remove(&file.path); }
                                     else { drafts.write().insert(file.path.clone(), (file.content.clone(), value.clone())); }
@@ -1433,7 +1543,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         if *request.peek() == submitted {
                             result.set(Some(output)); script::show_tool_result(tool.slug(), celebrate);
                         }
-                    }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); request.set(Request::default()); result.set(None); }, "Clear" } }
+                    }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); if tool == Tool::Discover { script::sync_popout_input("content", ""); } request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
                 }
                 }

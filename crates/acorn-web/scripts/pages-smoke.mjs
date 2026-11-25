@@ -94,9 +94,9 @@ try {
         assert.equal(await page.locator(".sidebar").evaluate((sidebar) => sidebar.getBoundingClientRect().width), 62, `${title} keeps the sidebar narrow`);
         assert.equal(await page.evaluate(() => window.acornInitialSidebarCollapsed), true, `${title} keeps the shared sidebar state collapsed`);
     }
-    await page.locator("#skill-entry").click();
+    await page.locator('#workspace-navigation nav a[title="ACORN Skill"]').click();
     await page.getByRole("heading", { name: "ACORN Skill", exact: true }).waitFor();
-    assert.equal(await page.locator(".sidebar").evaluate((sidebar) => sidebar.getBoundingClientRect().width), 62, "In-page navigation keeps the sidebar narrow");
+    assert.equal(await page.locator(".sidebar").evaluate((sidebar) => sidebar.getBoundingClientRect().width), 62, "Skill navigation keeps the sidebar narrow");
     await page.locator('#workspace-navigation nav a[title="Home"]').click();
     await page.getByRole("heading", { name: "Research Intelligence" }).waitFor();
     await page.reload();

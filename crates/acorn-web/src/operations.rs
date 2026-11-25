@@ -596,6 +596,50 @@ mod wasm_tests {
         }
     }
     #[wasm_bindgen_test]
+    fn test_big_o_boundary_outcomes_and_invalid_assumptions() {
+        for (left, right, expected) in [
+            ("O(2*n+1)", "O(n)", "equivalent"),
+            ("O(n)", "O(m)", "incomparable"),
+            ("O(polylog(n))", "O(log(n)^2)", "undetermined"),
+        ] {
+            let request = Request {
+                input: left.into(),
+                after: right.into(),
+                ..Request::default()
+            };
+            let result = run(Tool::BigO, &request).expect("symbolic comparison");
+            assert_eq!(result["dominance"], expected, "{left} versus {right}: {result}");
+        }
+        for assumptions in ["not-json", r#"{"n":"invalid"}"#] {
+            let request = Request {
+                input: "O(n)".into(),
+                after: "O(1)".into(),
+                assumptions: assumptions.into(),
+                ..Request::default()
+            };
+            assert!(run(Tool::BigO, &request).is_err(), "invalid assumptions: {assumptions}");
+        }
+    }
+    #[wasm_bindgen_test]
+    fn test_each_readability_metric_keeps_its_portable_score() {
+        for metric in ["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"] {
+            let request = Request {
+                input: "The research team collected clear observations. They published the methods and shared the results with colleagues. Readers can inspect the data and repeat the analysis.".into(),
+                metric: metric.into(),
+                ..Request::default()
+            };
+            let result = run(Tool::Readability, &request).expect("supported readability metric");
+            assert!(
+                result["checks"].as_array().is_some_and(|checks| {
+                    checks
+                        .iter()
+                        .any(|check| check["metric"] == metric && check["score"].as_f64().is_some_and(f64::is_finite))
+                }),
+                "{metric}: {result}"
+            );
+        }
+    }
+    #[wasm_bindgen_test]
     fn test_bundled_research_activity_examples_validate() {
         for (name, content) in [
             ("computing", include_str!("../assets/examples/computing.json")),
@@ -668,6 +712,27 @@ mod wasm_tests {
         assert_eq!(result["truncated"], false);
     }
     #[wasm_bindgen_test]
+    fn test_identifier_boundaries_keep_ambiguity_and_full_discovery_count() {
+        let ambiguous = Request {
+            input: "0000-0002-2057-9115".into(),
+            ..Request::default()
+        };
+        let result = run(Tool::Inspect, &ambiguous).expect("ambiguous identifier");
+        assert_eq!(result["status"], "ambiguous", "{result}");
+        assert_eq!(result["candidates"], serde_json::json!(["isni", "orcid"]));
+        let mismatch = Request {
+            input: "https://ror.org/01qz5mb56".into(),
+            kind: "doi".into(),
+            ..Request::default()
+        };
+        assert_eq!(run(Tool::Inspect, &mismatch).expect("mismatched kind")["status"], "invalid");
+        let input = (1..=101).map(|index| format!("doi:10.1000/{index}")).collect::<Vec<_>>().join(" ");
+        let discovery = run(Tool::Discover, &Request { input, ..Request::default() }).expect("bounded discovery");
+        assert_eq!(discovery["count"], 101, "{discovery}");
+        assert_eq!(discovery["identifiers"].as_array().map(Vec::len), Some(100));
+        assert_eq!(discovery["truncated"], true);
+    }
+    #[wasm_bindgen_test]
     fn test_invalid_activity_retains_diagnostics() {
         let request = Request {
             input: "{\"title\":1}".into(),
@@ -676,6 +741,51 @@ mod wasm_tests {
         let result = run(Tool::Activity, &request).unwrap();
         assert_eq!(result["valid"], false);
         assert!(!result["diagnostics"].as_array().unwrap().is_empty());
+    }
+    #[wasm_bindgen_test]
+    fn test_metadata_boundary_options_preserve_portable_results() {
+        let malformed = Request {
+            input: r#"{"title":1}"#.into(),
+            ..Request::default()
+        };
+        for tool in [Tool::Activity, Tool::Standard] {
+            let result = run(tool, &malformed).expect("invalid metadata returns diagnostics");
+            assert_eq!(result["valid"], false, "{tool}: {result}");
+            assert!(
+                result["diagnostics"].as_array().is_some_and(|items| !items.is_empty()),
+                "{tool}: {result}"
+            );
+        }
+        let content = include_str!("../assets/examples/publications.json");
+        for mode in ["off", "relaxed", "strict"] {
+            let request = Request {
+                input: content.into(),
+                fuzzy: mode.into(),
+                ..Request::default()
+            };
+            for tool in [Tool::Activity, Tool::Standard] {
+                let result = run(tool, &request).expect("supported vocabulary policy");
+                assert_eq!(result["vocabularyFuzzy"], mode, "{tool}: {result}");
+            }
+        }
+        let turtle = r#"@prefix dcterms: <http://purl.org/dc/terms/> .
+<https://example.org/dataset> dcterms:title "Imported dataset" .
+"#;
+        let missing_seed = Request {
+            input: turtle.into(),
+            format: "turtle".into(),
+            standard: "dublin-core".into(),
+            target: "research-activity-data".into(),
+            ..Request::default()
+        };
+        assert!(run(Tool::Crosswalk, &missing_seed).is_err_and(|error| error.contains("contact seed")));
+        let unsupported = Request {
+            input: "{}".into(),
+            standard: "datacite".into(),
+            target: "raid".into(),
+            ..Request::default()
+        };
+        assert!(run(Tool::Crosswalk, &unsupported).is_err_and(|error| error.contains("Unsupported metadata crosswalk")));
     }
     #[wasm_bindgen_test]
     fn test_nine_real_browser_operations() {

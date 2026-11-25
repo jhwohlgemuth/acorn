@@ -179,12 +179,12 @@ pub(crate) fn focus_nav_toggle() {
 }
 pub(crate) fn focus_template_create() {
     EventName::from(["focus", "template", "create"]).fire(js!(
-        "requestAnimationFrame(() => document.querySelector('.template-prompt button')?.focus())"
+        "requestAnimationFrame(() => document.querySelector('.template-prompt .template-create')?.focus())"
     ));
 }
 pub(crate) fn focus_template_trigger(id: &str) {
     EventName::from(["focus", "template", "trigger"]).fire(
-        js!("requestAnimationFrame(() => { const card = [...document.querySelectorAll('[data-template-id]')].find(node => node.dataset.templateId === {id}); (card || document.querySelector('.editor-template-control select'))?.focus(); })"),
+        js!("requestAnimationFrame(() => { const card = [...document.querySelectorAll('[data-template-id]')].find(node => node.dataset.templateId === {id}); (card || document.querySelector('[data-template-trigger]'))?.focus(); })"),
     );
 }
 pub(crate) fn focus_url_file_input() {
@@ -257,6 +257,9 @@ pub(crate) fn open_editor_find(id: &'static str) {
 }
 pub(crate) fn open_editor_in_new_tab(id: &'static str, state: Option<String>) {
     EventName::from(["open", "editor", "in", "new", "tab"]).fire(js!("window.acornEditors?.openInNewTab({id}, {state})"));
+}
+pub(crate) fn sync_popout_input(id: &'static str, value: &str) {
+    EventName::from(["sync", "popout", "input"]).fire(js!("window.acornEditors?.syncPopoutInput({id}, {value})"));
 }
 pub(crate) fn open_file_picker(slug: &'static str) {
     EventName::from(["open", "file", "picker"]).fire(js!(

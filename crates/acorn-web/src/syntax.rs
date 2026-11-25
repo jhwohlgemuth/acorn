@@ -44,8 +44,7 @@ pub(crate) fn CodeEditor(
     #[props(default)] run_disabled: bool,
     #[props(default)] run_error: Option<String>,
     #[props(default)] popout_state: Option<String>,
-    #[props(default)] template_options: Vec<(String, String, String)>,
-    #[props(default)] ontemplate: Option<EventHandler<String>>,
+    #[props(default)] title_icon: Option<&'static str>,
     oninput: EventHandler<String>,
 ) -> Element {
     let mut edited = use_signal(|| None::<String>);
@@ -67,7 +66,7 @@ pub(crate) fn CodeEditor(
         document::Script { src: "{EDITOR_ASSETS}/editor.js" }
         div { class: "code-editor", "data-language": language, style: "--editor-height:calc({rows} * 1.6em + 20px)",
             div { class: "editor-toolbar", role: "group", "aria-label": "{label} editor controls",
-                if fullscreen { span { class: "editor-fullscreen-name", "{label}" } }
+                if fullscreen { span { class: "editor-fullscreen-name", if let Some(icon) = title_icon { Icon { name: icon } } "{label}" } }
                 button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Fold all", title: "Fold all regions (Ctrl+Alt+[)", onclick: move |_| { script::fold_editor(id); }, Icon { name: "fold" } }
                 button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Expand all", title: "Expand all regions (Ctrl+Alt+])", onclick: move |_| { script::expand_editor(id); }, Icon { name: "expand" } }
                 button { r#type: "button", class: "copy-code editor-icon-action editor-wrap-toggle", "aria-label": "Wrap lines", "aria-pressed": "true", title: "Disable word wrap", onclick: move |_| { script::toggle_editor_wrap(id); }, Icon { name: "wrap" } }
@@ -77,15 +76,6 @@ pub(crate) fn CodeEditor(
                     button { r#type: "button", class: "copy-code", "data-size": "big", "aria-label": "Big", title: "Big font size", "aria-pressed": "false", onclick: move |_| { script::set_editor_font_size(id, "big"); }, Icon { name: "font-big" } }
                 }
                 CopyButton { text: value.clone(), icon_only: true }
-                if let Some(ontemplate) = ontemplate {
-                    label { class: "editor-template-control",
-                        span { "Start from template" }
-                        select { "aria-label": "Start from template", value: "", onchange: move |event| ontemplate.call(event.value()),
-                            option { value: "", disabled: true, "Choose template" }
-                            for (id, title, description) in template_options { option { value: id, "{title} — {description}" } }
-                        }
-                    }
-                }
                 button { r#type: "button", class: "copy-code editor-icon-action", "aria-label": "Open code editor in new tab", title: "Open code editor in new tab", onclick: move |_| { script::open_editor_in_new_tab(id, popout_state.clone()); }, Icon { name: "external" } }
                 span { class: "editor-toolbar-spacer", "aria-hidden": "true" }
                 if let Some(message) = run_error { span { class: "editor-run-error", title: "{message}", "{message}" } }

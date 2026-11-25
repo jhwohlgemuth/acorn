@@ -1,0 +1,45 @@
+meta:
+  archive: false
+  draft: true
+  status: active
+  identifier: collaboration-project
+  doi: 10.5072/acorn-template-collaboration-project-1
+  ror: https://ror.org/01703db54
+  contributors:
+  - name: Sample Person
+    identifiers:
+    - value: https://orcid.org/0000-0000-0000-0001
+      scheme: ORCID
+    affiliations: []
+    roles: []
+  organizations:
+  - name: National Institute of Advanced Industrial Science and Technology
+    identifiers:
+    - value: https://ror.org/01703db54
+      scheme: ROR
+    roles: []
+  keywords:
+  - materials-science
+  - simulation
+  - visualization
+title: Collaboration project
+subtitle: Fictional starter. Replace names and details with your research.
+sections:
+  mission: A fictional collaboration brings several contributors together.
+  challenge: Teams need shared roles and a clear account of joint work.
+  approach:
+  - Agree on roles, record contributions, and document the project.
+  impact:
+  - Readers can see how the team organized its research.
+  research:
+    focus: A fictional collaboration with named contributors and organizations.
+    areas:
+    - Research metadata
+contact:
+  jobTitle: Researcher
+  givenName: Sample
+  familyName: Person
+  email: sample.person@example.org
+  organization: National Institute of Advanced Industrial Science and Technology
+  telephone: 202-555-0101
+  url: https://example.org/sample-person

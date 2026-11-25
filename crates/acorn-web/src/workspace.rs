@@ -2,7 +2,7 @@ use crate::dashboard::{ChartSegment, DashboardTile, DonutTile, GridCell, MetricT
 use crate::details::{self, Detail};
 use crate::script;
 use crate::search_ui::SearchField;
-use crate::ui::{validate_files, FileInput, Icon, Route, UrlFileInput};
+use crate::ui::{validate_files, FileInput, Icon, Route, TemplatePicker, UrlFileInput};
 use crate::window_sync;
 use acorn_core::util::MimeType;
 use acorn_web::{
@@ -121,6 +121,7 @@ pub(crate) fn LoadedFiles(
     #[props(default)] initial_url: String,
     #[props(default)] onload: Option<EventHandler<String>>,
     #[props(default)] onselect: Option<EventHandler<SuppliedFile>>,
+    #[props(default)] ontemplate: Option<EventHandler<(String, MimeType)>>,
     #[props(default)] selected_tool: Option<Tool>,
 ) -> Element {
     let workspace = use_context::<Signal<Workspace>>();
@@ -149,7 +150,7 @@ pub(crate) fn LoadedFiles(
         span { class: "loaded-tree-icon", Icon { name: "folder-open" } }
         span { class: "loaded-tree-label", "{summary}" }
     }
-        if let (Some(tool), Some(onload)) = (tool, onload) { FileInput { onload, limit: tool.limit(), tool, initial_url: initial_url.clone() } }
+        if let (Some(tool), Some(onload), Some(ontemplate)) = (tool, onload, ontemplate) { FileInput { onload, limit: tool.limit(), tool, ontemplate, initial_url: initial_url.clone() } }
         if !snapshot.files.is_empty() {
             div { class: "loaded-files-controls result-controls",
                 SearchField { label: "Find a file", placeholder: "Search paths…", query, regex, case_sensitive, error: pattern.as_ref().err().cloned() }
@@ -188,11 +189,12 @@ pub(crate) fn LoadedFiles(
     } }
 }
 #[component]
-pub(crate) fn Loader() -> Element {
+pub(crate) fn Loader(ontemplate: EventHandler<(String, MimeType)>) -> Element {
     let mut workspace = use_context::<Signal<Workspace>>();
     let mut input = use_context::<Signal<String>>();
     let mut message = use_signal(String::new);
     let mut choose = use_signal(|| false);
+    let mut templates_open = use_signal(|| false);
     let mut url_open = use_signal(|| false);
     let mut close_url = move || {
         url_open.set(false);
@@ -261,14 +263,16 @@ pub(crate) fn Loader() -> Element {
         p { class: "load-caption muted", "Open research activity data" }
         div { id: "local-entry", class: "load-tiles",
             div { class: "load-tile",
-                button { id: "home-source-trigger", class: "tile-action", "aria-expanded": choose(), "aria-controls": "loader-choices", onclick: move |_| { url_open.set(false); choose.toggle(); }, span { class: "tile-icon folder-icon", "aria-hidden": "true", Icon { name: "folder-open" } } strong { "Open file or folder" } small { "Files, folders or URL" } }
+                button { id: "home-source-trigger", class: "tile-action", "aria-expanded": choose(), "aria-controls": "loader-choices", onclick: move |_| { url_open.set(false); templates_open.set(false); choose.toggle(); }, span { class: "tile-icon folder-icon", "aria-hidden": "true", Icon { name: "folder-open" } } strong { "Open file or folder" } small { "Files, folders or URL" } }
                 if choose() { div { id: "loader-choices", class: "actions", "aria-label": "Choose content source",
                     button { onclick: move |_| { choose.set(false); script::pick_workspace_file(); }, Icon { name: "file" } "Files" }
                     button { onclick: move |_| { choose.set(false); script::pick_workspace_folder(); }, Icon { name: "folder-open" } "Folder" }
                     button { onclick: move |_| { choose.set(false); url_open.set(true); script::focus_url_loader(); }, Icon { name: "link" } "URL" }
                 } }
             }
-            div { class: "load-tile", "data-workspace-drop": "true", button { class: "tile-action", onclick: move |_| { script::pick_workspace_file(); }, span { class: "tile-icon upload-icon", "aria-hidden": "true", Icon { name: "upload" } } strong { "Drop content" } small { "Drop files or folders" } } }
+            div { class: "load-tile", button { r#type: "button", class: "tile-action", "data-template-trigger": "true", "aria-expanded": templates_open(), onclick: move |_| { choose.set(false); url_open.set(false); templates_open.toggle(); }, span { class: "tile-icon", "aria-hidden": "true", Icon { name: "filecheck" } } strong { "Start from template" } small { "JSON or YAML" } } }
+            div { class: "load-tile", "data-workspace-drop": "true", button { class: "tile-action", onclick: move |_| { templates_open.set(false); script::pick_workspace_file(); }, span { class: "tile-icon upload-icon", "aria-hidden": "true", Icon { name: "upload" } } strong { "Drop content" } small { "Drop files or folders" } } }
+            if templates_open() { div { class: "home-template-picker", TemplatePicker { onselect: move |template| { templates_open.set(false); ontemplate.call(template); } } } }
         }
         if url_open() { div { class: "source-tray home-source-tray", role: "region", "aria-label": "Load content options",
             onkeydown: move |event| { if event.key() == Key::Escape { event.prevent_default(); event.stop_propagation(); close_url(); } },

@@ -1,0 +1,44 @@
+meta:
+  archive: false
+  draft: true
+  status: paused
+  identifier: single-activity
+  keywords:
+  - geospatial
+  - earth-science
+  - visualization
+  ror: https://ror.org/02hw5fp67
+  contributors:
+  - name: Sample Person
+    identifiers:
+    - value: https://orcid.org/0000-0000-0000-0001
+      scheme: ORCID
+    affiliations: []
+    roles: []
+  organizations:
+  - name: National Institute for Environmental Studies
+    identifiers:
+    - value: https://ror.org/02hw5fp67
+      scheme: ROR
+    roles: []
+title: Starter research activity
+subtitle: Fictional starter. Replace names and details with your research.
+sections:
+  mission: A single fictional study demonstrates how to describe research work.
+  challenge: A small study needs a clear question, method, and expected result.
+  approach:
+  - Describe the question, collect observations, and document the method.
+  impact:
+  - A reader can understand what was done and why it matters.
+  research:
+    focus: A fictional example of organizing one research activity.
+    areas:
+    - Research metadata
+contact:
+  jobTitle: Researcher
+  givenName: Sample
+  familyName: Person
+  email: sample.person@example.org
+  organization: National Institute for Environmental Studies
+  telephone: 202-555-0101
+  url: https://example.org/sample-person

@@ -55,6 +55,10 @@ export function createEditorPopouts(environment = window) {
         popouts.set(key(id), { popup, route: route(), url: url.href });
         refresh(host);
     }
+    function sendInput(id, value) {
+        const record = popouts.get(key(id));
+        if (record && !record.popup.closed) record.popup.postMessage({ type: "acorn-editor-input", id, route: route(), value }, location.origin);
+    }
     function connect() {
         const sync = environment.acornWindowSync;
         let applyingInput = false;
@@ -64,10 +68,7 @@ export function createEditorPopouts(environment = window) {
             if (applyingInput || input?.tagName !== "TEXTAREA" || !id || !input.closest(".code-editor")) return;
             const message = { type: "acorn-editor-input", id, route: route(), value: input.value };
             if (popoutId === id && environment.opener) sync.postToOpener(message);
-            else {
-                const record = popouts.get(key(id));
-                if (record && !record.popup.closed) record.popup.postMessage(message, location.origin);
-            }
+            else sendInput(id, input.value);
         });
         if (popoutId && environment.opener) {
             environment.addEventListener("pageshow", () => sync.postToOpener({ type: "acorn-editor-opened", id: popoutId, route: route(), url: location.href }));
@@ -107,5 +108,5 @@ export function createEditorPopouts(environment = window) {
     environment.setInterval(() => {
         if (Array.from(popouts.values()).some(({ popup }) => popup.closed)) refreshAll();
     }, 500);
-    return { isPopout: id => popoutId === id, open, refresh };
+    return { isPopout: id => popoutId === id, open, refresh, sendInput };
 }

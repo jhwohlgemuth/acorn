@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, resolve, sep } from "node:path";
-import { chromium } from "playwright";
+import { chromium, firefox, webkit } from "playwright";
 
 const root = resolve(process.argv[2]);
 const prefix = `/${(process.argv[3] ?? "").replace(/^\/+|\/+$/g, "")}`.replace(/\/$/, "");
@@ -24,7 +24,7 @@ const server = createServer(async (request, response) => {
     }
 });
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch();
+const browser = await ({ chromium, firefox, webkit })[process.argv[4] || "chromium"].launch();
 async function assertPidUnderlineColors(page) {
     const colors = await page.evaluate(() => {
         const workspace = document.querySelector(".workspace");
@@ -52,6 +52,25 @@ async function assertPidUnderlineColors(page) {
     }
 }
 try {
+    const emptyContext = await browser.newContext();
+    const emptyPage = await emptyContext.newPage();
+    await emptyPage.goto(`http://127.0.0.1:${server.address().port}${prefix}/discover`);
+    await emptyPage.locator(".code-editor:has(#content).cm-ready").waitFor();
+    const emptyPopoutPromise = emptyContext.waitForEvent("page");
+    await emptyPage.locator(".code-editor:has(#content)").getByRole("button", { name: "Open code editor in new tab" }).click();
+    await emptyPage.getByRole("button", { name: "Use example", exact: true }).click();
+    const emptyPopout = await emptyPopoutPromise;
+    await emptyPopout.locator("#content").waitFor({ state: "attached" });
+    await emptyPage.waitForFunction(() => document.getElementById("content")?.value.length > 0);
+    const emptyExample = await emptyPage.locator("#content").inputValue();
+    await emptyPopout.waitForFunction(text => document.getElementById("content")?.value === text, emptyExample);
+    await emptyPage.evaluate(() => { window.acornWindowSync.publish = () => {}; });
+    await emptyPage.getByRole("button", { name: "Clear", exact: true }).click();
+    await emptyPage.waitForFunction(() => document.getElementById("content")?.value === "");
+    await emptyPopout.waitForFunction(() => document.getElementById("content")?.value === "");
+    await emptyPage.getByRole("button", { name: "Use example", exact: true }).click();
+    await emptyPopout.waitForFunction(text => document.getElementById("content")?.value === text, emptyExample);
+    await emptyContext.close();
     const context = await browser.newContext();
     const page = await context.newPage();
     page.setDefaultTimeout(15000);
@@ -230,6 +249,14 @@ try {
     await discoverEditor.locator('.cm-discovered-pid[data-pid="doi"]').first().hover();
     await discoverEditor.locator('.cm-diagnostic-tooltip[data-severity="discovered"] a').waitFor();
     assert.equal(await discoverEditor.locator("#content").inputValue(), discoverInput, "the editor tab starts with the current tool input");
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await page.waitForFunction(() => document.getElementById("content")?.value === "");
+    await discoverEditor.waitForFunction(() => document.getElementById("content")?.value === "");
+    await page.getByRole("button", { name: "Use example", exact: true }).click();
+    await page.waitForFunction(text => document.getElementById("content")?.value === text, discoverInput);
+    await discoverEditor.waitForFunction(text => document.getElementById("content")?.value === text, discoverInput);
+    await page.getByRole("button", { name: "Discover identifiers", exact: true }).click();
+    await discoverEditor.locator(".cm-discovered-pid").first().waitFor();
     await discoverEditor.setViewportSize({ width: 390, height: 844 });
     assert.ok(await discoverEditor.locator(".results").evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Discover source links fit a narrow results panel");
     await discoverEditor.setViewportSize({ width: 1280, height: 720 });

@@ -705,7 +705,7 @@ fn Validation(value: Rc<Value>, source: Option<Rc<String>>, tool: Tool) -> Eleme
             div { class: "result-controls", ResultSearch { query, regex, case_sensitive, label: "Filter diagnostics", error: pattern.as_ref().err().cloned() } SeverityFilters { hidden, counts, label: "Show diagnostics by severity" } }
             DiagnosticSortControls { sort, descending, list: DiagnosticList::Validation }
         } }
-        if diagnostics.len() > 1 { p { class: if visible_count == diagnostics.len() { "small muted result-summary idle" } else { "small muted result-summary" }, role: "status", "Showing {visible_count} of {diagnostics.len()} diagnostics" } }
+        if diagnostics.len() > 1 { p { class: if visible_count == diagnostics.len() { "small muted result-summary idle" } else { "small muted result-summary" }, role: "status", "Showing {displayed.len()} of {diagnostics.len()} diagnostics" } }
         if visible_count == 0 { p { class: "muted small", if diagnostics.is_empty() { "No diagnostics from the selected checks." } else { "No diagnostics match this filter." } } }
         for (category, label, icon, group) in groups {
             {rsx! {

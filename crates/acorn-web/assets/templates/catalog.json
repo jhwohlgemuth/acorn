@@ -7,6 +7,9 @@
     "replace": "Title, people, identifiers, and narrative",
     "files": [
       { "path": "starter/index.json", "asset": "single-activity/index.json" }
+    ],
+    "yaml_files": [
+      { "path": "starter/index.yaml", "asset": "single-activity/index.yaml" }
     ]
   },
   {
@@ -18,6 +21,10 @@
     "files": [
       { "path": "publication/activity-1.json", "asset": "publication-project/activity-1.json" },
       { "path": "publication/activity-2.json", "asset": "publication-project/activity-2.json" }
+    ],
+    "yaml_files": [
+      { "path": "publication/activity-1.yaml", "asset": "publication-project/activity-1.yaml" },
+      { "path": "publication/activity-2.yaml", "asset": "publication-project/activity-2.yaml" }
     ]
   },
   {
@@ -28,6 +35,9 @@
     "replace": "Project details, team, organizations, and identifiers",
     "files": [
       { "path": "collaboration/index.json", "asset": "collaboration-project/index.json" }
+    ],
+    "yaml_files": [
+      { "path": "collaboration/index.yaml", "asset": "collaboration-project/index.yaml" }
     ]
   }
 ]
