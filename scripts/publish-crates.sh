@@ -22,6 +22,7 @@ crates=(
     acorn-schema
     acorn-analysis
     acorn-service
+    acorn-store
     acorn-lib
     acorn-server
     acorn-wasm

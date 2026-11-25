@@ -71,6 +71,7 @@ prepare-environment:
         - crates/acorn-schema/Cargo.toml
         - crates/acorn-server/Cargo.toml
         - crates/acorn-service/Cargo.toml
+        - crates/acorn-store/Cargo.toml
         - crates/acorn-tui/Cargo.toml
         - crates/acorn-wasm/Cargo.toml
         - packaging/linux/**/*
