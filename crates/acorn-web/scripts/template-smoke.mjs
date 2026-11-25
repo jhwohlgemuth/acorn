@@ -36,6 +36,7 @@ try {
     const visit = async path => {
         await page.goto(origin + prefix + path);
         await page.locator("main").waitFor();
+        if (path === "/") await page.locator(".home .load-tile > button strong").first().waitFor();
     };
     const chooseHomeTemplate = async name => {
         await page.getByRole("button", { name: /Start from template/ }).click();
