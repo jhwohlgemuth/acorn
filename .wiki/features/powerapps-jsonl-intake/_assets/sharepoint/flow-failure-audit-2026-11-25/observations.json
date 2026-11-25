@@ -1,0 +1,57 @@
+{
+  "reviewedAt": "2026-11-25",
+  "environment": "221f44a6-1468-ea4e-b93d-cd52f1723079",
+  "flowDefinitionsChanged": false,
+  "flows": [
+    {
+      "name": "ACORN SharePoint Logbook Export",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/51efa5f9-6e69-4d75-a53b-2c2965fd51bd/details?v3=false"
+    },
+    {
+      "name": "[BETA] Finalize Approval Batch",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/4380fbd0-3c5f-45cf-8aa0-5a06424082db/details"
+    },
+    {
+      "name": "[BETA] Approval Gated Combined Logbook Export",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/6f74ecff-bfcd-4377-afdf-39b03b4beff1/details"
+    },
+    {
+      "name": "[BETA] Request Reviewer Summary",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22/details"
+    },
+    {
+      "name": "[BETA] Sponsor Highlights Intake",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/solutions/~preferred/flows/59af94a9-7e6e-7e36-4dc9-2a549f1cab16/details"
+    }
+  ],
+  "summaryFailures": [
+    {
+      "text": "\n\nNov 13, 05:16 PM (\n1 week ago\n1 wk ago)\n00:00:38\nFailed",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22/runs/08584069986873310974247255165CU23"
+    },
+    {
+      "text": "\n\nNov 13, 05:13 PM (\n1 week ago\n1 wk ago)\n00:00:39\nFailed",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22/runs/08584069988840795410087602290CU31"
+    },
+    {
+      "text": "\n\nNov 13, 05:05 PM (\n1 week ago\n1 wk ago)\n00:00:39\nFailed",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22/runs/08584069993561803622576746570CU15"
+    },
+    {
+      "text": "\n\nNov 13, 04:58 PM (\n1 week ago\n1 wk ago)\n00:00:39\nFailed",
+      "url": "https://make.gov.powerautomate.us/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22/runs/08584069997983697270098761397CU02"
+    }
+  ],
+  "summaryError": "0s\nRespond to a Power App or flow\nActionResponseTimedOut. The execution of template action 'Respond_to_a_Power_App_or_flow' is failed: the client application timed out waiting for a response from service. This means that workflow took longer to respond than the alloted timeout value. The connection maintained between the client application and service will be closed and client application will get an HTTP status code 504 Gateway Timeout.\n",
+  "summaryHealthRun": {
+    "row": "Nov 25, 10:44 AM (\n43 seconds ago\n43 sec ago)\n00:00:39\nSucceeded",
+    "url": "/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22/runs/08584059853912658901697219640CU11"
+  },
+  "summaryHealthResponse": "Run results\nSettings\nCode view\nAbout\nINPUTS\nContent not shown due to security configuration.\nOUTPUTS\nContent not shown due to security configuration.\nPROPERTIES\nStart time\n11/25/2026, 10:45:33 AM (Local time)\nEnd time\n11/25/2026, 10:45:33 AM (Local time)\nStatus\nSucceeded\nClient tracking ID\n08584059853912658901697219640CU11\nAction tracking ID\nb4dfd438-72aa-42aa-bc2d-667fec96edf9",
+  "summaryAppRun": {
+    "row": "Nov 25, 10:47 AM (\n1 minute ago\n1 min ago)\n00:00:39\nSucceeded",
+    "url": "/environments/221f44a6-1468-ea4e-b93d-cd52f1723079/flows/0ddfbf82-88c1-499f-93af-c3d33718ff22/runs/08584059852289954798080449922CU10"
+  },
+  "summaryAppResult": "    - button \"Ready Batch · 4 submissions · 1 unresolved · 1 AI summary pending\":\n      - generic: Ready Batch · 4 submissions · 1 unresolved · 1 AI summary pending\n    - button \"Source item 24 · Draft v1 · ETag \\\"1\\\"\":\n      - generic: Source item 24 · Draft v1 · ETag \"1\"\n    - 'button \"Current: Needs review\"':\n      - generic: \"Current: Needs review\"\n    - button \"Use Suggestion\":\n      - generic: Use Suggestion",
+  "exporterFailures": "\n\nStart time\nDuration\nAdd column\nStatus\n\n\nNov 10, 03:28 PM (\n2 weeks ago\n2 wk ago)\n00:00:02\nFailed"
+}

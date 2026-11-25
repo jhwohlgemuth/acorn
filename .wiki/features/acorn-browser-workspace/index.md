@@ -130,7 +130,17 @@ The SVGs specify a 220 px desktop sidebar, 420 px Home column, 848 px tool/Insta
 
 # Current evidence
 
-- November 24 ABW-03 execution at `bf6863b1` plus the current worktree: the accepted shell and Home/chrome satisfy its prerequisites. A focused native result test verifies the 100-row cap reports displayed and total counts accurately. `make web-test-wasm` passed 14 tests including metadata, readability, identifier, and Big-O boundaries. Native `acorn-web` tests, package formatting, strict Clippy, and a rustup-managed WASM target check passed after the later shared-file edits; `make web-build` passed earlier with one WASM payload and nine exports. The rustup-managed `make build-wasm` passed outside the sandbox, including the package check, 46 adapter/effects tests, and 12 `acorn-wasm` WASM tests. Firefox 159.0 and WebKit 27.2 effect smoke passed. The built Chromium parity smoke passed 49 checks after allowing vertical Home scrolling with RADS templates and using keyboard entry for repeated CodeMirror validation. Safari exposed grouped Review diagnostics in its accessibility tree; spoken screen-reader announcements remain unverified and are assigned to ABW-09. Native Firefox/Safari choosers remain unverified. ABW-03 stays in progress for its remaining metadata matrix; later requested phases retain their prerequisites. The [execution handoff](execution-preparation.md) records the phase order.
+- November 25 ABW-16 acceptance at `e4d9d74e` plus the browser smoke change: Firefox 159.0 and Playwright WebKit 27.2 passed nested folder selection, partial acceptance, batched synthetic directory drop, simulated directory-API fallback with subsequent file loading, and 500-file selection/last-file inspection. Final local timings were 163/335 ms in Firefox and 284/425 ms in WebKit for load/inspection. Native Firefox chooser and an actually unsupported directory API remain unverified; the [browser README](../../../crates/acorn-web/README.md) retains these limits. ABW-09 owns keyboard and assistive-technology tree acceptance.
+
+- November 25 ABW-06 acceptance at `e4d9d74e` plus the browser-effect change: Firefox 159.0 and Playwright WebKit 27.2 passed built-release file and nested-folder intake, cancellation preservation, clipboard success/denial, JSON/unified-diff/JSON-Patch bytes, filename and MIME, download-failure feedback, URL cleanup, and no external requests or page errors. The focused Node tests passed failure cleanup. Firefox native chooser remains unverified because automation injects through its actual file input; ABW-16 owns maximum-session folder timing. The [browser README](../../../crates/acorn-web/README.md) records the limits.
+
+- November 25 ABW-04/05 acceptance at `e4d9d74e` plus the browser smoke change: `make web-pages` built a single 7,660,833-byte WASM payload with nine operation exports; `make web-test-wasm` passed all 14 real-WASM tests. The full Chromium parity smoke passed 56 checks on a frozen release copy, including seven readability metrics, both 41-finding FAIR standards, equal/changed/invalid JSON Patch, all 12 identifier kinds, ordered ambiguity, explicit mismatch, deduplication, inspection drill-down, and the 101-result/100-card boundary. The [browser README](../../../crates/acorn-web/README.md) records the result contract; final accessible output belongs to ABW-09.
+
+- November 25 ABW-32 acceptance at `e4d9d74e` plus the browser smoke change: the real-WASM test covers equivalent, incomparable and undetermined symbolic outcomes and invalid assumptions. The built Chromium parity smoke passed 51 checks, including matching verdict labels, preserved operands, invalid-assumption feedback and the 256-byte boundary. The [browser README](../../../crates/acorn-web/README.md) records the illustrative chart contract. Final accessible output belongs to ABW-09.
+
+- November 25 ABW-19 local recheck at `041577d0` plus current browser smoke: `make web-pages` built a single 7,550,967-byte WASM payload with nine operation exports; `make web-test-pages` passed its Chromium route and IndexedDB tests, and the focused index parity smoke passed five checks on the current 10-activity/40-file sample. The older `workspace-storage-smoke.mjs` still expects the former four-activity sample and fails at that stale assertion; its later rows are unverified, and the newer storage browser tests do not by themselves close ABW-19. The hosted private-provider recheck remains open. Browser access through the connected UI is currently unavailable, so no hosted private session was observed in this pass.
+
+- November 25 ABW-03 acceptance at `041577d0` plus the browser smoke change: native result tests cover missing-path grouping and full count with 100 visible diagnostics. `make web-test-wasm` passed 14 real-WASM tests including malformed metadata, vocabulary policy, contact seed, and unsupported crosswalk pairs. `make web-pages` built one 7,550,967-byte WASM payload with nine exports; `make web-test-pages` passed. The full built Chromium parity smoke passed 50 checks, including ordered/grouped diagnostics, vocabulary controls, required-seed and unsupported-pair errors, and preserved editor content. The [browser README](../../../crates/acorn-web/README.md) retains the commands and limits. ABW-04/05 can now run; ABW-09 owns final screen-reader acceptance.
 
 - November 24 targeted CZML planning check: `geospatial/src/map.tsx` renders ROR/project markers and Cesium layer controls; its map view has no local CZML picker, drop handling, or CZML data source. `src/geospatial_page.rs` owns the surrounding route and equivalent organization table. [Cesium's CZML API](https://cesium.com/learn/cesiumjs/ref-doc/CzmlDataSource.html) accepts in-memory CZML objects and supplies a clock for temporal data; the [CZML packet schema](https://github.com/AnalyticalGraphicsInc/czml-writer/blob/main/Schema/Packet.json) defines document clock/version fields. ABW-72 adds only a user-supplied map overlay after ABW-18 measures the project map; no CZML behavior was implemented or tested in this planning pass.
 
@@ -320,7 +330,7 @@ ABW-45 freezes one versioned, testable matrix against `crates/acorn-cli/src/cli/
 
 - The [crate-boundary architecture](../../refactors/crate-boundary-architecture.md) is an upstream coordination dependency, and this plan is its concrete atomic browser/desktop consumer. That record remains authoritative for ownership direction; this plan owns the bounded implementation phases. The [portability coordination record](../../refactors/portability/index.md) supplies the existing WASM/feature gates records the accepted single-payload `acorn-web` composition.
 - ABW-20 is accepted with six rendered exceptional-state previews and a dated 1440×900 live comparison; the shared shell, Install/Skill pages and nine-tool inventory are already reflected in the revised SVGs. The browser composition is accepted; exceptional-state design does not block local review. Future manifest/lockfile edits still require exclusive ownership.
-- The branded shell and Home/chrome contract are accepted. ABW-03 retains metadata acceptance. ABW-04 and ABW-05 currently share `src/ui.rs` and `src/operations.rs`, so they serialize. Parallel leaf work requires an explicit module extraction and named disjoint write sets first.
+- The branded shell and Home/chrome contract and the metadata, analysis, identifier, Big-O, browser-effect, and folder capability matrices are accepted. Shared UI and asset changes still serialize with other frontend owners.
 - ABW-06 follows the tool pages because single-file/copy/download behavior must be accepted against real result types, not speculative abstractions. ABW-16 accepts the broader cross-engine folder matrix independently of the catalog's bounded folder contract. ABW-39 provides the independent credential boundary, ABW-41 accepts scoped GitHub loading, and ABW-38 supplied the separate full workspace snapshot. ABW-42/43 index projection and catalog navigation are accepted. ABW-40 private GitLab loading and CORS were accepted on the authorized private NSSD project and hosted HTTPS origin on November 16. ABW-60–62 bounded image intake and presentation were accepted with local and mocked private-provider browser checks on November 17. ABW-19 now owns initial single-bucket catalog acceptance and the hosted recheck of the new build; ABW-63 adds multi-bucket state/persistence, ABW-64 adds the load and catalog controls, and ABW-65 accepts the integrated browser behavior. ABW-03/16 are separate tool/folder cross-engine matrices.
 - ABW-44 follows ABW-65 to project all retained buckets onto the existing organization map. ABW-18 follows ABW-44 for maximum project/marker resource and performance acceptance. ABW-72 then adds bounded local CZML intake to that measured map; it owns the same map-island files exclusively and feeds ABW-08 browser acceptance. ABW-37 follows ABW-18 and is assessment-only; it does not block marker-based geospatial acceptance.
 - Stable dashboard tile IDs, a separate saved-layout schema, accessible reordering, and available-tile visibility/reset controls are implemented. The construction-only ASPECT/S3A routes can later supply their own tile catalogs without inheriting Portfolio preferences. ABW-69 records the subsequent full React/shadcn/ui migration boundary after browser and Tauri embedding contracts stabilize; the actual conversion belongs to its separately phased migration plan, not to the interim Dioxus component plan.
@@ -336,7 +346,7 @@ ABW-45 freezes one versioned, testable matrix against `crates/acorn-cli/src/cli/
 - The November 21 local cross-engine effects smoke passed in Firefox 159 and Playwright WebKit 27.2 for local JSON, nested folder partial acceptance and keyboard inspection, preserved state after picker cancellation, copy success/denial, JSON download bytes/name/MIME and object-URL cleanup, and no external requests. Firefox's native chooser automation intermittently cancelled before file injection, so its successful processing and cancellation paths used deterministic input injection; native Firefox chooser behavior remains unverified. ABW-06/16 retain their dependency, assistive-technology and maximum-session acceptance rows.
 - The November 21 review repair added a dashboard script-ready handshake and disabled tile edits until saved preferences restore; Settings now reports rejected preference removal. Root and `/acorn/` Pages smokes passed delayed-script and storage-failure checks, and Firefox/WebKit effects smokes passed under both base paths. The browser README retains the durable behavior and test commands.
 - The [WebMCP and MCP interoperability plan](../../testing/webmcp-evaluations.md) remains authoritative for external evaluator, model-selection, MCP Inspector/conformance, public MCP control, and required-CI decisions. This plan owns the product page and manual parity.
-- ABW-32 completes Big-O visualization and edge-case acceptance after ABW-03. It must pass before file/result effects ABW-06 and WebMCP product installation ABW-07; the existing adapter is unchanged.
+- Big-O symbolic boundary and browser presentation acceptance passed on November 25. The adapter is unchanged; ABW-06 and ABW-07 still wait for ABW-04/05.
 
 # Validation strategy
 
@@ -593,74 +603,6 @@ The integration owner may use `src/ui.rs`, `src/main.rs`, `src/lib.rs`, new focu
 - Focused validation: Validate all five channel versions, architecture rows, immutable URLs and hashes; explicit copy actions and safe links; shared browser/Tauri and offline rendering.
 - Handoff: Remove ABW-31 after route and fixture checks pass; add Install to ABW-08. Final release acceptance still waits for real channel publication and verified metadata, not UI fixtures.
 
-## ABW-32 — Accept Big-O boundary cases
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ABW-03 shared input/result components
-- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/results/mod.rs`, `crates/acorn-web/src/session.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
-- Primary integration lock: browser Big-O operation and route
-- Outcome: Complete equivalent/incomparable/undetermined, invalid assumptions and maximum-bound manual/adapter parity against the implemented symbolic result and labeled n/n² illustration.
-- Focused validation: Test remaining symbolic outcomes and invalid assumptions through the real WASM adapter; verify result labels and illustrative-only wording. ABW-09 owns accessible-output acceptance.
-- Handoff: Remove ABW-32 after focused tests pass and record manual/adapter parity; unblock ABW-06 and ABW-07 once their other prerequisites pass.
-
-
-
-## ABW-03 — Accept metadata edge cases
-
-- Status: in-progress
-- Budget: 5 active hours maximum
-- Prerequisites: accepted shell and accepted Home/chrome contract
-- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/results/mod.rs`, `crates/acorn-web/src/results/tests.rs`, `crates/acorn-web/src/session.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
-- Primary integration lock: browser metadata operation and shared result contract
-- Outcome: Complete ordered/truncated/missing-path diagnostic, fuzzy-policy, required seed and unsupported conversion matrices against the implemented structured presentation.
-- Focused validation: Use native/WASM fixtures for every remaining metadata case; preserve editor content and result state. ABW-09 owns assistive-technology announcements and heading-focus acceptance.
-- Handoff: Remove ABW-03 and preserve stable shared input/result component behavior for the remaining tool groups.
-
-## ABW-04 — Accept analysis edge cases
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: accepted shell; ABW-03 shared result contract frozen
-- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/results/mod.rs`, `crates/acorn-web/src/session.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
-- Primary integration lock: browser analysis pages
-- Outcome: Complete all-metric readability, FAIR-standard/41-finding and equal/changed/invalid JSON Patch matrices against the implemented bars, gauge and diff presentation.
-- Focused validation: Exercise each remaining metric/standard and boundary fixture; compare visible values with portable results. ABW-09 owns keyboard and assistive-technology output acceptance.
-- Handoff: Remove ABW-04 and record any rendering performance threshold needed by ABW-08 without changing portable result semantics.
-
-## ABW-05 — Accept identifier boundary cases
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: accepted shell; ABW-03 shared result contract frozen
-- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/results/mod.rs`, `crates/acorn-web/src/session.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
-- Primary integration lock: browser identifier pages
-- Outcome: Complete the supported-kind, mismatch, ambiguous-candidate ordering, deduplication and 100-result matrix against the implemented cards and inspection drill-down.
-- Focused validation: Use representative ARK, arXiv, DOI, Handle, ISBN, ISNI, ORCID, patent, RAiD, ROR, RRID and SWHID fixtures; retain no-resolution behavior.
-- Handoff: Remove ABW-05 and confirm all nine operation routes remain manually reachable through the consolidated navigation before ABW-06/07.
-
-## ABW-06 — Accept browser effects across engines
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ABW-03, ABW-04, ABW-05 and ABW-32
-- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/results/mod.rs`, `crates/acorn-web/src/session.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/scripts/cross-engine-smoke.mjs`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
-- Primary integration lock: browser-local presentation-effect boundary
-- Outcome: Verify file/copy/download permission failures and cleanup in Safari/WebKit and Firefox against the implemented bounded reader and format-specific exports.
-- Focused validation: Record browser/version, chooser cancellation, copy success/denial, download bytes/name/MIME, object-URL cleanup and no external requests. Chromium file/folder/drop and diff-byte checks are already covered by parity-smoke.mjs.
-- Handoff: Remove ABW-06, retain the accepted browser-effect boundary, and mark ABW-16 ready.
-
-## ABW-16 — Accept folder capability fallbacks across engines
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ABW-06
-- Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/results/mod.rs`, `crates/acorn-web/src/session.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/assets/effects.test.mjs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/scripts/cross-engine-smoke.mjs`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
-- Primary integration lock: browser supplied-content and session-tree contract
-- Outcome: Verify nested directory selection/drop and the capability fallback in Safari/WebKit and Firefox, plus maximum-session interaction timing.
-- Focused validation: Exercise folder batches, partial acceptance and cancellation in each remaining engine; record unsupported directory APIs without weakening file loading. ABW-09 owns keyboard tree navigation acceptance.
-- Handoff: Remove ABW-16, preserve the accepted supplied-tree DTO and capability fallback in tests/README, make ABW-08 browser acceptance and ABW-17 native folder integration eligible, and record unavailable browser directory-picker rows without weakening single-file workflows.
-
 ## ABW-19 — Accept the initial Research Activity Index capability
 
 - Status: in-progress
@@ -764,7 +706,7 @@ The integration owner may use `src/ui.rs`, `src/main.rs`, `src/lib.rs`, new focu
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: accepted browser composition, ABW-03, ABW-04, ABW-05, accepted Home/chrome, ABW-32; no concurrent WME-02/WME-04 or other WASM package-staging owner
+- Prerequisites: accepted browser composition, ABW-04, ABW-05, and accepted Home/chrome; no concurrent WME-02/WME-04 or other WASM package-staging owner
 - Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/assets/`, `crates/acorn-web/tests/`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`, `Makefile`
 - Primary integration lock: WebMCP application installation and WASM package staging
 - Outcome: Complete fake-context application integration tests and live supported-Chrome discovery/invocation/cleanup for the implemented unchanged nine-tool adapter installation. Verify busy/cancellation/failure/disposal and duplicate-install behavior at the workspace boundary, keeping manual routes available when unsupported.
@@ -775,7 +717,7 @@ The integration owner may use `src/ui.rs`, `src/main.rs`, `src/lib.rs`, new focu
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-03 through ABW-07, ABW-16, ABW-18, ABW-19, ABW-32, ABW-65, ABW-72, and accepted dashboard layout; browser Skill and pending Install contracts are implemented; native/publication acceptance remains independent
+- Prerequisites: ABW-04 through ABW-07, ABW-16, ABW-18, ABW-19, ABW-65, ABW-72, and accepted dashboard layout; browser Skill and pending Install contracts are implemented; native/publication acceptance remains independent
 - Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/src/dashboard.rs`, `crates/acorn-web/src/details.rs`, `crates/acorn-web/src/geospatial_page.rs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/assets/effects.js`, `crates/acorn-web/geospatial/src/map.tsx`, `crates/acorn-web/scripts/pages-smoke.mjs`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/README.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: browser workspace acceptance matrix
 - Outcome: Close responsive, performance, WebGL-fallback, and bounded-error defects across the current route matrix, including Review tabs, configurable Portfolio tiles, the CZML drop zone and picker, and honest ASPECT/S3A construction states, at desktop, phone portrait, and phone landscape without changing operation or geospatial bridge contracts. ABW-09 owns final accessibility testing.
@@ -907,7 +849,7 @@ The integration owner may use `src/ui.rs`, `src/main.rs`, `src/lib.rs`, new focu
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-45, accepted local daemon CLI and Linux registration, and the relevant ACD-11/13 OS service-manager contract; no concurrent daemon CLI/service owner
+- Prerequisites: ABW-45, accepted local daemon CLI and Linux/macOS registration, and the relevant ACD-13 Windows service-manager contract; no concurrent daemon CLI/service owner
 - Exact write set: `crates/acorn-desktop/src/commands.rs`, `crates/acorn-desktop/src/commands/daemon.rs` (new), `crates/acorn-desktop/src/tests.rs`, `crates/acorn-desktop/capabilities/main.json`, `crates/acorn-web/src/host.rs`, `crates/acorn-web/src/host/daemon.rs` (new), `crates/acorn-web/src/ui.rs`, `crates/acorn-desktop/acceptance/capability-matrix.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: daemon control adapter
 - Outcome: Present authenticated local health/status/history and explicit run/pause/resume/reload plus install/start/stop/uninstall only where the acornd plan has implemented that host manager. Use its CLI/client and protected local token; never implement a second scheduler or silently install/start the service.
@@ -1039,7 +981,7 @@ The integration owner may use `src/ui.rs`, `src/main.rs`, `src/lib.rs`, new focu
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-03 through ABW-08, accepted Home/chrome through ABW-32, ABW-13/14/15, ABW-22 through ABW-31, ABW-36, ABW-56, ABW-69, and ABW-72; dashboard layout is accepted
+- Prerequisites: ABW-04 through ABW-08, accepted Home/chrome, ABW-13/14/15, ABW-22 through ABW-31, ABW-36, ABW-56, ABW-69, and ABW-72; dashboard layout is accepted
 - Exact write set: `Makefile`, `crates/acorn-web/scripts/pages-smoke.mjs`, `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/scripts/cross-engine-smoke.mjs`, `crates/acorn-web/README.md`, `crates/acorn-desktop/README.md`, `crates/acorn-desktop/acceptance/windows.md`, `crates/acorn-desktop/acceptance/macos.md`, `crates/acorn-desktop/acceptance/linux.md`, `docs/src/packages/acorn-web.md`, `docs/src/packages/acorn-desktop.md` (new), `docs/src/SUMMARY.md`, `.wiki/features/acorn-browser-workspace/index.md` (delete after acceptance), `.wiki/features/acorn-browser-workspace/_assets/` (delete plan-specific previews after acceptance), `.wiki/features/acorn-browser-workspace/design-review.md` (delete after preserving durable design requirements), `.wiki/features/index.md`, `.wiki/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`
 - Primary integration lock: final browser/native acceptance and wiki retirement
 - Outcome: Execute the complete browser and native accessibility matrix after all route, map, and bundle phases land; record dated browser/OS/webview/assistive-technology evidence and every unavailable row without inferring a pass. Publish copy/paste browser and Tauri development/build workflows, including the coordinated Dioxus/Vite hot-reload loop, supported hot-reload versus full-reload boundaries, deterministic watcher shutdown, local serving and local-bundle prerequisites, static-host base paths, privacy and capability boundaries, Portfolio and supported-tool behavior, desktop host capability matrix and companion/renderer/service/agent prerequisites, WebMCP behavior, geospatial data/provenance/no-network behavior, ROR refresh procedure, browser/native evidence, measured WASM/map/dataset and bundle sizes, published install/update/removal commands, skill compatibility and rollback, signing/notarization status, and brand-token guidance; add stable focused Make targets; run final integration gates; remove the completed plan from every wiki surface.

@@ -52,6 +52,8 @@ The [scheduled-sync plan](scheduled-sync/index.md) owns the explicit approved-ex
 
 The November 24 repository review inspected these plans, retained flow definitions, acceptance artifacts, and November 12 beta evidence. It did not rerun tenant acceptance or establish external prerequisites. Historical native artifacts remain subject to [sanitization and reuse limits](../../privacy.md).
 
+The [November 25 live failure audit](_assets/sharepoint/flow-failure-audit-2026-11-25/README.md) distinguishes repaired intake/export faults from expected finalizer/exporter guard tests. Fresh owner-context summary requests succeeded from both Power Automate and the published app; historical caller timeouts remain unexplained. The subsequent [batch-summary startup repair](_assets/sharepoint/batch-summary-repair/README.md) published an explicit timer-start sequence in app version 130 and verified automatic generation on published startup. PA-40C retains participant-context acceptance. The published app has evolved beyond the November 12 UI description; no participant or cutover phase is complete from these checks.
+
 # Cross-plan decisions
 
 ## Ease of use and consistent controls

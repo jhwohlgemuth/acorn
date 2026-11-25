@@ -8,6 +8,7 @@
 
 ## Planned
 
+- [Research activity graph in the browser](browser-research-graph.md) - Add a searchable, accessible `/graph` over validated RAD relationships, with a shared semantic projection and Turtle export; combined-source acceptance follows ABW-63–65.
 - [Browser RADS project templates and editor URL intake](browser-rads-templates.md) - The shared frontend now has three validated starters, a new-tab editor dropdown, project ZIP export, and bounded URL entry. TPL-06 awaits ABW-11 for packaged desktop acceptance.
 - [Live bot observability over SSE](sse-bot-observability.md) - Coordination epic for the GitLab bot feed, later observation authentication, desktop dashboard, and authorized hosted-web view.
 - [Live GitLab bot status feed](gitlab-bot-live-status.md) - Add a bounded SSE view of bot state first, then authenticate bot observation before desktop or hosted browser connections.
@@ -27,7 +28,7 @@
 
 - [Headless CI SharePoint JSONL download](sharepoint-headless-ci-download/index.md) - Follow SPD-26 shared functionality and acceptance on any one native OS with GitLab OIDC federation, ACRE workload profiles and read-only unattended capture/staging; seven bounded phases require approved app-only access and isolated live acceptance. No user credential cache or automatic apply/reporting.
 
-- [Installable acornd background service](acornd-service.md) - Portable jobs, SQLite history, authenticated serving, atomic ACRE reload, owner-protected Unix-socket CLI control, Linux systemd registration, and source-built native Linux MVP acceptance are complete. ACD-11 macOS registration and ACD-12 Windows SCM are ready; ACD-26 owns later Windows local control. Signed bundles, SSH installation, and multi-OS host acceptance remain release gates.
+- [Installable acornd background service](acornd-service.md) - The source-built Linux MVP and macOS launchd implementation are accepted. ACD-27 native Mac acceptance has passed service identity, local control, jobs, automatic restart, and final-state verification after owner-reported lifecycle commands. Logout, reboot, and uninstall remain open. Windows SCM, registration, local control, bundle, and SSH phases require a native Windows OS test environment for acceptance.
 - [Automated JSONL management with the Vergil GitLab bot](vergil-gitlab-jsonl-automation/index.md) - PA-05/06/07/09 and BOT-02 are Waiting on validation, subject to their prerequisites. Service deployment, callback integration, reporting setup and authority decisions remain planned/blocked. This GitLab-only track is independent of SharePoint manual reporting and adds no bridge or list cleanup. Implemented runtime contracts await live deployment and end-to-end acceptance: protected runtime, callbacks, durable admission/cleanup, human review/merge and scheduled reporting.
 
 - [Sponsor highlights clarity](sponsor-highlights-clarity.md) - Add evidence-backed mission value, a consistent project synopsis, reviewed ASPECT graduation across schema, local CLI and other adapters, accessibility checks, and an approved distribution pilot.

@@ -1,0 +1,2059 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+Screens:
+  ApprovalReviewScreen:
+    Properties:
+      Fill: =RGBA(255, 255, 255, 1)
+      LoadingSpinnerColor: =RGBA(73, 130, 5, 1)
+      OnVisible: =Set(varLiveReviewMode,true); Set(varFixtureMode,false); Set(varPreviewOnly,false); Reset(ReviewReportAiContext); Set(varLedgerBusy,true); Set(varLedgerError,""); IfError(Set(varLedgerBatchResponse,ListApprovalBatchesTESTONLY.Run("2100-01-01T00:00:00Z")); ClearCollect(colLedgerBatches,ForAll(Table(ParseJSON(varLedgerBatchResponse.batchesjson)),With({b:ThisRecord.Value},{batchId:Text(b.batchId),periodStartUtc:Text(b.periodStartUtc),periodEndUtc:Text(b.periodEndUtc),itemCount:Value(b.itemCount),unresolvedCount:Value(b.unresolvedCount)}))); If(IsEmpty(colLedgerBatches),Set(varLedgerError,"No Ready batches are available."),Set(varLedgerBatchId,Coalesce(First(Filter(colLedgerBatches,itemCount>0 && itemCount<=100)).batchId,First(colLedgerBatches).batchId)); Select(ReviewBack)),Set(varLedgerError,"Ready batches could not be loaded. Check reviewer access and retry.")); Set(varLedgerBusy,false)
+    Children:
+      - ReviewWorkspace:
+          Control: GroupContainer@1.5.0
+          Variant: AutoLayout
+          Properties:
+            Fill: =ColorValue("#EDF3EF")
+            Height: =Parent.Height
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutGap: =10
+            LayoutOverflowY: =If(Parent.Width<1120,LayoutOverflow.Scroll,LayoutOverflow.Hide)
+            PaddingBottom: =8
+            PaddingLeft: =8
+            PaddingRight: =8
+            Width: =Parent.Width
+          Children:
+            - ReviewTop:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  Fill: =ColorValue("#123B31")
+                  FillPortions: =0
+                  Height: =80
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutDirection: =LayoutDirection.Horizontal
+                  LayoutGap: =12
+                  LayoutJustifyContent: =LayoutJustifyContent.SpaceBetween
+                  LayoutMinHeight: =80
+                  PaddingLeft: =16
+                  PaddingRight: =16
+                Children:
+                  - ReviewTitle:
+                      Control: Label@2.5.1
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        BorderStyle: =BorderStyle.None
+                        BorderThickness: =2
+                        Color: '=Color.White '
+                        DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                        FocusedBorderThickness: =4
+                        Font: =Font.'Segoe UI'
+                        FontWeight: =FontWeight.Semibold
+                        Size: =18
+                        TabIndex: =0
+                        Text: =If(Parent.Width < 500, "[BETA] Report", "[BETA] Sponsor Highlights · Report")
+                        Width: =If(Parent.Width < 500, 92, Parent.Width - 280)
+                  - ReviewPreviewToggle:
+                      Control: Classic/Button@2.2.0
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(255, 255, 255, 1)
+                        DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                        Fill: =RGBA(0, 102, 44, 1)
+                        FocusedBorderColor: =ColorValue("#8BFEBF")
+                        FocusedBorderThickness: =0
+                        Font: =Font.'Segoe UI'
+                        Height: =36
+                        HoverBorderColor: =Self.BorderColor
+                        HoverColor: =RGBA(255, 255, 255, 1)
+                        HoverFill: =ColorFade(Self.Fill, -12%)
+                        OnSelect: =Set(varPreviewOnly,!varPreviewOnly); Reset(ReviewGallery)
+                        PressedBorderColor: =Self.BorderColor
+                        PressedColor: =RGBA(255, 255, 255, 1)
+                        PressedFill: =ColorFade(Self.Fill, -24%)
+                        RadiusBottomLeft: =6
+                        RadiusBottomRight: =6
+                        RadiusTopLeft: =6
+                        RadiusTopRight: =6
+                        Size: =12
+                        Text: |
+                          =If(varPreviewOnly,"▤ Show all","☐ Unresolved")
+                        Tooltip: =If(varPreviewOnly,"Show all highlights","Show unresolved highlights only")
+                        Width: =112
+                  - ReviewBack:
+                      Control: Classic/Button@2.2.0
+                      Properties:
+                        BorderColor: =RGBA(0, 0, 0, 0)
+                        Color: =RGBA(255, 255, 255, 1)
+                        DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                        Fill: =ColorValue("#00662C")
+                        FocusedBorderColor: =ColorValue("#8BFEBF")
+                        FocusedBorderThickness: =0
+                        Font: =Font.'Segoe UI'
+                        Height: =36
+                        HoverBorderColor: =Self.BorderColor
+                        HoverColor: =RGBA(255, 255, 255, 1)
+                        HoverFill: =ColorFade(ColorValue("#00662C"), -12%)
+                        OnSelect: |-
+                          =Set(varLedgerBusy,true); Set(varLedgerError,""); Set(varLedgerCursor,"!"); IfError(Set(varLedgerPageResponse,ReadApprovalPageTESTONLY.Run(varLedgerBatchId,varLedgerCursor,"false")); If(varLedgerPageResponse.batchid<>varLedgerBatchId,Error({Kind:ErrorKind.Validation,Message:"Batch identity changed."})); ClearCollect(colLedgerItems,ForAll(Table(ParseJSON(varLedgerPageResponse.itemsjson)),With({i:ThisRecord.Value},{sourceItemId:Value(i.sourceItemId),projectId:Text(i.projectId),sourceSummary:Text(i.sourceSummary),decision:Text(i.decision),validationState:Text(i.validationState)}))); Set(varLedgerNextCursor,varLedgerPageResponse.nextcursor); Set(varLedgerHasMore,Lower(varLedgerPageResponse.hasmore)="true"); If(IsEmpty(colLedgerItems),Set(varLedgerError,"This Ready batch has no review items."),ClearCollect(colReviewDrafts,
+                                ForAll(colLedgerItems As li,
+                                  With({response: ReadApprovalItemTESTONLY.Run(varLedgerBatchId, Text(li.sourceItemId))},
+                                    With({r: ParseJSON(response.itemjson)},
+                                      With({src: ParseJSON(Text(r.sourcePayloadJson))},
+                                        {id: Text(li.sourceItemId), sourceItemId: li.sourceItemId,
+                                         itemETag: Text(r.itemETag), draftVersion: Value(r.draftVersion),
+                                         projectId: Text(r.projectId), kind: If(IsBlank(Text(src.entry.health.status)), "activity", "status"),
+                                         category: Text(src.entry.category), state: Text(src.entry.state),
+                                         occurred: Left(Text(src.entry.timestamp), 10),
+                                         summary: Coalesce(IfError(Text(ParseJSON(Text(r.draftProjectionJson)).entry.summary), Blank()), Text(src.entry.summary)),
+                                         items: IfError(Concat(Table(src.entry.items), Text(Value), Char(10)), ""),
+                                         eventType: Coalesce(Text(src.entry.eventType), ""), classification: "unclassified",
+                                         decision: Lower(Text(r.decision)), savedDecision: Lower(Text(r.decision)), exclusionReason: Coalesce(Text(r.decisionReason), ""),
+                                         health: Coalesce(IfError(Text(ParseJSON(Text(r.draftProjectionJson)).entry.health.status), Blank()), Text(src.entry.health.status), ""), healthReason: Coalesce(IfError(Text(ParseJSON(Text(r.draftProjectionJson)).entry.health.reason), Blank()), Text(src.entry.health.reason), ""), significance: Coalesce(IfError(Text(ParseJSON(Text(r.draftProjectionJson)).entry.significance), Blank()), Text(src.entry.significance), ""), evidence: Coalesce(IfError(Text(ParseJSON(Text(r.draftProjectionJson)).entry.evidence), Blank()), Text(src.entry.evidence), ""), riskKind: Coalesce(IfError(Text(ParseJSON(Text(r.draftProjectionJson)).entry.risk.kind), Blank()), Text(src.entry.risk.kind), ""), riskExplanation: Coalesce(IfError(Text(ParseJSON(Text(r.draftProjectionJson)).entry.risk.explanation), Blank()), Text(src.entry.risk.explanation), ""),
+                                         corrects: Coalesce(Text(r.sourceSupersedes), ""), rangeMode: "batch",
+                                         rangeStart: Left(Coalesce(Text(src.entry.range.left), Text(src.range.left), LookUp(colLedgerBatches, batchId = varLedgerBatchId).periodStartUtc), 10),
+                                         rangeEnd: Left(Coalesce(Text(src.entry.range.right), Text(src.range.right), LookUp(colLedgerBatches, batchId = varLedgerBatchId).periodEndUtc), 10),
+                                         sourceSummary: Text(src.entry.summary),
+                                         sourceItems: IfError(Concat(Table(src.entry.items), Text(Value), Char(10)), ""),
+                                         sourceDetails: If(IsBlank(Text(src.entry.health.status)), "Date " & Left(Text(src.entry.timestamp), 10) & " · Category " & Text(src.entry.category) & " · State " & Text(src.entry.state), "Health " & Text(src.entry.health.status) & " · Significance " & Text(src.entry.significance) & If(IsBlank(Text(src.entry.evidence)), "", " · Evidence " & Text(src.entry.evidence)) & If(IsBlank(Text(src.entry.risk.kind)), "", " · Risk " & Text(src.entry.risk.kind) & " — " & Text(src.entry.risk.explanation)))}
+                                      )
+                                    )
+                                  )
+                                )
+                              );
+                              Set(varReviewId, First(colReviewDrafts).id);
+                              Set(varJumpProject, First(colReviewDrafts).projectId);
+                              Set(varPreviewOnly, false);
+                              Set(varLiveReviewMode, true);
+                              Set(varFixtureMode, false);
+                               Reset(ReviewGallery); Reset(ReviewState); Set(varSummaryGeneration,Coalesce(varSummaryGeneration,0)+1); ClearCollect(colReviewAiSummaries,ForAll(colReviewDrafts As item,{id:item.id,summary:If(!IsBlank(item.summary) && item.summary<>item.sourceSummary,item.summary,""),state:If(!IsBlank(item.summary) && item.summary<>item.sourceSummary,"existing","queued")})); Set(varSummaryIndex,1); Reset(ReviewAiTimer); Set(varAiSummaryItemId,Blank()); Set(varAiSummary,Blank()); Set(varAiSummaryState,"")),Set(varLedgerError,"The batch could not load. Check reviewer access and retry.")); Set(varLedgerBusy,false)
+                        PressedBorderColor: =Self.BorderColor
+                        PressedColor: =RGBA(255, 255, 255, 1)
+                        PressedFill: =ColorFade(ColorValue("#00662C"), -24%)
+                        RadiusBottomLeft: =6
+                        RadiusBottomRight: =6
+                        RadiusTopLeft: =6
+                        RadiusTopRight: =6
+                        Size: =12
+                        Text: ="Reload"
+                        Width: =88
+            - ReviewModeNote:
+                Control: Label@2.5.1
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 0)
+                  BorderStyle: =BorderStyle.None
+                  BorderThickness: =2
+                  Color: =RGBA(51, 51, 51, 1)
+                  DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                  FocusedBorderThickness: =4
+                  Font: =Font.'Segoe UI'
+                  Height: '=If(varLiveReviewMode, If(Parent.Width < 500, 90, 52), If(Parent.Width < 500, 52, 26))   '
+                  Size: =11
+                  TabIndex: =0
+                  Text: =If(!IsBlank(varLedgerError),varLedgerError,If(varLedgerBusy,"Loading Ready batch…","Ready Batch · " & CountRows(colReviewDrafts) & If(CountRows(colReviewDrafts)=1," submission · "," submissions · ") & CountIf(colReviewDrafts,decision="unresolved") & " unresolved" & If(varLedgerHasMore," · first 100 shown","") & If(CountIf(colReviewAiSummaries,state="queued")>0," · " & CountIf(colReviewAiSummaries,state="queued") & If(CountIf(colReviewAiSummaries,state="queued")=1," AI summary pending"," AI summaries pending"),"") & If(IsBlank(varLiveSaveMessage),""," · " & varLiveSaveMessage)))
+                  Width: =Parent.Width - 16
+            - ReviewMain:
+                Control: GroupContainer@1.5.0
+                Variant: AutoLayout
+                Properties:
+                  LayoutDirection: =If(Parent.Width < 1120,LayoutDirection.Vertical,LayoutDirection.Horizontal)
+                  LayoutGap: =12
+                  LayoutMinHeight: =0
+                  LayoutMinWidth: =0
+                  LayoutOverflowY: =If(Parent.Width<1120,LayoutOverflow.Scroll,LayoutOverflow.Hide)
+                Children:
+                  - ReviewRail:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        Fill: =Color.White
+                        FillPortions: =0
+                        Height: =If(Parent.Width < 1120, 64, Parent.Height)
+                        LayoutDirection: =If(Parent.Width < 1120, LayoutDirection.Horizontal, LayoutDirection.Vertical)
+                        LayoutGap: =10
+                        LayoutMinHeight: =0
+                        LayoutMinWidth: =0
+                        PaddingLeft: =8
+                        PaddingRight: =8
+                        Width: =If(Parent.Width < 1120, Parent.Width, 224)
+                      Children:
+                        - ReviewRailTitle:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =28
+                              Size: =16
+                              TabIndex: =0
+                              Text: ="Ready batch"
+                              Visible: =ReviewMain.Width >= 1120
+                              Width: =Parent.Width - 16
+                        - ReviewPagePicker:
+                            Control: Classic/DropDown@2.3.1
+                            Properties:
+                              AccessibleLabel: ="Choose a Ready batch"
+                              BorderColor: =RGBA(166, 166, 166, 1)
+                              ChevronBackground: =RGBA(255, 255, 255, 1)
+                              ChevronDisabledBackground: =RGBA(244, 244, 244, 1)
+                              ChevronDisabledFill: =RGBA(166, 166, 166, 1)
+                              ChevronFill: =RGBA(33, 33, 33, 1)
+                              ChevronHoverBackground: =RGBA(212, 212, 212, 1)
+                              ChevronHoverFill: =RGBA(33, 33, 33, 1)
+                              Color: =RGBA(51, 51, 51, 1)
+                              Default: =With({b:LookUp(colLedgerBatches,batchId=varLedgerBatchId)},Left(b.periodStartUtc,10) & " · " & b.itemCount & " items")
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderColor: =ColorValue("#006BA6")
+                              FocusedBorderThickness: =3
+                              Font: =Font.'Segoe UI'
+                              Height: =38
+                              HoverBorderColor: =ColorValue("#006BA6")
+                              HoverColor: =RGBA(51, 51, 51, 1)
+                              HoverFill: =RGBA(212, 212, 212, 1)
+                              Items: =ForAll(colLedgerBatches As b,{batchId:b.batchId,Value:Left(b.periodStartUtc,10) & " · " & b.itemCount & " items"})
+                              Items.Value: =Value
+                              OnChange: =If(!IsBlank(Self.Selected.batchId) && Self.Selected.batchId<>varLedgerBatchId,Set(varLedgerBatchId,Self.Selected.batchId); Select(ReviewBack))
+                              PaddingBottom: =5
+                              PaddingLeft: =12
+                              PaddingRight: =5
+                              PaddingTop: =5
+                              PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                              PressedColor: =RGBA(255, 255, 255, 1)
+                              PressedFill: =RGBA(73, 130, 5, 1)
+                              SelectionColor: =RGBA(255, 255, 255, 1)
+                              SelectionFill: =RGBA(73, 130, 5, 1)
+                              Size: =12
+                              Width: =Parent.Width - 16
+                        - ReviewPageListHeading:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =24
+                              LayoutMinHeight: =16
+                              LayoutMinWidth: =16
+                              Text: ="Report pages"
+                        - Gallery1:
+                            Control: Gallery@2.15.0
+                            Variant: BrowseLayout_Vertical_ThreeTextVariant_ver5.0
+                            Properties:
+                              BorderColor: =RGBA(166, 166, 166, 1)
+                              Items: =ForAll(Distinct(colReviewDrafts, projectId) As p, With({pid:p.Value}, {pageId:pid, label:If(pid="general","General Updates",pid), unresolved:CountRows(Filter(colReviewDrafts,projectId=pid && !(decision in ["approve","exclude"]))), approved:CountRows(Filter(colReviewDrafts,projectId=pid && decision="approve")), excluded:CountRows(Filter(colReviewDrafts,projectId=pid && decision="exclude"))}))
+                              OnSelect: =Set(varJumpProject, ThisItem.pageId); Set(varReviewId, LookUp(colReviewDrafts, projectId=varJumpProject).id); Reset(ReviewState); Reset(ReviewGallery); Reset(ReviewReportAiContext)
+                              Width: =Parent.Width - 16
+                            Children:
+                              - Title1:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 1)
+                                    Color: =RGBA(50, 49, 48, 1)
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =If(ThisItem.IsSelected, FontWeight.Semibold, FontWeight.Normal)
+                                    Height: =Self.Size * 1.8
+                                    OnSelect: =Select(Parent)
+                                    PaddingBottom: =0
+                                    PaddingLeft: =0
+                                    PaddingRight: =0
+                                    PaddingTop: =0
+                                    Text: =ThisItem.label
+                                    VerticalAlign: =VerticalAlign.Top
+                                    Width: =Parent.TemplateWidth - 86
+                                    X: =16
+                                    Y: =(Parent.TemplateHeight - (Self.Size*1.8 + Subtitle1.Size*1.8 + 2 + Body1.Size*1.8)) / 2
+                              - Subtitle1:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =If(ThisItem.IsSelected, FontWeight.Semibold, FontWeight.Normal)
+                                    Height: =Self.Size * 1.8
+                                    OnSelect: =Select(Parent)
+                                    PaddingBottom: =0
+                                    PaddingLeft: =0
+                                    PaddingRight: =0
+                                    PaddingTop: =0
+                                    Size: =11
+                                    Text: |-
+                                      ="Items: " & (ThisItem.unresolved + ThisItem.approved + ThisItem.excluded)
+                                    VerticalAlign: =VerticalAlign.Top
+                                    Width: =Title1.Width
+                                    X: =Title1.X
+                                    Y: =Title1.Y + Title1.Height
+                              - Body1:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =If(ThisItem.IsSelected, FontWeight.Semibold, FontWeight.Normal)
+                                    Height: =Self.Size * 1.8
+                                    OnSelect: =Select(Parent)
+                                    PaddingBottom: =0
+                                    PaddingLeft: =0
+                                    PaddingRight: =0
+                                    PaddingTop: =0
+                                    Size: =11
+                                    Text: |-
+                                      ="🟠 " & ThisItem.unresolved & "   🟢 " & ThisItem.approved & "   🔴 " & ThisItem.excluded
+                                    Tooltip: |-
+                                      ="Orange: needs review; green: approved; red: excluded"
+                                    VerticalAlign: =VerticalAlign.Top
+                                    Width: =Parent.Width - 32
+                                    X: =Title1.X
+                                    Y: =Subtitle1.Y + Subtitle1.Height
+                              - NextArrow1:
+                                  Control: Classic/Icon@2.5.0
+                                  Properties:
+                                    AccessibleLabel: =Self.Tooltip
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(166, 166, 166, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    DisabledColor: =RGBA(220, 220, 220, 1)
+                                    DisabledFill: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Height: =50
+                                    HoverBorderColor: =RGBA(0, 0, 0, 0)
+                                    HoverColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    HoverFill: =RGBA(0, 0, 0, 0)
+                                    Icon: =Icon.ChevronRight
+                                    OnSelect: =Select(Parent)
+                                    PaddingBottom: =16
+                                    PaddingLeft: =16
+                                    PaddingRight: =16
+                                    PaddingTop: =16
+                                    PressedBorderColor: =RGBA(0, 0, 0, 0)
+                                    PressedColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    PressedFill: =RGBA(0, 0, 0, 0)
+                                    Tooltip: ="View item details"
+                                    Width: =50
+                                    X: =Parent.TemplateWidth - Self.Width - 12
+                                    Y: =(Parent.TemplateHeight / 2) - (Self.Height / 2)
+                              - Separator1:
+                                  Control: Rectangle@2.3.0
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    Fill: =RGBA(255, 255, 255, 1)
+                                    Height: =8
+                                    OnSelect: =Select(Parent)
+                                    Width: =Parent.TemplateWidth
+                                    Y: =Parent.TemplateHeight - Self.Height
+                              - Rectangle1:
+                                  Control: Rectangle@2.3.0
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    Fill: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    Height: =Parent.TemplateHeight - Separator1.Height
+                                    OnSelect: =Select(Parent)
+                                    Visible: =ThisItem.IsSelected
+                                    Width: =4
+                  - ReviewReport:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        Fill: =Color.White
+                        FillPortions: =If(Parent.Width < 1120,0,2)
+                        Height: =If(Parent.Width<500,360,If(Parent.Width<1120,400,Parent.Height))
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutMinHeight: =220
+                        LayoutMinWidth: =0
+                        PaddingBottom: =8
+                        PaddingLeft: =8
+                        PaddingRight: =8
+                        PaddingTop: =8
+                        Width: =If(Parent.Width < 1120,Parent.Width,Parent.Width*0.55)
+                      Children:
+                        - ReviewReportTitle:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =If(Parent.Width<500,52,32)
+                              Size: =16
+                              TabIndex: =0
+                              Text: "=If(varLiveReviewMode, With({b: LookUp(colLedgerBatches, batchId = varLedgerBatchId)}, Text(DateTimeValue(b.periodStartUtc), \"mmm d, yyyy\") & \" – \" & Text(DateTimeValue(b.periodEndUtc), \"mmm d, yyyy\") & \" · Report preview\"), If(Parent.Width < 500, \"October 2026\" & Char(10) & \"01OCT–01NOV\", \"October 2026 · Report preview · 01OCT–01NOV\"))   "
+                              Width: =Parent.Width - 16
+                        - ReviewJumpNote:
+                            Control: Label@2.5.1
+                            Properties:
+                              AutoHeight: =true
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              Size: =10
+                              TabIndex: =0
+                              Text: =If(Coalesce(varJumpProject,"general")="general","Report order", "Focused page first · other report pages follow. Choose General to restore report order.")
+                              Width: =Parent.Width - 16
+                        - ReviewCanvasSummaryLabel:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =22
+                              Size: =12
+                              TabIndex: =0
+                              Text: ="Edit selected summary in report"
+                              Visible: =false
+                              Width: =Parent.Width - 16
+                        - ReviewCanvasSummaryInput:
+                            Control: CanvasComponent
+                            ComponentName: cmpNarrative
+                            ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+                            Properties:
+                              AccessibleLabel: ="Edit selected summary in report"
+                              DefaultValue: =LookUp(colReviewDrafts,id=varReviewId).summary
+                              Disabled: =false
+                              ErrorText: =ReviewValidation.Text
+                              Height: =110
+                              HelpText: ="Edit the summary shown in this report. Maximum 1,200 characters."
+                              Label: ="Edit selected summary in report"
+                              OnChange: =If(Self.Value<>LookUp(colReviewDrafts,id=varReviewId).summary,UpdateIf(colReviewDrafts,id=varReviewId,{summary:Self.Value,decision:"unresolved"}); Reset(ReviewSummaryInput))
+                              Required: =true
+                              Visible: =false
+                              Width: =Parent.Width - 16
+                        - ReviewGallery:
+                            Control: Gallery@2.15.0
+                            Variant: BrowseLayout_Flexible_SocialFeed_ver5.0
+                            Properties:
+                              AccessibleLabel: '=If(varLiveReviewMode, "Ready batch report updates", "Fixture report updates")   '
+                              BorderColor: =RGBA(166, 166, 166, 1)
+                              Default: =LookUp(colReviewDrafts,id=varReviewId)
+                              Items: =SortByColumns(AddColumns(Filter(colReviewDrafts,!varPreviewOnly || decision="unresolved" || (decision="exclude" && IsBlank(Trim(exclusionReason)))),sortPage,If(projectId=Coalesce(varJumpProject,"general"),-1,0),sortState,If(projectId="general","",state),sortDate,If(projectId="general",-Value(Substitute(occurred,"-","")),Value(Substitute(occurred,"-","")))),"sortPage",SortOrder.Ascending,"projectId",SortOrder.Ascending,"kind",SortOrder.Descending,"sortState",SortOrder.Ascending,"sortDate",SortOrder.Ascending,"id",SortOrder.Ascending)
+                              LayoutMinHeight: =120
+                              LayoutMinWidth: =0
+                              OnSelect: =Set(varReviewId,ThisItem.id); Reset(ReviewState); Reset(ReviewReportAiContext)
+                              TabIndex: =0
+                              TemplateFill: =If(ThisItem.savedDecision="exclude",ColorValue("#F0F2F1"),If(ThisItem.id=varReviewId,ColorValue("#E9F4ED"),ColorValue("#F7F9F8")))
+                              TemplatePadding: =14
+                              TemplateSize: =If(Parent.Width < 500, 500, 360)
+                              Width: =Parent.Width - 16
+                            Children:
+                              - ReviewCardTitle:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =If(ThisItem.savedDecision="exclude",ColorValue("#7B8580"),ColorValue("#123B31"))
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    OnSelect: =Select(Parent)
+                                    Size: =15
+                                    TabIndex: =0
+                                    Text: =If(varLiveReviewMode,If(ThisItem.projectId="general","General updates",ThisItem.projectId),Switch(ThisItem.id,"general-progress-1","General updates","atlas-status-1","Project Atlas · Accessible research data services","borealis-status-1","Project Borealis · Scientific software sustainability",ThisItem.projectId))
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =12
+                                    Y: =14
+                              - ReviewCardPageMeta:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =If(ThisItem.savedDecision="exclude",ColorValue("#909A95"),ColorValue("#61746B"))
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    OnSelect: =Select(Parent)
+                                    Size: =11
+                                    TabIndex: =0
+                                    Text: |-
+                                      =If(ThisItem.kind="status","Project status · " & ThisItem.health & " · " & ThisItem.occurred & If(varLiveReviewMode,Char(10) & "Reporting period: " & ThisItem.rangeStart & " to " & ThisItem.rangeEnd,Switch(ThisItem.id,"atlas-status-1",Char(10) & "Keywords: accessibility · research data" & Char(10) & "PI: Avery Chen · Sponsor: Office of Science","borealis-status-1",Char(10) & "Keywords: software · sustainability" & Char(10) & "PI: Morgan Rivera · Sponsor: Advanced Scientific Computing Research","")),Upper(ThisItem.state) & " · " & ThisItem.category & " · " & ThisItem.occurred)
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =12
+                                    Y: =ReviewCardTitle.Y + ReviewCardTitle.Height + 4
+                              - ReviewCardSummary:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =If(ThisItem.savedDecision="exclude",ColorValue("#7B8580"),RGBA(51,51,51,1))
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    LineHeight: =1.3
+                                    OnSelect: =Select(Parent)
+                                    TabIndex: =0
+                                    Text: =ThisItem.summary
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =12
+                                    Y: =ReviewCardPageMeta.Y + ReviewCardPageMeta.Height + 8
+                              - ReviewCardMeta:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =If(ThisItem.savedDecision="exclude",ColorValue("#68736D"),Switch(ThisItem.decision,"approve",ColorValue("#123B31"),"exclude",ColorValue("#8B1D18"),ColorValue("#704000")))
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    Fill: =If(ThisItem.savedDecision="exclude",ColorValue("#E1E5E3"),Switch(ThisItem.decision,"approve",ColorValue("#D9EDDF"),"exclude",ColorValue("#FCE8E6"),ColorValue("#FFF0D5")))
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    OnSelect: =Select(Parent)
+                                    PaddingBottom: =6
+                                    PaddingLeft: =10
+                                    PaddingRight: =10
+                                    PaddingTop: =6
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: =Switch(ThisItem.decision,"approve","✓ APPROVED","exclude","✕ EXCLUDED","● NEEDS REVIEW") & If(ThisItem.sourceSummary <> ThisItem.summary," · EDITED","")
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =12
+                                    Y: =ReviewCardSummary.Y + ReviewCardSummary.Height + 12
+                              - ReviewCardBody:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =If(ThisItem.savedDecision="exclude",ColorValue("#89938E"),ColorValue("#52685F"))
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    LineHeight: =1.3
+                                    OnSelect: =Select(Parent)
+                                    PaddingBottom: =14
+                                    Size: =11
+                                    TabIndex: =0
+                                    Text: |-
+                                      =If(ThisItem.kind="activity",If(IsBlank(ThisItem.items),"","• " & Substitute(ThisItem.items,Char(10),Char(10) & "• ")) & If(IsBlank(ThisItem.eventType),"",Char(10) & "Event: " & ThisItem.eventType) & If(ThisItem.classification="unclassified","",Char(10) & "Classification: " & ThisItem.classification),"Significance: " & ThisItem.significance & If(IsBlank(ThisItem.healthReason),"",Char(10) & "Health context: " & ThisItem.healthReason) & If(IsBlank(ThisItem.evidence),"",Char(10) & "Evidence: " & ThisItem.evidence) & If(IsBlank(ThisItem.riskKind),"",Char(10) & "Risk or dependency (" & ThisItem.riskKind & "): " & ThisItem.riskExplanation))
+                                    Width: =Parent.TemplateWidth - 24
+                                    X: =12
+                                    Y: =ReviewCardMeta.Y + ReviewCardMeta.Height + 8
+                        - ReviewGalleryBottomSpacer:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              Height: =24
+                              LayoutMinHeight: =16
+                              LayoutMinWidth: =16
+                              Text: =""
+                  - ReviewInspector:
+                      Control: GroupContainer@1.5.0
+                      Variant: AutoLayout
+                      Properties:
+                        Fill: =Color.White
+                        FillPortions: =If(Parent.Width < 1120,0,1)
+                        Height: =If(Parent.Width<500,950,If(Parent.Width<1120,600,Parent.Height))
+                        LayoutDirection: =LayoutDirection.Vertical
+                        LayoutGap: =12
+                        LayoutMinHeight: =220
+                        LayoutMinWidth: =0
+                        LayoutOverflowY: =LayoutOverflow.Scroll
+                        PaddingLeft: =16
+                        PaddingRight: =16
+                        PaddingTop: =12
+                        Width: =If(Parent.Width < 1120, Parent.Width, 380)
+                      Children:
+                        - ReviewInspectorTitle:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =36
+                              Size: =16
+                              TabIndex: =0
+                              Text: ="Edit Submission"
+                              Width: =Parent.Width - 16
+                        - ReviewSelectedMeta:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              Height: =32
+                              Size: =11
+                              TabIndex: =0
+                              Text: "=If(varLiveReviewMode, With({item: LookUp(colReviewDrafts, id = varReviewId)}, \"Source item \" & item.sourceItemId & \" · Draft v\" & item.draftVersion & \" · ETag \" & item.itemETag), LookUp(colReviewDrafts, id = varReviewId).id & \" · Local fixture draft\") "
+                              Width: =Parent.Width - 16
+                        - ReviewSourceSummary:
+                            Control: Label@2.5.1
+                            Properties:
+                              AutoHeight: =true
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              Size: =11
+                              TabIndex: =0
+                              Text: |-
+                                = "Original: " & LookUp(colReviewDrafts,id=varReviewId).sourceSummary
+                              Width: =Parent.Width - 24
+                        - ReviewSummaryLabel:
+                            Control: Label@2.5.1
+                            Properties:
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              FontWeight: =FontWeight.Semibold
+                              Height: =26
+                              Size: =12
+                              TabIndex: =0
+                              Text: ="Summary · 1,200 characters"
+                              Width: =Parent.Width - 16
+                        - ReviewSummaryInput:
+                            Control: Classic/TextInput@2.3.2
+                            Properties:
+                              AccessibleLabel: ="Edit summary"
+                              BorderColor: =RGBA(166, 166, 166, 1)
+                              Color: =RGBA(51, 51, 51, 1)
+                              Default: =LookUp(colReviewDrafts,id=varReviewId).summary
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderColor: =ColorValue("#006BA6")
+                              FocusedBorderThickness: =3
+                              Font: =Font.'Segoe UI'
+                              Height: =110
+                              HoverBorderColor: =ColorValue("#006BA6")
+                              HoverColor: =RGBA(51, 51, 51, 1)
+                              HoverFill: =RGBA(255, 255, 255, 1)
+                              Mode: =TextMode.MultiLine
+                              OnChange: =If(Self.Text<>LookUp(colReviewDrafts,id=varReviewId).summary,UpdateIf(colReviewDrafts,id=varReviewId,{summary:Self.Text,decision:"unresolved"}))
+                              PaddingBottom: =12
+                              PaddingRight: =12
+                              PaddingTop: =12
+                              PressedBorderColor: =RGBA(73, 130, 5, 1)
+                              PressedColor: =RGBA(51, 51, 51, 1)
+                              PressedFill: =RGBA(255, 255, 255, 1)
+                              RadiusBottomLeft: =0
+                              RadiusBottomRight: =0
+                              RadiusTopLeft: =0
+                              RadiusTopRight: =0
+                              Size: =11
+                              Width: =Parent.Width - 24
+                        - ReviewValidation:
+                            Control: Label@2.5.1
+                            Properties:
+                              AutoHeight: =true
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              Size: =11
+                              TabIndex: =0
+                              Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(Trim(item.summary)),"Summary is required. ",Len(item.summary)>1200,"Summary exceeds 1,200 characters. ",""))
+                              Width: =Parent.Width - 24
+                        - ReviewValidationSummary:
+                            Control: Label@2.5.1
+                            Properties:
+                              AutoHeight: =true
+                              BorderColor: =RGBA(0, 0, 0, 0)
+                              BorderStyle: =BorderStyle.None
+                              BorderThickness: =2
+                              Color: =RGBA(51, 51, 51, 1)
+                              DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                              FocusedBorderThickness: =4
+                              Font: =Font.'Segoe UI'
+                              Size: =11
+                              TabIndex: =0
+                              Text: =Trim(ReviewValidation.Text & " " & If(LookUp(colReviewDrafts,id=varReviewId).kind="activity",ReviewActivityProblems.Text,ReviewStatusProblems.Text & " " & ReviewRangeError.Text) & " " & ReviewExclusionError.Text)
+                              Visible: =false
+                              Width: =Parent.Width - 24
+                        - ReviewValidationMessage:
+                            Control: CanvasComponent
+                            ComponentName: cmpStatusMessage
+                            ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+                            Properties:
+                              Height: =If(IsBlank(ReviewValidationSummary.Text),0,Max(80,RoundUp(Len(ReviewValidationSummary.Text)/If(App.Width < 500,26,52),0)*20+52))
+                              Message: =ReviewValidationSummary.Text
+                              State: ="Error"
+                              Visible: =!IsBlank(ReviewValidationSummary.Text)
+                              Width: =Parent.Width - 24
+                        - ReviewDecisionFields:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =Sum(Filter(Table({h:ReviewDecisionHeading.Height,v:ReviewDecisionHeading.Visible},{h:ReviewDecisionState.Height,v:ReviewDecisionState.Visible},{h:ReviewDecisionButtons.Height,v:ReviewDecisionButtons.Visible},{h:ReviewExclusionLabel.Height,v:ReviewExclusionLabel.Visible},{h:ReviewExclusionReason.Height,v:ReviewExclusionReason.Visible},{h:ReviewIncludeState.Height,v:ReviewIncludeState.Visible},{h:ReviewExclusionError.Height,v:ReviewExclusionError.Visible},{h:ReviewNextProblem.Height,v:ReviewNextProblem.Visible}),v),h+6)+8
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =12
+                              PaddingRight: =12
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewDecisionHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Size: =14
+                                    TabIndex: =0
+                                    Text: '=If(varLiveReviewMode, "Review decision · saved to ledger", "Review decision · fixture only")    '
+                                    Width: =Parent.Width - 16
+                              - ReviewDecisionState:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =26
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: |-
+                                      ="Current: " & Switch(LookUp(colReviewDrafts,id=varReviewId).decision,"approve","Approved","exclude","Excluded","Needs review") & If(LookUp(colReviewDrafts,id=varReviewId).sourceSummary<>LookUp(colReviewDrafts,id=varReviewId).summary," · Edited","")
+                                    Width: =Parent.Width - 16
+                              - ReviewDecisionButtons:
+                                  Control: GroupContainer@1.5.0
+                                  Variant: AutoLayout
+                                  Properties:
+                                    FillPortions: =0
+                                    Height: =If(Parent.Width < 320, 124, 44)
+                                    LayoutDirection: =If(Parent.Width < 320, LayoutDirection.Vertical, LayoutDirection.Horizontal)
+                                    LayoutGap: =10
+                                    LayoutMinHeight: =44
+                                    Width: =Parent.Width - 16
+                                  Children:
+                                    - ReviewUnresolved:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          BorderColor: =ColorValue("#8A4B08")
+                                          BorderThickness: =1
+                                          Color: =If(LookUp(colReviewDrafts,id=varReviewId).decision="unresolved",Color.White,ColorValue("#8A4B08"))
+                                          DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                          Fill: =If(LookUp(colReviewDrafts,id=varReviewId).decision="unresolved",ColorValue("#8A4B08"),ColorValue("#F6F7F8"))
+                                          FillPortions: =1
+                                          FocusedBorderColor: =ColorValue("#006BA6")
+                                          FocusedBorderThickness: =0
+                                          Font: =Font.'Segoe UI'
+                                          Height: =36
+                                          HoverBorderColor: =Self.BorderColor
+                                          HoverColor: =Color.White
+                                          HoverFill: =ColorValue("#8A4B08")
+                                          LayoutMinWidth: =90
+                                          OnSelect: =UpdateIf(colReviewDrafts,id=varReviewId,{decision:"unresolved"})
+                                          PressedBorderColor: =Self.BorderColor
+                                          PressedColor: =RGBA(255, 255, 255, 1)
+                                          PressedFill: =ColorValue("#6B3906")
+                                          RadiusBottomLeft: =6
+                                          RadiusBottomRight: =6
+                                          RadiusTopLeft: =6
+                                          RadiusTopRight: =6
+                                          Size: =11
+                                          Text: ="Unresolved"
+                                          Tooltip: ="Mark as needs review"
+                                          Width: =If(Parent.Width<420,Parent.Width,100)
+                                    - ReviewApprove:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          BorderColor: =ColorValue("#00662C")
+                                          BorderThickness: =1
+                                          Color: =If(LookUp(colReviewDrafts,id=varReviewId).decision="approve",Color.White,ColorValue("#00662C"))
+                                          DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                          DisplayMode: =If(IsBlank(ReviewValidation.Text) && If(LookUp(colReviewDrafts,id=varReviewId).kind="activity",IsBlank(ReviewActivityProblems.Text),IsBlank(ReviewStatusProblems.Text) && IsBlank(ReviewRangeError.Text)),DisplayMode.Edit,DisplayMode.Disabled)
+                                          Fill: =If(LookUp(colReviewDrafts,id=varReviewId).decision="approve",ColorValue("#00662C"),ColorValue("#F6F7F8"))
+                                          FillPortions: =1
+                                          FocusedBorderColor: =ColorValue("#006BA6")
+                                          FocusedBorderThickness: =0
+                                          Font: =Font.'Segoe UI'
+                                          Height: =36
+                                          HoverBorderColor: =Self.BorderColor
+                                          HoverColor: =Color.White
+                                          HoverFill: =ColorValue("#00662C")
+                                          LayoutMinWidth: =84
+                                          OnSelect: =UpdateIf(colReviewDrafts,id=varReviewId,{decision:"approve"})
+                                          PressedBorderColor: =Self.BorderColor
+                                          PressedColor: =RGBA(255, 255, 255, 1)
+                                          PressedFill: =ColorValue("#004D21")
+                                          RadiusBottomLeft: =6
+                                          RadiusBottomRight: =6
+                                          RadiusTopLeft: =6
+                                          RadiusTopRight: =6
+                                          Size: =11
+                                          Text: ="Approve"
+                                          Width: =If(Parent.Width<420,Parent.Width,100)
+                                    - ReviewExclude:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          BorderColor: =ColorValue("#A4262C")
+                                          BorderThickness: =1
+                                          Color: =If(LookUp(colReviewDrafts,id=varReviewId).decision="exclude",Color.White,ColorValue("#A4262C"))
+                                          DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                          Fill: =If(LookUp(colReviewDrafts,id=varReviewId).decision="exclude",ColorValue("#A4262C"),ColorValue("#F6F7F8"))
+                                          FillPortions: =1
+                                          FocusedBorderColor: =ColorValue("#006BA6")
+                                          FocusedBorderThickness: =0
+                                          Font: =Font.'Segoe UI'
+                                          Height: =36
+                                          HoverBorderColor: =Self.BorderColor
+                                          HoverColor: =Color.White
+                                          HoverFill: =ColorValue("#A4262C")
+                                          LayoutMinWidth: =84
+                                          OnSelect: =UpdateIf(colReviewDrafts,id=varReviewId,{decision:"exclude"})
+                                          PressedBorderColor: =Self.BorderColor
+                                          PressedColor: =RGBA(255, 255, 255, 1)
+                                          PressedFill: =ColorValue("#7D1D22")
+                                          RadiusBottomLeft: =6
+                                          RadiusBottomRight: =6
+                                          RadiusTopLeft: =6
+                                          RadiusTopRight: =6
+                                          Size: =11
+                                          Text: ="Exclude"
+                                          Width: =If(Parent.Width<420,Parent.Width,100)
+                              - ReviewExclusionLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Exclusion reason · required when excluded"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).decision="exclude"
+                                    Width: =Parent.Width - 16
+                              - ReviewExclusionReason:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Exclusion reason"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).exclusionReason
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =72
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(255, 255, 255, 1)
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =UpdateIf(colReviewDrafts,id=varReviewId,{exclusionReason:Self.Text})
+                                    PressedBorderColor: =RGBA(73, 130, 5, 1)
+                                    PressedColor: =RGBA(51, 51, 51, 1)
+                                    PressedFill: =RGBA(255, 255, 255, 1)
+                                    RadiusBottomLeft: =0
+                                    RadiusBottomRight: =0
+                                    RadiusTopLeft: =0
+                                    RadiusTopRight: =0
+                                    Size: =11
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).decision="exclude"
+                                    Width: =Parent.Width - 16
+                              - ReviewIncludeState:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(item.decision="exclude" && IsBlank(Trim(item.exclusionReason)),"Exclusion pending · add a reason; still included",item.decision="exclude","Excluded from preview; audit card remains available","Included in preview"))
+                                    Width: =Parent.Width - 16
+                              - ReviewExclusionError:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =11
+                                    TabIndex: =0
+                                    Text: =If(LookUp(colReviewDrafts,id=varReviewId).decision="exclude" && IsBlank(Trim(LookUp(colReviewDrafts,id=varReviewId).exclusionReason)),"An exclusion reason is required.","")
+                                    Width: =Parent.Width - 16
+                              - ReviewNextProblem:
+                                  Control: Classic/Button@2.2.0
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    Color: =RGBA(255, 255, 255, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    Fill: =ColorValue("#00662C")
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =0
+                                    Font: =Font.'Segoe UI'
+                                    Height: =36
+                                    HoverBorderColor: =Self.BorderColor
+                                    HoverColor: =RGBA(255, 255, 255, 1)
+                                    HoverFill: =ColorFade(ColorValue("#00662C"), -12%)
+                                    OnSelect: "=If(\n  varLiveReviewMode,\n  With({item: LookUp(colReviewDrafts, id = varReviewId)},\n    If(\n      IsBlank(item.sourceItemId),\n      Set(varLiveSaveMessage, \"Select a live review item first.\"),\n      item.decision = \"exclude\" && IsBlank(Trim(item.exclusionReason)),\n      Set(varLiveSaveMessage, \"Add an exclusion reason before saving.\"),\n      Set(varLiveSaveMessage, \"Saving…\");\n      IfError(\n        Set(varLiveSaveResponse,\n          SaveApprovalItemTESTONLY.Run({text: JSON({\n            batchId: varLedgerBatchId,\n            sourceItemId: Text(item.sourceItemId),\n            expectedItemETag: item.itemETag,\n            expectedDraftVersion: Text(item.draftVersion),\n            summary: Trim(item.summary),\n            decision: item.decision,\n            decisionReason: Trim(item.exclusionReason)\n          }, JSONFormat.Compact)})\n        );\n        Switch(\n          Lower(Text(varLiveSaveResponse.status)),\n          \"saved\",\n          With({saved: ParseJSON(Text(varLiveSaveResponse.itemjson))},\n            UpdateIf(colReviewDrafts, id = varReviewId, {\n              itemETag: Coalesce(Text(saved.itemETag), Text(saved.'@odata.etag')),\n              draftVersion: Coalesce(Value(saved.draftVersion), Value(saved.DraftVersion)), savedDecision: item.decision\n            });\n            Set(varLiveSaveMessage, \"Saved to review ledger.\"); If(item.decision=\"approve\",Select(ReviewAiGenerate))\n          ),\n          \"unchanged\",\n          With({saved: ParseJSON(Text(varLiveSaveResponse.itemjson))},\n            UpdateIf(colReviewDrafts, id = varReviewId, {\n              itemETag: Coalesce(Text(saved.itemETag), Text(saved.'@odata.etag')),\n              draftVersion: Coalesce(Value(saved.draftVersion), Value(saved.DraftVersion)), savedDecision: item.decision\n            });\n            Set(varLiveSaveMessage, \"Saved; exact reread confirmed no change.\"); If(item.decision=\"approve\",Select(ReviewAiGenerate))\n          ),\n          \"conflict\", Set(varLiveSaveMessage, \"Conflict: another reviewer saved first. Your local edit is retained; reload and compare before retrying.\"),\n          \"invalid\", Set(varLiveSaveMessage, \"Review validation failed. Your local edit is retained.\"),\n          \"batch-not-ready\", Set(varLiveSaveMessage, \"This batch is locked. Your local edit is retained.\"),\n          Set(varLiveSaveMessage, \"The save could not be confirmed. Your local edit is retained.\")\n        ),\n        Set(varLiveSaveMessage, \"The save could not be confirmed. Your local edit is retained.\")\n      )\n    )\n  ),\n  Set(varReviewId, Coalesce(First(Filter(colReviewDrafts, id <> varReviewId && (decision = \"unresolved\" || (decision = \"exclude\" && IsBlank(Trim(exclusionReason)))))).id, varReviewId));\n  Set(varJumpProject, LookUp(colReviewDrafts, id = varReviewId).projectId);\n  Reset(ReviewState); Reset(ReviewGallery)\n)       "
+                                    PressedBorderColor: =Self.BorderColor
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =ColorFade(ColorValue("#00662C"), -24%)
+                                    RadiusBottomLeft: =6
+                                    RadiusBottomRight: =6
+                                    RadiusTopLeft: =6
+                                    RadiusTopRight: =6
+                                    Size: =12
+                                    Text: =If(varLiveSaveMessage="Saving…","◌ Saving…","✓ Save")
+                                    Width: =Parent.Width - 16
+                        - ReviewActivityFields:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =If(App.Width < 500,952,860)
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              Visible: '=!varLiveReviewMode && LookUp(colReviewDrafts, id = varReviewId).kind = "activity"   '
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewActivityHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Size: =14
+                                    TabIndex: =0
+                                    Text: ="Activity details"
+                                    Width: =Parent.Width - 16
+                              - ReviewRouting:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: |-
+                                      ="Destination: " & Switch(LookUp(colReviewDrafts,id=varReviewId).projectId,"general","General updates","project-atlas","Project Atlas","Project Borealis") & " · Source routing locked"
+                                    Width: =Parent.Width - 16
+                              - ReviewDateLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Activity date"
+                                    Width: =Parent.Width - 16
+                              - ReviewDate:
+                                  Control: Classic/DatePicker@2.6.0
+                                  Properties:
+                                    AccessibleLabel: ="Activity date"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DefaultDate: =DateValue(LookUp(colReviewDrafts,id=varReviewId).occurred)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    IconBackground: =RGBA(73, 130, 5, 1)
+                                    IconFill: =RGBA(255, 255, 255, 1)
+                                    OnChange: =If(Text(Self.SelectedDate,"yyyy-mm-dd")<>LookUp(colReviewDrafts,id=varReviewId).occurred,UpdateIf(colReviewDrafts,id=varReviewId,{occurred:Text(Self.SelectedDate,"yyyy-mm-dd"),decision:"unresolved"}))
+                                    PaddingTop: =5
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewCategoryLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Category"
+                                    Width: =Parent.Width - 16
+                              - ReviewCategory:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Category"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    ChevronBackground: =RGBA(255, 255, 255, 1)
+                                    ChevronDisabledBackground: =RGBA(244, 244, 244, 1)
+                                    ChevronDisabledFill: =RGBA(166, 166, 166, 1)
+                                    ChevronFill: =RGBA(33, 33, 33, 1)
+                                    ChevronHoverBackground: =RGBA(212, 212, 212, 1)
+                                    ChevronHoverFill: =RGBA(33, 33, 33, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).category
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(212, 212, 212, 1)
+                                    Items: =["administration","collaboration","data","engagement","funding","infrastructure","method","other","personnel","publication","research","software"]
+                                    Items.Value: =Value
+                                    OnChange: =If(Self.Selected.Value<>LookUp(colReviewDrafts,id=varReviewId).category,UpdateIf(colReviewDrafts,id=varReviewId,{category:Self.Selected.Value,decision:"unresolved"}))
+                                    PaddingBottom: =5
+                                    PaddingLeft: =12
+                                    PaddingRight: =5
+                                    PaddingTop: =5
+                                    PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =RGBA(73, 130, 5, 1)
+                                    SelectionColor: =RGBA(255, 255, 255, 1)
+                                    SelectionFill: =RGBA(73, 130, 5, 1)
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewStateLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Status group"
+                                    Width: =Parent.Width - 16
+                              - ReviewState:
+                                  Control: CanvasComponent
+                                  ComponentName: cmpSegmentedChoice
+                                  ComponentLibraryUniqueName: cr1d0_sponsorhighlightsuitestonly_cf112
+                                  Properties:
+                                    AccessibleLabel: ="Status group"
+                                    Choices: =Table({Key:"completed",Label:"Completed"},{Key:"in-progress",Label:"In progress"},{Key:"upcoming",Label:"Upcoming"})
+                                    DefaultKey: =LookUp(colReviewDrafts,id=varReviewId).state
+                                    Disabled: =false
+                                    ErrorText: =""
+                                    Height: =If(App.Width < 500,140,48)
+                                    HelpText: =
+                                    Label: ="Status group"
+                                    OnChange: =If(Self.SelectedKey<>LookUp(colReviewDrafts,id=varReviewId).state,UpdateIf(colReviewDrafts,id=varReviewId,{state:Self.SelectedKey,decision:"unresolved"}))
+                                    Required: =true
+                                    SecondChoiceTooltip: '=""  '
+                                    Width: =Parent.Width - 16
+                              - ReviewEventLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Event type · optional"
+                                    Width: =Parent.Width - 16
+                              - ReviewEvent:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Event type"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    ChevronBackground: =RGBA(255, 255, 255, 1)
+                                    ChevronDisabledBackground: =RGBA(244, 244, 244, 1)
+                                    ChevronDisabledFill: =RGBA(166, 166, 166, 1)
+                                    ChevronFill: =RGBA(33, 33, 33, 1)
+                                    ChevronHoverBackground: =RGBA(212, 212, 212, 1)
+                                    ChevronHoverFill: =RGBA(33, 33, 33, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).eventType
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(212, 212, 212, 1)
+                                    Items: =["","conference","exhibition","meeting","other","presentation","tour","training","workshop"]
+                                    Items.Value: =Value
+                                    OnChange: =If(Self.Selected.Value<>LookUp(colReviewDrafts,id=varReviewId).eventType,UpdateIf(colReviewDrafts,id=varReviewId,{eventType:Self.Selected.Value,decision:"unresolved"}))
+                                    PaddingBottom: =5
+                                    PaddingLeft: =12
+                                    PaddingRight: =5
+                                    PaddingTop: =5
+                                    PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =RGBA(73, 130, 5, 1)
+                                    SelectionColor: =RGBA(255, 255, 255, 1)
+                                    SelectionFill: =RGBA(73, 130, 5, 1)
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewClassificationLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Classification · policy checked"
+                                    Width: =Parent.Width - 16
+                              - ReviewClassification:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Classification"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    ChevronBackground: =RGBA(255, 255, 255, 1)
+                                    ChevronDisabledBackground: =RGBA(244, 244, 244, 1)
+                                    ChevronDisabledFill: =RGBA(166, 166, 166, 1)
+                                    ChevronFill: =RGBA(33, 33, 33, 1)
+                                    ChevronHoverBackground: =RGBA(212, 212, 212, 1)
+                                    ChevronHoverFill: =RGBA(33, 33, 33, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).classification
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(212, 212, 212, 1)
+                                    Items: =["unclassified","confidential","secret","topsecret"]
+                                    Items.Value: =Value
+                                    OnChange: =If(Self.Selected.Value<>LookUp(colReviewDrafts,id=varReviewId).classification,UpdateIf(colReviewDrafts,id=varReviewId,{classification:Self.Selected.Value,decision:"unresolved"}))
+                                    PaddingBottom: =5
+                                    PaddingLeft: =12
+                                    PaddingRight: =5
+                                    PaddingTop: =5
+                                    PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =RGBA(73, 130, 5, 1)
+                                    SelectionColor: =RGBA(255, 255, 255, 1)
+                                    SelectionFill: =RGBA(73, 130, 5, 1)
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewItemsLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: '="Supporting details · optional. One detail per line; move lines to reorder."    '
+                                    Width: =Parent.Width - 16
+                              - ReviewItems:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: '="Supporting details"    '
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).items
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =112
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(255, 255, 255, 1)
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =If(Self.Text<>LookUp(colReviewDrafts,id=varReviewId).items,UpdateIf(colReviewDrafts,id=varReviewId,{items:Self.Text,decision:"unresolved"}))
+                                    PressedBorderColor: =RGBA(73, 130, 5, 1)
+                                    PressedColor: =RGBA(51, 51, 51, 1)
+                                    PressedFill: =RGBA(255, 255, 255, 1)
+                                    RadiusBottomLeft: =0
+                                    RadiusBottomRight: =0
+                                    RadiusTopLeft: =0
+                                    RadiusTopRight: =0
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewSourceItems:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: "=\"Original details: \" & Substitute(LookUp(colReviewDrafts,id=varReviewId).sourceItems,Char(10),\" · \")    "
+                                    Width: =Parent.Width - 16
+                              - ReviewActivityProblems:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(item.category),"Choose a category. ","") & If(IsBlank(item.state),"Choose a status group. ","") & If(IsBlank(item.occurred),"Choose a date. ","") & If(CountRows(Filter(Split(Substitute(item.items,Char(13),""),Char(10)),!IsBlank(Trim(Value))))>20,"Supporting details exceed 20 lines. ","") & If(CountIf(Split(Substitute(item.items,Char(13),""),Char(10)),Len(Trim(Value))>1000)>0,"Each supporting detail must be 1,000 characters or fewer. ","") & If(item.classification<>"unclassified" && (item.category<>"administration" || item.eventType<>"other"),"Classification requires administration and Other event type.",""))
+                                    Width: =Parent.Width - 16
+                        - ReviewStatusFields:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =760
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              Visible: '=!varLiveReviewMode && LookUp(colReviewDrafts, id = varReviewId).kind = "status" '
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewStatusHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Size: =14
+                                    TabIndex: =0
+                                    Text: ="Project status update"
+                                    Width: =Parent.Width - 16
+                              - ReviewStatusDate:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    Size: =11
+                                    TabIndex: =0
+                                    Text: = "Recorded " & LookUp(colReviewDrafts,id=varReviewId).occurred & " · Source timestamp locked"
+                                    Width: =Parent.Width - 16
+                              - ReviewHealthLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Project health"
+                                    Width: =Parent.Width - 16
+                              - ReviewHealth:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Project health"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    ChevronBackground: =RGBA(255, 255, 255, 1)
+                                    ChevronDisabledBackground: =RGBA(244, 244, 244, 1)
+                                    ChevronDisabledFill: =RGBA(166, 166, 166, 1)
+                                    ChevronFill: =RGBA(33, 33, 33, 1)
+                                    ChevronHoverBackground: =RGBA(212, 212, 212, 1)
+                                    ChevronHoverFill: =RGBA(33, 33, 33, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).health
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(212, 212, 212, 1)
+                                    Items: =["on-track","ahead-of-plan","at-risk","delayed","paused","complete"]
+                                    Items.Value: =Value
+                                    OnChange: =If(Self.Selected.Value<>LookUp(colReviewDrafts,id=varReviewId).health,UpdateIf(colReviewDrafts,id=varReviewId,{health:Self.Selected.Value,healthReason:If(Self.Selected.Value in ["at-risk","delayed","paused"],LookUp(colReviewDrafts,id=varReviewId).healthReason,""),decision:"unresolved"}))
+                                    PaddingBottom: =5
+                                    PaddingLeft: =12
+                                    PaddingRight: =5
+                                    PaddingTop: =5
+                                    PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =RGBA(73, 130, 5, 1)
+                                    SelectionColor: =RGBA(255, 255, 255, 1)
+                                    SelectionFill: =RGBA(73, 130, 5, 1)
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewHealthReasonLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Health context"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).health in ["at-risk","delayed","paused"]
+                                    Width: =Parent.Width - 16
+                              - ReviewHealthReason:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Health context"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).healthReason
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =72
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(255, 255, 255, 1)
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =If(Self.Text<>LookUp(colReviewDrafts,id=varReviewId).healthReason,UpdateIf(colReviewDrafts,id=varReviewId,{healthReason:Self.Text,decision:"unresolved"}))
+                                    PressedBorderColor: =RGBA(73, 130, 5, 1)
+                                    PressedColor: =RGBA(51, 51, 51, 1)
+                                    PressedFill: =RGBA(255, 255, 255, 1)
+                                    RadiusBottomLeft: =0
+                                    RadiusBottomRight: =0
+                                    RadiusTopLeft: =0
+                                    RadiusTopRight: =0
+                                    Size: =11
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).health in ["at-risk","delayed","paused"]
+                                    Width: =Parent.Width - 16
+                              - ReviewSignificanceLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Significance · required"
+                                    Width: =Parent.Width - 16
+                              - ReviewSignificance:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Significance"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).significance
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =92
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(255, 255, 255, 1)
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =If(Self.Text<>LookUp(colReviewDrafts,id=varReviewId).significance,UpdateIf(colReviewDrafts,id=varReviewId,{significance:Self.Text,decision:"unresolved"}))
+                                    PressedBorderColor: =RGBA(73, 130, 5, 1)
+                                    PressedColor: =RGBA(51, 51, 51, 1)
+                                    PressedFill: =RGBA(255, 255, 255, 1)
+                                    RadiusBottomLeft: =0
+                                    RadiusBottomRight: =0
+                                    RadiusTopLeft: =0
+                                    RadiusTopRight: =0
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewEvidenceLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Evidence · optional"
+                                    Width: =Parent.Width - 16
+                              - ReviewEvidence:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Evidence"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).evidence
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =80
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(255, 255, 255, 1)
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =If(Self.Text<>LookUp(colReviewDrafts,id=varReviewId).evidence,UpdateIf(colReviewDrafts,id=varReviewId,{evidence:Self.Text,decision:"unresolved"}))
+                                    PressedBorderColor: =RGBA(73, 130, 5, 1)
+                                    PressedColor: =RGBA(51, 51, 51, 1)
+                                    PressedFill: =RGBA(255, 255, 255, 1)
+                                    RadiusBottomLeft: =0
+                                    RadiusBottomRight: =0
+                                    RadiusTopLeft: =0
+                                    RadiusTopRight: =0
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewRiskKindLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Risk or dependency kind · optional"
+                                    Width: =Parent.Width - 16
+                              - ReviewRiskKind:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Risk or dependency kind"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    ChevronBackground: =RGBA(255, 255, 255, 1)
+                                    ChevronDisabledBackground: =RGBA(244, 244, 244, 1)
+                                    ChevronDisabledFill: =RGBA(166, 166, 166, 1)
+                                    ChevronFill: =RGBA(33, 33, 33, 1)
+                                    ChevronHoverBackground: =RGBA(212, 212, 212, 1)
+                                    ChevronHoverFill: =RGBA(33, 33, 33, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).riskKind
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(212, 212, 212, 1)
+                                    Items: =["","data","infrastructure","security-accreditation","software-environment","sponsor-prioritization","partner-coordination","funding-contracting","staffing","validation","classified-environment-access","other"]
+                                    Items.Value: =Value
+                                    OnChange: =If(Self.Selected.Value<>LookUp(colReviewDrafts,id=varReviewId).riskKind,UpdateIf(colReviewDrafts,id=varReviewId,{riskKind:Self.Selected.Value,riskExplanation:If(IsBlank(Self.Selected.Value),"",LookUp(colReviewDrafts,id=varReviewId).riskExplanation),decision:"unresolved"}))
+                                    PaddingBottom: =5
+                                    PaddingLeft: =12
+                                    PaddingRight: =5
+                                    PaddingTop: =5
+                                    PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =RGBA(73, 130, 5, 1)
+                                    SelectionColor: =RGBA(255, 255, 255, 1)
+                                    SelectionFill: =RGBA(73, 130, 5, 1)
+                                    Size: =11
+                                    Width: =Parent.Width - 16
+                              - ReviewRiskExplanationLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Risk explanation"
+                                    Visible: =!IsBlank(LookUp(colReviewDrafts,id=varReviewId).riskKind)
+                                    Width: =Parent.Width - 16
+                              - ReviewRiskExplanation:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Risk explanation"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).riskExplanation
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =72
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(255, 255, 255, 1)
+                                    Mode: =TextMode.MultiLine
+                                    OnChange: =If(Self.Text<>LookUp(colReviewDrafts,id=varReviewId).riskExplanation,UpdateIf(colReviewDrafts,id=varReviewId,{riskExplanation:Self.Text,decision:"unresolved"}))
+                                    PressedBorderColor: =RGBA(73, 130, 5, 1)
+                                    PressedColor: =RGBA(51, 51, 51, 1)
+                                    PressedFill: =RGBA(255, 255, 255, 1)
+                                    RadiusBottomLeft: =0
+                                    RadiusBottomRight: =0
+                                    RadiusTopLeft: =0
+                                    RadiusTopRight: =0
+                                    Size: =11
+                                    Visible: =!IsBlank(LookUp(colReviewDrafts,id=varReviewId).riskKind)
+                                    Width: =Parent.Width - 16
+                              - ReviewStatusProblems:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(item.health),"Choose project health. ","") & If(item.health in ["at-risk","delayed","paused"] && IsBlank(Trim(item.healthReason)),"Explain the health state. ","") & If(IsBlank(Trim(item.significance)),"Significance is required. ","") & If(Len(item.significance)>1000,"Significance exceeds 1,000 characters. ","") & If(Len(item.evidence)>1000,"Evidence exceeds 1,000 characters. ","") & If(Len(item.healthReason)>1000,"Health context exceeds 1,000 characters. ","") & If(!IsBlank(item.riskKind) && IsBlank(Trim(item.riskExplanation)),"Explain the risk or dependency. ","") & If(Len(item.riskExplanation)>1000,"Risk explanation exceeds 1,000 characters.",""))
+                                    Width: =Parent.Width - 16
+                        - ReviewComparisonAndRange:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              FillPortions: =0
+                              Height: =Sum(Filter(Table({h:ReviewSourceHeading.Height,v:ReviewSourceHeading.Visible},{h:ReviewOriginalDetails.Height,v:ReviewOriginalDetails.Visible},{h:ReviewCorrectionAncestry.Height,v:ReviewCorrectionAncestry.Visible},{h:ReviewRangeLabel.Height,v:ReviewRangeLabel.Visible},{h:ReviewRangeMode.Height,v:ReviewRangeMode.Visible},{h:ReviewRangeHelp.Height,v:ReviewRangeHelp.Visible},{h:ReviewRangeStartLabel.Height,v:ReviewRangeStartLabel.Visible},{h:ReviewRangeStart.Height,v:ReviewRangeStart.Visible},{h:ReviewRangeEndLabel.Height,v:ReviewRangeEndLabel.Visible},{h:ReviewRangeEnd.Height,v:ReviewRangeEnd.Visible},{h:ReviewRangeError.Height,v:ReviewRangeError.Visible}),v),h+6)+8
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewSourceHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =28
+                                    Size: =14
+                                    TabIndex: =0
+                                    Text: ="Source comparison and ancestry"
+                                    Width: =Parent.Width - 16
+                              - ReviewOriginalDetails:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =11
+                                    TabIndex: =0
+                                    Text: |-
+                                      = "Original fields: " & LookUp(colReviewDrafts,id=varReviewId).sourceDetails
+                                    Width: =Parent.Width - 16
+                              - ReviewCorrectionAncestry:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(IsBlank(item.corrects),"Original submission · no correction parent","Correction of " & item.corrects & " · parent identity locked"))
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    TabIndex: =0
+                                    Text: ="Status reporting window"
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status"
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeMode:
+                                  Control: Classic/DropDown@2.3.1
+                                  Properties:
+                                    AccessibleLabel: ="Reporting window mode"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    ChevronBackground: =RGBA(255, 255, 255, 1)
+                                    ChevronDisabledBackground: =RGBA(244, 244, 244, 1)
+                                    ChevronDisabledFill: =RGBA(166, 166, 166, 1)
+                                    ChevronFill: =RGBA(33, 33, 33, 1)
+                                    ChevronHoverBackground: =RGBA(212, 212, 212, 1)
+                                    ChevronHoverFill: =RGBA(33, 33, 33, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    Default: =LookUp(colReviewDrafts,id=varReviewId).rangeMode
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    HoverBorderColor: =ColorValue("#006BA6")
+                                    HoverColor: =RGBA(51, 51, 51, 1)
+                                    HoverFill: =RGBA(212, 212, 212, 1)
+                                    Items: =["batch","custom"]
+                                    Items.Value: =Value
+                                    OnChange: =If(Self.Selected.Value<>LookUp(colReviewDrafts,id=varReviewId).rangeMode,UpdateIf(colReviewDrafts,id=varReviewId,{rangeMode:Self.Selected.Value,decision:"unresolved"}))
+                                    PaddingBottom: =5
+                                    PaddingLeft: =12
+                                    PaddingRight: =5
+                                    PaddingTop: =5
+                                    PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =RGBA(73, 130, 5, 1)
+                                    SelectionColor: =RGBA(255, 255, 255, 1)
+                                    SelectionFill: =RGBA(73, 130, 5, 1)
+                                    Visible: '=!varLiveReviewMode && LookUp(colReviewDrafts,id=varReviewId).kind="status"  '
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeHelp:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    TabIndex: =0
+                                    Text: "=If(varLiveReviewMode, \"Source reporting period: \" & LookUp(colReviewDrafts,id=varReviewId).rangeStart & \" to \" & LookUp(colReviewDrafts,id=varReviewId).rangeEnd & \" · Read-only\", \"Batch period: October 1–31, 2026. A custom range must stay within it.\") "
+                                    Visible: =LookUp(colReviewDrafts,id=varReviewId).kind="status"
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeStartLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Custom start"
+                                    Visible: '=!varLiveReviewMode && LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom" '
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeStart:
+                                  Control: Classic/DatePicker@2.6.0
+                                  Properties:
+                                    AccessibleLabel: ="Custom reporting start"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DefaultDate: =DateValue(LookUp(colReviewDrafts,id=varReviewId).rangeStart)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    IconBackground: =RGBA(73, 130, 5, 1)
+                                    IconFill: =RGBA(255, 255, 255, 1)
+                                    OnChange: =If(Text(Self.SelectedDate,"yyyy-mm-dd")<>LookUp(colReviewDrafts,id=varReviewId).rangeStart,UpdateIf(colReviewDrafts,id=varReviewId,{rangeStart:Text(Self.SelectedDate,"yyyy-mm-dd"),decision:"unresolved"}))
+                                    PaddingTop: =5
+                                    Size: =13
+                                    Visible: '=!varLiveReviewMode && LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom" '
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeEndLabel:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =22
+                                    Size: =12
+                                    TabIndex: =0
+                                    Text: ="Custom end · exclusive"
+                                    Visible: '=!varLiveReviewMode && LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom" '
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeEnd:
+                                  Control: Classic/DatePicker@2.6.0
+                                  Properties:
+                                    AccessibleLabel: ="Custom reporting end"
+                                    BorderColor: =RGBA(166, 166, 166, 1)
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DefaultDate: =DateValue(LookUp(colReviewDrafts,id=varReviewId).rangeEnd)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =3
+                                    Font: =Font.'Segoe UI'
+                                    Height: =44
+                                    IconBackground: =RGBA(73, 130, 5, 1)
+                                    IconFill: =RGBA(255, 255, 255, 1)
+                                    OnChange: =If(Text(Self.SelectedDate,"yyyy-mm-dd")<>LookUp(colReviewDrafts,id=varReviewId).rangeEnd,UpdateIf(colReviewDrafts,id=varReviewId,{rangeEnd:Text(Self.SelectedDate,"yyyy-mm-dd"),decision:"unresolved"}))
+                                    PaddingTop: =5
+                                    Size: =13
+                                    Visible: '=!varLiveReviewMode && LookUp(colReviewDrafts,id=varReviewId).kind="status" && LookUp(colReviewDrafts,id=varReviewId).rangeMode="custom" '
+                                    Width: =Parent.Width - 16
+                              - ReviewRangeError:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =11
+                                    TabIndex: =0
+                                    Text: =With({item:LookUp(colReviewDrafts,id=varReviewId)},If(item.kind="status" && item.rangeMode="custom" && (DateValue(item.rangeStart)<Date(2026,10,1) || DateValue(item.rangeEnd)>Date(2026,11,1) || DateValue(item.rangeStart)>=DateValue(item.rangeEnd)),"Custom reporting window must stay inside October and have an end after the start.",""))
+                                    Visible: '=!varLiveReviewMode  '
+                                    Width: =Parent.Width - 16
+                        - ReviewAiSummary:
+                            Control: GroupContainer@1.5.0
+                            Variant: AutoLayout
+                            Properties:
+                              Fill: =ColorValue("#F2F7F4")
+                              FillPortions: =0
+                              Height: =16 + ReviewAiHeading.Height + ReviewAiHelp.Height + If(ReviewAiGenerate.Visible,ReviewAiGenerate.Height+6,0) + If(ReviewAiResult.Visible,ReviewAiResult.Height+6,0) + If(ReviewAiActions.Visible,ReviewAiActions.Height+6,0) + If(ReviewReportAiContext.Visible,ReviewReportAiContext.Height+6,0) + 6
+                              LayoutDirection: =LayoutDirection.Vertical
+                              LayoutGap: =6
+                              LayoutMinHeight: =0
+                              LayoutMinWidth: =0
+                              PaddingBottom: =8
+                              PaddingLeft: =8
+                              PaddingRight: =8
+                              PaddingTop: =8
+                              Width: =Parent.Width - 24
+                            Children:
+                              - ReviewAiHeading:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    FontWeight: =FontWeight.Semibold
+                                    Height: =26
+                                    Size: =14
+                                    Text: ="AI summary suggestion"
+                                    Width: =Parent.Width - 16
+                              - ReviewAiHelp:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =10
+                                    Text: ="AI suggestions are generated when the batch loads. Check facts before applying one to the draft."
+                                    Width: =Parent.Width - 16
+                              - ReviewAiGenerate:
+                                  Control: Classic/Button@2.2.0
+                                  Properties:
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    Color: =RGBA(30, 61, 49, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    DisplayMode: =If(varAiSummaryState="generating",DisplayMode.Disabled,DisplayMode.Edit)
+                                    Fill: =RGBA(238, 244, 240, 1)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =0
+                                    Font: =Font.'Segoe UI'
+                                    Height: =36
+                                    HoverBorderColor: =Self.BorderColor
+                                    HoverColor: =RGBA(255, 255, 255, 1)
+                                    HoverFill: =ColorFade(RGBA(73, 130, 5, 1), -10%)
+                                    OnSelect: |-
+                                      =Set(varAiSummaryItemId,varReviewId); Set(varAiSummary,Blank()); Set(varAiSummaryState,"generating"); With({item:LookUp(colReviewDrafts,id=varReviewId)},With({content:Trim("Report page: " & If(item.projectId="general","General Updates",item.projectId) & Char(10) & "Entry type: " & item.kind & Char(10) & "Report structure: For an activity, write a concise factual summary followed by supporting activities and date or status. For project status, lead with project health and significance, then evidence, risks, and reporting period. Use only the submitted facts. State uncertainty or omissions plainly; do not invent outcomes." & Char(10) & "Source summary: " & item.sourceSummary & Char(10) & "Supporting activities: " & item.sourceItems & Char(10) & "Submitted details: " & item.sourceDetails & Char(10) & "Reviewer context: " & Left(Trim(ReviewReportAiContext.Text),2000))},If(Len(content)>12000,Set(varAiSummaryState,"too-long"),IfError(With({response:'[BETA]RequestReviewerSummary'.Run(content)},With({suggestion:Trim(response.summary)},If(!IsBlank(suggestion) && Len(suggestion)<=1200,Set(varAiSummary,suggestion); Set(varAiSummaryState,"ready"),Set(varAiSummaryState,"invalid")))),Set(varAiSummaryState,"error"))))) ; UpdateIf(colReviewAiSummaries,id=varReviewId,{summary:Coalesce(varAiSummary,""),state:varAiSummaryState})
+                                    PressedBorderColor: =Self.BorderColor
+                                    PressedColor: =RGBA(255, 255, 255, 1)
+                                    PressedFill: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                    RadiusBottomLeft: =0
+                                    RadiusBottomRight: =0
+                                    RadiusTopLeft: =0
+                                    RadiusTopRight: =0
+                                    Size: =12
+                                    Text: =If(varAiSummaryState="generating","◌ Generating…",varAiSummaryState="error" || varAiSummaryState="invalid","↻ Retry Summary","↻ Regenerate Summary")
+                                    Visible: =!IsBlank(LookUp(colReviewAiSummaries,id=varReviewId).state)
+                                    Width: =Parent.Width - 16
+                              - ReviewAiResult:
+                                  Control: Label@2.5.1
+                                  Properties:
+                                    AutoHeight: =true
+                                    BorderColor: =RGBA(0, 0, 0, 0)
+                                    BorderStyle: =BorderStyle.None
+                                    BorderThickness: =2
+                                    Color: =RGBA(51, 51, 51, 1)
+                                    DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                    FocusedBorderThickness: =4
+                                    Font: =Font.'Segoe UI'
+                                    Size: =12
+                                    Text: =With({s:LookUp(colReviewAiSummaries,id=varReviewId)},Switch(s.state,"ready",s.summary,"applied","Suggestion applied to draft.","existing","A summary is already saved in the draft.","queued","Generating a suggestion…","generating","Generating a suggestion…","too-long","This submission is too long for the summary prompt. Review it directly.","invalid","The prompt returned an empty or overlong suggestion. Try again or write the summary directly.","error","The summary service is unavailable. Try again or write the summary directly.",""))
+                                    Visible: =!IsBlank(LookUp(colReviewAiSummaries,id=varReviewId).state)
+                                    Width: =Parent.Width - 16
+                              - ReviewAiActions:
+                                  Control: GroupContainer@1.5.0
+                                  Variant: AutoLayout
+                                  Properties:
+                                    FillPortions: =0
+                                    Height: =36
+                                    LayoutDirection: =LayoutDirection.Horizontal
+                                    LayoutGap: =8
+                                    LayoutMinHeight: =0
+                                    LayoutMinWidth: =0
+                                    Visible: =LookUp(colReviewAiSummaries,id=varReviewId).state="ready"
+                                    Width: =Parent.Width - 16
+                                  Children:
+                                    - ReviewAiApply:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          BorderColor: =RGBA(0, 0, 0, 0)
+                                          Color: =RGBA(255, 255, 255, 1)
+                                          DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                          Fill: =RGBA(73, 130, 5, 1)
+                                          FocusedBorderColor: =ColorValue("#006BA6")
+                                          FocusedBorderThickness: =0
+                                          Font: =Font.'Segoe UI'
+                                          Height: =36
+                                          HoverBorderColor: =Self.BorderColor
+                                          HoverColor: =RGBA(255, 255, 255, 1)
+                                          HoverFill: =ColorFade(RGBA(73, 130, 5, 1), -10%)
+                                          OnSelect: =With({suggestion:LookUp(colReviewAiSummaries,id=varReviewId).summary},If(!IsBlank(suggestion),UpdateIf(colReviewDrafts,id=varReviewId,{summary:suggestion,decision:"unresolved"}); Reset(ReviewSummaryInput); Reset(ReviewCanvasSummaryInput); UpdateIf(colReviewAiSummaries,id=varReviewId,{state:"applied"}); Set(varAiSummaryState,"applied")))
+                                          PressedBorderColor: =Self.BorderColor
+                                          PressedColor: =RGBA(255, 255, 255, 1)
+                                          PressedFill: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                          RadiusBottomLeft: =0
+                                          RadiusBottomRight: =0
+                                          RadiusTopLeft: =0
+                                          RadiusTopRight: =0
+                                          Size: =12
+                                          Text: ="Use Suggestion"
+                                          Width: =(Parent.Width - 8)/2
+                                    - ReviewAiDiscard:
+                                        Control: Classic/Button@2.2.0
+                                        Properties:
+                                          BorderColor: =RGBA(0, 0, 0, 0)
+                                          Color: =RGBA(30, 61, 49, 1)
+                                          DisabledBorderColor: =RGBA(0, 0, 0, 0)
+                                          Fill: =RGBA(238, 244, 240, 1)
+                                          FocusedBorderColor: =ColorValue("#006BA6")
+                                          FocusedBorderThickness: =0
+                                          Font: =Font.'Segoe UI'
+                                          Height: =36
+                                          HoverBorderColor: =Self.BorderColor
+                                          HoverColor: =RGBA(255, 255, 255, 1)
+                                          HoverFill: =ColorFade(RGBA(73, 130, 5, 1), -10%)
+                                          OnSelect: =UpdateIf(colReviewAiSummaries,id=varReviewId,{summary:"",state:""}); Set(varAiSummary,Blank()); Set(varAiSummaryState,"")
+                                          PressedBorderColor: =Self.BorderColor
+                                          PressedColor: =RGBA(255, 255, 255, 1)
+                                          PressedFill: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+                                          RadiusBottomLeft: =0
+                                          RadiusBottomRight: =0
+                                          RadiusTopLeft: =0
+                                          RadiusTopRight: =0
+                                          Size: =12
+                                          Text: ="Discard"
+                                          Width: =(Parent.Width - 8)/2
+                              - ReviewReportAiContext:
+                                  Control: Classic/TextInput@2.3.2
+                                  Properties:
+                                    AccessibleLabel: ="Additional context for AI summary, optional, 2000 characters maximum"
+                                    Default: =""
+                                    DisplayMode: =If(varAiSummaryState="generating",DisplayMode.Disabled,DisplayMode.Edit)
+                                    FocusedBorderColor: =ColorValue("#006BA6")
+                                    FocusedBorderThickness: =2
+                                    Height: =72
+                                    HintText: |-
+                                      ="Optional context: add facts, dates, or outcomes, then regenerate."
+                                    MaxLength: =2000
+                                    Mode: =TextMode.MultiLine
+                                    Size: =11
+                                    Tooltip: ="Context is stored with the request in the restricted summary queue; it does not change the submission or saved review."
+                                    Visible: =!IsBlank(varAiSummaryState) && varAiSummaryItemId=varReviewId
+                                    Width: =Parent.Width - 16
+      - ReviewAiTimer:
+          Control: Timer@2.1.0
+          Properties:
+            AutoStart: =true
+            BorderColor: =RGBA(73, 130, 5, 1)
+            BorderStyle: =BorderStyle.None
+            Color: =RGBA(255, 255, 255, 1)
+            Duration: =1000
+            Fill: =RGBA(73, 130, 5, 1)
+            Font: =Font.'Segoe UI'
+            Height: =1
+            HoverBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -10%)
+            HoverColor: =RGBA(255, 255, 255, 1)
+            HoverFill: =ColorFade(RGBA(73, 130, 5, 1), -10%)
+            OnTimerEnd: |-
+              =If(varSummaryIndex>0 && varSummaryIndex<=CountRows(colReviewDrafts),With({item:Last(FirstN(colReviewDrafts,varSummaryIndex)),generationAtStart:varSummaryGeneration},If(LookUp(colReviewAiSummaries,id=item.id).state="queued",With({content:Trim("Report page: " & If(item.projectId="general","General Updates",item.projectId) & Char(10) & "Entry type: " & item.kind & Char(10) & "Report structure: For an activity, write a concise factual summary followed by supporting activities and date or status. For project status, lead with project health and significance, then evidence, risks, and reporting period. Use only the submitted facts. State uncertainty or omissions plainly; do not invent outcomes." & Char(10) & "Source summary: " & item.sourceSummary & Char(10) & "Supporting activities: " & item.sourceItems & Char(10) & "Submitted details: " & item.sourceDetails)},If(Len(content)>12000,UpdateIf(colReviewAiSummaries,id=item.id,{state:"too-long"}),IfError(With({response:'[BETA]RequestReviewerSummary'.Run(content)},With({suggestion:Trim(response.summary)},UpdateIf(colReviewAiSummaries,id=item.id,{summary:suggestion,state:If(!IsBlank(suggestion) && Len(suggestion)<=1200,"ready","invalid")}))),UpdateIf(colReviewAiSummaries,id=item.id,{state:"error"}))))); If(generationAtStart=varSummaryGeneration,Set(varSummaryIndex,varSummaryIndex+1))))
+            PressedBorderColor: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+            PressedColor: =RGBA(255, 255, 255, 1)
+            PressedFill: =ColorFade(RGBA(73, 130, 5, 1), -30%)
+            Repeat: =true
+            Start: =varSummaryIndex>0 && varSummaryIndex<=CountRows(colReviewAiSummaries)
+            Visible: =false
+            Width: =1
+            X: =40
+            Y: =40
