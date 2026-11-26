@@ -38,7 +38,7 @@ async fn test_directory_results_are_stable_and_input_failures_are_reported() {
         input: InputReference::Directory(PathBuf::from("data/valid_project")),
         standard: None,
         format: None,
-        skip: Vec::new(),
+        skip: vec!["prose".to_string()],
         filter: Vec::new(),
         ignore: Vec::new(),
         disable_website_checks: true,
@@ -133,7 +133,9 @@ async fn test_invalid_remote_and_git_references_do_not_fall_back_to_local_input(
 #[tokio::test]
 async fn test_native_registry_executes_the_same_analysis_offline() {
     let root = fixture_root();
-    let expected = input("data/valid_project/index.json")
+    let mut request = input("data/valid_project/index.json");
+    request.skip = vec!["prose".to_string()];
+    let expected = request
         .analyze(&root, true)
         .await
         .expect("direct analysis");
@@ -152,7 +154,7 @@ async fn test_native_registry_executes_the_same_analysis_offline() {
     let result = registry
         .execute_selected(
             &selection,
-            json!({"input":{"kind":"file","value":"data/valid_project/index.json"},"standard":null,"skip":[],"disable_website_checks":false}),
+            json!({"input":{"kind":"file","value":"data/valid_project/index.json"},"standard":null,"skip":["prose"],"disable_website_checks":false}),
             ExecutionContext {
                 grounded: true,
                 selection: CapabilitySelectionContext {

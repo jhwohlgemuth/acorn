@@ -1,4 +1,7 @@
 //! Local daemon lifecycle and authenticated job control.
+pub(crate) mod bundle;
+#[cfg(target_os = "linux")]
+mod install;
 use crate::cli::arguments::DaemonCommand;
 use acorn::io::{config::application::ApplicationConfiguration, InputOutput};
 #[cfg(unix)]
@@ -27,7 +30,18 @@ fn project_directories() -> Result<ProjectDirs> {
 }
 fn config_path(override_path: Option<&Path>) -> Result<PathBuf> {
     override_path.map_or_else(
-        || project_directories().map(|dirs| dirs.config_dir().join(DEFAULT_CONFIG_FILENAMES[1])),
+        || {
+            #[cfg(target_os = "linux")]
+            let active = install::active_directory();
+            #[cfg(not(target_os = "linux"))]
+            let active: Result<Option<PathBuf>> = Ok(None);
+            active.and_then(|directory| {
+                directory.map_or_else(
+                    || project_directories().map(|dirs| dirs.config_dir().join(DEFAULT_CONFIG_FILENAMES[1])),
+                    |directory| Ok(directory.join("config.jsonc")),
+                )
+            })
+        },
         |path| Ok(path.to_path_buf()),
     )
 }
@@ -84,8 +98,22 @@ fn client(config: Option<&Path>) -> Result<JsonRpcClient> {
         })
 }
 fn lifecycle(action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
-    env::current_exe()
-        .map_err(|error| eyre!("Cannot locate the paired daemon executable: {error}"))
+    let active = if action == "install" {
+        Ok(None)
+    } else {
+        #[cfg(target_os = "linux")]
+        let result = install::active_directory();
+        #[cfg(not(target_os = "linux"))]
+        let result: Result<Option<PathBuf>> = Ok(None);
+        result
+    };
+    active
+        .and_then(|active| {
+            active.map_or_else(
+                || env::current_exe().map_err(|error| eyre!("Cannot locate the paired daemon executable: {error}")),
+                |directory| Ok(directory.join("acorn")),
+            )
+        })
         .and_then(|executable| {
             executable
                 .parent()
@@ -101,6 +129,17 @@ fn lifecycle(action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
             cmd!(status binary, arguments).map_err(|error| eyre!("Cannot run acornd {action}: {error}"))
         })
         .and_then(|status| status.success().then_some(()).ok_or_else(|| eyre!("acornd {action} failed: {status}")))
+        .and_then(|()| {
+            #[cfg(target_os = "linux")]
+            let cleared = if action == "uninstall" || action == "install" {
+                install::clear_active()
+            } else {
+                Ok(())
+            };
+            #[cfg(not(target_os = "linux"))]
+            let cleared = Ok(());
+            cleared
+        })
 }
 async fn call(method: &str, params: Value, config: Option<&Path>) -> Result<()> {
     match client(config) {
@@ -115,7 +154,20 @@ async fn call(method: &str, params: Value, config: Option<&Path>) -> Result<()> 
 /// Execute a local daemon command.
 pub async fn run(command: &DaemonCommand) -> Result<()> {
     match command {
-        | DaemonCommand::Install { config, linger } => lifecycle("install", Some(config), *linger),
+        | DaemonCommand::VerifyBundle { bundle } => bundle::verify_path(bundle).map(|()| info!("{} verified {}", Label::pass(), bundle.display())),
+        | DaemonCommand::Install { config, bundle, linger } => match bundle {
+            | Some(bundle) => {
+                #[cfg(target_os = "linux")]
+                let result = install::run(bundle, config, *linger).await;
+                #[cfg(not(target_os = "linux"))]
+                let result = {
+                    let _ = bundle;
+                    Err(eyre!("Signed bundle activation awaits this platform's release bundle"))
+                };
+                result
+            }
+            | None => lifecycle("install", Some(config), *linger),
+        },
         | DaemonCommand::Uninstall => lifecycle("uninstall", None, false),
         | DaemonCommand::Start => lifecycle("start", None, false),
         | DaemonCommand::Stop => lifecycle("stop", None, false),

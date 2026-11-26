@@ -7,7 +7,9 @@ use clap::Parser;
 #[test]
 fn parses_local_lifecycle_and_job_commands() {
     for args in [
+        vec!["acorn", "daemon", "verify-bundle", "signed.tar.gz"],
         vec!["acorn", "daemon", "install", "--config", "local.jsonc"],
+        vec!["acorn", "daemon", "install", "--config", "local.jsonc", "--bundle", "signed.tar.gz"],
         vec!["acorn", "daemon", "uninstall"],
         vec!["acorn", "daemon", "start"],
         vec!["acorn", "daemon", "stop"],
