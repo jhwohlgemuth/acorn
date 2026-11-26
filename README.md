@@ -50,7 +50,7 @@ The local [browser](crates/acorn-web/README.md) provides nine research tools wit
 
 ## Architecture
 
-The browser's [3D model asset library](crates/acorn-web/assets/models/README.md) starts with a validated supercomputer GLB and editable source. Run `npm --prefix crates/acorn-web run models` to browse it locally with an asset picker and orbit controls at [localhost:8085](http://127.0.0.1:8085/). Research objects, landmarks, wonders and Risk pieces have an [ordered production plan](.wiki/features/geospatial-objects/index.md); live-globe integration remains planned.
+The browser's [3D model asset library](crates/acorn-web/assets/models/README.md) contains 40 validated GLBs: research objects, U.S. landmarks, eight wonders and twelve drones, with editable sources and ORNL colors. Run `npm --prefix crates/acorn-web run models` to browse them with orbit controls at [localhost:8085](http://127.0.0.1:8085/). Twelve Risk assets are delivered separately under `/Users/o9w/dev/risk`; the guide includes their viewer command. Models and tooling are excluded from crate releases; live-globe integration remains planned.
 
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
 

@@ -1,11 +1,11 @@
 ---
 type: Plan
 title: CZML standard data model
-description: Add a portable, validated acorn_schema::standard::czml model of CZML 1.0 documents, packets, time-dynamic properties, materials, and core graphics with schema-pinned conformance fixtures, then register it as the detectable, schema-checkable Standard::Czml.
+description: Add a portable, validated acorn_schema::standard::czml model of CZML 1.0 documents, packets, time-dynamic properties, materials, and core graphics with schema-pinned conformance fixtures, then register it as the detectable, schema-checkable Standard::Czml, listed in the browser's standard picker.
 difficulty: high
 impact: medium
-package: [acorn-schema, acorn-analysis, acorn-lib, acorn-service, acorn-cli, acorn-wasm]
-tags: [czml, cesium, geospatial, schema, standards, wasm]
+package: [acorn-schema, acorn-analysis, acorn-lib, acorn-service, acorn-cli, acorn-wasm, acorn-web]
+tags: [czml, cesium, geospatial, schema, standards, wasm, browser]
 status: planned
 execution: phased
 phase_budget_hours: 5
@@ -23,9 +23,8 @@ The model is a faithful, lossless representation of authored CZML. It does NOT:
 - read files, parse server-sent event framing, or perform any other host I/O;
 - render anything or change the browser map, which [ABW-72](../acorn-browser-workspace/index.md#abw-72--load-local-czml-on-the-cesium-globe) owns;
 - crosswalk to or from RAD or any other standard, format CZML, run link, prose, quality, FAIR, or readability checks on it, or infer CZML metadata;
-- add CZML to the browser's standard picker in `acorn-web`, which needs its own ABW-coordinated plan.
 
-The owner approved registering CZML as a standard on November 26, 2026. CZM-09 and CZM-11–14 add `Standard::Czml` (serialized `czml`) with content and extension detection, native and portable schema checks, JSON Schema export, and semantic diff. The selectors are `acorn check`/`export`/`diff --standard czml`, the portable service, and WASM.
+The owner approved registering CZML as a standard on November 26, 2026. CZM-09, CZM-11–14, and CZM-15 add `Standard::Czml` (serialized `czml`) with content and extension detection, native and portable schema checks, JSON Schema export, and semantic diff. The selectors are `acorn check`/`export`/`diff --standard czml`, the portable service, WASM, and the browser's standard picker. The owner asked on November 26, 2026 for CZML to be a top-tier standard, so CZM-15 lists it in the picker alongside CFF, CKAN, DataCite, and the others.
 
 The 16 core graphics types are typed. The six AGI extension graphics (`agi_conicSensor`, `agi_customPatternSensor`, `agi_rectangularSensor`, `agi_groundElevationVolume`, `agi_fan`, `agi_vector`) are kept losslessly as extension JSON until optional CZM-10.
 
@@ -87,7 +86,7 @@ Reviewed November 26, 2026 against `3eddc62b` and the working tree. Concurrent s
 
 - No other plan blocks this one. CZM-01 takes the shared Schema roots lock for its one-line `standard/mod.rs` registration. CZM-07 takes it again for `codec.rs`. The other phases write only inside `standard/czml/`, `tests/fixtures/schema/czml/`, and this plan.
 - [ABW-72](../acorn-browser-workspace/index.md#abw-72--load-local-czml-on-the-cesium-globe) is independent. Its TypeScript preflight (2 MiB, 1,000 packets, document packet, external-resource rejection) doesn't wait for this model. A later, separately planned WASM validation export could replace that preflight. No edge is added until such a plan exists.
-- The owner approved `Standard::Czml` on November 26, 2026, which satisfies AGENTS.md's ask-first rule for the vocabulary change. CZM-09 needs CZM-08's accepted model and fixtures. It claims Schema roots and must find the Analyzer/check contract lock free, because it edits `check.rs` and the analyzer dispatch. CZM-11 claims Analyzer/check contract, CZM-12 claims CLI contract, and CZM-13 claims Service/RPC contract. CZM-12 and CZM-13 have disjoint write sets and can run in parallel after CZM-11. CZM-14 runs last and owns workspace-wide validation and the generated help.
+- The owner approved `Standard::Czml` on November 26, 2026, which satisfies AGENTS.md's ask-first rule for the vocabulary change. CZM-09 needs CZM-08's accepted model and fixtures. It claims Schema roots and must find the Analyzer/check contract lock free, because it edits `check.rs` and the analyzer dispatch. CZM-11 claims Analyzer/check contract, CZM-12 claims CLI contract, and CZM-13 claims Service/RPC contract. CZM-12 and CZM-13 have disjoint write sets and can run in parallel after CZM-11. CZM-15 follows CZM-13 and claims the browser application shell lock on `acorn-web/src/ui.rs`, which serializes with ABW, browser format parity, browser performance, shadcn component, and USWDS phases that edit that file. CZM-14 runs last and owns workspace-wide validation and the generated help.
 
 # Acceptance criteria
 
@@ -98,6 +97,7 @@ Reviewed November 26, 2026 against `3eddc62b` and the working tree. Concurrent s
 - New code has no `unsafe`, no `?` operators, no early returns, and no bare `.unwrap()` outside tests.
 - `Standard::Czml` serializes as `czml`. `acorn check` with no `--standard` classifies `scene.czml` and a document-first `.json` array as CZML and reports only the schema category as executed. `acorn check --standard czml` reports the malformed fixtures' diagnostics. `acorn export --schema --standard czml` prints the JSON schema, and `--format yaml` prints the YAML one. `acorn diff` on two CZML documents produces a semantic patch. Every crosswalk involving CZML fails with the standard "unsupported crosswalk" error.
 - The portable service's `validate_standard` and the WASM `parse_standard` accept `czml`. Every existing RAD fixture still classifies as RAD.
+- The browser's standard picker lists CZML for the Standard and FAIR tools but not as a crosswalk source or destination. Validating a CZM-08 fixture in the browser's Standard tool returns the same schema diagnostics as `acorn check --standard czml`.
 
 # Execution phases
 
@@ -233,11 +233,29 @@ Reviewed November 26, 2026 against `3eddc62b` and the working tree. Concurrent s
 - Focused validation: `cargo nextest run --package acorn-service` covers valid and malformed CZML request content and the response diagnostics. Also run `make check-wasm` and a WASM unit test for `parse_standard("czml")`.
 - Handoff: Make CZM-14 eligible once CZM-12 is also done.
 
+## CZM-15 — List CZML in the browser's standard picker
+
+- Status: planned
+- Budget: 5 active hours maximum
+- Prerequisites: CZM-13. No in-progress ABW, browser format parity, browser performance, shadcn component, or USWDS phase may have `crates/acorn-web/src/ui.rs` in its write set; confirm with the browser lane owner before starting.
+- Exact write set: `crates/acorn-web/src/ui.rs` (the `STANDARD_CHOICES` array only), `crates/acorn-web/tests/czml_standard.rs` (new)
+- Primary integration lock: browser application shell (`acorn-web/src/ui.rs`)
+- Outcome:
+  - Add `(Standard::Czml, "CZML", "Cesium Language")` to `STANDARD_CHOICES`, in the existing order, and raise the array length from 11 to 12.
+  - The `StandardField` crosswalk filter stays as it is, so CZML never appears as a crosswalk source or destination.
+  - The FAIR tool lists CZML in the same way it lists CKAN today, and reports FAIR as unsupported for it.
+  - No other browser UI, route, format list, or WASM export changes.
+- Focused validation:
+  - `cargo nextest run -p acorn-web --test czml_standard`. The test runs the Standard tool's worker dispatch on one valid and one malformed CZM-08 fixture, and checks the diagnostic codes against `acorn check --standard czml`.
+  - `cargo nextest run -p acorn-web`, then `make web-check`.
+  - A browser smoke check that selects CZML in the Standard tool and validates a fixture.
+- Handoff: Remove CZM-15 and make CZM-14 eligible once CZM-12 and CZM-13 are also done.
+
 ## CZM-14 — Document the standard and run integration gates
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: CZM-12 and CZM-13. No concurrent implementation editing the workspace, as AGENTS.md's concurrent-implementation rules require.
+- Prerequisites: CZM-12, CZM-13, and CZM-15. No concurrent implementation editing the workspace, as AGENTS.md's concurrent-implementation rules require.
 - Exact write set: `README.md`, `CommandLineHelp.md` (generated), `crates/acorn-schema/src/standard/czml/mod.rs` (module docs only), `.wiki/features/czml-standard-model/index.md`
 - Primary integration lock: Documentation generation
 - Outcome: A short README section covers CZML schema checking, detection rules, supported categories, schema export, diff, the unsupported operations, and the change in classification. It links to czml-writer's schema at the pinned commit. `make help-cli` regenerates `CommandLineHelp.md`. The module docs point to the public standard surface.
