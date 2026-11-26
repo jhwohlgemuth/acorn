@@ -47,5 +47,4 @@ getrandom = { version = "0.4.2", features = ["wasm_js"] }
 workspace = true
 
 [dev-dependencies]
-proptest = "1.9.0"
 wasm-bindgen-test = "0.3.78"
