@@ -200,6 +200,10 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
                         .map(|address| acorn_server::local::socket_path(targets.data(), address.port()));
                     #[cfg(not(unix))]
                     let local_socket = None;
+                    #[cfg(unix)]
+                    let shutdown = shutdown_signal();
+                    #[cfg(not(unix))]
+                    let shutdown = tokio::signal::ctrl_c();
                     run_composed(
                         config,
                         path.to_path_buf(),
@@ -207,13 +211,23 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
                         targets.binary().to_path_buf(),
                         token,
                         local_socket,
-                        tokio::signal::ctrl_c(),
+                        shutdown,
                     )
                     .await
                 }
             }
         }
         | Err(error) => Err(DaemonError::Config(error)),
+    }
+}
+#[cfg(unix)]
+async fn shutdown_signal() -> io::Result<()> {
+    match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+        | Ok(mut terminate) => tokio::select! {
+            result = tokio::signal::ctrl_c() => result,
+            _ = terminate.recv() => Ok(()),
+        },
+        | Err(error) => Err(error),
     }
 }
 fn prepare_data_directory(path: &Path) -> io::Result<()> {
