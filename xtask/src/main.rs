@@ -1,5 +1,5 @@
-mod application_release;
 mod acornd_sign;
+mod application_release;
 mod benchmark_history;
 
 use serde::Deserialize;
