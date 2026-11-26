@@ -242,7 +242,7 @@ impl Submission {
                 normalized
                     .validate()
                     .map_err(|why| eyre!("Invalid PowerAutomate form submission — {why}"))
-                    .and_then(|()| routing.authorizes(&folder_id, self.submitter.email.as_str(), lookup))
+                    .and_then(|()| routing.authorizes(&folder_id, self.submitter.email.as_ref(), lookup))
                     .and_then(|authorized| match authorized {
                         | true => Ok(()),
                         | false => Err(eyre!("Submitter is not authorized for PowerAutomate folder '{}'", folder_id)),
@@ -297,8 +297,8 @@ impl Submission {
                         | false => Err(eyre!("General submissions require global: true and archived: false")),
                     })
                     .and_then(|()| {
-                        let email = self.submitter.email.as_str();
-                        match general.members.iter().any(|member| member.as_str().eq_ignore_ascii_case(email)) {
+                        let email: &str = self.submitter.email.as_ref();
+                        match general.members.iter().any(|member| member.as_ref().eq_ignore_ascii_case(email)) {
                             | true => self.normalized_admission("general".to_string()),
                             | false => Err(eyre!("Submitter is not authorized for the general logbook")),
                         }

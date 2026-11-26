@@ -1,4 +1,7 @@
 //! Local daemon lifecycle and authenticated job control.
+pub(crate) mod bundle;
+#[cfg(target_os = "linux")]
+mod install;
 use crate::cli::arguments::DaemonCommand;
 use acorn::io::{config::application::ApplicationConfiguration, InputOutput};
 #[cfg(unix)]
@@ -22,45 +25,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-fn project_directories() -> Result<ProjectDirs> {
-    ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION).ok_or_else(|| eyre!("ACORN application directories are unavailable"))
-}
-fn config_path(override_path: Option<&Path>) -> Result<PathBuf> {
-    override_path.map_or_else(
-        || project_directories().map(|dirs| dirs.config_dir().join(DEFAULT_CONFIG_FILENAMES[1])),
-        |path| Ok(path.to_path_buf()),
-    )
-}
-#[cfg(unix)]
-fn read_token(path: &Path) -> Result<String> {
-    fs::symlink_metadata(path)
-        .map_err(|error| eyre!("Cannot inspect daemon token {}: {error}", path.display()))
-        .and_then(|metadata| {
-            let private = {
-                use std::os::unix::fs::PermissionsExt;
-                metadata.permissions().mode() & 0o077 == 0
-            };
-            (metadata.file_type().is_file() && private)
-                .then_some(())
-                .ok_or_else(|| eyre!("Daemon token must be a private regular file: {}", path.display()))
-        })
-        .and_then(|()| fs::read_to_string(path).map_err(|error| eyre!("Cannot read daemon token {}: {error}", path.display())))
-        .and_then(|contents| {
-            let token = contents.trim();
-            (!token.is_empty() && !token.chars().any(char::is_control))
-                .then(|| token.to_string())
-                .ok_or_else(|| eyre!("Daemon token is empty or malformed: {}", path.display()))
-        })
-}
-#[cfg(unix)]
-fn local_client(address: SocketAddr, directory: &Path) -> Result<JsonRpcClient> {
-    acorn_server::local::verify_private_dir(directory)
-        .map_err(|error| eyre!("Daemon control directory is not private: {error}"))
-        .and_then(|()| read_token(&directory.join("token")))
-        .and_then(|token| {
-            let socket = acorn_server::local::socket_path(directory, address.port());
-            JsonRpcClient::new_unix_socket(&socket, token, Duration::from_secs(5), Memory::mb(1)).map_err(eyre::Report::from)
-        })
+async fn call(method: &str, params: Value, config: Option<&Path>) -> Result<()> {
+    match client(config) {
+        | Err(error) => Err(error),
+        | Ok(client) => client
+            .call::<_, Value>(method, &params)
+            .await
+            .map_err(|error| eyre!("Daemon request failed: {error}"))
+            .map(|value| info!("{} {value}", Label::output())),
+    }
 }
 fn client(config: Option<&Path>) -> Result<JsonRpcClient> {
     config_path(config)
@@ -83,9 +56,40 @@ fn client(config: Option<&Path>) -> Result<JsonRpcClient> {
             result
         })
 }
+fn config_path(override_path: Option<&Path>) -> Result<PathBuf> {
+    override_path.map_or_else(
+        || {
+            #[cfg(target_os = "linux")]
+            let active = install::active_directory();
+            #[cfg(not(target_os = "linux"))]
+            let active: Result<Option<PathBuf>> = Ok(None);
+            active.and_then(|directory| {
+                directory.map_or_else(
+                    || project_directories().map(|dirs| dirs.config_dir().join(DEFAULT_CONFIG_FILENAMES[1])),
+                    |directory| Ok(directory.join("config.jsonc")),
+                )
+            })
+        },
+        |path| Ok(path.to_path_buf()),
+    )
+}
 fn lifecycle(action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
-    env::current_exe()
-        .map_err(|error| eyre!("Cannot locate the paired daemon executable: {error}"))
+    let active = if action == "install" {
+        Ok(None)
+    } else {
+        #[cfg(target_os = "linux")]
+        let result = install::active_directory();
+        #[cfg(not(target_os = "linux"))]
+        let result: Result<Option<PathBuf>> = Ok(None);
+        result
+    };
+    active
+        .and_then(|active| {
+            active.map_or_else(
+                || env::current_exe().map_err(|error| eyre!("Cannot locate the paired daemon executable: {error}")),
+                |directory| Ok(directory.join("acorn")),
+            )
+        })
         .and_then(|executable| {
             executable
                 .parent()
@@ -101,21 +105,69 @@ fn lifecycle(action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
             cmd!(status binary, arguments).map_err(|error| eyre!("Cannot run acornd {action}: {error}"))
         })
         .and_then(|status| status.success().then_some(()).ok_or_else(|| eyre!("acornd {action} failed: {status}")))
+        .and_then(|()| {
+            #[cfg(target_os = "linux")]
+            let cleared = if action == "uninstall" || action == "install" {
+                install::clear_active()
+            } else {
+                Ok(())
+            };
+            #[cfg(not(target_os = "linux"))]
+            let cleared = Ok(());
+            cleared
+        })
 }
-async fn call(method: &str, params: Value, config: Option<&Path>) -> Result<()> {
-    match client(config) {
-        | Err(error) => Err(error),
-        | Ok(client) => client
-            .call::<_, Value>(method, &params)
-            .await
-            .map_err(|error| eyre!("Daemon request failed: {error}"))
-            .map(|value| info!("{} {value}", Label::output())),
-    }
+#[cfg(unix)]
+fn local_client(address: SocketAddr, directory: &Path) -> Result<JsonRpcClient> {
+    acorn_server::local::verify_private_dir(directory)
+        .map_err(|error| eyre!("Daemon control directory is not private: {error}"))
+        .and_then(|()| read_token(&directory.join("token")))
+        .and_then(|token| {
+            let socket = acorn_server::local::socket_path(directory, address.port());
+            JsonRpcClient::new_unix_socket(&socket, token, Duration::from_secs(5), Memory::mb(1)).map_err(eyre::Report::from)
+        })
+}
+fn project_directories() -> Result<ProjectDirs> {
+    ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION).ok_or_else(|| eyre!("ACORN application directories are unavailable"))
+}
+#[cfg(unix)]
+fn read_token(path: &Path) -> Result<String> {
+    fs::symlink_metadata(path)
+        .map_err(|error| eyre!("Cannot inspect daemon token {}: {error}", path.display()))
+        .and_then(|metadata| {
+            let private = {
+                use std::os::unix::fs::PermissionsExt;
+                metadata.permissions().mode() & 0o077 == 0
+            };
+            (metadata.file_type().is_file() && private)
+                .then_some(())
+                .ok_or_else(|| eyre!("Daemon token must be a private regular file: {}", path.display()))
+        })
+        .and_then(|()| fs::read_to_string(path).map_err(|error| eyre!("Cannot read daemon token {}: {error}", path.display())))
+        .and_then(|contents| {
+            let token = contents.trim();
+            (!token.is_empty() && !token.chars().any(char::is_control))
+                .then(|| token.to_string())
+                .ok_or_else(|| eyre!("Daemon token is empty or malformed: {}", path.display()))
+        })
 }
 /// Execute a local daemon command.
 pub async fn run(command: &DaemonCommand) -> Result<()> {
     match command {
-        | DaemonCommand::Install { config, linger } => lifecycle("install", Some(config), *linger),
+        | DaemonCommand::VerifyBundle { bundle } => bundle::verify_path(bundle).map(|()| info!("{} verified {}", Label::pass(), bundle.display())),
+        | DaemonCommand::Install { config, bundle, linger } => match bundle {
+            | Some(bundle) => {
+                #[cfg(target_os = "linux")]
+                let result = install::run(bundle, config, *linger).await;
+                #[cfg(not(target_os = "linux"))]
+                let result = {
+                    let _ = bundle;
+                    Err(eyre!("Signed bundle activation awaits this platform's release bundle"))
+                };
+                result
+            }
+            | None => lifecycle("install", Some(config), *linger),
+        },
         | DaemonCommand::Uninstall => lifecycle("uninstall", None, false),
         | DaemonCommand::Start => lifecycle("start", None, false),
         | DaemonCommand::Stop => lifecycle("stop", None, false),

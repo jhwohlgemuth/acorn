@@ -11,6 +11,21 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli create runner`↴](#acorn-cli-create-runner)
 * [`acorn-cli create bot`↴](#acorn-cli-create-bot)
 * [`acorn-cli create secret`↴](#acorn-cli-create-secret)
+* [`acorn-cli daemon`↴](#acorn-cli-daemon)
+* [`acorn-cli daemon verify-bundle`↴](#acorn-cli-daemon-verify-bundle)
+* [`acorn-cli daemon install`↴](#acorn-cli-daemon-install)
+* [`acorn-cli daemon uninstall`↴](#acorn-cli-daemon-uninstall)
+* [`acorn-cli daemon start`↴](#acorn-cli-daemon-start)
+* [`acorn-cli daemon stop`↴](#acorn-cli-daemon-stop)
+* [`acorn-cli daemon restart`↴](#acorn-cli-daemon-restart)
+* [`acorn-cli daemon service-status`↴](#acorn-cli-daemon-service-status)
+* [`acorn-cli daemon list`↴](#acorn-cli-daemon-list)
+* [`acorn-cli daemon status`↴](#acorn-cli-daemon-status)
+* [`acorn-cli daemon history`↴](#acorn-cli-daemon-history)
+* [`acorn-cli daemon run`↴](#acorn-cli-daemon-run)
+* [`acorn-cli daemon pause`↴](#acorn-cli-daemon-pause)
+* [`acorn-cli daemon resume`↴](#acorn-cli-daemon-resume)
+* [`acorn-cli daemon reload`↴](#acorn-cli-daemon-reload)
 * [`acorn-cli doctor`↴](#acorn-cli-doctor)
 * [`acorn-cli diff`↴](#acorn-cli-diff)
 * [`acorn-cli download`↴](#acorn-cli-download)
@@ -79,6 +94,7 @@ This document contains the help content for the `acorn-cli` command-line program
 
 * `check` — Perform static analysis on research activity data and apply standardized best practices
 * `create` — Create research resources like GitLab runners, MCP servers, etc.
+* `daemon` — Manage the local ACORN daemon and its configured jobs
 * `doctor` — Diagnose and correct system requirements for using acorn
 * `diff` — Compare files semantically or calculate pairwise similarity
 * `download` — Download research activity data from buckets or model weights for local inference
@@ -426,6 +442,202 @@ Cryptographically secure 256-bit secret
 ###### **Options:**
 
 * `--paste` [alias: `clipboard`] — Copy the generated value to the system clipboard
+
+
+
+## `acorn-cli daemon`
+
+Manage the local ACORN daemon and its configured jobs
+
+**Usage:** `acorn-cli daemon <COMMAND>`
+
+###### **Subcommands:**
+
+* `verify-bundle` — Verify a signed paired release archive without installing it
+* `install` — Install or update the local daemon service with a configuration file
+* `uninstall` — Remove the registered user service
+* `start` — Start the registered user service
+* `stop` — Stop the registered user service
+* `restart` — Restart the registered user service
+* `service-status` — Show the user service manager's status
+* `list` — List configured daemon jobs
+* `status` — Show a job and its latest run
+* `history` — Show a job's recent runs
+* `run` — Queue a job immediately
+* `pause` — Pause a configured job
+* `resume` — Resume a configured job
+* `reload` — Reload configured jobs atomically
+
+
+
+## `acorn-cli daemon verify-bundle`
+
+Verify a signed paired release archive without installing it
+
+**Usage:** `acorn-cli daemon verify-bundle <BUNDLE>`
+
+###### **Arguments:**
+
+* `<BUNDLE>` — Bundle archive; its detached signature must be beside it
+
+
+
+## `acorn-cli daemon install`
+
+Install or update the local daemon service with a configuration file
+
+**Usage:** `acorn-cli daemon install [OPTIONS] --config <CONFIG>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — ACRE configuration path
+* `--bundle <BUNDLE>` — Signed paired acorn/acornd release archive to stage and activate
+* `--linger` — Ask logind to keep this user's service manager after logout
+
+
+
+## `acorn-cli daemon uninstall`
+
+Remove the registered user service
+
+**Usage:** `acorn-cli daemon uninstall`
+
+
+
+## `acorn-cli daemon start`
+
+Start the registered user service
+
+**Usage:** `acorn-cli daemon start`
+
+
+
+## `acorn-cli daemon stop`
+
+Stop the registered user service
+
+**Usage:** `acorn-cli daemon stop`
+
+
+
+## `acorn-cli daemon restart`
+
+Restart the registered user service
+
+**Usage:** `acorn-cli daemon restart`
+
+
+
+## `acorn-cli daemon service-status`
+
+Show the user service manager's status
+
+**Usage:** `acorn-cli daemon service-status`
+
+
+
+## `acorn-cli daemon list`
+
+List configured daemon jobs
+
+**Usage:** `acorn-cli daemon list [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — ACRE configuration path used to locate the local listener
+
+
+
+## `acorn-cli daemon status`
+
+Show a job and its latest run
+
+**Usage:** `acorn-cli daemon status [OPTIONS] <JOB_ID>`
+
+###### **Arguments:**
+
+* `<JOB_ID>` — Configured job identifier
+
+###### **Options:**
+
+* `--config <CONFIG>` — ACRE configuration path used to locate the local listener
+
+
+
+## `acorn-cli daemon history`
+
+Show a job's recent runs
+
+**Usage:** `acorn-cli daemon history [OPTIONS] <JOB_ID>`
+
+###### **Arguments:**
+
+* `<JOB_ID>` — Configured job identifier
+
+###### **Options:**
+
+* `--limit <LIMIT>` — Maximum number of runs, up to 100
+* `--config <CONFIG>` — ACRE configuration path used to locate the local listener
+
+
+
+## `acorn-cli daemon run`
+
+Queue a job immediately
+
+**Usage:** `acorn-cli daemon run [OPTIONS] <JOB_ID>`
+
+###### **Arguments:**
+
+* `<JOB_ID>` — Configured job identifier
+
+###### **Options:**
+
+* `--config <CONFIG>` — ACRE configuration path used to locate the local listener
+
+
+
+## `acorn-cli daemon pause`
+
+Pause a configured job
+
+**Usage:** `acorn-cli daemon pause [OPTIONS] <JOB_ID>`
+
+###### **Arguments:**
+
+* `<JOB_ID>` — Configured job identifier
+
+###### **Options:**
+
+* `--config <CONFIG>` — ACRE configuration path used to locate the local listener
+
+
+
+## `acorn-cli daemon resume`
+
+Resume a configured job
+
+**Usage:** `acorn-cli daemon resume [OPTIONS] <JOB_ID>`
+
+###### **Arguments:**
+
+* `<JOB_ID>` — Configured job identifier
+
+###### **Options:**
+
+* `--config <CONFIG>` — ACRE configuration path used to locate the local listener
+
+
+
+## `acorn-cli daemon reload`
+
+Reload configured jobs atomically
+
+**Usage:** `acorn-cli daemon reload [OPTIONS]`
+
+###### **Options:**
+
+* `--config <CONFIG>` — ACRE configuration path used to locate the local listener
 
 
 

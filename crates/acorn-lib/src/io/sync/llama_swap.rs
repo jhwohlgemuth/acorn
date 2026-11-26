@@ -113,8 +113,8 @@ pub(super) struct ModelValidation<'a> {
     config: &'a Config,
     model_ids: &'a [String],
 }
-impl Alias {
-    fn as_str(&self) -> &str {
+impl AsRef<str> for Alias {
+    fn as_ref(&self) -> &str {
         &self.value
     }
 }
@@ -261,7 +261,7 @@ impl Inner {
         let overrides = self.models.as_ref().and_then(|models| models.get(model_name));
         let aliases = overrides
             .and_then(|config| config.aliases.as_ref())
-            .map(|aliases| Value::Sequence(aliases.iter().map(|alias| Value::String(alias.as_str().to_string())).collect()));
+            .map(|aliases| Value::Sequence(aliases.iter().map(|alias| Value::String(alias.as_ref().to_string())).collect()));
         let context_size = overrides.and_then(|config| config.context_size).or(self.context_size);
         let command = Self::build_command(
             overrides
@@ -390,7 +390,7 @@ impl Validate for ModelValidation<'_> {
                         .into_iter()
                         .flatten()
                         .try_for_each(|alias| {
-                            let alias = alias.as_str();
+                            let alias: &str = alias.as_ref();
                             match (
                                 self.model_ids.iter().any(|candidate| candidate == alias),
                                 aliases.insert(alias.to_string()),

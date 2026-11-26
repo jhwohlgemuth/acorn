@@ -120,10 +120,10 @@ impl DaemonStore {
                     .map_err(StoreError::from)
                     .and_then(|_| {
                         jobs.iter().try_for_each(|id| {
-                            tx.execute(include_str!("../assets/migrations/0006_insert_job.sql"), params![id.as_str()])
+                            tx.execute(include_str!("../assets/migrations/0006_insert_job.sql"), params![id.as_ref()])
                                 .map_err(StoreError::from)
                                 .and_then(|_| {
-                                    tx.execute(include_str!("../assets/migrations/0007_activate_job.sql"), params![id.as_str()])
+                                    tx.execute(include_str!("../assets/migrations/0007_activate_job.sql"), params![id.as_ref()])
                                         .map(|_| ())
                                         .map_err(StoreError::from)
                                 })
@@ -138,7 +138,7 @@ impl DaemonStore {
                         superseded.iter().try_for_each(|id| {
                             tx.execute(
                                 include_str!("../assets/migrations/0009_interrupt_superseded_jobs.sql"),
-                                params![id.as_str(), now()],
+                                params![id.as_ref(), now()],
                             )
                             .map(|_| ())
                             .map_err(StoreError::from)
@@ -146,7 +146,7 @@ impl DaemonStore {
                     })
                     .and_then(|()| {
                         startup.iter().try_for_each(|id| {
-                            tx.execute(include_str!("../assets/migrations/0010_enqueue_startup.sql"), params![id.as_str(), now()])
+                            tx.execute(include_str!("../assets/migrations/0010_enqueue_startup.sql"), params![id.as_ref(), now()])
                                 .map(|_| ())
                                 .map_err(StoreError::from)
                         })
@@ -161,7 +161,7 @@ impl DaemonStore {
             connection
                 .query_row(
                     include_str!("../assets/migrations/0011_select_paused.sql"),
-                    params![job.as_str()],
+                    params![job.as_ref()],
                     |row| row.get::<_, bool>(0),
                 )
                 .optional()
@@ -172,7 +172,7 @@ impl DaemonStore {
     pub fn set_paused(&self, job: &JobId, paused: bool) -> StoreResult<bool> {
         self.with_connection(|connection| {
             connection
-                .execute(include_str!("../assets/migrations/0012_set_paused.sql"), params![job.as_str(), paused])
+                .execute(include_str!("../assets/migrations/0012_set_paused.sql"), params![job.as_ref(), paused])
                 .map(|changed| changed == 1)
                 .map_err(StoreError::from)
         })
@@ -183,7 +183,7 @@ impl DaemonStore {
             connection
                 .execute(
                     include_str!("../assets/migrations/0013_enqueue_run.sql"),
-                    params![job.as_str(), trigger_name(trigger), now()],
+                    params![job.as_ref(), trigger_name(trigger), now()],
                 )
                 .map(|changed| (changed == 1).then(|| connection.last_insert_rowid()))
                 .map_err(StoreError::from)
@@ -253,7 +253,7 @@ impl DaemonStore {
                 .map_err(StoreError::from)
                 .and_then(|mut statement| {
                     statement
-                        .query_map(params![job.as_str(), limit.min(MAX_HISTORY_PER_JOB as usize) as i64], row_to_run)
+                        .query_map(params![job.as_ref(), limit.min(MAX_HISTORY_PER_JOB as usize) as i64], row_to_run)
                         .map_err(StoreError::from)
                         .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>().map_err(StoreError::from))
                 })

@@ -472,10 +472,10 @@ fn model_selection(
             | (true, SessionConfigKind::Select(select)) => match &select.options {
                 | SessionConfigSelectOptions::Grouped(groups) => model
                     .contains(groups.iter().flat_map(|group| group.options.iter()).map(|option| &option.value))
-                    .then(|| SetSessionConfigOptionRequest::new(session_id.clone(), option.id.clone(), model.as_str())),
+                    .then(|| SetSessionConfigOptionRequest::new(session_id.clone(), option.id.clone(), model.as_ref())),
                 | SessionConfigSelectOptions::Ungrouped(options) => model
                     .contains(options.iter().map(|option| &option.value))
-                    .then(|| SetSessionConfigOptionRequest::new(session_id.clone(), option.id.clone(), model.as_str())),
+                    .then(|| SetSessionConfigOptionRequest::new(session_id.clone(), option.id.clone(), model.as_ref())),
                 | _ => None,
             },
             | _ => None,

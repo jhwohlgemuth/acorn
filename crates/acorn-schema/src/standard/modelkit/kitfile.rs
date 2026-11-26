@@ -292,6 +292,14 @@ impl Model {
         }
     }
 }
+impl AsRef<str> for ModelFormat {
+    fn as_ref(&self) -> &str {
+        match self {
+            | Self::Gguf => "GGUF",
+            | Self::Other(value) => value,
+        }
+    }
+}
 impl Default for ModelFormat {
     fn default() -> Self {
         Self::Other(String::new())
@@ -306,19 +314,13 @@ impl JsonSchema for ModelFormat {
     }
 }
 impl ModelFormat {
-    fn as_str(&self) -> &str {
-        match self {
-            | Self::Gguf => "GGUF",
-            | Self::Other(value) => value,
-        }
-    }
     fn is_empty(&self) -> bool {
-        self.as_str().is_empty()
+        self.as_ref().is_empty()
     }
 }
 impl Serialize for ModelFormat {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
+        serializer.serialize_str(self.as_ref())
     }
 }
 impl<'de> Deserialize<'de> for ModelFormat {

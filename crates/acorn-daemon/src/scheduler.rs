@@ -21,11 +21,6 @@ const TICK: Duration = Duration::from_millis(50);
 pub(crate) trait EventKindExt {
     fn is_content_change(&self) -> bool;
 }
-impl EventKindExt for EventKind {
-    fn is_content_change(&self) -> bool {
-        self.is_create() || self.is_modify() || self.is_remove()
-    }
-}
 pub(crate) enum Event {
     File(JobId, u64),
     Manual(JobId, oneshot::Sender<Result<bool, SchedulerError>>),
@@ -126,6 +121,11 @@ pub(crate) struct Slot {
     pub(crate) next_interval_ms: Option<u64>,
     pub(crate) file_due_ms: Option<u64>,
     pub(crate) pending_trigger: Option<JobTrigger>,
+}
+impl EventKindExt for EventKind {
+    fn is_content_change(&self) -> bool {
+        self.is_create() || self.is_modify() || self.is_remove()
+    }
 }
 impl Scheduler {
     /// Build a scheduler and a separate control handle for validated jobs.
@@ -348,7 +348,7 @@ impl Scheduler {
             | true => Ok(()),
             | false => self.store.claim_next().map_err(SchedulerError::from).and_then(|claimed| match claimed {
                 | None => Ok(()),
-                | Some(run) => match runtime.jobs.iter().find(|job| job.id().as_str() == run.job_id).cloned() {
+                | Some(run) => match runtime.jobs.iter().find(|job| job.id().as_ref() == run.job_id).cloned() {
                     | None => self
                         .store
                         .finish(run.id, RunState::Failed, None, None, Some("configured job is unavailable"))

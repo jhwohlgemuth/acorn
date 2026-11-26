@@ -2,7 +2,7 @@
 extern crate alloc;
 
 use acorn_core::big_o::{
-    compare_growth, compare_notation, AsStr, Asymptotic, ComparisonError, ComparisonInput, Dominance, Exponent, Expression, GrowthAssumptions,
+    compare_growth, compare_notation, Asymptotic, ComparisonError, ComparisonInput, Dominance, Exponent, Expression, GrowthAssumptions,
     LatexExpression, ParseErrorKind, SymbolGrowth, Term, MAX_INPUT_BYTES, MAX_NESTING_DEPTH,
 };
 use acorn_core::ThisOrThat;
@@ -40,34 +40,6 @@ fn test_accepted_grammar_and_precedence() {
                 if n == "n" && matches!(product.as_slice(), [Term::Variable(m), Term::Power { base, exponent: Exponent::Integer(2) }]
                     if m == "m" && matches!(base.as_ref(), Term::Variable(k) if k == "k")))
     ));
-}
-#[test]
-fn test_latex_expression_formats_big_o_terms() {
-    for (notation, expected) in [
-        ("O(n^2 + m)", r"\mathcal{O}\left(n^{2} + m\right)"),
-        (
-            "O((n + 1)(m + 1))",
-            r"\mathcal{O}\left(\left(n + 1\right) \cdot \left(m + 1\right)\right)",
-        ),
-        ("O((log n)^2)", r"\mathcal{O}\left(\log\left(n\right)^{2}\right)"),
-        (
-            "O(P^(1/2)+W_out(P))",
-            r"\mathcal{O}\left(P^{\frac{1}{2}} + W_{\mathrm{out}}\left(P\right)\right)",
-        ),
-        (
-            "O(G+log_a(G)*k*c^(e-d))",
-            r"\mathcal{O}\left(G + \log_{a}\left(G\right) \cdot k \cdot c^{e-d}\right)",
-        ),
-        (
-            "O(polylog(q/e) + long_name)",
-            r"\mathcal{O}\left(\operatorname{polylog}\left(\frac{q}{e}\right) + \mathrm{long\_name}\right)",
-        ),
-    ] {
-        let expression = Expression::parse(notation).expect("parse LaTeX example");
-        let latex = LatexExpression::from(expression);
-        assert_eq!(latex.as_str(), expected, "input {notation:?}");
-        assert_eq!(latex.to_string(), expected, "input {notation:?}");
-    }
 }
 #[test]
 fn test_asymptotic_comparison_infers_standard_growth_conventions() {
@@ -323,6 +295,32 @@ fn test_function_arguments_distinguish_unexpected_tokens_from_end() {
     }
 }
 #[test]
+fn test_growth_comparison_handles_canonical_corpus_pairs() {
+    let assumptions = GrowthAssumptions::new()
+        .with("B", SymbolGrowth::Growing)
+        .with("G", SymbolGrowth::Growing)
+        .with("H", SymbolGrowth::Growing)
+        .with("P", SymbolGrowth::Growing)
+        .with("a", SymbolGrowth::FixedLogBase)
+        .with("c", SymbolGrowth::FixedPositive)
+        .with("d", SymbolGrowth::FixedPositive)
+        .with("R_s", SymbolGrowth::FixedPositive)
+        .with("G_q", SymbolGrowth::FixedPositive)
+        .with("e", SymbolGrowth::ShrinkingPositive)
+        .with("t", SymbolGrowth::FixedPositive);
+    let compare = |left, right| {
+        let left = Expression::parse(left).expect("left corpus expression");
+        let right = Expression::parse(right).expect("right corpus expression");
+        compare_growth(ThisOrThat::new(&left, &right), &assumptions)
+    };
+    assert_eq!(compare("O(P*B)", "O(P*B^2+B^3)"), Dominance::Right);
+    assert_eq!(compare("O(P+log(P)^2+P^(1/2))", "O(P)"), Dominance::Equivalent);
+    assert_eq!(compare("O(G+polylog(G))", "O(G)"), Dominance::Equivalent);
+    assert_eq!(compare("O(P*B+2*log(B)*t*H^2/e)", "O(P*B+log(B)*t*H^2/e)"), Dominance::Equivalent);
+    assert_eq!(compare("O(G+G*R_s*G_q+W_out(G))", "O(G)"), Dominance::Equivalent);
+    assert_eq!(compare("O(G+log_a(G)*c^(e-d))", "O(G)"), Dominance::Equivalent);
+}
+#[test]
 fn test_growth_comparison_proves_supported_relationships() {
     let assumptions = GrowthAssumptions::new()
         .with("n", SymbolGrowth::Growing)
@@ -374,32 +372,6 @@ fn test_growth_comparison_returns_undetermined_at_proof_limits() {
     }
 }
 #[test]
-fn test_growth_comparison_handles_canonical_corpus_pairs() {
-    let assumptions = GrowthAssumptions::new()
-        .with("B", SymbolGrowth::Growing)
-        .with("G", SymbolGrowth::Growing)
-        .with("H", SymbolGrowth::Growing)
-        .with("P", SymbolGrowth::Growing)
-        .with("a", SymbolGrowth::FixedLogBase)
-        .with("c", SymbolGrowth::FixedPositive)
-        .with("d", SymbolGrowth::FixedPositive)
-        .with("R_s", SymbolGrowth::FixedPositive)
-        .with("G_q", SymbolGrowth::FixedPositive)
-        .with("e", SymbolGrowth::ShrinkingPositive)
-        .with("t", SymbolGrowth::FixedPositive);
-    let compare = |left, right| {
-        let left = Expression::parse(left).expect("left corpus expression");
-        let right = Expression::parse(right).expect("right corpus expression");
-        compare_growth(ThisOrThat::new(&left, &right), &assumptions)
-    };
-    assert_eq!(compare("O(P*B)", "O(P*B^2+B^3)"), Dominance::Right);
-    assert_eq!(compare("O(P+log(P)^2+P^(1/2))", "O(P)"), Dominance::Equivalent);
-    assert_eq!(compare("O(G+polylog(G))", "O(G)"), Dominance::Equivalent);
-    assert_eq!(compare("O(P*B+2*log(B)*t*H^2/e)", "O(P*B+log(B)*t*H^2/e)"), Dominance::Equivalent);
-    assert_eq!(compare("O(G+G*R_s*G_q+W_out(G))", "O(G)"), Dominance::Equivalent);
-    assert_eq!(compare("O(G+log_a(G)*c^(e-d))", "O(G)"), Dominance::Equivalent);
-}
-#[test]
 fn test_invalid_notation_reports_kind_and_offset() {
     for (notation, kind, offset) in [
         ("", ParseErrorKind::Empty, 0),
@@ -419,6 +391,34 @@ fn test_invalid_notation_reports_kind_and_offset() {
         let error = Expression::parse(notation).expect_err("reject malformed notation");
         assert_eq!(error.kind(), kind, "notation {notation:?}");
         assert_eq!(error.offset(), offset, "notation {notation:?}");
+    }
+}
+#[test]
+fn test_latex_expression_formats_big_o_terms() {
+    for (notation, expected) in [
+        ("O(n^2 + m)", r"\mathcal{O}\left(n^{2} + m\right)"),
+        (
+            "O((n + 1)(m + 1))",
+            r"\mathcal{O}\left(\left(n + 1\right) \cdot \left(m + 1\right)\right)",
+        ),
+        ("O((log n)^2)", r"\mathcal{O}\left(\log\left(n\right)^{2}\right)"),
+        (
+            "O(P^(1/2)+W_out(P))",
+            r"\mathcal{O}\left(P^{\frac{1}{2}} + W_{\mathrm{out}}\left(P\right)\right)",
+        ),
+        (
+            "O(G+log_a(G)*k*c^(e-d))",
+            r"\mathcal{O}\left(G + \log_{a}\left(G\right) \cdot k \cdot c^{e-d}\right)",
+        ),
+        (
+            "O(polylog(q/e) + long_name)",
+            r"\mathcal{O}\left(\operatorname{polylog}\left(\frac{q}{e}\right) + \mathrm{long\_name}\right)",
+        ),
+    ] {
+        let expression = Expression::parse(notation).expect("parse LaTeX example");
+        let latex = LatexExpression::from(expression);
+        assert_eq!(latex.as_ref(), expected, "input {notation:?}");
+        assert_eq!(latex.to_string(), expected, "input {notation:?}");
     }
 }
 #[test]

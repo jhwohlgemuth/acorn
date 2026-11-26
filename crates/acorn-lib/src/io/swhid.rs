@@ -143,11 +143,11 @@ impl<'a> CalculationPath<'a> {
                         .and_then(|object| match object_type {
                             | ObjectType::Content => object
                                 .peel_to_blob()
-                                .map(|object| format!("swh:1:{}:{}", object_type.as_str(), object.id()))
+                                .map(|object| format!("swh:1:{}:{}", object_type.as_ref(), object.id()))
                                 .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a blob: {why}")),
                             | _ => object
                                 .peel_to_tree()
-                                .map(|object| format!("swh:1:{}:{}", object_type.as_str(), object.id()))
+                                .map(|object| format!("swh:1:{}:{}", object_type.as_ref(), object.id()))
                                 .map_err(|why| eyre!("Git reference `{reference}` does not resolve to a tree: {why}")),
                         })
                 })

@@ -125,12 +125,12 @@ impl fmt::Display for CoalescingTransitionError {
 }
 impl AsRef<str> for JobId {
     fn as_ref(&self) -> &str {
-        self.as_str()
+        &self.0
     }
 }
 impl fmt::Display for JobId {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
+        formatter.write_str(self.as_ref())
     }
 }
 impl FromStr for JobId {
@@ -164,11 +164,6 @@ impl JobId {
                 format!("Invalid daemon job identifier '{value}'"),
             )),
         }
-    }
-    /// Borrow the validated identifier.
-    #[must_use]
-    pub fn as_str(&self) -> &str {
-        &self.0
     }
 }
 impl TryFrom<&str> for JobId {

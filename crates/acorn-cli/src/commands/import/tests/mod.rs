@@ -20,14 +20,22 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tracing_subscriber::fmt::MakeWriter;
 
+const SPEC: &str = r#"
+openapi: 3.1.0
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+"#;
 struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
 impl<'a> MakeWriter<'a> for SharedWriter {
     type Writer = SharedWriterGuard;
     fn make_writer(&'a self) -> Self::Writer {
         SharedWriterGuard(self.0.clone())
     }
 }
-struct SharedWriterGuard(Arc<Mutex<Vec<u8>>>);
+
 impl Write for SharedWriterGuard {
     fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
         match self.0.lock() {
@@ -42,14 +50,6 @@ impl Write for SharedWriterGuard {
         Ok(())
     }
 }
-
-const SPEC: &str = r#"
-openapi: 3.1.0
-paths:
-  /widgets:
-    get:
-      operationId: listWidgets
-"#;
 
 #[allow(clippy::too_many_arguments)]
 async fn execute_model(
@@ -123,14 +123,66 @@ fn test_endpoint_from_import_normalizes_uri_domain() {
     assert_eq!(endpoint.port, Some(9443));
 }
 #[test]
+fn test_endpoint_from_import_requires_domain() {
+    let result = endpoint_from_import(&Some("widgets::api".to_string()), &None, &None, &None, SPEC);
+    assert!(result.is_err());
+}
+#[test]
 fn test_endpoint_from_import_requires_name() {
     let result = endpoint_from_import(&None, &Some("api.example.com".to_string()), &None, &None, SPEC);
     assert!(result.is_err());
 }
+#[tokio::test]
+async fn test_model_catalog_import_dry_run_skips_database() {
+    let directory = temp_test_dir("import-model-dry-run");
+    let _cleanup = TestCleanup::new(directory.clone());
+    let database_path = directory.join("models.duckdb");
+    let result = execute_model(
+        &[],
+        &None,
+        &None,
+        false,
+        true,
+        &None,
+        &Some(database_path.clone()),
+        false,
+        false,
+        false,
+        20,
+        100,
+        false,
+        &Default::default(),
+    )
+    .await;
+    assert!(result.is_ok());
+    assert!(!database_path.exists());
+}
+#[tokio::test]
+async fn test_model_catalog_import_skips_database_when_disabled() {
+    let result = execute_model(
+        &[],
+        &None,
+        &None,
+        false,
+        false,
+        &None,
+        &Some(".".into()),
+        true,
+        false,
+        false,
+        20,
+        100,
+        false,
+        &Default::default(),
+    )
+    .await;
+    assert!(result.is_ok());
+}
 #[test]
-fn test_endpoint_from_import_requires_domain() {
-    let result = endpoint_from_import(&Some("widgets::api".to_string()), &None, &None, &None, SPEC);
-    assert!(result.is_err());
+fn test_model_file_import_results_skip_unresolved_models() {
+    let imported = collect_imported(vec![Ok("acme/model".to_string()), Err(eyre!("missing model"))], true).unwrap();
+    assert_eq!(imported, vec!["acme/model"]);
+    assert!(collect_imported(vec![Err(eyre!("missing model"))], false).is_err());
 }
 #[test]
 fn test_model_metadata_builds_file_level_weights_with_sizes() {
@@ -188,58 +240,6 @@ fn test_model_metadata_inserts_minimal_row_and_refreshes_weights() {
     assert!(weights.0.iter().any(|weight| weight.url == "https://huggingface.co/acme/base"));
     assert!(weights.0.iter().any(|weight| weight.size == Some(20)));
 }
-#[tokio::test]
-async fn test_model_catalog_import_skips_database_when_disabled() {
-    let result = execute_model(
-        &[],
-        &None,
-        &None,
-        false,
-        false,
-        &None,
-        &Some(".".into()),
-        true,
-        false,
-        false,
-        20,
-        100,
-        false,
-        &Default::default(),
-    )
-    .await;
-    assert!(result.is_ok());
-}
-#[tokio::test]
-async fn test_model_catalog_import_dry_run_skips_database() {
-    let directory = temp_test_dir("import-model-dry-run");
-    let _cleanup = TestCleanup::new(directory.clone());
-    let database_path = directory.join("models.duckdb");
-    let result = execute_model(
-        &[],
-        &None,
-        &None,
-        false,
-        true,
-        &None,
-        &Some(database_path.clone()),
-        false,
-        false,
-        false,
-        20,
-        100,
-        false,
-        &Default::default(),
-    )
-    .await;
-    assert!(result.is_ok());
-    assert!(!database_path.exists());
-}
-#[test]
-fn test_model_file_import_results_skip_unresolved_models() {
-    let imported = collect_imported(vec![Ok("acme/model".to_string()), Err(eyre!("missing model"))], true).unwrap();
-    assert_eq!(imported, vec!["acme/model"]);
-    assert!(collect_imported(vec![Err(eyre!("missing model"))], false).is_err());
-}
 #[test]
 fn test_model_selectors_fall_back_to_open_model_identifiers_without_weight_sources() {
     let selectors = ModelList::parse(
@@ -251,7 +251,7 @@ fn test_model_selectors_fall_back_to_open_model_identifiers_without_weight_sourc
     .and_then(ModelList::selectors)
     .unwrap();
     assert_eq!(
-        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        selectors.iter().map(ModelSelector::as_ref).collect::<Vec<_>>(),
         vec!["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
     );
 }
@@ -270,7 +270,7 @@ fn test_model_selectors_parse_catalog_weight_repositories() {
     .and_then(ModelList::selectors)
     .unwrap();
     assert_eq!(
-        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        selectors.iter().map(ModelSelector::as_ref).collect::<Vec<_>>(),
         vec!["google/gemma-4-26B-A4B-it"]
     );
 }
@@ -280,7 +280,7 @@ fn test_model_selectors_parse_json_model_details_preferring_id() {
         .and_then(ModelList::selectors)
         .unwrap();
     assert_eq!(
-        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        selectors.iter().map(ModelSelector::as_ref).collect::<Vec<_>>(),
         vec!["acme/model", "acme/other"]
     );
 }
@@ -288,7 +288,7 @@ fn test_model_selectors_parse_json_model_details_preferring_id() {
 fn test_model_selectors_parse_plain_text_and_yaml() {
     let plain = ModelList::parse(" acme/one \n\nacme/two\n").and_then(ModelList::selectors).unwrap();
     let yaml = ModelList::parse("- acme/one\n- acme/two\n").and_then(ModelList::selectors).unwrap();
-    assert_eq!(plain.iter().map(ModelSelector::as_str).collect::<Vec<_>>(), vec!["acme/one", "acme/two"]);
+    assert_eq!(plain.iter().map(ModelSelector::as_ref).collect::<Vec<_>>(), vec!["acme/one", "acme/two"]);
     assert_eq!(yaml, plain);
 }
 #[tokio::test]
@@ -315,7 +315,7 @@ async fn test_model_selectors_resolve_file_uri() {
         .await
         .unwrap();
     assert_eq!(
-        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        selectors.iter().map(ModelSelector::as_ref).collect::<Vec<_>>(),
         vec!["inline/model", "acme/one", "acme/two"]
     );
 }
@@ -328,7 +328,7 @@ async fn test_model_selectors_resolve_http_uri() {
         .unwrap();
     handle.join().unwrap();
     assert_eq!(
-        selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(),
+        selectors.iter().map(ModelSelector::as_ref).collect::<Vec<_>>(),
         vec!["acme/one", "acme/two"]
     );
 }
@@ -350,7 +350,7 @@ fn test_model_selectors_warn_for_unresolved_catalog_models() {
         .unwrap()
     });
     let text = String::from_utf8(logs.lock().unwrap().clone()).unwrap();
-    assert_eq!(selectors.iter().map(ModelSelector::as_str).collect::<Vec<_>>(), vec!["acme/model"]);
+    assert_eq!(selectors.iter().map(ModelSelector::as_ref).collect::<Vec<_>>(), vec!["acme/model"]);
     assert!(text.contains("WARN"));
     assert!(text.contains("openai/gpt-4.1"));
     assert!(text.contains("Could not resolve"));

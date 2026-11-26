@@ -22,6 +22,7 @@ pub mod install;
 pub mod reload;
 pub mod runner;
 pub mod scheduler;
+pub mod util;
 
 const TOKEN_FILE: &str = "token";
 /// Result returned by daemon process operations.
@@ -78,6 +79,13 @@ pub enum DaemonError {
     #[error("daemon worker stopped before initialization")]
     WorkerStoppedBeforeReady,
 }
+fn prepare_data_directory(path: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    let result = acorn_server::local::prepare_private_dir(path);
+    #[cfg(not(unix))]
+    let result = fs::create_dir_all(path);
+    result
+}
 fn read_token(path: &Path) -> DaemonResult<String> {
     let protection = fs::symlink_metadata(path)
         .map_err(|source| DaemonError::TokenRead { source })
@@ -103,6 +111,7 @@ fn read_token(path: &Path) -> DaemonResult<String> {
             })
     })
 }
+
 async fn run_composed<F>(
     config: DaemonConfig,
     config_path: PathBuf,
@@ -170,7 +179,6 @@ where
         }
     }
 }
-
 /// Validate configuration, run scheduled jobs, and wait for foreground shutdown.
 pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
     let path = path.as_ref();
@@ -200,6 +208,10 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
                         .map(|address| acorn_server::local::socket_path(targets.data(), address.port()));
                     #[cfg(not(unix))]
                     let local_socket = None;
+                    #[cfg(unix)]
+                    let shutdown = shutdown_signal();
+                    #[cfg(not(unix))]
+                    let shutdown = tokio::signal::ctrl_c();
                     run_composed(
                         config,
                         path.to_path_buf(),
@@ -207,7 +219,7 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
                         targets.binary().to_path_buf(),
                         token,
                         local_socket,
-                        tokio::signal::ctrl_c(),
+                        shutdown,
                     )
                     .await
                 }
@@ -215,13 +227,6 @@ pub async fn run_foreground(path: impl AsRef<Path>) -> DaemonResult<()> {
         }
         | Err(error) => Err(DaemonError::Config(error)),
     }
-}
-fn prepare_data_directory(path: &Path) -> io::Result<()> {
-    #[cfg(unix)]
-    let result = acorn_server::local::prepare_private_dir(path);
-    #[cfg(not(unix))]
-    let result = fs::create_dir_all(path);
-    result
 }
 fn server_config(config: &DaemonConfig, token: String) -> DaemonResult<acorn_server::ServerConfig> {
     let rpc = config.bind().rpc();
@@ -248,6 +253,16 @@ fn server_config(config: &DaemonConfig, token: String) -> DaemonResult<acorn_ser
                 server
             })
         })
+}
+#[cfg(unix)]
+async fn shutdown_signal() -> io::Result<()> {
+    match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+        | Ok(mut terminate) => tokio::select! {
+            result = tokio::signal::ctrl_c() => result,
+            _ = terminate.recv() => Ok(()),
+        },
+        | Err(error) => Err(error),
+    }
 }
 #[cfg(test)]
 mod tests;

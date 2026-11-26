@@ -170,6 +170,23 @@ fn test_check_format_argument() {
     assert!(Arguments::try_parse_from(["acorn", "check", "notes.json", "--format", "json"]).is_err());
 }
 #[test]
+fn test_check_named_ron_discovery_does_not_expand_export() {
+    let root = temp_test_dir("resolve-acre-ron");
+    let _cleanup = TestCleanup::new(root.clone());
+    create_dir_all(&root).unwrap();
+    let canonical = root.join(".acorn.ron");
+    let other = root.join("other.ron");
+    write(&canonical, "{}\n").unwrap();
+    write(&other, "{}\n").unwrap();
+    let options = CommandOptions::init().build();
+    let check = block_on(resolve_paths_including(&Some(root.clone()), &options, &["Kitfile", ".acorn.ron"])).unwrap();
+    let export = block_on(resolve_export_paths(&Some(root), &options)).unwrap();
+    assert!(check.contains(&canonical));
+    assert!(!check.contains(&other));
+    assert!(!export.contains(&canonical));
+    assert!(!export.contains(&other));
+}
+#[test]
 fn test_check_patch_output_requires_suggestions() {
     ["diff", "json-patch"].into_iter().for_each(|format| {
         let invalid = Arguments::try_parse_from(["acorn", "check", "activity.json", "--output", format]).expect("parse patch output");
@@ -394,7 +411,7 @@ fn test_create_remote_targets() {
         | Some(Commands::Create {
             command: Some(CreateCommands::Bot(arguments)),
         }) => assert_eq!(
-            arguments.target.host.as_ref().map(|remote| remote.as_str()),
+            arguments.target.host.as_ref().map(|remote| remote.as_ref()),
             Some("ssh://deploy@example.org:2222/var/run/docker.sock")
         ),
         | other => panic!("unexpected command: {other:?}"),
@@ -414,7 +431,7 @@ fn test_create_remote_targets() {
     match runner.command {
         | Some(Commands::Create {
             command: Some(CreateCommands::Runner(arguments)),
-        }) => assert_eq!(arguments.target.host.as_ref().map(|remote| remote.as_str()), Some("ssh://builder")),
+        }) => assert_eq!(arguments.target.host.as_ref().map(|remote| remote.as_ref()), Some("ssh://builder")),
         | other => panic!("unexpected command: {other:?}"),
     }
 }
@@ -1839,23 +1856,6 @@ fn test_resolve_paths_including_discovers_named_files() {
     assert!(resolved.contains(&json));
     assert!(resolved.contains(&kitfile));
     assert!(!resolved.contains(&text));
-}
-#[test]
-fn test_check_named_ron_discovery_does_not_expand_export() {
-    let root = temp_test_dir("resolve-acre-ron");
-    let _cleanup = TestCleanup::new(root.clone());
-    create_dir_all(&root).unwrap();
-    let canonical = root.join(".acorn.ron");
-    let other = root.join("other.ron");
-    write(&canonical, "{}\n").unwrap();
-    write(&other, "{}\n").unwrap();
-    let options = CommandOptions::init().build();
-    let check = block_on(resolve_paths_including(&Some(root.clone()), &options, &["Kitfile", ".acorn.ron"])).unwrap();
-    let export = block_on(resolve_export_paths(&Some(root), &options)).unwrap();
-    assert!(check.contains(&canonical));
-    assert!(!check.contains(&other));
-    assert!(!export.contains(&canonical));
-    assert!(!export.contains(&other));
 }
 #[test]
 fn test_routed_infer_contract_and_authority_flags() {

@@ -4,6 +4,7 @@
 - [Coverage throughput](coverage-throughput.md) - Make the local test and coverage loop fast enough to run after every change.
 - [Frontend build quality](frontend-build-quality.md) - Repository-wide Oxlint and Stylelint gates are accepted; remaining phases cover compiler and release-asset checks.
 - [GitLab shell runner readiness](gitlab-shell-runner-readiness.md) - GSR-02 is blocked. Runner 55645 can start a tagged job, then loses the final status update.
+- [Invariant tests and Lean proofs](invariant-verification.md) - Add property tests for untested conversion and algebra laws, add codec and Big-O fuzz targets, and prove Big-O verdicts sound in Lean, linked to Rust through generated vectors.
 - [Portable PID verification](pid-verification.md) - Gate the pinned Verus toolchain and a feature-gated checksum crate, prove the shared ORCID/ISNI core, then connect production callers, consolidate PID helpers, and run public APIs under Miri.
 - [Report PowerPoint visual regression](powerpoint-report-visual-regression.md) - Generate report decks, verify slide content, and compare reviewed LibreOffice renders on Linux and native Windows.
 - [WebMCP and MCP interoperability](webmcp-evaluations.md) - Layer contract tests, Inspector smoke, conformance, browser evaluations, and independent live-client controls.

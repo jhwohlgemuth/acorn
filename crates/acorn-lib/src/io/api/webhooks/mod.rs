@@ -263,6 +263,11 @@ impl fmt::Debug for CallbackHeader {
             .finish()
     }
 }
+impl AsRef<str> for CallbackTarget {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 impl CallbackTarget {
     /// Validate and retain an HTTPS callback URL.
     pub fn new(url: impl Into<String>) -> Result<Self, WebhookError> {
@@ -285,10 +290,6 @@ impl CallbackTarget {
             && value.username().is_empty()
             && value.password().is_none()
             && value.fragment().is_none()
-    }
-    /// Return the exact validated URL for transport use.
-    pub fn as_str(&self) -> &str {
-        &self.0
     }
 }
 impl fmt::Debug for CallbackTarget {
@@ -667,7 +668,7 @@ pub async fn dispatch<T: Serialize + ?Sized>(
                 .max_response_bytes(MAX_CALLBACK_RESPONSE_BYTES)
                 .method(HttpMethod::Post)
                 .sensitive_url(true)
-                .url(target.as_str())
+                .url(target.as_ref())
                 .build();
             service
                 .execute(request)
@@ -714,7 +715,7 @@ pub async fn dispatch_signed(
                 .max_response_bytes(MAX_CALLBACK_RESPONSE_BYTES)
                 .method(HttpMethod::Post)
                 .sensitive_url(true)
-                .url(target.as_str())
+                .url(target.as_ref())
                 .build();
             service
                 .execute(request)

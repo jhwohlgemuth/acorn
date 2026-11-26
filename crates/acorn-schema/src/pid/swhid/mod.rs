@@ -81,6 +81,17 @@ impl fmt::Display for FragmentRange {
         }
     }
 }
+impl AsRef<str> for ObjectType {
+    fn as_ref(&self) -> &str {
+        match self {
+            | Self::Content => "cnt",
+            | Self::Directory => "dir",
+            | Self::Release => "rel",
+            | Self::Revision => "rev",
+            | Self::Snapshot => "snp",
+        }
+    }
+}
 impl FromStr for ObjectType {
     type Err = SwhidParseError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -91,18 +102,6 @@ impl FromStr for ObjectType {
             | "rev" => Ok(Self::Revision),
             | "snp" => Ok(Self::Snapshot),
             | _ => Err(SwhidParseError::new("unsupported SWHID object type")),
-        }
-    }
-}
-impl ObjectType {
-    /// Return the SWHID object tag
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            | Self::Content => "cnt",
-            | Self::Directory => "dir",
-            | Self::Release => "rel",
-            | Self::Revision => "rev",
-            | Self::Snapshot => "snp",
         }
     }
 }
@@ -146,6 +145,24 @@ impl fmt::Display for SWHID {
         Ok(())
     }
 }
+impl FromStr for SWHID {
+    type Err = SwhidParseError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let value = strip_resolver(value.trim());
+        let mut parts = value.split(';');
+        let core = parts.next().unwrap_or_default();
+        parse_core(core).and_then(|(object_type, object_id)| {
+            parts
+                .try_fold(Qualifiers::default(), parse_qualifier)
+                .map(|qualifiers| Self {
+                    object_type,
+                    object_id,
+                    qualifiers,
+                })
+                .and_then(|parsed| parsed.validate().map(|()| parsed))
+        })
+    }
+}
 impl PersistentIdentifier for SWHID {
     fn new() -> Self {
         Self::default()
@@ -157,7 +174,7 @@ impl PersistentIdentifier for SWHID {
         self.to_string()
     }
     fn prefix(&self) -> Option<String> {
-        Some(format!("swh:1:{}", self.object_type.as_str()))
+        Some(format!("swh:1:{}", self.object_type.as_ref()))
     }
     fn suffix(&self) -> Option<String> {
         (!self.object_id.is_empty()).then(|| self.object_id.clone())
@@ -187,28 +204,10 @@ impl PersistentIdentifierParse for SWHID {
         value.to_string().parse::<Self>().is_ok()
     }
 }
-impl FromStr for SWHID {
-    type Err = SwhidParseError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let value = strip_resolver(value.trim());
-        let mut parts = value.split(';');
-        let core = parts.next().unwrap_or_default();
-        parse_core(core).and_then(|(object_type, object_id)| {
-            parts
-                .try_fold(Qualifiers::default(), parse_qualifier)
-                .map(|qualifiers| Self {
-                    object_type,
-                    object_id,
-                    qualifiers,
-                })
-                .and_then(|parsed| parsed.validate().map(|()| parsed))
-        })
-    }
-}
 impl SWHID {
     /// Return the canonical core identifier without qualifiers
     pub fn core_identifier(&self) -> String {
-        format!("swh:1:{}:{}", self.object_type.as_str(), self.object_id)
+        format!("swh:1:{}:{}", self.object_type.as_ref(), self.object_id)
     }
     fn validate(&self) -> Result<(), SwhidParseError> {
         let object_is_content = self.object_type == ObjectType::Content;

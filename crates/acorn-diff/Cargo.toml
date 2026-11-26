@@ -19,8 +19,13 @@ serde_json = { workspace = true }
 similar = { workspace = true }
 
 [dev-dependencies]
+criterion = "0.8.2"
 json-patch = "4.2.0"
 proptest = "1.9.0"
+
+[[bench]]
+name = "diff"
+harness = false
 
 [features]
 default = ["std"]

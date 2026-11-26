@@ -265,7 +265,7 @@ impl TransferManifest {
                     .value(value)
                     .build()
                     .normalized()
-                    .map(|identifier| format!("{}:{}", identifier.kind.as_str(), identifier.value))
+                    .map(|identifier| format!("{}:{}", identifier.kind.as_ref(), identifier.value))
             })
         });
         let rad_key = format!("rad:{}:{}", self.source.locator(), rad.meta.identifier);

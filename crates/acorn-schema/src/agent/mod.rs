@@ -57,40 +57,6 @@ pub enum AuthenticationScheme {
     /// Provider-specific authentication.
     Custom(String),
 }
-/// Metric type for benchmark evaluation results
-#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
-pub enum Metric {
-    /// Average pass@1 across multiple coding tasks
-    #[serde(rename = "average pass@1")]
-    AveragePassAt1,
-    /// Index score
-    #[serde(rename = "index")]
-    Index,
-    /// Pass@1 score
-    #[serde(rename = "pass@1")]
-    PassAt1,
-    /// Percentage of correct answers
-    #[serde(rename = "percent correct")]
-    PercentCorrect,
-    /// Percentage of tasks resolved
-    #[serde(rename = "percent resolved")]
-    PercentResolved,
-    /// Rate at which issues are resolved
-    #[serde(rename = "resolve rate")]
-    ResolveRate,
-    /// Percentage of tasks resolved
-    #[serde(rename = "resolved")]
-    Resolved,
-    /// Numeric score
-    #[serde(rename = "score")]
-    Score,
-    /// Rate of successful task completions
-    #[serde(rename = "success rate")]
-    SuccessRate,
-    /// Catch-all for unknown metric types added by upstream catalogs
-    #[serde(untagged)]
-    Other(String),
-}
 /// Benchmark evaluation harness or framework
 #[derive(Clone, Debug, Display, Deserialize, Serialize, JsonSchema)]
 pub enum Harness {
@@ -128,6 +94,40 @@ pub enum Harness {
     Terminus2,
     /// Catch-all for unknown harness names added by upstream catalogs
     #[display("{}", _0)]
+    #[serde(untagged)]
+    Other(String),
+}
+/// Metric type for benchmark evaluation results
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub enum Metric {
+    /// Average pass@1 across multiple coding tasks
+    #[serde(rename = "average pass@1")]
+    AveragePassAt1,
+    /// Index score
+    #[serde(rename = "index")]
+    Index,
+    /// Pass@1 score
+    #[serde(rename = "pass@1")]
+    PassAt1,
+    /// Percentage of correct answers
+    #[serde(rename = "percent correct")]
+    PercentCorrect,
+    /// Percentage of tasks resolved
+    #[serde(rename = "percent resolved")]
+    PercentResolved,
+    /// Rate at which issues are resolved
+    #[serde(rename = "resolve rate")]
+    ResolveRate,
+    /// Percentage of tasks resolved
+    #[serde(rename = "resolved")]
+    Resolved,
+    /// Numeric score
+    #[serde(rename = "score")]
+    Score,
+    /// Rate of successful task completions
+    #[serde(rename = "success rate")]
+    SuccessRate,
+    /// Catch-all for unknown metric types added by upstream catalogs
     #[serde(untagged)]
     Other(String),
 }
@@ -498,6 +498,68 @@ pub struct Modalities {
     /// Output modalities the model produces
     pub output: Vec<Modality>,
 }
+/// Describe a language model (LM)
+///
+/// This struct strives to accommodate the wide myriad varieties of language models in the wild.
+/// As such, version is a string instead of a `SemanticVersion` because versions are attached to models inconsistently.
+#[skip_serializing_none]
+#[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]
+#[builder(start_fn = init, on(String, into))]
+#[validate(schema(function = "validate_open_weights", skip_on_field_errors = false))]
+pub struct ModelDetails {
+    /// Whether the model supports file attachment
+    pub attachment: Option<bool>,
+    /// Benchmark evaluation results
+    #[serde(default)]
+    pub benchmarks: Option<OneOrMany<Benchmark>>,
+    /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
+    pub family: Option<String>,
+    /// Unique identifier for the model
+    pub id: Option<String>,
+    /// Knowledge cutoff date for the model
+    #[validate(custom(function = "is_partial_date"))]
+    pub knowledge: Option<String>,
+    /// Date the model was last updated
+    #[validate(custom(function = "is_partial_date"))]
+    pub last_updated: Option<String>,
+    /// Token limits for the model
+    pub limit: Option<LimitDetails>,
+    /// Input/output modalities
+    pub modalities: Option<Modalities>,
+    /// Pricing information for the model
+    pub cost: Option<CostDetails>,
+    /// String value to override full model string descriptor in cases of ambiguity and inconsistency
+    pub name: Option<String>,
+    /// Indicates whether the model weights are openly available
+    pub open_weights: Option<bool>,
+    /// OCI artifact resolution and immutable provenance.
+    #[validate(nested)]
+    pub oci: Option<oci::ModelDetails>,
+    /// Number of parameters (in billions) (e.g., 14 for "14B")
+    pub parameters: Option<i64>,
+    /// Resolved local path to model weights
+    pub path: Option<String>,
+    /// Whether the model supports extended reasoning/thinking
+    pub reasoning: Option<bool>,
+    /// Release date of the model
+    #[validate(custom(function = "is_partial_date"))]
+    pub release_date: Option<String>,
+    /// Whether the model supports structured output
+    pub structured_output: Option<bool>,
+    /// Whether the model supports temperature configuration
+    pub temperature: Option<bool>,
+    /// Whether the model supports tool calling
+    pub tool_call: Option<bool>,
+    /// Original requested repository identifier when `id` was resolved through GGUF fallback
+    pub fallback: Option<String>,
+    /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
+    pub variant: Option<String>,
+    /// Version of the model
+    pub version: Option<SemanticVersion>,
+    /// Download sources for model weights
+    #[validate(nested)]
+    pub weights: Option<Weights>,
+}
 /// A normalized model lookup value supplied by a user or model catalog.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ModelSelector(String);
@@ -597,68 +659,6 @@ pub struct ProviderDetails {
     #[validate(url)]
     pub url: Option<String>,
 }
-/// Describe a language model (LM)
-///
-/// This struct strives to accommodate the wide myriad varieties of language models in the wild.
-/// As such, version is a string instead of a `SemanticVersion` because versions are attached to models inconsistently.
-#[skip_serializing_none]
-#[derive(Builder, Clone, Debug, Default, Deserialize, Serialize, JsonSchema, Validate)]
-#[builder(start_fn = init, on(String, into))]
-#[validate(schema(function = "validate_open_weights", skip_on_field_errors = false))]
-pub struct ModelDetails {
-    /// Whether the model supports file attachment
-    pub attachment: Option<bool>,
-    /// Benchmark evaluation results
-    #[serde(default)]
-    pub benchmarks: Option<OneOrMany<Benchmark>>,
-    /// Model family that generally describes model architecture (e.g., llama, gemma, qwen, etc.)
-    pub family: Option<String>,
-    /// Unique identifier for the model
-    pub id: Option<String>,
-    /// Knowledge cutoff date for the model
-    #[validate(custom(function = "is_partial_date"))]
-    pub knowledge: Option<String>,
-    /// Date the model was last updated
-    #[validate(custom(function = "is_partial_date"))]
-    pub last_updated: Option<String>,
-    /// Token limits for the model
-    pub limit: Option<LimitDetails>,
-    /// Input/output modalities
-    pub modalities: Option<Modalities>,
-    /// Pricing information for the model
-    pub cost: Option<CostDetails>,
-    /// String value to override full model string descriptor in cases of ambiguity and inconsistency
-    pub name: Option<String>,
-    /// Indicates whether the model weights are openly available
-    pub open_weights: Option<bool>,
-    /// OCI artifact resolution and immutable provenance.
-    #[validate(nested)]
-    pub oci: Option<oci::ModelDetails>,
-    /// Number of parameters (in billions) (e.g., 14 for "14B")
-    pub parameters: Option<i64>,
-    /// Resolved local path to model weights
-    pub path: Option<String>,
-    /// Whether the model supports extended reasoning/thinking
-    pub reasoning: Option<bool>,
-    /// Release date of the model
-    #[validate(custom(function = "is_partial_date"))]
-    pub release_date: Option<String>,
-    /// Whether the model supports structured output
-    pub structured_output: Option<bool>,
-    /// Whether the model supports temperature configuration
-    pub temperature: Option<bool>,
-    /// Whether the model supports tool calling
-    pub tool_call: Option<bool>,
-    /// Original requested repository identifier when `id` was resolved through GGUF fallback
-    pub fallback: Option<String>,
-    /// Value that describes niche application of a given model family (e.g., "coder" in "qwen-coder")
-    pub variant: Option<String>,
-    /// Version of the model
-    pub version: Option<SemanticVersion>,
-    /// Download sources for model weights
-    #[validate(nested)]
-    pub weights: Option<Weights>,
-}
 /// Information about a pricing tier boundary
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -719,6 +719,9 @@ impl fmt::Display for AuthenticationScheme {
         })
     }
 }
+impl MarkdownLabel for Benchmark {
+    const LABEL: &'static str = "Benchmark";
+}
 impl MarkdownSupport for Benchmark {
     fn to_markdown(&self) -> String {
         Some(
@@ -742,9 +745,6 @@ impl MarkdownSupport for Benchmark {
         .trim_start()
         .to_string()
     }
-}
-impl MarkdownLabel for Benchmark {
-    const LABEL: &'static str = "Benchmark";
 }
 impl MarkdownSupport for CostDetails {
     fn to_markdown(&self) -> String {
@@ -1123,12 +1123,12 @@ impl ModelList {
 }
 impl AsRef<str> for ModelSelector {
     fn as_ref(&self) -> &str {
-        self.as_str()
+        &self.0
     }
 }
 impl fmt::Display for ModelSelector {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
+        formatter.write_str(self.as_ref())
     }
 }
 impl ModelSelector {
@@ -1137,10 +1137,6 @@ impl ModelSelector {
         let value = value.into();
         let trimmed = value.trim();
         (!trimmed.is_empty()).then(|| Self(trimmed.to_string()))
-    }
-    /// Return the normalized selector value.
-    pub fn as_str(&self) -> &str {
-        &self.0
     }
     /// Return whether a candidate collection contains this selector.
     pub fn contains<T: ToString>(&self, values: impl IntoIterator<Item = T>) -> bool {
@@ -1195,6 +1191,19 @@ impl ModelSelectors {
         }
     }
 }
+#[cfg(feature = "std")]
+impl PromptFileAsset {
+    /// Load the embedded prompt asset as a UTF-8 string.
+    pub fn load(&self) -> AcornResult<String> {
+        match self {
+            | Self::Script(path) => Err(schema_error!("Rhai prompt script is not an embedded asset — {path}")),
+            | _ => {
+                let name = self.to_string();
+                PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
+            }
+        }
+    }
+}
 impl fmt::Display for PromptFileAsset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
@@ -1230,19 +1239,6 @@ impl From<&str> for PromptFileAsset {
 impl From<String> for PromptFileAsset {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
-    }
-}
-#[cfg(feature = "std")]
-impl PromptFileAsset {
-    /// Load the embedded prompt asset as a UTF-8 string.
-    pub fn load(&self) -> AcornResult<String> {
-        match self {
-            | Self::Script(path) => Err(schema_error!("Rhai prompt script is not an embedded asset — {path}")),
-            | _ => {
-                let name = self.to_string();
-                PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
-            }
-        }
     }
 }
 #[cfg(feature = "std")]
@@ -1324,11 +1320,6 @@ impl PromptTemplate {
             })
     }
 }
-impl Default for PromptTemplateConfiguration {
-    fn default() -> Self {
-        PromptTemplateConfiguration::init().build()
-    }
-}
 #[cfg(feature = "std")]
 impl PromptTemplateConfiguration {
     /// Serialize configuration with canonical snake-case keys for prompt rendering.
@@ -1341,6 +1332,11 @@ impl PromptTemplateConfiguration {
                 )),
                 | _ => Err(schema_error!("Prompt configuration must serialize as an object")),
             })
+    }
+}
+impl Default for PromptTemplateConfiguration {
+    fn default() -> Self {
+        PromptTemplateConfiguration::init().build()
     }
 }
 impl From<&str> for Provider {

@@ -25,14 +25,14 @@ pub async fn run(
             Err(eyre!("--context '{location}' not supported for serve mcp; use --host with SSH alias"))
         }
         | (Ok(()), Some(ContainerTarget::Ssh(remote)), true) => {
-            let ssh_host = remote.as_str().trim_start_matches("ssh://");
+            let ssh_host = remote.as_ref().trim_start_matches("ssh://");
             let command = command_string("acorn", &arguments);
             Err(eyre!(
                 "Detached remote mcp via --host not yet implemented; use `ssh {ssh_host} {command}`"
             ))
         }
         | (Ok(()), Some(ContainerTarget::Ssh(remote)), false) => {
-            let ssh_host = remote.as_str().trim_start_matches("ssh://");
+            let ssh_host = remote.as_ref().trim_start_matches("ssh://");
             let ssh_arguments = args![ssh_host, "acorn", ..arguments];
             match cmd!("ssh", ssh_arguments) {
                 | Ok(output) if output.status.success() => Ok(()),

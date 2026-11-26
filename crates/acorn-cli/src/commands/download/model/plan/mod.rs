@@ -1049,7 +1049,7 @@ pub(crate) async fn resolve_plans(
         .iter()
         .map(|entry| match entry {
             | ModelEntry::Selector(value) => {
-                Ok(ModelSelector::new(value).map(|selector| ModelDownloadPlan::new(Source::from(selector.as_str())).with_action(action)))
+                Ok(ModelSelector::new(value).map(|selector| ModelDownloadPlan::new(Source::from(selector.as_ref())).with_action(action)))
             }
             | ModelEntry::Entry(options) => profile_options(options, profiles)
                 .map(|(oci_options, profile)| Some(ModelDownloadPlan::from_entry(options, oci_options, profile).with_action(action))),
@@ -1075,7 +1075,7 @@ async fn resolve_positional_plan(
     no_local_database: bool,
     offline: bool,
 ) -> ApiResult<ModelDownloadPlan> {
-    let selector = selector.as_str();
+    let selector: &str = selector.as_ref();
     let fallback = || ModelDownloadPlan::new(Source::from(selector));
     let aliases = entry_options
         .iter()

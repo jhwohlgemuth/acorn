@@ -76,7 +76,7 @@ class WebDevTests(unittest.TestCase):
             self.assertIn("Dioxus CLI not executable", missing.stderr)
             self.assertFalse(marker.exists())
             with overlay.open("a") as makefile:
-                makefile.write("web-deps web-editor-bundle web-lint web-map web-prepare:\n\t@:\nweb-dev web-build:\n\t@test -x target/tools/dioxus/bin/dx\n")
+                makefile.write("web-stop web-deps web-editor-bundle web-lint web-map web-prepare:\n\t@:\nweb-dev web-build:\n\t@test -x target/tools/dioxus/bin/dx\n")
             for target in ("web-dev", "web-build"):
                 executable.unlink(missing_ok=True)
                 marker.unlink(missing_ok=True)

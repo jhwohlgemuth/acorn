@@ -17,7 +17,7 @@ fn test_target_paths_resolve_without_creating_directories() {
     let targets = TargetPaths::from_directories(directories, Path::new("bin/acornd")).expect("resolve deterministic daemon targets");
     assert_eq!(
         targets.binary(),
-        Path::new("bin").join(format!("{APPLICATION}{}", env::consts::EXE_SUFFIX))
+        Path::new("bin").join(format!("{CLI_APPLICATION}{}", env::consts::EXE_SUFFIX))
     );
     assert_eq!(targets.cache(), expected_cache);
     assert_eq!(targets.config(), expected_config);
@@ -61,5 +61,77 @@ mod linux_tests {
         assert!(!managed_unit(&path).unwrap());
         fs::write(&path, "[Service]\nExecStart=/other\n").unwrap();
         assert!(managed_unit(&path).is_err());
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod macos_tests {
+    use super::super::macos::{launchd_presence, private_regular, LaunchIdentity, PropertyList};
+    use crate::util::constants::app::{APPLICATION, LABEL, ORGANIZATION, PROPERTY_LIST_PATH};
+    use acorn_cmd::{args, cmd};
+    use std::fs;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_daemon_identity_constants_align() {
+        assert_eq!(LABEL, format!("org.{ORGANIZATION}.{APPLICATION}"));
+        assert_eq!(PROPERTY_LIST_PATH, format!("/Library/LaunchDaemons/{LABEL}.plist"));
+    }
+    #[test]
+    fn test_launchd_presence_distinguishes_missing_from_failure() {
+        assert!(launchd_presence(Some(0), b"").unwrap());
+        assert!(!launchd_presence(Some(113), b"Could not find service").unwrap());
+        assert!(launchd_presence(Some(1), b"permission denied").is_err());
+    }
+    #[test]
+    fn test_managed_property_list_rejects_foreign_and_symlinked_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("acornd.plist");
+        assert!(!PropertyList::at(&path).managed().unwrap());
+        fs::write(&path, "<plist/>").unwrap();
+        assert!(PropertyList::at(&path).managed().is_err());
+        let link = directory.path().join("link.plist");
+        std::os::unix::fs::symlink(&path, &link).unwrap();
+        assert!(PropertyList::at(&link).managed().is_err());
+    }
+    #[test]
+    fn test_private_regular_rejects_public_symlink_and_wrong_owner() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("token");
+        fs::write(&path, "secret").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        let uid = fs::metadata(&path).unwrap().uid();
+        assert!(private_regular(&path, uid).is_ok());
+        assert!(private_regular(&path, uid.saturating_add(1)).is_err());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(private_regular(&path, uid).is_err());
+        let link = directory.path().join("link");
+        std::os::unix::fs::symlink(&path, &link).unwrap();
+        assert!(private_regular(&link, uid).is_err());
+    }
+    #[test]
+    fn test_property_list_render_serializes_paths_and_passes_plutil() {
+        let identity = LaunchIdentity {
+            user: "test-user".to_string(),
+            home: PathBuf::from("/Users/test-user"),
+            binary: PathBuf::from("/tmp/acorn & <one>/acornd"),
+            config: PathBuf::from("/tmp/config & <one>.jsonc"),
+        };
+        let source = PropertyList::render(&identity).unwrap();
+        let parsed = plist::Value::from_reader_xml(source.as_bytes()).unwrap();
+        let dictionary = parsed.as_dictionary().unwrap();
+        assert_eq!(dictionary.get("Label").and_then(plist::Value::as_string), Some(LABEL));
+        assert_eq!(dictionary.get("Umask").and_then(plist::Value::as_unsigned_integer), Some(63));
+        assert!(source.contains("/tmp/acorn &amp; &lt;one&gt;/acornd"));
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("test.plist");
+        fs::write(&path, source).unwrap();
+        assert!(cmd!(status "/usr/bin/plutil", args!["-lint", &path]).unwrap().success());
+        let invalid = LaunchIdentity {
+            binary: PathBuf::from("/tmp/bad\npath"),
+            ..identity
+        };
+        assert!(PropertyList::render(&invalid).is_err());
     }
 }

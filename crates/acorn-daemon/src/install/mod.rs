@@ -1,6 +1,7 @@
 //! Deterministic platform target paths shared by daemon installation phases.
-use acorn::util::constants::app::{DAEMON_NAMESPACE, DEFAULT_CONFIG_FILENAMES, ORGANIZATION, QUALIFIER};
-use acorn_core::util::constants::app::APPLICATION;
+use crate::util::constants::app::ORGANIZATION;
+use acorn::util::constants::app::{DAEMON_NAMESPACE, DEFAULT_CONFIG_FILENAMES, QUALIFIER};
+use acorn_core::util::constants::app::APPLICATION as CLI_APPLICATION;
 use directories::ProjectDirs;
 use std::env;
 use std::io;
@@ -9,6 +10,8 @@ use thiserror::Error;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
+#[cfg(target_os = "macos")]
+pub mod macos;
 
 /// Failure while resolving platform daemon targets.
 #[derive(Debug, Error)]
@@ -41,7 +44,7 @@ pub struct TargetPaths {
 impl TargetPaths {
     /// Resolve targets for the running daemon without creating them
     pub fn resolve() -> Result<Self, TargetPathError> {
-        ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
+        ProjectDirs::from(QUALIFIER, ORGANIZATION, CLI_APPLICATION)
             .ok_or(TargetPathError::ProjectDirectoriesUnavailable)
             .and_then(|directories| {
                 env::current_exe()
@@ -74,7 +77,7 @@ impl TargetPaths {
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
             .map(|parent| Self {
-                binary: parent.join(format!("{APPLICATION}{}", env::consts::EXE_SUFFIX)),
+                binary: parent.join(format!("{CLI_APPLICATION}{}", env::consts::EXE_SUFFIX)),
                 cache: directories.cache_dir().join(DAEMON_NAMESPACE),
                 config: directories.config_dir().join(DEFAULT_CONFIG_FILENAMES[1]),
                 data: directories.data_local_dir().join(DAEMON_NAMESPACE),

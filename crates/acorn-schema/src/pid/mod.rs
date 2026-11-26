@@ -284,6 +284,120 @@ pub struct PersistentIdentifierInternal {
     /// Type of PID
     pid_type: PID,
 }
+impl<'a> From<&'a Identifier> for &'a str {
+    fn from(identifier: &'a Identifier) -> Self {
+        identifier.kind.as_ref()
+    }
+}
+impl Betanumeric for char {
+    fn is_betanumeric(&self) -> bool {
+        BETANUMERIC_DIGITS.contains(*self)
+    }
+    fn to_betanumeric_ordinal(&self) -> Option<usize> {
+        BETANUMERIC_DIGITS.chars().position(|x| x.eq(self))
+    }
+}
+impl From<&str> for Identifier {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+impl From<ARK> for Identifier {
+    fn from(value: ARK) -> Self {
+        Self {
+            kind: PID::ARK,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<Arxiv> for Identifier {
+    fn from(value: Arxiv) -> Self {
+        Self {
+            kind: PID::Arxiv,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<DOI> for Identifier {
+    fn from(value: DOI) -> Self {
+        Self {
+            kind: PID::DOI,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<Handle> for Identifier {
+    fn from(value: Handle) -> Self {
+        Self {
+            kind: PID::Handle,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<ISBN> for Identifier {
+    fn from(value: ISBN) -> Self {
+        Self {
+            kind: PID::ISBN,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<ISNI> for Identifier {
+    fn from(value: ISNI) -> Self {
+        Self {
+            kind: PID::ISNI,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<ORCID> for Identifier {
+    fn from(value: ORCID) -> Self {
+        Self {
+            kind: PID::ORCID,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<Patent> for Identifier {
+    fn from(value: Patent) -> Self {
+        Self {
+            kind: PID::Patent,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<RAID> for Identifier {
+    fn from(value: RAID) -> Self {
+        Self {
+            kind: PID::RAID,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<ROR> for Identifier {
+    fn from(value: ROR) -> Self {
+        Self {
+            kind: PID::ROR,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<RRID> for Identifier {
+    fn from(value: RRID) -> Self {
+        Self {
+            kind: PID::RRID,
+            value: value.to_string(),
+        }
+    }
+}
+impl From<SWHID> for Identifier {
+    fn from(value: SWHID) -> Self {
+        Self {
+            kind: PID::SWHID,
+            value: value.to_string(),
+        }
+    }
+}
 impl Identifier {
     /// Discover every supported persistent identifier in text, including JSON-escaped forward slashes.
     pub fn find_all(content: &str) -> Vec<Self> {
@@ -409,7 +523,7 @@ impl Identifier {
                 Self::normalize(&format!("arxiv:{}", identifier.trim_start_matches("arXiv:")))
             }
             | PID::SWHID => Self::normalize(&format!("swhid:{}", SWHID::from_string(&self.value).core_identifier())),
-            | _ => Self::normalize(&format!("{}:{}", self.kind.as_str(), self.value)),
+            | _ => Self::normalize(&format!("{}:{}", self.kind.as_ref(), self.value)),
         }
     }
     fn parsed<T: PersistentIdentifierParse + fmt::Display>(kind: PID, value: &str) -> Option<Self> {
@@ -427,347 +541,6 @@ impl Identifier {
     #[cfg(feature = "std")]
     pub fn identifier_hash(&self) -> String {
         HEXLOWER.encode(digest(&SHA256, self.value.as_bytes()).as_ref())[..12].to_string()
-    }
-}
-impl PID {
-    /// Discover identifiers of this type in text.
-    pub fn find_all(&self, content: &str) -> Vec<Identifier> {
-        match self {
-            | Self::ARK => ARK::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::Arxiv => Arxiv::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::DOI => DOI::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::Handle => Handle::find_explicit(content).into_iter().map(Identifier::from).collect(),
-            | Self::ISBN => ISBN::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::ISNI => ISNI::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::ORCID => ORCID::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::Patent => Patent::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::RAID => RAID::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::ROR => ROR::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::RRID => RRID::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::SWHID => SWHID::find_all(content).into_iter().map(Identifier::from).collect(),
-            | Self::URL => RE_URL
-                .find_iter(content)
-                .filter_map(Result::ok)
-                .filter_map(|matched| {
-                    Identifier::new(matched.as_str())
-                        .normalized()
-                        .filter(|identifier| identifier.kind == PID::URL)
-                })
-                .collect(),
-            | _ => Vec::new(),
-        }
-    }
-}
-impl<'a> From<&'a Identifier> for &'a str {
-    fn from(identifier: &'a Identifier) -> Self {
-        identifier.kind.as_str()
-    }
-}
-impl From<&str> for Identifier {
-    fn from(value: &str) -> Self {
-        Self::new(value)
-    }
-}
-impl From<ARK> for Identifier {
-    fn from(value: ARK) -> Self {
-        Self {
-            kind: PID::ARK,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<Arxiv> for Identifier {
-    fn from(value: Arxiv) -> Self {
-        Self {
-            kind: PID::Arxiv,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<DOI> for Identifier {
-    fn from(value: DOI) -> Self {
-        Self {
-            kind: PID::DOI,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<Handle> for Identifier {
-    fn from(value: Handle) -> Self {
-        Self {
-            kind: PID::Handle,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<ISBN> for Identifier {
-    fn from(value: ISBN) -> Self {
-        Self {
-            kind: PID::ISBN,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<ISNI> for Identifier {
-    fn from(value: ISNI) -> Self {
-        Self {
-            kind: PID::ISNI,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<ORCID> for Identifier {
-    fn from(value: ORCID) -> Self {
-        Self {
-            kind: PID::ORCID,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<Patent> for Identifier {
-    fn from(value: Patent) -> Self {
-        Self {
-            kind: PID::Patent,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<RAID> for Identifier {
-    fn from(value: RAID) -> Self {
-        Self {
-            kind: PID::RAID,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<ROR> for Identifier {
-    fn from(value: ROR) -> Self {
-        Self {
-            kind: PID::ROR,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<RRID> for Identifier {
-    fn from(value: RRID) -> Self {
-        Self {
-            kind: PID::RRID,
-            value: value.to_string(),
-        }
-    }
-}
-impl From<SWHID> for Identifier {
-    fn from(value: SWHID) -> Self {
-        Self {
-            kind: PID::SWHID,
-            value: value.to_string(),
-        }
-    }
-}
-impl PID {
-    /// Whether this PID type participates in artifact discovery
-    pub fn is_discoverable(&self) -> bool {
-        self.is_ark()
-            || self.is_arxiv()
-            || self.is_doi()
-            || self.is_handle()
-            || self.is_isbn()
-            || self.is_isni()
-            || self.is_orcid()
-            || self.is_patent()
-            || self.is_raid()
-            || self.is_ror()
-            || self.is_rrid()
-            || self.is_swhid()
-            || self.is_url()
-    }
-    /// Whether text discovery reports this PID type as a persistent identifier (artifact URLs excluded)
-    pub fn supports_discovery(&self) -> bool {
-        self.is_discoverable() && !self.is_url()
-    }
-    /// Return the stable lowercase path component
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            | Self::ARK => "ark",
-            | Self::Arxiv => "arxiv",
-            | Self::DOI => "doi",
-            | Self::Handle => "handle",
-            | Self::ISBN => "isbn",
-            | Self::ISNI => "isni",
-            | Self::ORCID => "orcid",
-            | Self::Patent => "patent",
-            | Self::PIDINST => "pidinst",
-            | Self::RAID => "raid",
-            | Self::ROR => "ror",
-            | Self::RRID => "rrid",
-            | Self::SWHID => "swhid",
-            | Self::URL => "url",
-            | _ => "unknown",
-        }
-    }
-    /// Infer a declared PID type or recognizable registry from a string-like value.
-    /// ### Examples
-    /// ```
-    /// use acorn_schema::pid::PID;
-    ///
-    /// assert_eq!(PID::infer("doi"), PID::DOI);
-    /// assert_eq!(PID::infer("https://orcid.org/"), PID::ORCID);
-    /// ```
-    pub fn infer(value: impl AsRef<str>) -> Self {
-        let value = value.as_ref();
-        match Self::from(value) {
-            | Self::Unknown => {
-                let value = value.to_ascii_lowercase();
-                if value.contains("orcid") {
-                    Self::ORCID
-                } else if value.contains("isni") {
-                    Self::ISNI
-                } else {
-                    Self::Unknown
-                }
-            }
-            | declared => declared,
-        }
-    }
-    /// Whether this PID type can independently identify a research project.
-    pub fn is_project_identifier(&self) -> bool {
-        self.is_doi() || self.is_arxiv() || self.is_raid() || self.is_isbn() || self.is_patent() || self.is_ark() || self.is_swhid()
-    }
-}
-impl fmt::Display for PID {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
-impl Serialize for PID {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(self.as_str())
-    }
-}
-impl<'de> Deserialize<'de> for PID {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).and_then(|value| {
-            Self::iter()
-                .find(|pid| pid.as_str().eq_ignore_ascii_case(&value))
-                .ok_or_else(|| serde::de::Error::custom(format!("unknown PID type `{value}`")))
-        })
-    }
-}
-impl From<&str> for PID {
-    fn from(value: &str) -> Self {
-        Self::iter()
-            .find(|pid| pid.as_str().eq_ignore_ascii_case(value.trim()))
-            .unwrap_or_default()
-    }
-}
-impl Betanumeric for char {
-    fn is_betanumeric(&self) -> bool {
-        BETANUMERIC_DIGITS.contains(*self)
-    }
-    fn to_betanumeric_ordinal(&self) -> Option<usize> {
-        BETANUMERIC_DIGITS.chars().position(|x| x.eq(self))
-    }
-}
-impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
-where
-    T: ToString,
-{
-    fn format_as(&self, pid_type: PID) -> String {
-        match pid_type {
-            | PID::ARK => ARK::format(self.as_ref()),
-            | PID::Arxiv => Arxiv::format(self.as_ref()),
-            | PID::DOI => DOI::format(self.as_ref()),
-            | PID::Handle => Handle::format(self.as_ref()),
-            | PID::ISBN => ISBN::format(self.as_ref()),
-            | PID::ISNI => ISNI::format(self.as_ref()),
-            | PID::ORCID => ORCID::format(self.as_ref()),
-            | PID::Patent => Patent::format(self.as_ref()),
-            | PID::RAID => RAID::format(self.as_ref()),
-            | PID::ROR => <ROR as PersistentIdentifierParse>::format(self.as_ref()),
-            | PID::RRID => RRID::format(self.as_ref()),
-            | PID::SWHID => SWHID::format(self.as_ref()),
-            | _ => self.as_ref().to_string(),
-        }
-    }
-    fn to_pid(&self, pid_type: PID) -> PersistentIdentifierInternal {
-        let value = self.as_ref().to_string();
-        match pid_type {
-            | PID::ARK => PersistentIdentifierInternal { value, pid_type: PID::ARK },
-            | PID::Arxiv => PersistentIdentifierInternal { value, pid_type: PID::Arxiv },
-            | PID::DOI => PersistentIdentifierInternal { value, pid_type: PID::DOI },
-            | PID::Handle => PersistentIdentifierInternal {
-                value,
-                pid_type: PID::Handle,
-            },
-            | PID::ISBN => PersistentIdentifierInternal { value, pid_type: PID::ISBN },
-            | PID::ISNI => PersistentIdentifierInternal { value, pid_type: PID::ISNI },
-            | PID::ORCID => PersistentIdentifierInternal { value, pid_type: PID::ORCID },
-            | PID::Patent => PersistentIdentifierInternal {
-                value,
-                pid_type: PID::Patent,
-            },
-            | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
-            | PID::ROR => PersistentIdentifierInternal { value, pid_type: PID::ROR },
-            | PID::RRID => PersistentIdentifierInternal { value, pid_type: PID::RRID },
-            | PID::SWHID => PersistentIdentifierInternal { value, pid_type: PID::SWHID },
-            | _ => PersistentIdentifierInternal::default(),
-        }
-    }
-    fn is_pid(&self, pid_type: PID) -> bool {
-        match pid_type {
-            | PID::ARK => self.is_ark(),
-            | PID::Arxiv => self.is_arxiv(),
-            | PID::DOI => self.is_doi(),
-            | PID::Handle => self.is_handle(),
-            | PID::ISBN => self.is_isbn(),
-            | PID::ISNI => self.is_isni(),
-            | PID::ORCID => self.is_orcid(),
-            | PID::Patent => Patent::is_valid(self.as_ref()),
-            | PID::RAID => self.is_raid(),
-            | PID::ROR => self.is_ror(),
-            | PID::RRID => self.is_rrid(),
-            | PID::SWHID => self.is_swhid(),
-            | _ => false,
-        }
-    }
-    fn is_ark(&self) -> bool {
-        ARK::is_valid(self.as_ref())
-    }
-    fn is_arxiv(&self) -> bool {
-        Arxiv::is_valid(self.as_ref())
-    }
-    fn is_doi(&self) -> bool {
-        DOI::is_valid(self.as_ref())
-    }
-    fn is_handle(&self) -> bool {
-        Handle::is_valid(self.as_ref())
-    }
-    fn is_isbn(&self) -> bool {
-        ISBN::is_valid(self.as_ref())
-    }
-    fn is_isni(&self) -> bool {
-        ISNI::is_valid(self.as_ref())
-    }
-    fn is_orcid(&self) -> bool {
-        ORCID::is_valid(self.as_ref())
-    }
-    fn is_raid(&self) -> bool {
-        RAID::is_valid(self.as_ref())
-    }
-    fn is_ror(&self) -> bool {
-        ROR::is_valid(self.as_ref())
-    }
-    fn is_rrid(&self) -> bool {
-        RRID::is_valid(self.as_ref())
-    }
-    fn is_swhid(&self) -> bool {
-        SWHID::is_valid(self.as_ref())
     }
 }
 impl PersistentIdentifierInternal {
@@ -868,6 +641,138 @@ impl PersistentIdentifierInternal {
         }
     }
 }
+impl AsRef<str> for PID {
+    fn as_ref(&self) -> &str {
+        match self {
+            | Self::ARK => "ark",
+            | Self::Arxiv => "arxiv",
+            | Self::DOI => "doi",
+            | Self::Handle => "handle",
+            | Self::ISBN => "isbn",
+            | Self::ISNI => "isni",
+            | Self::ORCID => "orcid",
+            | Self::Patent => "patent",
+            | Self::PIDINST => "pidinst",
+            | Self::RAID => "raid",
+            | Self::ROR => "ror",
+            | Self::RRID => "rrid",
+            | Self::SWHID => "swhid",
+            | Self::URL => "url",
+            | _ => "unknown",
+        }
+    }
+}
+impl fmt::Display for PID {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_ref())
+    }
+}
+impl From<&str> for PID {
+    fn from(value: &str) -> Self {
+        Self::iter()
+            .find(|pid| pid.as_ref().eq_ignore_ascii_case(value.trim()))
+            .unwrap_or_default()
+    }
+}
+impl PID {
+    /// Discover identifiers of this type in text.
+    pub fn find_all(&self, content: &str) -> Vec<Identifier> {
+        match self {
+            | Self::ARK => ARK::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::Arxiv => Arxiv::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::DOI => DOI::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::Handle => Handle::find_explicit(content).into_iter().map(Identifier::from).collect(),
+            | Self::ISBN => ISBN::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::ISNI => ISNI::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::ORCID => ORCID::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::Patent => Patent::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::RAID => RAID::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::ROR => ROR::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::RRID => RRID::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::SWHID => SWHID::find_all(content).into_iter().map(Identifier::from).collect(),
+            | Self::URL => RE_URL
+                .find_iter(content)
+                .filter_map(Result::ok)
+                .filter_map(|matched| {
+                    Identifier::new(matched.as_str())
+                        .normalized()
+                        .filter(|identifier| identifier.kind == PID::URL)
+                })
+                .collect(),
+            | _ => Vec::new(),
+        }
+    }
+}
+impl PID {
+    /// Whether this PID type participates in artifact discovery
+    pub fn is_discoverable(&self) -> bool {
+        self.is_ark()
+            || self.is_arxiv()
+            || self.is_doi()
+            || self.is_handle()
+            || self.is_isbn()
+            || self.is_isni()
+            || self.is_orcid()
+            || self.is_patent()
+            || self.is_raid()
+            || self.is_ror()
+            || self.is_rrid()
+            || self.is_swhid()
+            || self.is_url()
+    }
+    /// Whether text discovery reports this PID type as a persistent identifier (artifact URLs excluded)
+    pub fn supports_discovery(&self) -> bool {
+        self.is_discoverable() && !self.is_url()
+    }
+    /// Infer a declared PID type or recognizable registry from a string-like value.
+    /// ### Examples
+    /// ```
+    /// use acorn_schema::pid::PID;
+    ///
+    /// assert_eq!(PID::infer("doi"), PID::DOI);
+    /// assert_eq!(PID::infer("https://orcid.org/"), PID::ORCID);
+    /// ```
+    pub fn infer(value: impl AsRef<str>) -> Self {
+        let value = value.as_ref();
+        match Self::from(value) {
+            | Self::Unknown => {
+                let value = value.to_ascii_lowercase();
+                if value.contains("orcid") {
+                    Self::ORCID
+                } else if value.contains("isni") {
+                    Self::ISNI
+                } else {
+                    Self::Unknown
+                }
+            }
+            | declared => declared,
+        }
+    }
+    /// Whether this PID type can independently identify a research project.
+    pub fn is_project_identifier(&self) -> bool {
+        self.is_doi() || self.is_arxiv() || self.is_raid() || self.is_isbn() || self.is_patent() || self.is_ark() || self.is_swhid()
+    }
+}
+impl Serialize for PID {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
+    }
+}
+impl<'de> Deserialize<'de> for PID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).and_then(|value| {
+            Self::iter()
+                .find(|pid| pid.as_ref().eq_ignore_ascii_case(&value))
+                .ok_or_else(|| serde::de::Error::custom(format!("unknown PID type `{value}`")))
+        })
+    }
+}
 impl From<&Arxiv> for PublicationIdentifierType {
     fn from(value: &Arxiv) -> Self {
         Self::from(value.clone())
@@ -901,6 +806,102 @@ impl From<Arxiv> for PublicationIdentifierType {
 impl From<DOI> for PublicationIdentifierType {
     fn from(value: DOI) -> Self {
         Self::Doi(value)
+    }
+}
+impl<T: AsRef<str>> PersistentIdentifierConvert<T> for T
+where
+    T: ToString,
+{
+    fn format_as(&self, pid_type: PID) -> String {
+        match pid_type {
+            | PID::ARK => ARK::format(self.as_ref()),
+            | PID::Arxiv => Arxiv::format(self.as_ref()),
+            | PID::DOI => DOI::format(self.as_ref()),
+            | PID::Handle => Handle::format(self.as_ref()),
+            | PID::ISBN => ISBN::format(self.as_ref()),
+            | PID::ISNI => ISNI::format(self.as_ref()),
+            | PID::ORCID => ORCID::format(self.as_ref()),
+            | PID::Patent => Patent::format(self.as_ref()),
+            | PID::RAID => RAID::format(self.as_ref()),
+            | PID::ROR => <ROR as PersistentIdentifierParse>::format(self.as_ref()),
+            | PID::RRID => RRID::format(self.as_ref()),
+            | PID::SWHID => SWHID::format(self.as_ref()),
+            | _ => self.as_ref().to_string(),
+        }
+    }
+    fn to_pid(&self, pid_type: PID) -> PersistentIdentifierInternal {
+        let value = self.as_ref().to_string();
+        match pid_type {
+            | PID::ARK => PersistentIdentifierInternal { value, pid_type: PID::ARK },
+            | PID::Arxiv => PersistentIdentifierInternal { value, pid_type: PID::Arxiv },
+            | PID::DOI => PersistentIdentifierInternal { value, pid_type: PID::DOI },
+            | PID::Handle => PersistentIdentifierInternal {
+                value,
+                pid_type: PID::Handle,
+            },
+            | PID::ISBN => PersistentIdentifierInternal { value, pid_type: PID::ISBN },
+            | PID::ISNI => PersistentIdentifierInternal { value, pid_type: PID::ISNI },
+            | PID::ORCID => PersistentIdentifierInternal { value, pid_type: PID::ORCID },
+            | PID::Patent => PersistentIdentifierInternal {
+                value,
+                pid_type: PID::Patent,
+            },
+            | PID::RAID => PersistentIdentifierInternal { value, pid_type: PID::RAID },
+            | PID::ROR => PersistentIdentifierInternal { value, pid_type: PID::ROR },
+            | PID::RRID => PersistentIdentifierInternal { value, pid_type: PID::RRID },
+            | PID::SWHID => PersistentIdentifierInternal { value, pid_type: PID::SWHID },
+            | _ => PersistentIdentifierInternal::default(),
+        }
+    }
+    fn is_pid(&self, pid_type: PID) -> bool {
+        match pid_type {
+            | PID::ARK => self.is_ark(),
+            | PID::Arxiv => self.is_arxiv(),
+            | PID::DOI => self.is_doi(),
+            | PID::Handle => self.is_handle(),
+            | PID::ISBN => self.is_isbn(),
+            | PID::ISNI => self.is_isni(),
+            | PID::ORCID => self.is_orcid(),
+            | PID::Patent => Patent::is_valid(self.as_ref()),
+            | PID::RAID => self.is_raid(),
+            | PID::ROR => self.is_ror(),
+            | PID::RRID => self.is_rrid(),
+            | PID::SWHID => self.is_swhid(),
+            | _ => false,
+        }
+    }
+    fn is_ark(&self) -> bool {
+        ARK::is_valid(self.as_ref())
+    }
+    fn is_arxiv(&self) -> bool {
+        Arxiv::is_valid(self.as_ref())
+    }
+    fn is_doi(&self) -> bool {
+        DOI::is_valid(self.as_ref())
+    }
+    fn is_handle(&self) -> bool {
+        Handle::is_valid(self.as_ref())
+    }
+    fn is_isbn(&self) -> bool {
+        ISBN::is_valid(self.as_ref())
+    }
+    fn is_isni(&self) -> bool {
+        ISNI::is_valid(self.as_ref())
+    }
+    fn is_orcid(&self) -> bool {
+        ORCID::is_valid(self.as_ref())
+    }
+    fn is_raid(&self) -> bool {
+        RAID::is_valid(self.as_ref())
+    }
+    fn is_ror(&self) -> bool {
+        ROR::is_valid(self.as_ref())
+    }
+    fn is_rrid(&self) -> bool {
+        RRID::is_valid(self.as_ref())
+    }
+    fn is_swhid(&self) -> bool {
+        SWHID::is_valid(self.as_ref())
     }
 }
 /// Calculates the check character for an ISBN-10 or ISBN-13 value.

@@ -18,7 +18,8 @@ Keep `acorn-diff` pure, alloc-only, and deterministic while making its cost and 
 # Project code boundaries
 
 - **Update:** `crates/acorn-diff/Cargo.toml`; `crates/acorn-diff/src/{lib.rs,json_patch/mod.rs,json_patch/tests.rs,unified/mod.rs,unified/tests.rs}`; `crates/acorn-cli/src/commands/diff/{mod.rs,tests.rs}`; `crates/acorn-lib/src/analyzer/diff/{mod.rs,tests.rs}`; `crates/acorn-lib/src/analyzer/fix/{preview.rs,tests.rs}`; `docs/src/packages/acorn-diff.md`; and focused `Makefile` or portability-script wiring only when required by the benchmark and feature matrix.
-- **Create:** `crates/acorn-diff/benches/diff.rs` for representative resource and array-strategy measurements.
+- **Create:** `fuzz/fuzz_targets/diff.rs` with its `fuzz/corpus/diff/` seeds.
+- **Shared build files:** DIF-11 edits `fuzz/Cargo.toml`, `fuzz/Cargo.lock`, and `.gitlab-ci.yml` under the CI/build lock, and serializes with INV-12 on `fuzz/Cargo.toml`. No remaining phase edits the workspace manifests or `Cargo.lock`.
 - **Delete:** None. Retain the current convenience functions and positional array behavior as compatibility defaults.
 
 # Dependencies and ordering
@@ -37,6 +38,16 @@ The crate manifest and CI/build entry points are single-writer locks. Changes to
 - Unified labels and changed content are emitted verbatim. Newlines or control characters in a label can forge patch headers, while raw changed content is not safe for direct terminal rendering.
 - `JsonPatch` exposes only `is_empty` and borrowed operations. The public constructors create individual operations, but consumers cannot assemble or consume a patch without serializing it.
 - Arrays are compared by shared index. This is deterministic and correct, but a front insertion can replace every shared element and append one value even though one indexed add would express the change.
+- `crates/acorn-diff/benches/diff.rs` (Criterion 0.8.2, `[[bench]] harness = false`) measures one-field object changes, array append, array front insertion, and one changed line in repetitive text, each at 16, 256, and 4096 elements. Each benchmark ID records the patch's operation count and serialized bytes, or the unified output bytes. Baseline on November 26, aarch64 macOS, release profile, 1 s warm-up and 2 s measurement:
+
+  | Case | 16 | 256 | 4096 |
+  |---|---|---|---|
+  | Object, one field changed | 2.9 µs; 1 op, 51 B | 69 µs; 1 op, 51 B | 1.7 ms; 1 op, 51 B |
+  | Array append | 0.11 µs; 1 op, 37 B | 0.68 µs; 1 op, 38 B | 10 µs; 1 op, 39 B |
+  | Array front insert | 1.3 µs; 17 ops, 673 B | 19 µs; 257 ops, 10,825 B | 339 µs; 4,097 ops, 182,137 B |
+  | Unified, one line changed | 2.8 µs; 156 B | 37 µs; 160 B | 591 µs; 162 B |
+
+  Front insertion grows the patch linearly, at about 44 bytes per element. That supports a default operation limit and the sequence strategy. Object time grows faster than size: about 24 times per 16-fold increase. Allocation count and peak bytes are not measured yet, because `unsafe_code = "forbid"` rules out a hand-written counting allocator. DIF-11 owns adding them.
 
 # Recommendation
 
@@ -110,22 +121,11 @@ Translate the aligned edit script with one current target index: equal elements 
 
 # Execution phases
 
-## DIF-01 — Characterize cost and output behavior
+## DIF-02 — Add typed errors and option contracts
 
 - Status: ready
 - Budget: 5 active hours maximum
 - Prerequisites: none
-- Exact write set: `crates/acorn-diff/benches/diff.rs`
-- Primary integration lock: acorn-diff public API
-- Outcome: Freeze compatibility output and baseline representative resource cases.
-- Focused validation: Run current default/alloc/preserve-order tests and benchmark seeds.
-- Handoff: Remove DIF-01 and use the baselines for option defaults.
-
-## DIF-02 — Add typed errors and option contracts
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: DIF-01
 - Exact write set: `crates/acorn-diff/src/lib.rs`
 - Primary integration lock: acorn-diff public API
 - Outcome: Add `DiffError`, JSON options, unified options, limits, context, and positional default.
@@ -225,10 +225,16 @@ Translate the aligned edit script with one current target index: equal elements 
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DIF-07, DIF-08, DIF-09, DIF-10
-- Exact write set: `crates/acorn-diff/benches/diff.rs`, `fuzz/fuzz_targets/diff.rs`, `docs/src/packages/acorn-diff.md`
-- Primary integration lock: diff validation
+- Exact write set: `crates/acorn-diff/benches/diff.rs`, `fuzz/Cargo.toml`, `fuzz/Cargo.lock`, `fuzz/fuzz_targets/diff.rs` (new), `fuzz/corpus/diff/` (new), `.gitlab-ci.yml`, `docs/src/packages/acorn-diff.md`
+- Primary integration lock: CI build entry points
 - Outcome: Measure limits/sequence behavior and prove normal, alloc-only, preserve-order, and WASM compatibility.
-- Focused validation: Run bounded fuzz seeds, benchmarks, crate tests, clippy, rustdoc, and WASM checks.
+  - Extend the existing benchmark with the bounded and sequence-strategy cases, and compare them against the baseline in Current evidence.
+  - Add allocation count and peak bytes with a dev-only profiler that needs no `unsafe` in ACORN code. If that adds a dev-dependency, split it into its own phase under the workspace manifest lock.
+  - Add `acorn-diff` as a dependency of the separate `acorn-fuzz` workspace, which changes `fuzz/Cargo.lock`.
+  - Register the `diff` target with a `[[bin]]` entry like the existing three.
+  - Add the target to `fuzz-smoke`, with the same 5-second, 2048 MB, and 5-second-timeout limits as the existing targets.
+  - `fuzz/Cargo.toml` is shared with [INV-12](../testing/invariant-verification.md#inv-12--add-codec-and-big-o-parse-fuzz-targets), so whichever phase runs second rebases onto the other's entries.
+- Focused validation: Run bounded fuzz seeds, including `cargo +nightly fuzz run --fuzz-dir fuzz diff -- -max_total_time=60`, then benchmarks, crate tests, clippy, rustdoc, and WASM checks. Lint the CI configuration.
 - Handoff: Remove DIF-11 and retain measured defaults and regression seeds.
 
 ## DIF-12 — Document and retire diff hardening

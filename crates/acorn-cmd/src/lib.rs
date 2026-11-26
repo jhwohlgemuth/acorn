@@ -6,6 +6,7 @@ mod execution;
 mod process;
 pub mod runtime;
 
+pub use acorn_macros::sudo;
 pub use execution::{
     CancellationToken, CaptureLimits, CapturedOutput, CommandError, ExecutionContext, ExecutionOptions, ExecutionResult, OutputSink, OutputStream,
     ProcessStatus, ProcessTermination,

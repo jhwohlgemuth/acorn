@@ -1,0 +1,116 @@
+.build-acornd-linux:
+  extends: .build-release-target
+  needs:
+    - job: prepare-environment
+      artifacts: true
+    - job: test
+      artifacts: false
+      optional: true
+  before_script:
+    - rustup target add "${RUST_TARGET}"
+    - command -v cargo-zigbuild >/dev/null && command -v zig >/dev/null || sh scripts/install-zigbuild.sh "${XDG_CACHE_HOME}/zigbuild"
+  script:
+    - export PATH="${XDG_CACHE_HOME}/zigbuild/bin:${PATH}"
+    - MUSL_BUILD="cargo zigbuild" make "${ACORND_BUILD_TARGET}"
+    - bin/acornd-staging/${RUST_TARGET}/acorn --version
+    - bin/acornd-staging/${RUST_TARGET}/acornd --version
+  rules:
+    - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - .gitlab-ci.yml
+        - .gitlab/ci/acornd.yml
+        - Cargo.lock
+        - Cargo.toml
+        - Makefile
+        - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cli/src/cli/arguments/mod.rs
+        - crates/acorn-cli/src/commands/daemon/**/*
+        - crates/acorn-daemon/**/*
+        - scripts/package-acornd.sh
+        - scripts/upload-binaries.sh
+        - xtask/**/*
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - .gitlab-ci.yml
+        - .gitlab/ci/acornd.yml
+        - Cargo.lock
+        - Cargo.toml
+        - Makefile
+        - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cli/src/cli/arguments/mod.rs
+        - crates/acorn-cli/src/commands/daemon/**/*
+        - crates/acorn-daemon/**/*
+        - scripts/package-acornd.sh
+  artifacts:
+    paths:
+      - bin/acornd-staging/
+    expire_in: 30 days
+
+build-acornd-linux-amd64:
+  extends: .build-acornd-linux
+  tags:
+    - amd64
+  variables:
+    ACORND_BUILD_TARGET: acornd-build-linux-amd64
+    RUST_TARGET: x86_64-unknown-linux-musl
+
+build-acornd-linux-arm64:
+  extends: .build-acornd-linux
+  tags:
+    - arm64
+  variables:
+    ACORND_BUILD_TARGET: acornd-build-linux-arm64
+    RUST_TARGET: aarch64-unknown-linux-musl
+
+publish-acornd-linux:
+  stage: release
+  image: ghcr.io/jhwohlgemuth/acorn:rust-latest
+  tags:
+    - amd64
+  needs:
+    - job: prepare-environment
+      artifacts: true
+    - job: build-acornd-linux-amd64
+      artifacts: true
+    - job: build-acornd-linux-arm64
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_TAG != null && $IS_VERSION_TAGGED && $ACORND_SIGNING_KEY && $ACORND_SIGNING_PASSPHRASE'
+  script:
+    - command -v minisign >/dev/null && command -v python3 >/dev/null || (apt-get update && apt-get install --no-install-recommends --yes minisign python3)
+    - sh scripts/package-acornd.sh "${PKG_VERSION}" "${DEFAULT_TARGET}" "bin/acornd-staging/${DEFAULT_TARGET}/acorn" "bin/acornd-staging/${DEFAULT_TARGET}/acornd" bin
+    - sh scripts/package-acornd.sh "${PKG_VERSION}" "${DEFAULT_ARM64_TARGET}" "bin/acornd-staging/${DEFAULT_ARM64_TARGET}/acorn" "bin/acornd-staging/${DEFAULT_ARM64_TARGET}/acornd" bin
+    - bin/acornd-staging/${DEFAULT_TARGET}/acorn daemon verify-bundle "bin/acornd-v${PKG_VERSION}-${DEFAULT_TARGET}.tar.gz"
+    - bin/acornd-staging/${DEFAULT_TARGET}/acorn daemon verify-bundle "bin/acornd-v${PKG_VERSION}-${DEFAULT_ARM64_TARGET}.tar.gz"
+    - sh scripts/upload-binaries.sh acornd-linux
+  artifacts:
+    paths:
+      - bin/acornd-v*.tar.gz
+      - bin/acornd-v*.tar.gz.minisig
+    expire_in: 30 days
+
+publish-acornd-links:
+  extends: .publish
+  stage: release
+  image: registry.gitlab.com/gitlab-org/cli@sha256:a1bc1b35decb0ceededbb22bb9a8c07eddc1279ab6e9342b32bc42e20333aa7a
+  tags:
+    - amd64
+  resource_group: gitlab-releases
+  variables:
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+  needs:
+    - job: prepare-environment
+      artifacts: true
+    - job: publish-acornd-linux
+      artifacts: false
+  rules:
+    - if: '$CI_COMMIT_TAG != null && $IS_VERSION_TAGGED && $ACORND_SIGNING_KEY && $ACORND_SIGNING_PASSPHRASE'
+  script:
+    - |
+      glab release upload "${CI_COMMIT_TAG}" --assets-links "[
+        {\"name\":\"acornd v${PKG_VERSION} (Linux x86_64 bundle)\",\"url\":\"${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_TARGET}.tar.gz\"},
+        {\"name\":\"acornd v${PKG_VERSION} (Linux x86_64 signature)\",\"url\":\"${PKG_REGISTRY_URL}/${DEFAULT_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_TARGET}.tar.gz.minisig\"},
+        {\"name\":\"acornd v${PKG_VERSION} (Linux ARM64 bundle)\",\"url\":\"${PKG_REGISTRY_URL}/${DEFAULT_ARM64_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_ARM64_TARGET}.tar.gz\"},
+        {\"name\":\"acornd v${PKG_VERSION} (Linux ARM64 signature)\",\"url\":\"${PKG_REGISTRY_URL}/${DEFAULT_ARM64_TARGET}/v${PKG_VERSION}/acornd-v${PKG_VERSION}-${DEFAULT_ARM64_TARGET}.tar.gz.minisig\"}
+      ]"

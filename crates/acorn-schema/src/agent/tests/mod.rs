@@ -51,17 +51,6 @@ fn test_from_asset_returns_some_for_all_known_assets() {
     });
 }
 #[test]
-fn test_script_asset_keeps_embedded_assets_separate() {
-    let script = PromptFileAsset::Script("./review.rhai".to_string());
-    assert_eq!(script.to_string(), "./review.rhai");
-    assert!(script.load().is_err());
-    assert!(PromptFileAsset::Script("summarize.prompt".to_string()).load().is_err());
-    assert_eq!(
-        serde_json::to_value(script).expect("serialize script"),
-        serde_json::json!({"Script": "./review.rhai"})
-    );
-}
-#[test]
 fn test_front_matter_to_markdown_includes_delimiters() {
     let frontmatter = FrontMatter::init()
         .name("summarize".to_string())
@@ -216,7 +205,7 @@ fn test_model_list_rejects_empty_collections_for_each_projection() {
 #[test]
 fn test_model_selector_normalizes_values_and_fallback_search_names() {
     let selector = ModelSelector::new(" nvidia/llama-3.1-nemotron-ultra-253b ").unwrap();
-    assert_eq!(selector.as_str(), "nvidia/llama-3.1-nemotron-ultra-253b");
+    assert_eq!(selector.as_ref(), "nvidia/llama-3.1-nemotron-ultra-253b");
     assert!(selector.contains(["other/model", "nvidia/llama-3.1-nemotron-ultra-253b"]));
     assert!(!selector.contains(["other/model"]));
     assert_eq!(selector.fallback_search_name(), "llama-3_1-nemotron-ultra-253b-v1");
@@ -228,7 +217,7 @@ fn test_model_selector_normalizes_values_and_fallback_search_names() {
 fn test_model_selectors_parse_windows_path_as_plain_text() {
     let path = r"C:\models\tiny.gguf";
     let selectors = ModelList::parse(path).and_then(ModelList::selectors).unwrap();
-    assert_eq!(selectors.iter().next().unwrap().as_str(), path);
+    assert_eq!(selectors.iter().next().unwrap().as_ref(), path);
 }
 #[test]
 fn test_model_selectors_reject_malformed_structured_input() {
@@ -243,7 +232,7 @@ fn test_model_selectors_reject_malformed_structured_input() {
             .iter()
             .next()
             .unwrap()
-            .as_str(),
+            .as_ref(),
         "https://example.com/model"
     );
 }
@@ -362,6 +351,17 @@ fn test_render_unknown_asset_returns_error() {
     let config = PromptTemplateConfiguration::init().build();
     let error = PromptTemplate::render("unknown.prompt", &config).expect_err("unknown prompt should fail");
     assert!(error.to_string().contains("unknown.prompt"));
+}
+#[test]
+fn test_script_asset_keeps_embedded_assets_separate() {
+    let script = PromptFileAsset::Script("./review.rhai".to_string());
+    assert_eq!(script.to_string(), "./review.rhai");
+    assert!(script.load().is_err());
+    assert!(PromptFileAsset::Script("summarize.prompt".to_string()).load().is_err());
+    assert_eq!(
+        serde_json::to_value(script).expect("serialize script"),
+        serde_json::json!({"Script": "./review.rhai"})
+    );
 }
 #[test]
 fn test_snapshot_prompt_asset_file_names() {

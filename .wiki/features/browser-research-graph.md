@@ -6,7 +6,7 @@ difficulty: high
 impact: high
 package: [acorn-web, acorn-schema]
 tags: [feature, browser, research-activity, graph, rdf, turtle, accessibility]
-status: in-progress
+status: planned
 execution: phased
 phase_budget_hours: 5
 ---
@@ -24,7 +24,7 @@ The [OKF Plan Browser Graph](https://www.jasonwohlgemuth.com/okf-plan-browser/gr
 - The graph projection uses validated RAD only. Stable IDs are source-qualified for activity records and normalized explicit identifiers for shared entities. An untyped same-name string is not enough to merge people or organizations across records; when no explicit identifier exists, scope the entity to its source activity. Preserve record paths and the fields that justify each edge. Missing related targets remain inspectable references, visibly distinguished from loaded activities; do not invent a loaded RAD or fetch a remote target.
 - Canonical edge kinds are `project contains activity`, `activity involves organization`, `activity credits contributor`, `activity has identifier`, and `activity explicitly relates to activity/reference`. Direction and labels remain visible. Keywords can filter and appear in details, but do not become entity nodes in the first release. This keeps the initial graph legible and avoids treating shared terms as evidence of collaboration.
 - The portable graph model and identity/relationship projection are implemented in `acorn-schema` from typed RAD records. The browser must adapt its existing validated workspace/index to that model without a second mutable graph store. Turtle serializes the same model through the [RAD graph profile](browser-research-graph-profile.md), using stable IRIs, RDF-safe escaping, and explicit predicates; source/file and edge-field provenance remain in the graph model and are omitted from Turtle v1. It never serializes layout coordinates, search state, or inferred collaboration. Do not reuse the Dublin Core document codec as if it defined RAD semantics. No remote context lookup, SPARQL endpoint, graph database, or network write is needed.
-- `crates/acorn-schema/src/research_activity/graph.rs` now projects activity, project, contributor, organization, identifier, and unresolved reference nodes with authored, source-backed edges; `graph_rdf.rs` emits deterministic Turtle from those nodes and edges. Focused graph tests cover source/path collisions, order independence, identity scoping, explicit shared ROR, resolved/missing relations, parsing, and literal escaping. Strict package Clippy, formatting, and portable alloc/WASM check passed on 2026-11-25. Browser wiring and its behavior remain unverified.
+- `crates/acorn-schema/src/research_activity/graph.rs` projects activity, project, contributor, organization, identifier, and unresolved reference nodes with authored, source-backed edges; `graph_rdf.rs` emits deterministic Turtle from those nodes and edges. The browser `/graph` route now derives that projection from validated `Workspace::activities()`, displays a bounded SVG and semantic lists, and exports the full graph as Turtle. Schema graph tests cover identity, relations, parsing, and escaping. Browser Graph tests and root plus `/acorn/` smoke cover sample, empty, invalid, oversized, and deleted workspaces, URL restoration, keyboard selection, source navigation, filters, export scope, reduced motion, and narrow layout. `make web-check`, final focused host/WASM Clippy, and both final release builds passed on 2026-11-25; the oversized graph response measured 69 ms at root and 87 ms at `/acorn/` in the final local browser smoke. Combined-source acceptance still waits for ABW-63–65.
 - Initial rendering must be bounded by an explicit visible node/edge budget, with a count and a prompt to narrow filters when exceeded. Retain the full bounded projection for search and list navigation. The diagram must work without WebGL, honor reduced motion, and offer keyboard selection plus a semantic relationship list. Persist only URL-safe filters/selection; avoid storing duplicate RAD content or sensitive labels in a shareable URL.
 
 # Dependencies and boundaries
@@ -43,44 +43,11 @@ The [OKF Plan Browser Graph](https://www.jasonwohlgemuth.com/okf-plan-browser/gr
 
 # Execution phases
 
-## GPH-03 — Add route, controls, and semantic relationship list
-
-- Status: in-progress
-- Budget: 5 active hours maximum
-- Prerequisites: accepted portable graph projection; user deferred ABW-19 for this browser UI work window
-- Exact write set: `crates/acorn-web/src/research_graph.rs`, `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/main.rs`, `crates/acorn-web/assets/app.css`
-- Primary integration lock: browser UI
-- Outcome: `/graph` navigation, search/filter controls, selected-node inspector, source navigation, and complete semantic node/relationship list from the portable projection. Empty and missing-target states work before the diagram is added.
-- Focused validation: `cargo check -p acorn-web`, route/component tests, and keyboard/list checks with sample and empty workspaces.
-- Handoff: A useful accessible graph explorer that can merge without its visual diagram.
-
-## GPH-04 — Add the bounded interactive diagram
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: GPH-03
-- Exact write set: `crates/acorn-web/src/research_graph.rs`, `crates/acorn-web/assets/app.css`, `crates/acorn-web/scripts/graph-smoke.mjs`
-- Primary integration lock: browser static assets
-- Outcome: Draw the selected bounded subgraph as dependency-free Dioxus SVG with typed, labeled nodes/edges, focus/neighborhood, pan/zoom/fit/reset, pointer and keyboard selection, and reduced-motion behavior. When the visible budget is exceeded, retain list/search access and explain how to narrow the diagram.
-- Focused validation: Built-browser interaction smoke for sample, empty, and over-budget workspaces at root and `/acorn/`, plus keyboard, reduced-motion, and narrow-viewport checks.
-- Handoff: Visual interaction evidence and measured node/edge rendering cost.
-
-## GPH-06 — Wire browser export and state lifecycle
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: GPH-04 and accepted portable Turtle producer
-- Exact write set: `crates/acorn-web/src/research_graph.rs`, `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/script/mod.rs`, `crates/acorn-web/scripts/graph-smoke.mjs`
-- Primary integration lock: browser UI and static assets
-- Outcome: Download Turtle for the currently loaded validated graph, restore safe filters/selection, and clear graph state on workspace replacement/deletion; filtered visibility never changes export semantics without an explicit export-scope control.
-- Focused validation: Built-browser reload/delete/export smoke, Turtle parse, root and `/acorn/` route checks, and no-network assertion for local input.
-- Handoff: Reproducible UI and RDF export evidence.
-
 ## GPH-07 — Accept the combined-source graph
 
-- Status: planned
+- Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: GPH-06, accepted ABW-63–65 combined-source contract
+- Prerequisites: accepted ABW-63–65 combined-source contract
 - Exact write set: `crates/acorn-web/scripts/graph-smoke.mjs`, `crates/acorn-web/src/tests/graph.rs`, `README.md`, `ARCHITECTURE.md`
 - Primary integration lock: browser acceptance and documentation
 - Outcome: Verify local plus multiple source buckets, same relative path across sources, replacement/removal, large graph limits, accessibility, reduced motion, and static-host deployment; document the graph and linked-data scope.

@@ -5,6 +5,7 @@ include:
   - project: research-enablement/templates
     file: /gitlab/rust-release.gitlab-ci.yml
     ref: main
+  - local: .gitlab/ci/acornd.yml
 
 variables:
   BINARY_NAME: acorn
@@ -49,10 +50,25 @@ prepare-environment:
   extends: .prepare-environment
   rules:
     - if: $CI_COMMIT_TAG != null && $IS_VERSION_TAGGED
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - .gitlab-ci.yml
+        - .gitlab/ci/acornd.yml
+        - Cargo.lock
+        - Cargo.toml
+        - Makefile
+        - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cli/src/cli/arguments/mod.rs
+        - crates/acorn-cli/src/commands/daemon/**/*
+        - crates/acorn-daemon/**/*
+        - scripts/package-acornd.sh
+        - scripts/upload-binaries.sh
+        - xtask/**/*
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
         - .cargo/config.toml
         - .gitlab-ci.yml
+        - .gitlab/ci/acornd.yml
         - Cargo.lock
         - Cargo.toml
         - Dockerfile.rust
@@ -60,10 +76,13 @@ prepare-environment:
         - crates/acorn-analysis/Cargo.toml
         - crates/acorn-cli/build.rs
         - crates/acorn-cli/Cargo.toml
+        - crates/acorn-cli/src/cli/arguments/mod.rs
+        - crates/acorn-cli/src/commands/daemon/**/*
         - crates/acorn-cli/src/commands/infer/**/*
         - crates/acorn-cmd/Cargo.toml
         - crates/acorn-core/Cargo.toml
         - crates/acorn-diff/Cargo.toml
+        - crates/acorn-daemon/**/*
         - crates/acorn-host/Cargo.toml
         - crates/acorn-lib/Cargo.toml
         - crates/acorn-lib/src/io/sidecar/needle/**/*
@@ -80,6 +99,7 @@ prepare-environment:
         - scripts/install-zigbuild.sh
         - scripts/needle/validate-windows-x86_64.ps1
         - scripts/package-linux.sh
+        - scripts/package-acornd.sh
         - scripts/publish-crates.sh
         - scripts/upload-binaries.sh
         - xtask/**/*

@@ -60,6 +60,8 @@ use serde_with::skip_serializing_none;
 
 pub mod aspect;
 pub mod common;
+pub mod graph;
+mod graph_rdf;
 pub mod logbook;
 mod markdown;
 pub mod output;

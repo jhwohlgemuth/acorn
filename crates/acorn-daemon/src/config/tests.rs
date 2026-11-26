@@ -39,7 +39,7 @@ fn test_config_accepts_defaults_and_valid_job() {
     assert_eq!(config.bind().grpc(), Some("127.0.0.1:50051".parse().expect("default gRPC address")));
     assert_eq!(config.bind().rpc(), Some("127.0.0.1:8001".parse().expect("default RPC address")));
     let job = config.jobs().first().expect("configured daemon job");
-    assert_eq!(job.id().as_str(), "daily-check");
+    assert_eq!(job.id().as_ref(), "daily-check");
     assert!(job.schedule().on_change());
 }
 #[test]

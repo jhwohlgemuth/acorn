@@ -1,6 +1,8 @@
 //! Foreground entry point for the ACORN daemon.
 #[cfg(target_os = "linux")]
 use acorn_daemon::install::linux;
+#[cfg(target_os = "macos")]
+use acorn_daemon::install::macos;
 use acorn_daemon::{run_foreground, TargetPaths};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -13,8 +15,8 @@ enum Command {
         #[arg(value_name = "CONFIG")]
         config: Option<PathBuf>,
     },
-    /// Register and start this user's systemd service.
-    #[cfg(target_os = "linux")]
+    /// Register and start the platform service for this user.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     Install {
         /// ACRE configuration path.
         #[arg(long)]
@@ -23,20 +25,20 @@ enum Command {
         #[arg(long)]
         linger: bool,
     },
-    /// Remove this user's registered systemd service.
-    #[cfg(target_os = "linux")]
+    /// Remove this user's registered service.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     Uninstall,
     /// Start this user's registered service.
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     Start,
     /// Stop this user's registered service.
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     Stop,
     /// Restart this user's registered service.
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     Restart,
     /// Show this user's registered service status.
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     Status,
 }
 #[derive(Debug, Parser)]
@@ -68,5 +70,20 @@ async fn main() -> Result<(), Box<dyn core::error::Error>> {
         | Command::Restart => linux::restart().map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
         #[cfg(target_os = "linux")]
         | Command::Status => linux::status().map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
+        #[cfg(target_os = "macos")]
+        | Command::Install { config, linger } => match linger {
+            | true => Err(Box::new(std::io::Error::other("--linger applies only to Linux")) as Box<dyn core::error::Error>),
+            | false => macos::install(&config).map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
+        },
+        #[cfg(target_os = "macos")]
+        | Command::Uninstall => macos::uninstall().map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
+        #[cfg(target_os = "macos")]
+        | Command::Start => macos::start().map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
+        #[cfg(target_os = "macos")]
+        | Command::Stop => macos::stop().map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
+        #[cfg(target_os = "macos")]
+        | Command::Restart => macos::restart().map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
+        #[cfg(target_os = "macos")]
+        | Command::Status => macos::status().map_err(|error| Box::new(error) as Box<dyn core::error::Error>),
     }
 }

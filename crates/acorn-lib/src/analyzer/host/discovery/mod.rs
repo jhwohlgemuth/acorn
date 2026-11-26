@@ -966,16 +966,6 @@ impl GatherOutputPolicy<'_> {
             })
     }
 }
-impl From<CandidateAction> for LifecycleState {
-    fn from(value: CandidateAction) -> Self {
-        match value {
-            | CandidateAction::Created => Self::Created,
-            | CandidateAction::Enriched => Self::Enriched,
-            | CandidateAction::Unchanged => Self::Unchanged,
-            | CandidateAction::Conflict => Self::Conflict,
-        }
-    }
-}
 impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
     fn from(options: &'a Options) -> Self {
         let (format, quiet, terse, verbosity) = (
@@ -990,6 +980,16 @@ impl<'a> From<&'a Options> for GatherOutputPolicy<'a> {
             quiet,
             terse,
             verbosity,
+        }
+    }
+}
+impl From<CandidateAction> for LifecycleState {
+    fn from(value: CandidateAction) -> Self {
+        match value {
+            | CandidateAction::Created => Self::Created,
+            | CandidateAction::Enriched => Self::Enriched,
+            | CandidateAction::Unchanged => Self::Unchanged,
+            | CandidateAction::Conflict => Self::Conflict,
         }
     }
 }
@@ -1050,32 +1050,6 @@ impl PersistenceCounts {
     }
     fn is_empty(&self) -> bool {
         self.created == 0 && self.enriched == 0 && self.unchanged == 0 && self.conflicts == 0
-    }
-}
-impl From<&Check> for Record {
-    fn from(value: &Check) -> Self {
-        Self::Check {
-            category: value.category.clone(),
-            locator: value.locator.clone(),
-            message: value.message.clone(),
-            severity: value.severity.clone(),
-            rule_id: value.rule_id.clone(),
-            success: value.success,
-            uri: value.uri.clone(),
-            vocabulary_advisory: value.vocabulary_advisory.clone(),
-        }
-    }
-}
-impl From<Identifier> for Record {
-    fn from(identifier: Identifier) -> Self {
-        Self::Discovery {
-            identifier: identifier.value,
-            identifier_type: identifier.kind,
-            metadata: None,
-            resolution_status: ResolutionStatus::NotRequested,
-            source: String::new(),
-            source_format: String::new(),
-        }
     }
 }
 #[bon]
@@ -1165,6 +1139,32 @@ impl Record {
                 })
             }
             | _ => None,
+        }
+    }
+}
+impl From<&Check> for Record {
+    fn from(value: &Check) -> Self {
+        Self::Check {
+            category: value.category.clone(),
+            locator: value.locator.clone(),
+            message: value.message.clone(),
+            severity: value.severity.clone(),
+            rule_id: value.rule_id.clone(),
+            success: value.success,
+            uri: value.uri.clone(),
+            vocabulary_advisory: value.vocabulary_advisory.clone(),
+        }
+    }
+}
+impl From<Identifier> for Record {
+    fn from(identifier: Identifier) -> Self {
+        Self::Discovery {
+            identifier: identifier.value,
+            identifier_type: identifier.kind,
+            metadata: None,
+            resolution_status: ResolutionStatus::NotRequested,
+            source: String::new(),
+            source_format: String::new(),
         }
     }
 }
@@ -1467,7 +1467,7 @@ impl Records {
                     let value = IdentifierRow::init()
                         .discovered_at(discovered_at)
                         .identifier(identifier.clone())
-                        .identifier_type(identifier_type.as_str())
+                        .identifier_type(identifier_type.as_ref())
                         .maybe_metadata(metadata.clone())
                         .resolution_status(resolution_status.to_string())
                         .source(source.clone())
@@ -2127,7 +2127,7 @@ fn resolved_pid_output(identifier: &str, kind: PID, metadata: &serde_json::Value
         | PID::Arxiv | PID::DOI => serde_json::from_value::<api::citeas::Citations>(metadata.clone())
             .ok()
             .and_then(|citations| citation_format.citation(&citations))
-            .ok_or_else(|| format!("{citation_format} citation not found for {} {identifier}", kind.as_str())),
+            .ok_or_else(|| format!("{citation_format} citation not found for {} {identifier}", kind.as_ref())),
         | PID::ORCID => serde_json::from_value::<api::orcid::SearchResponse>(metadata.clone())
             .ok()
             .and_then(|response| {

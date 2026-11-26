@@ -294,6 +294,9 @@ pub trait PathExt {
     /// Return whether two paths identify the same absolute path.
     fn same_as(&self, other: &Path) -> bool;
 }
+pub(crate) trait ToCstInput {
+    fn to_cst_input(&self) -> CstInputValue;
+}
 /// Runtime-agnostic target for container or service execution.
 #[derive(Clone, Debug, EnumIs, Eq, PartialEq)]
 pub enum ContainerTarget {
@@ -398,9 +401,6 @@ pub struct CommandTemplate {
     pub command: String,
     /// Ordered command arguments.
     pub args: Vec<String>,
-}
-pub(crate) trait ToCstInput {
-    fn to_cst_input(&self) -> CstInputValue;
 }
 /// Struct for parsing GitLab API merge request diff responses
 ///
@@ -516,7 +516,7 @@ impl ContainerTarget {
     /// Prepend runtime-specific host/context flags to a command.
     pub fn to_runtime_args(&self, runtime: &Executor, command: Vec<OsString>) -> Vec<OsString> {
         match (self, runtime) {
-            | (Self::Ssh(remote), Executor::Docker | Executor::Podman) => args!["--host", remote.as_str(), ..command],
+            | (Self::Ssh(remote), Executor::Docker | Executor::Podman) => args!["--host", remote.as_ref(), ..command],
             | (Self::Context(location), Executor::Docker) => args!["--context", <&str>::from(location), ..command],
             | (Self::Context(location), Executor::Podman) => args!["--connection", <&str>::from(location), ..command],
             | _ => command,
@@ -559,18 +559,6 @@ impl fmt::Display for ContainerTarget {
             | Self::Local => formatter.write_str("local"),
             | Self::Ssh(remote) => write!(formatter, "{remote}"),
             | Self::Context(location) => write!(formatter, "{location}"),
-        }
-    }
-}
-impl ToCstInput for Value {
-    fn to_cst_input(&self) -> CstInputValue {
-        match self {
-            | Value::Null => CstInputValue::Null,
-            | Value::Bool(value) => CstInputValue::Bool(*value),
-            | Value::Number(value) => CstInputValue::Number(value.to_string()),
-            | Value::String(value) => CstInputValue::String(value.clone()),
-            | Value::Array(values) => CstInputValue::Array(values.iter().map(ToCstInput::to_cst_input).collect()),
-            | Value::Object(values) => CstInputValue::Object(values.iter().map(|(key, value)| (key.clone(), value.to_cst_input())).collect()),
         }
     }
 }
@@ -861,6 +849,11 @@ impl ProgressType {
         self.is_spinner()
     }
 }
+impl AsRef<str> for Remote {
+    fn as_ref(&self) -> &str {
+        (&self.0).into()
+    }
+}
 impl core::str::FromStr for Remote {
     type Err = String;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -891,14 +884,10 @@ impl core::str::FromStr for Remote {
 }
 impl fmt::Display for Remote {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
+        formatter.write_str(self.as_ref())
     }
 }
 impl Remote {
-    /// Return the validated SSH endpoint.
-    pub fn as_str(&self) -> &str {
-        (&self.0).into()
-    }
     /// Return the canonical location for this validated SSH endpoint.
     pub fn location(&self) -> &Location {
         &self.0
@@ -909,7 +898,7 @@ impl Serialize for Remote {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(self.as_str())
+        serializer.serialize_str(self.as_ref())
     }
 }
 impl<'de> Deserialize<'de> for Remote {
@@ -958,6 +947,18 @@ impl FileExtension for String {
 impl From<Executor> for String {
     fn from(value: Executor) -> Self {
         value.to_string()
+    }
+}
+impl ToCstInput for Value {
+    fn to_cst_input(&self) -> CstInputValue {
+        match self {
+            | Value::Null => CstInputValue::Null,
+            | Value::Bool(value) => CstInputValue::Bool(*value),
+            | Value::Number(value) => CstInputValue::Number(value.to_string()),
+            | Value::String(value) => CstInputValue::String(value.clone()),
+            | Value::Array(values) => CstInputValue::Array(values.iter().map(ToCstInput::to_cst_input).collect()),
+            | Value::Object(values) => CstInputValue::Object(values.iter().map(|(key, value)| (key.clone(), value.to_cst_input())).collect()),
+        }
     }
 }
 impl<P: Into<PathBuf> + Clone> ToStrings for Vec<P> {

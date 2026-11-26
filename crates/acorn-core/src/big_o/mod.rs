@@ -14,7 +14,7 @@ mod latex;
 pub use compare::{
     compare_growth, compare_notation, Asymptotic, ComparisonError, ComparisonInput, ComparisonOutput, Dominance, GrowthAssumptions, SymbolGrowth,
 };
-pub use latex::{AsStr, LatexExpression};
+pub use latex::LatexExpression;
 
 /// Maximum accepted notation length in bytes.
 pub const MAX_INPUT_BYTES: usize = 256;

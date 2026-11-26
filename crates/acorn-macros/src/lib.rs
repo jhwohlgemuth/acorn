@@ -97,6 +97,24 @@ impl ValidationRule {
         }
     }
 }
+fn acorn_path() -> proc_macro2::TokenStream {
+    for candidate in ["acorn-schema", "acorn-lib", "acorn-core"] {
+        if let Ok(found) = crate_name(candidate) {
+            return match found {
+                | FoundCrate::Itself => quote! { crate },
+                | FoundCrate::Name(name) => {
+                    let mapped = match name.as_str() {
+                        | "acorn_lib" => "acorn".to_string(),
+                        | other => other.replace('-', "_"),
+                    };
+                    let ident = format_ident!("{}", mapped);
+                    quote! { ::#ident }
+                }
+            };
+        }
+    }
+    quote! { ::acorn }
+}
 /// Validate a Big-O string literal at compile time and return it unchanged.
 ///
 /// The notation is checked by the same parser used for computation schema bounds.
@@ -120,6 +138,16 @@ pub fn bigo(input: TokenStream) -> TokenStream {
 pub fn cmd_sh_words(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as LitStr);
     expand_cmd_sh_words(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
+fn command_path() -> proc_macro2::TokenStream {
+    match crate_name("acorn-cmd") {
+        | Ok(FoundCrate::Itself) => quote! { crate },
+        | Ok(FoundCrate::Name(name)) => {
+            let ident = format_ident!("{}", name.replace('-', "_"));
+            quote! { ::#ident }
+        }
+        | Err(_) => quote! { ::acorn_cmd },
+    }
 }
 /// Generates row metadata and query helpers for database row structs.
 ///
@@ -215,38 +243,6 @@ pub fn derive_validate(input: TokenStream) -> TokenStream {
 pub fn derive_with(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_with(&input).unwrap_or_else(|why| why.to_compile_error()).into()
-}
-/// Builds trusted JavaScript from a literal, serializing each `{name}` binding as a JSON value.
-/// Bindings inside strings, templates, comments, or regular expressions fail at compile time.
-#[proc_macro]
-pub fn js(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as LitStr);
-    script::expand_js(&input).unwrap_or_else(|why| why.to_compile_error()).into()
-}
-/// Builds JavaScript from an authored `assets/scripts/*.js` file and one JSON argument.
-/// The file is validated at compile time and tracked by `include_str!` for rebuilds.
-#[proc_macro]
-pub fn js_file(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as script::FileInput);
-    script::expand_js_file(&input).unwrap_or_else(|why| why.to_compile_error()).into()
-}
-fn acorn_path() -> proc_macro2::TokenStream {
-    for candidate in ["acorn-schema", "acorn-lib", "acorn-core"] {
-        if let Ok(found) = crate_name(candidate) {
-            return match found {
-                | FoundCrate::Itself => quote! { crate },
-                | FoundCrate::Name(name) => {
-                    let mapped = match name.as_str() {
-                        | "acorn_lib" => "acorn".to_string(),
-                        | other => other.replace('-', "_"),
-                    };
-                    let ident = format_ident!("{}", mapped);
-                    quote! { ::#ident }
-                }
-            };
-        }
-    }
-    quote! { ::acorn }
 }
 fn ensure_keys<'a>(nested: impl IntoIterator<Item = &'a Meta>, allowed: &[&str]) -> syn::Result<()> {
     nested.into_iter().try_for_each(|meta| {
@@ -1056,6 +1052,20 @@ fn is_recursive_box(ty: &Type, name: &syn::Ident) -> bool {
         | _ => false,
     })
 }
+/// Builds trusted JavaScript from a literal, serializing each `{name}` binding as a JSON value.
+/// Bindings inside strings, templates, comments, or regular expressions fail at compile time.
+#[proc_macro]
+pub fn js(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as LitStr);
+    script::expand_js(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
+/// Builds JavaScript from an authored `assets/scripts/*.js` file and one JSON argument.
+/// The file is validated at compile time and tracked by `include_str!` for rebuilds.
+#[proc_macro]
+pub fn js_file(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as script::FileInput);
+    script::expand_js_file(&input).unwrap_or_else(|why| why.to_compile_error()).into()
+}
 fn meta_bool(meta: &Meta, name: &str) -> Option<bool> {
     match meta {
         | Meta::NameValue(value) if value.path.is_ident(name) => match &value.value {
@@ -1540,6 +1550,23 @@ fn serde_serialized_name(attributes: &[syn::Attribute], key: &str) -> syn::Resul
                     })
                 })
         })
+}
+/// Run an argument vector through `/usr/bin/sudo` using the ACORN command runner.
+///
+/// The argument expression is evaluated once. A nonzero exit status becomes an I/O error.
+#[proc_macro]
+pub fn sudo(input: TokenStream) -> TokenStream {
+    let arguments = parse_macro_input!(input as Expr);
+    let command = command_path();
+    quote! {{
+        let __arguments = #arguments;
+        #command::cmd!(status "/usr/bin/sudo", __arguments).and_then(|__status| {
+            __status.success().then_some(()).ok_or_else(|| {
+                ::std::io::Error::other(::std::format!("sudo {} failed: {__status}", __arguments.join(" ")))
+            })
+        })
+    }}
+    .into()
 }
 fn type_argument<'a>(ty: &'a Type, wrapper: &str) -> Option<&'a Type> {
     match ty {

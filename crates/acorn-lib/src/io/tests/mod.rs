@@ -2081,7 +2081,7 @@ fn test_remote_container_target_arguments() {
 #[test]
 fn test_remote_parse_and_docker_executor() {
     let remote = "ssh://deploy@example.org:2222/var/run/docker.sock".parse::<Remote>().unwrap();
-    assert_eq!(remote.as_str(), "ssh://deploy@example.org:2222/var/run/docker.sock");
+    assert_eq!(remote.as_ref(), "ssh://deploy@example.org:2222/var/run/docker.sock");
     assert!(Executor::Docker.is_docker());
     assert!(!Executor::Podman.is_docker());
     [

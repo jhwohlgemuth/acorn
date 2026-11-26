@@ -54,7 +54,7 @@ fn gather(input: &str, options: &TuiOptions) -> GatherOutput {
                 .into_iter()
                 .map(|identifier| GatherDiscovery {
                     identifier: identifier.value,
-                    identifier_type: identifier.kind.as_str().to_string(),
+                    identifier_type: identifier.kind.as_ref().to_string(),
                     source: source.source.clone(),
                     source_format: source.format.clone(),
                 })

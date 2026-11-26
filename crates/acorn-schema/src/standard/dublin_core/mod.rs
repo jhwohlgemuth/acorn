@@ -436,19 +436,20 @@ impl Validate for DublinCoreResource {
         result.map_or_else(|error| Err(ValidationReport::from_error("", error)), |()| Ok(()))
     }
 }
+impl AsRef<str> for DublinCoreTerm {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 impl DublinCoreTerm {
     /// Construct a term from an absolute IRI.
     pub fn new(value: impl Into<String>) -> Result<Self, ValidationError> {
         let value = value.into();
         rules::url(&value).map(|()| Self(value))
     }
-    /// Borrow the absolute term IRI.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
     /// Return the registered definition, if the IRI is a current DCMI term.
     pub fn definition(&self) -> Option<&'static DublinCoreTermDefinition> {
-        term(self.as_str())
+        term(self.as_ref())
     }
 }
 impl DublinCoreTermDefinition {

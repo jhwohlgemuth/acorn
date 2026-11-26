@@ -5,8 +5,6 @@
 #![allow(clippy::arithmetic_side_effects, clippy::cast_sign_loss, clippy::indexing_slicing)]
 mod decode;
 mod encode;
-#[cfg(test)]
-mod tests;
 
 use self::ZonErrorCode::{E101, E103, E104, E301, E302, E303, E304};
 use self::{decode::decode_value_with_limits, encode::encode_value_with_limits};
@@ -87,6 +85,20 @@ pub struct ZonError {
     context: Option<String>,
     line: Option<usize>,
 }
+impl core::error::Error for ZonError {}
+impl fmt::Display for ZonError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self.line, self.column) {
+            | (Some(line), Some(column)) => write!(formatter, "{} at {line}:{column}: {}", self.code, self.message()),
+            | _ => write!(formatter, "{}: {}", self.code, self.message()),
+        }
+    }
+}
+impl From<ZonErrorCode> for ZonError {
+    fn from(code: ZonErrorCode) -> Self {
+        Self::builder().code(code).build()
+    }
+}
 impl ZonError {
     fn at(code: ZonErrorCode, line: usize, column: usize, context: &str) -> Self {
         Self::builder()
@@ -98,7 +110,7 @@ impl ZonError {
     }
     /// Return the stable upstream error code.
     pub fn code(&self) -> &str {
-        self.code.as_str()
+        self.code.as_ref()
     }
     /// Return the one-based source column when available.
     pub fn column(&self) -> Option<usize> {
@@ -117,22 +129,8 @@ impl ZonError {
         self.code.message()
     }
 }
-impl core::error::Error for ZonError {}
-impl fmt::Display for ZonError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match (self.line, self.column) {
-            | (Some(line), Some(column)) => write!(formatter, "{} at {line}:{column}: {}", self.code, self.message()),
-            | _ => write!(formatter, "{}: {}", self.code, self.message()),
-        }
-    }
-}
-impl From<ZonErrorCode> for ZonError {
-    fn from(code: ZonErrorCode) -> Self {
-        Self::builder().code(code).build()
-    }
-}
-impl ZonErrorCode {
-    const fn as_str(&self) -> &'static str {
+impl AsRef<str> for ZonErrorCode {
+    fn as_ref(&self) -> &str {
         match self {
             | Self::E001 => "E001",
             | Self::E002 => "E002",
@@ -148,6 +146,8 @@ impl ZonErrorCode {
             | Self::E304 => "E304",
         }
     }
+}
+impl ZonErrorCode {
     /// Return the human-readable description for this error code.
     pub const fn message(&self) -> &'static str {
         match self {
@@ -229,3 +229,6 @@ fn validate_value(value: &Value, depth: usize, limits: Limits) -> Result<(), Zon
         },
     }
 }
+
+#[cfg(test)]
+mod tests;

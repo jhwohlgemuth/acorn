@@ -140,14 +140,64 @@ pub(crate) mod bot {
     }
 }
 pub(crate) mod osti;
+/// ACP agent selected for local process inference.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub(crate) enum AcpAgentKind {
+    /// Run OpenCode's native ACP server.
+    #[default]
+    #[value(name = "opencode")]
+    OpenCode,
+    /// Run the Codex ACP adapter.
+    Codex,
+}
+/// Archive container format used for BagIt import and export.
+#[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
+pub(crate) enum ArchiveType {
+    /// 7-Zip archive.
+    #[value(name = "7z")]
+    #[display("7z")]
+    SevenZip,
+    /// Uncompressed TAR archive.
+    #[display("tar")]
+    Tar,
+    /// Gzip-compressed TAR archive.
+    #[value(name = "tar.gz")]
+    #[display("tar.gz")]
+    TarGzip,
+    /// ZIP archive.
+    #[display("zip")]
+    Zip,
+}
+/// Check and suggestion output format.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::EnumIs, ValueEnum)]
+pub(crate) enum CheckOutputFormat {
+    /// Unified diff previews for proposed document changes.
+    Diff,
+    /// Human-readable checks and fix summaries.
+    #[default]
+    Human,
+    /// Machine-readable checks and fix proposals.
+    Json,
+    /// RFC 6902 preview envelope for proposed document changes.
+    JsonPatch,
+}
 /// Local daemon service and job operations.
 #[derive(Debug, Subcommand)]
 pub enum DaemonCommand {
-    /// Register the Linux user service with a configuration file.
+    /// Verify a signed paired release archive without installing it.
+    VerifyBundle {
+        /// Bundle archive; its detached signature must be beside it.
+        #[arg(value_hint = ValueHint::FilePath)]
+        bundle: PathBuf,
+    },
+    /// Install or update the local daemon service with a configuration file.
     Install {
         /// ACRE configuration path.
         #[arg(long, value_hint = ValueHint::FilePath)]
         config: PathBuf,
+        /// Signed paired acorn/acornd release archive to stage and activate.
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        bundle: Option<PathBuf>,
         /// Ask logind to keep this user's service manager after logout.
         #[arg(long)]
         linger: bool,
@@ -217,47 +267,6 @@ pub enum DaemonCommand {
         #[arg(long, value_hint = ValueHint::FilePath)]
         config: Option<PathBuf>,
     },
-}
-/// ACP agent selected for local process inference.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
-pub(crate) enum AcpAgentKind {
-    /// Run OpenCode's native ACP server.
-    #[default]
-    #[value(name = "opencode")]
-    OpenCode,
-    /// Run the Codex ACP adapter.
-    Codex,
-}
-/// Archive container format used for BagIt import and export.
-#[derive(Clone, Copy, Debug, Display, Eq, PartialEq, ValueEnum)]
-pub(crate) enum ArchiveType {
-    /// 7-Zip archive.
-    #[value(name = "7z")]
-    #[display("7z")]
-    SevenZip,
-    /// Uncompressed TAR archive.
-    #[display("tar")]
-    Tar,
-    /// Gzip-compressed TAR archive.
-    #[value(name = "tar.gz")]
-    #[display("tar.gz")]
-    TarGzip,
-    /// ZIP archive.
-    #[display("zip")]
-    Zip,
-}
-/// Check and suggestion output format.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, strum::EnumIs, ValueEnum)]
-pub(crate) enum CheckOutputFormat {
-    /// Unified diff previews for proposed document changes.
-    Diff,
-    /// Human-readable checks and fix summaries.
-    #[default]
-    Human,
-    /// Machine-readable checks and fix proposals.
-    Json,
-    /// RFC 6902 preview envelope for proposed document changes.
-    JsonPatch,
 }
 /// Database backend used for local cache and history tables.
 #[derive(Clone, Copy, Debug, Display, PartialEq, Eq, ValueEnum)]

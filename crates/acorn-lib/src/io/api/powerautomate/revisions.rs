@@ -60,7 +60,7 @@ impl RevisionHistory {
                                                     other_link.supersedes_submission_id.eq_ignore_ascii_case(&parent.submission_id)
                                                 })
                                         });
-                                        let invalid_state = !current.submitter.email.as_str().eq_ignore_ascii_case(parent.submitter.email.as_str())
+                                        let invalid_state = !current.submitter.email.as_ref().eq_ignore_ascii_case(parent.submitter.email.as_ref())
                                             || current.project_id != parent.project_id
                                             || core::mem::discriminant(&current.entry) != core::mem::discriminant(&parent.entry)
                                             || current.entry.global() != parent.entry.global()

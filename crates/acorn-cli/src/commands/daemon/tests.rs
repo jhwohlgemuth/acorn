@@ -5,9 +5,11 @@ use crate::cli::{arguments::DaemonCommand, Arguments, Commands};
 use clap::Parser;
 
 #[test]
-fn parses_local_lifecycle_and_job_commands() {
+fn test_parses_local_lifecycle_and_job_commands() {
     for args in [
+        vec!["acorn", "daemon", "verify-bundle", "signed.tar.gz"],
         vec!["acorn", "daemon", "install", "--config", "local.jsonc"],
+        vec!["acorn", "daemon", "install", "--config", "local.jsonc", "--bundle", "signed.tar.gz"],
         vec!["acorn", "daemon", "uninstall"],
         vec!["acorn", "daemon", "start"],
         vec!["acorn", "daemon", "stop"],
@@ -36,21 +38,6 @@ async fn absent_config_reports_failure_without_token() {
     assert!(!error.contains("Bearer"));
 }
 #[cfg(unix)]
-#[test]
-fn token_requires_private_regular_file() {
-    use std::os::unix::fs::PermissionsExt;
-    let directory = tempfile::tempdir().unwrap();
-    let token = directory.path().join("token");
-    std::fs::write(&token, "super-secret\n").unwrap();
-    std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o644)).unwrap();
-    assert!(read_token(&token).is_err());
-    std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
-    assert_eq!(read_token(&token).unwrap(), "super-secret");
-    let link = directory.path().join("link");
-    std::os::unix::fs::symlink(&token, &link).unwrap();
-    assert!(read_token(&link).is_err());
-}
-#[cfg(unix)]
 #[tokio::test]
 async fn test_occupied_loopback_port_receives_no_token() {
     use std::net::TcpListener;
@@ -70,4 +57,19 @@ async fn test_occupied_loopback_port_receives_no_token() {
     std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o777)).unwrap();
     let error = local_client(listener.local_addr().unwrap(), &data).err().unwrap().to_string();
     assert!(error.contains("control directory"));
+}
+#[cfg(unix)]
+#[test]
+fn test_token_requires_private_regular_file() {
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::tempdir().unwrap();
+    let token = directory.path().join("token");
+    std::fs::write(&token, "super-secret\n").unwrap();
+    std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(read_token(&token).is_err());
+    std::fs::set_permissions(&token, std::fs::Permissions::from_mode(0o600)).unwrap();
+    assert_eq!(read_token(&token).unwrap(), "super-secret");
+    let link = directory.path().join("link");
+    std::os::unix::fs::symlink(&token, &link).unwrap();
+    assert!(read_token(&link).is_err());
 }

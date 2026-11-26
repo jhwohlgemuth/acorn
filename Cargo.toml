@@ -15,8 +15,14 @@ keywords = ["research", "automation"]
 exclude = [
   ".vale",
   ".vscode",
+  "/assets/models/**",
   "/benches/**",
   "/examples/**",
+  "/scripts/build-models.py",
+  "/scripts/model-viewer/**",
+  "/scripts/model-viewer*.mjs",
+  "/scripts/models-smoke.mjs",
+  "/scripts/validate-models.mjs",
   "/src/**/tests.rs",
   "/src/**/tests/**",
   "/tests/**",
@@ -97,6 +103,7 @@ dprint-core = "0.69.1"
 dprint-plugin-json = "0.25.0"
 duckdb = { version = "~1.10505.0", default-features = false }
 fancy-regex = { version = "0.17.0", default-features = false }
+flate2 = "1.1.9"
 regex = "1.12"
 futures = { version = "0.3.32", features = ["alloc"], default-features = false }
 glob = { version = "0.3.1", default-features = false }
@@ -110,12 +117,14 @@ jsonschema = { version = "0.57.0", default-features = false }
 insta = { version = "1.47.2", default-features = false }
 itertools = { version = "0.14.0", features = ["use_alloc"], default-features = false }
 lazy_static = { version = "1.5.0", default-features = false }
+minisign-verify = "0.3.0"
 nanoid = { version = "0.5.0", default-features = false }
 oauth2 = { version = "5.0.0", default-features = false }
 openidconnect = { version = "4.0.1", default-features = false }
 notify = { version = "8.2.0" }
 notify-debouncer-mini = { version = "0.7.0" }
 owo-colors = { version = "4.3.0", features = ["alloc"], default-features = true }
+plist = "1.10.0"
 pretty_yaml = "0.6.0"
 prost = { version = "=0.14.4", features = ["derive", "std"], default-features = false }
 protoc-bin-vendored = { version = "=3.2.0", default-features = false }
@@ -127,6 +136,7 @@ oxixml-model = { version = "0.1.2", default-features = false }
 oxixml-rdfxml = { version = "0.1.2", default-features = false }
 shell-words = { version = "1.1.0", default-features = false }
 rust-embed = { version = "8.11.0", default-features = false }
+rustworkx-core = "0.18.1"
 rustls = { version = "0.23.36", features = ["ring"], default-features = false }
 rusqlite = { version = "0.39.0", default-features = false }
 secrecy = { version = "0.10.3", features = ["serde"], default-features = false }
@@ -138,6 +148,7 @@ eserde = { version = "0.1", features = ["derive", "json"], default-features = fa
 sophia = { version = "0.9.0", default-features = false }
 strum = { version = "0.28.0", features = ["derive"], default-features = false }
 swhid = { version = "0.2.2", default-features = false }
+tar = "0.4.46"
 tokio = { version = "1.48.0", default-features = false }
 thiserror = { version = "2.0.18", default-features = false }
 tonic = { version = "=0.14.6", features = [

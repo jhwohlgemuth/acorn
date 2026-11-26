@@ -15,6 +15,16 @@ impl AsRef<str> for EmailAddress {
         &self.0
     }
 }
+impl fmt::Display for EmailAddress {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+impl Validate for EmailAddress {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        rules::email(&self.0).map_err(|error| ValidationReport::from_error("", error))
+    }
+}
 impl<'de> Deserialize<'de> for EmailAddress {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -24,21 +34,5 @@ impl<'de> Deserialize<'de> for EmailAddress {
             let email = email.trim().to_ascii_lowercase();
             rules::email(&email).map(|()| Self(email)).map_err(D::Error::custom)
         })
-    }
-}
-impl EmailAddress {
-    /// Borrow the normalized address.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-impl fmt::Display for EmailAddress {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.0)
-    }
-}
-impl Validate for EmailAddress {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        rules::email(&self.0).map_err(|error| ValidationReport::from_error("", error))
     }
 }

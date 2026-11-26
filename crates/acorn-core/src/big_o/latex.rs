@@ -3,27 +3,22 @@ use super::{Exponent, Expression, Term};
 use crate::prelude::alloc::{format, String, ToString, Vec};
 use core::fmt;
 
-/// Borrow the string representation of a formatted expression.
-pub trait AsStr {
-    /// Return the formatted source without surrounding math delimiters.
-    fn as_str(&self) -> &str;
-}
 /// A Big-O expression formatted for LaTeX math mode.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LatexExpression(String);
-impl AsStr for LatexExpression {
-    fn as_str(&self) -> &str {
+impl AsRef<str> for LatexExpression {
+    fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+impl fmt::Display for LatexExpression {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_ref())
     }
 }
 impl From<Expression> for LatexExpression {
     fn from(expression: Expression) -> Self {
         Self(format!(r"\mathcal{{O}}\left({}\right)", render_term(&expression.root)))
-    }
-}
-impl fmt::Display for LatexExpression {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
     }
 }
 fn render_exponent(exponent: &Exponent) -> String {

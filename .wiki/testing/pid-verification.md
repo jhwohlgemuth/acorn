@@ -22,6 +22,8 @@ Give portable PID behavior one implementation and two complementary verification
 
 The tools complement ordinary tests. They do not replace parsing, formatting, fixture, fuzz, or wrapper-level regression coverage.
 
+PID-17 reuses the same Verus workflow and proof skeleton for `acorn-core`'s `Rational` arithmetic, which is not a PID algorithm. It lives here because this plan owns the Verus toolchain, the proof-core lock, and the rule that production code must call the proved core. [Invariant verification](invariant-verification.md) owns the property tests that precede it.
+
 # Current evidence
 
 - Handle, RRID, and SWHID repeat generic `PersistentIdentifierParse::{format,from_string,is_valid}` bodies. Handle and SWHID also repeat percent-escape validation while retaining different discovery and identifier rules.
@@ -37,6 +39,7 @@ The tools complement ordinary tests. They do not replace parsing, formatting, fi
 - Width analysis from the same sketches: the MOD 11-2 intermediate is bounded at 38 (`u8`), ISBN-13 at 324 and ISBN-10 at 486 (`u16`), radix-29 at 840 (`u16`), and ROR at `32^6 * 100 = 107_374_182_400` (`u64`), where `mod_97_10_check_digit` currently uses `u128` with `checked_mul`. These bounds are the arithmetic-safety obligations, and proving them removes the checked-arithmetic chains.
 - Beta-numeric reversibility is currently sampled at two points, `'0'` and `'z'` (`crates/acorn-schema/src/pid/tests.rs:103`). A lookup lemma covers all twenty-nine characters at once.
 - Existing native PID tests contain the executable vectors that should remain the oracle. Their folds are: MOD 11-2 `000000031415926` and `0000000492299539` both fold to 3 (check `9`), `0000-0002-2816-415X` to 2 (check `X`); ISBN-10 `0-306-40615-2` to 130 (check `2`) and `0-8044-2957-X` to 199 (check `X`); ISBN-13 `978-0-306-40627-0` and `978-3-16-148410-0` both to 100 (check `0`); ROR `1qz5mb` decodes to 58693259 (check `56`); NOID `13030/xf93gt2` to 21 (check `q`) and `c8131/g3js3` to 25 (check `v`).
+- `Rational` (`crates/acorn-core/src/util/math/mod.rs:22`) is `pub(crate)` with `i128` fields and checked arithmetic. `big_o::compare` depends on it, and `crates/acorn-core/src/util/math/tests.rs` covers it with five fixed examples. Its overflow, reduction, and signed-boundary comparison obligations fit the same bound-lemma skeleton as the checksum cores.
 - [Verus Cargo integration](https://verus-lang.github.io/verus/guide/cargo_verus.html) supports opted-in crates alongside ordinary Cargo builds, while [its supported-feature list](https://verus-lang.github.io/verus/guide/features.html) makes direct verification of the entire schema crate an unsuitable first target.
 
 # Project code boundaries
@@ -47,7 +50,7 @@ The tools complement ordinary tests. They do not replace parsing, formatting, fi
 
 # Dependencies
 
-Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 claim the workspace manifest/lockfile integration lock; PID-06 no longer does, so the proof work itself does not contend with ACD-03 or SPD-24. PID-01, PID-14, and PID-16 are independent of one another and of the manifest lock. PID-14, PID-05, and PID-11 all claim the CI/build lock and run in that order, but none blocks the portability critical path or ordinary stable builds.
+Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 claim the workspace manifest/lockfile integration lock; PID-06 no longer does, so the proof work itself does not contend with ACD-03 or SPD-24. PID-01, PID-14, and PID-16 are independent of one another and of the manifest lock. PID-14, PID-05, and PID-11 all claim the CI/build lock and run in that order, but none blocks the portability critical path or ordinary stable builds. PID-17 needs PID-06's recorded skeleton, [INV-01](invariant-verification.md#inv-01--property-test-rational-arithmetic) property tests, and an owner placement decision. It uses the proof-core lock, so it never runs alongside PID-06, PID-07, PID-09, PID-10, or PID-13.
 
 # Decisions
 
@@ -93,6 +96,7 @@ Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 cla
 - ISBN-10/13, ROR, and ARK/NOID subsequently call proved executable cores with contracts for overflow freedom, bounds, and their checksum equations; lookup claims cover beta-numeric and Crockford mappings where used.
 - Every native checksum vector remains and has a corresponding proof example or theorem.
 - Ordinary stable builds require no Verus executable or proof-time service, and informational jobs run only for relevant changes.
+- If the owner approves a placement, production `Rational` calls a proved core with contracts for overflow freedom, reduced results, and correct comparison at the `i128` boundaries. If the owner declines, PID-17 is removed and this criterion with it.
 
 # Execution phases
 
@@ -261,11 +265,25 @@ Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 cla
 - Focused validation: Run ISBN-10 native vectors, alloc-only checks, and the pinned Verus proof.
 - Handoff: Remove PID-13 and preserve the production-connected checksum contract.
 
+## PID-17 — Prove the `Rational` arithmetic core
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites:
+  - PID-06 has recorded the reusable proof skeleton;
+  - INV-01 property tests are removed from the invariant plan;
+  - the owner decides where verified `Rational` code lives: a module in `acorn-pid-checksum`, a new portable crate, or a non-default `verify` feature in `acorn-core`.
+- Exact write set: set by the placement decision before the phase starts. It always includes `crates/acorn-core/src/util/math/mod.rs` and `crates/acorn-core/src/util/math/tests.rs`, and never overlaps another PID phase's files.
+- Primary integration lock: checksum proof core
+- Outcome: Prove that `Rational::new`, `add`, `mul`, and comparison never overflow, always return reduced values with a positive denominator, and order values correctly at `i128::MIN` and `i128::MAX`. Production `Rational` calls the proved core, and the checked-arithmetic chain it replaces is removed. Its observable results stay identical, with INV-01's property tests as the oracle.
+- Focused validation: pinned `cargo verus verify` on the chosen crate, `cargo nextest run -p acorn-core util::math big_o`, `cargo check --workspace`, and `make check-wasm`. A placement outside `acorn-pid-checksum` may also need the `make verus` path filter extended. That edit takes the CI/build lock, so it gets its own phase.
+- Handoff: Remove PID-17. If placement needs a new crate, add a manifest-lock scaffold phase first, the way PID-15 precedes PID-06.
+
 ## PID-12 — Publish verification guidance and retire
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PID-05, PID-11
+- Prerequisites: PID-05, PID-11, PID-17 (removed when done or declined)
 - Exact write set: `docs/src/learn/developer.md`, `.wiki/index.md`, `.wiki/testing/index.md`, `.wiki/plan-network.md`, `.wiki/parallel-execution.md`, `.wiki/testing/pid-verification.md`
 - Primary integration lock: verification documentation
 - Outcome: Document supported targets/toolchains, run native/portable/full gates, and remove the plan.
