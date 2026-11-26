@@ -6,31 +6,6 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// Sign one release archive with a protected key and verify against the pinned public key.
-pub(crate) fn run(args: &[String]) -> Result<(), String> {
-    match args {
-        | [archive] => {
-            let secret_path = env::var_os("ACORND_SIGNING_KEY").ok_or_else(|| "ACORND_SIGNING_KEY file variable is required".to_string());
-            let password = env::var("ACORND_SIGNING_PASSPHRASE").map_err(|_| "ACORND_SIGNING_PASSPHRASE protected variable is required".to_string());
-            env::remove_var("ACORND_SIGNING_PASSPHRASE");
-            secret_path.and_then(|secret_path| {
-                password.and_then(|password| {
-                    let public_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-                        .parent()
-                        .map(|root| root.join("crates/acorn-cli/assets/acornd-release.pub"))
-                        .ok_or_else(|| "Cannot resolve pinned release key from the workspace".to_string());
-                    public_path.and_then(|public_path| {
-                        sign_file(Path::new(archive), Path::new(&secret_path), password, &public_path).map(|signature| {
-                            println!("{}", signature.display());
-                        })
-                    })
-                })
-            })
-        }
-        | _ => Err("Usage: cargo xtask sign-acornd-bundle ARCHIVE".to_string()),
-    }
-}
-
 fn sign_file(archive: &Path, secret_path: &Path, password: String, public_path: &Path) -> Result<PathBuf, String> {
     PublicKey::from_file(public_path)
         .map_err(|error| format!("Cannot read pinned release public key: {error}"))
@@ -71,6 +46,31 @@ fn sign_file(archive: &Path, secret_path: &Path, password: String, public_path: 
         })
 }
 
+/// Sign one release archive with a protected key and verify against the pinned public key.
+pub(crate) fn run(args: &[String]) -> Result<(), String> {
+    match args {
+        | [archive] => {
+            let secret_path = env::var_os("ACORND_SIGNING_KEY").ok_or_else(|| "ACORND_SIGNING_KEY file variable is required".to_string());
+            let password = env::var("ACORND_SIGNING_PASSPHRASE").map_err(|_| "ACORND_SIGNING_PASSPHRASE protected variable is required".to_string());
+            env::remove_var("ACORND_SIGNING_PASSPHRASE");
+            secret_path.and_then(|secret_path| {
+                password.and_then(|password| {
+                    let public_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .parent()
+                        .map(|root| root.join("crates/acorn-cli/assets/acornd-release.pub"))
+                        .ok_or_else(|| "Cannot resolve pinned release key from the workspace".to_string());
+                    public_path.and_then(|public_path| {
+                        sign_file(Path::new(archive), Path::new(&secret_path), password, &public_path).map(|signature| {
+                            println!("{}", signature.display());
+                        })
+                    })
+                })
+            })
+        }
+        | _ => Err("Usage: cargo xtask sign-acornd-bundle ARCHIVE".to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,7 +78,7 @@ mod tests {
     use std::fs;
 
     #[test]
-    fn test_signs_with_matching_protected_key() {
+    fn signs_with_matching_protected_key() {
         let dir = tempfile::tempdir().unwrap();
         let archive = dir.path().join("bundle.tar.gz");
         let secret_path = dir.path().join("secret.key");

@@ -286,7 +286,7 @@ test("tour handles reduced motion, completion, route teardown and missing target
     assert.equal(config.allowKeyboardControl, true);
     assert.equal(config.closeBtnLabel, "Close tour");
     assert.equal(config.showProgress, true);
-    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Start with an example", "Open your data", "Load a repository bucket", "Use the ACORN Skill", "Explore your portfolio", "Review metadata", "Find and inspect identifiers", "Convert metadata", "Compare and analyze", "Manage your workspace", "Switch appearance"]);
+    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Start with an example", "Open your data", "Load a repository bucket", "Explore your portfolio", "Review metadata", "Find and inspect identifiers", "Convert metadata", "Compare and analyze", "Manage your workspace", "Switch appearance"]);
     config.onDestroyStarted(null, null, { reason: "done" });
     assert.equal(completed, 1);
     assert.equal(focused, 1);
@@ -301,11 +301,11 @@ test("tour handles reduced motion, completion, route teardown and missing target
     sampleLoaded = true;
     mobile = true;
     await tour.start();
-    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Open your data", "Load a repository bucket", "Use the ACORN Skill", "Explore the workspace", "Switch appearance"]);
+    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Open your data", "Load a repository bucket", "Explore the workspace", "Switch appearance"]);
     tour.cancel();
     tourTheme = "uswds";
     await tour.start();
-    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Open your data", "Load a repository bucket", "Use the ACORN Skill", "Explore the workspace"]);
+    assert.deepEqual(Array.from(config.steps, (step) => step.popover.title), ["Open your data", "Load a repository bucket", "Explore the workspace"]);
     tour.cancel();
     missing = true;
     await tour.start();

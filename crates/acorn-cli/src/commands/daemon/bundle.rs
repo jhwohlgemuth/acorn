@@ -14,12 +14,12 @@ use std::path::{Path, PathBuf};
 use std::{fs::OpenOptions, os::unix::fs::OpenOptionsExt};
 use tar::Archive;
 
-const FORMAT_VERSION: u32 = 1;
-const MAX_BINARY_BYTES: u64 = 256 * 1024 * 1024;
+const PUBLIC_KEY: &str = include_str!("../../../assets/acornd-release.pub");
 const MAX_BUNDLE_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_BINARY_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_MANIFEST_BYTES: u64 = 16 * 1024;
 const MAX_SIGNATURE_BYTES: u64 = 16 * 1024;
-const PUBLIC_KEY: &str = include_str!("../../../assets/acornd-release.pub");
+const FORMAT_VERSION: u32 = 1;
 const TARGETS: [&str; 5] = [
     "aarch64-apple-darwin",
     "aarch64-unknown-linux-musl",
@@ -27,14 +27,6 @@ const TARGETS: [&str; 5] = [
     "x86_64-pc-windows-msvc",
     "x86_64-unknown-linux-musl",
 ];
-
-#[derive(Debug, Deserialize, Eq, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct BinaryManifest {
-    name: String,
-    sha256: String,
-    size: u64,
-}
 
 /// Signed bundle manifest format v1, stored as `manifest.json` in a gzip tar archive.
 #[derive(Debug, Deserialize, Eq, PartialEq)]
@@ -46,172 +38,18 @@ pub(crate) struct BundleManifest {
     binaries: Vec<BinaryManifest>,
 }
 
+#[derive(Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BinaryManifest {
+    name: String,
+    sha256: String,
+    size: u64,
+}
+
 #[derive(Default)]
 struct Contents {
     manifest: Option<BundleManifest>,
     binaries: BTreeMap<String, (u64, String)>,
-}
-
-struct DigestWriter<'a>(&'a mut Context);
-
-impl std::io::Write for DigestWriter<'_> {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.update(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-/// Extract the already verified binaries from the same open archive handle.
-#[cfg(all(unix, any(target_os = "linux", test)))]
-pub(crate) fn extract_verified(archive: &mut File, directory: &Path) -> Result<()> {
-    archive
-        .seek(SeekFrom::Start(0))
-        .map_err(|error| eyre!("Cannot rewind verified bundle: {error}"))
-        .and_then(|_| {
-            Archive::new(GzDecoder::new(archive))
-                .entries()
-                .map_err(|error| eyre!("Cannot extract verified bundle: {error}"))
-                .and_then(|entries| {
-                    entries.into_iter().try_for_each(|entry| {
-                        entry
-                            .map_err(|error| eyre!("Cannot read verified bundle member: {error}"))
-                            .and_then(|mut entry| match entry.path_bytes().as_ref() {
-                                | b"acorn" | b"acornd" => {
-                                    let name = String::from_utf8_lossy(entry.path_bytes().as_ref()).into_owned();
-                                    let path = directory.join(&name);
-                                    OpenOptions::new()
-                                        .write(true)
-                                        .create_new(true)
-                                        .mode(0o700)
-                                        .open(&path)
-                                        .and_then(|mut file| std::io::copy(&mut entry, &mut file).and_then(|_| file.sync_all()))
-                                        .map_err(|error| eyre!("Cannot extract verified binary {}: {error}", path.display()))
-                                }
-                                | b"manifest.json" => Ok(()),
-                                | _ => Err(eyre!("Unexpected member in verified bundle")),
-                            })
-                    })
-                })
-        })
-}
-
-fn inspect_archive<R: Read>(reader: R) -> Result<Contents> {
-    let mut archive = Archive::new(GzDecoder::new(reader));
-    archive
-        .entries()
-        .map_err(|error| eyre!("Cannot read bundle archive: {error}"))
-        .and_then(|mut entries| {
-            entries.try_fold(Contents::default(), |mut contents, entry| {
-                entry
-                    .map_err(|error| eyre!("Cannot read bundle member: {error}"))
-                    .and_then(|mut entry| {
-                        let name = entry.path_bytes();
-                        let regular = entry.header().entry_type().is_file();
-                        if !regular {
-                            Err(eyre!("Bundle contains a non-file member"))
-                        } else {
-                            match name.as_ref() {
-                                | b"manifest.json" => read_manifest(&mut entry, &mut contents),
-                                | b"acorn" | b"acornd" | b"acorn.exe" | b"acornd.exe" => {
-                                    let name = String::from_utf8_lossy(name.as_ref()).into_owned();
-                                    read_binary(&mut entry, name, &mut contents)
-                                }
-                                | _ => Err(eyre!("Bundle contains an unexpected or unsafe member")),
-                            }
-                        }
-                    })
-                    .map(|()| contents)
-            })
-        })
-        .and_then(|contents| {
-            std::io::copy(&mut archive.into_inner(), &mut std::io::sink())
-                .map_err(|error| eyre!("Cannot finish reading bundle archive: {error}"))
-                .map(|_| contents)
-        })
-}
-
-fn read_binary<R: Read>(entry: &mut tar::Entry<'_, R>, name: String, contents: &mut Contents) -> Result<()> {
-    if contents.binaries.contains_key(&name) || entry.size() > MAX_BINARY_BYTES {
-        Err(eyre!("Bundle binary is duplicated or too large: {name}"))
-    } else {
-        let mut digest = Context::new(&SHA256);
-        let mut writer = DigestWriter(&mut digest);
-        std::io::copy(entry, &mut writer)
-            .map_err(|error| eyre!("Cannot read bundle binary {name}: {error}"))
-            .and_then(|count| {
-                (count == entry.size())
-                    .then_some(count)
-                    .ok_or_else(|| eyre!("Bundle binary is truncated: {name}"))
-            })
-            .map(|count| {
-                contents.binaries.insert(name, (count, HEXLOWER.encode(digest.finish().as_ref())));
-            })
-    }
-}
-
-fn read_manifest<R: Read>(entry: &mut tar::Entry<'_, R>, contents: &mut Contents) -> Result<()> {
-    if contents.manifest.is_some() || entry.size() > MAX_MANIFEST_BYTES {
-        Err(eyre!("Bundle manifest is duplicated or too large"))
-    } else {
-        let mut bytes = Vec::with_capacity(entry.size() as usize);
-        entry
-            .read_to_end(&mut bytes)
-            .map_err(|error| eyre!("Cannot read bundle manifest: {error}"))
-            .and_then(|count| {
-                (count as u64 == entry.size())
-                    .then_some(bytes)
-                    .ok_or_else(|| eyre!("Bundle manifest is truncated"))
-            })
-            .and_then(|bytes| serde_json::from_slice::<BundleManifest>(&bytes).map_err(|error| eyre!("Bundle manifest is invalid: {error}")))
-            .map(|manifest| {
-                contents.manifest = Some(manifest);
-            })
-    }
-}
-
-/// Read a detached signature with a strict size limit.
-pub(crate) fn read_signature(path: &Path) -> Result<String> {
-    File::open(path)
-        .map_err(|error| eyre!("Cannot open detached bundle signature: {error}"))
-        .and_then(|file| {
-            let mut signature = String::new();
-            file.take(MAX_SIGNATURE_BYTES + 1)
-                .read_to_string(&mut signature)
-                .map_err(|error| eyre!("Cannot read detached bundle signature: {error}"))
-                .and_then(|_| {
-                    (signature.len() as u64 <= MAX_SIGNATURE_BYTES)
-                        .then_some(signature)
-                        .ok_or_else(|| eyre!("Detached bundle signature exceeds the size limit"))
-                })
-        })
-}
-
-fn validate_contents(contents: Contents, expected_version: &str, expected_target: &str) -> Result<BundleManifest> {
-    contents.manifest.ok_or_else(|| eyre!("Bundle manifest is missing")).and_then(|manifest| {
-        let names = if manifest.target == "x86_64-pc-windows-msvc" {
-            ["acorn.exe", "acornd.exe"]
-        } else {
-            ["acorn", "acornd"]
-        };
-        let valid_header = manifest.format_version == FORMAT_VERSION
-            && manifest.version == expected_version
-            && manifest.target == expected_target
-            && TARGETS.contains(&manifest.target.as_str());
-        let valid_binaries = manifest.binaries.len() == names.len()
-            && manifest.binaries.iter().zip(names).all(|(binary, name)| {
-                binary.name == name
-                    && binary.sha256.len() == 64
-                    && binary.sha256.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
-                    && contents.binaries.get(name) == Some(&(binary.size, binary.sha256.clone()))
-            });
-        (valid_header && valid_binaries && contents.binaries.len() == names.len())
-            .then_some(manifest)
-            .ok_or_else(|| eyre!("Bundle metadata or binary checksum does not match the expected release"))
-    })
 }
 
 /// Verify a detached Minisign signature and every member of a paired release bundle.
@@ -261,6 +99,76 @@ pub(crate) fn verify_path(path: &Path) -> Result<()> {
     })
 }
 
+/// Read a detached signature with a strict size limit.
+pub(crate) fn read_signature(path: &Path) -> Result<String> {
+    File::open(path)
+        .map_err(|error| eyre!("Cannot open detached bundle signature: {error}"))
+        .and_then(|file| {
+            let mut signature = String::new();
+            file.take(MAX_SIGNATURE_BYTES + 1)
+                .read_to_string(&mut signature)
+                .map_err(|error| eyre!("Cannot read detached bundle signature: {error}"))
+                .and_then(|_| {
+                    (signature.len() as u64 <= MAX_SIGNATURE_BYTES)
+                        .then_some(signature)
+                        .ok_or_else(|| eyre!("Detached bundle signature exceeds the size limit"))
+                })
+        })
+}
+
+/// Extract the already verified binaries from the same open archive handle.
+#[cfg(all(unix, any(target_os = "linux", test)))]
+pub(crate) fn extract_verified(archive: &mut File, directory: &Path) -> Result<()> {
+    archive
+        .seek(SeekFrom::Start(0))
+        .map_err(|error| eyre!("Cannot rewind verified bundle: {error}"))
+        .and_then(|_| {
+            Archive::new(GzDecoder::new(archive))
+                .entries()
+                .map_err(|error| eyre!("Cannot extract verified bundle: {error}"))
+                .and_then(|entries| {
+                    entries.into_iter().try_for_each(|entry| {
+                        entry
+                            .map_err(|error| eyre!("Cannot read verified bundle member: {error}"))
+                            .and_then(|mut entry| match entry.path_bytes().as_ref() {
+                                | b"acorn" | b"acornd" => {
+                                    let name = String::from_utf8_lossy(entry.path_bytes().as_ref()).into_owned();
+                                    let path = directory.join(&name);
+                                    OpenOptions::new()
+                                        .write(true)
+                                        .create_new(true)
+                                        .mode(0o700)
+                                        .open(&path)
+                                        .and_then(|mut file| std::io::copy(&mut entry, &mut file).and_then(|_| file.sync_all()))
+                                        .map_err(|error| eyre!("Cannot extract verified binary {}: {error}", path.display()))
+                                }
+                                | b"manifest.json" => Ok(()),
+                                | _ => Err(eyre!("Unexpected member in verified bundle")),
+                            })
+                    })
+                })
+        })
+}
+
+fn verify_with_key<R: Read + Seek>(
+    archive: &mut R,
+    signature: &str,
+    expected_version: &str,
+    expected_target: &str,
+    key: &PublicKey,
+) -> Result<BundleManifest> {
+    Signature::decode(signature)
+        .map_err(|error| eyre!("Bundle signature is invalid: {error}"))
+        .and_then(|parsed| verify_signature(archive, &parsed, key))
+        .and_then(|()| {
+            archive
+                .seek(SeekFrom::Start(0))
+                .map_err(|error| eyre!("Cannot rewind verified bundle: {error}"))
+        })
+        .and_then(|_| inspect_archive(archive))
+        .and_then(|contents| validate_contents(contents, expected_version, expected_target))
+}
+
 fn verify_signature<R: Read + Seek>(archive: &mut R, signature: &Signature, key: &PublicKey) -> Result<()> {
     archive
         .seek(SeekFrom::Start(0))
@@ -304,23 +212,115 @@ fn verify_signature<R: Read + Seek>(archive: &mut R, signature: &Signature, key:
         })
 }
 
-fn verify_with_key<R: Read + Seek>(
-    archive: &mut R,
-    signature: &str,
-    expected_version: &str,
-    expected_target: &str,
-    key: &PublicKey,
-) -> Result<BundleManifest> {
-    Signature::decode(signature)
-        .map_err(|error| eyre!("Bundle signature is invalid: {error}"))
-        .and_then(|parsed| verify_signature(archive, &parsed, key))
-        .and_then(|()| {
-            archive
-                .seek(SeekFrom::Start(0))
-                .map_err(|error| eyre!("Cannot rewind verified bundle: {error}"))
+fn inspect_archive<R: Read>(reader: R) -> Result<Contents> {
+    let mut archive = Archive::new(GzDecoder::new(reader));
+    archive
+        .entries()
+        .map_err(|error| eyre!("Cannot read bundle archive: {error}"))
+        .and_then(|mut entries| {
+            entries.try_fold(Contents::default(), |mut contents, entry| {
+                entry
+                    .map_err(|error| eyre!("Cannot read bundle member: {error}"))
+                    .and_then(|mut entry| {
+                        let name = entry.path_bytes();
+                        let regular = entry.header().entry_type().is_file();
+                        if !regular {
+                            Err(eyre!("Bundle contains a non-file member"))
+                        } else {
+                            match name.as_ref() {
+                                | b"manifest.json" => read_manifest(&mut entry, &mut contents),
+                                | b"acorn" | b"acornd" | b"acorn.exe" | b"acornd.exe" => {
+                                    let name = String::from_utf8_lossy(name.as_ref()).into_owned();
+                                    read_binary(&mut entry, name, &mut contents)
+                                }
+                                | _ => Err(eyre!("Bundle contains an unexpected or unsafe member")),
+                            }
+                        }
+                    })
+                    .map(|()| contents)
+            })
         })
-        .and_then(|_| inspect_archive(archive))
-        .and_then(|contents| validate_contents(contents, expected_version, expected_target))
+        .and_then(|contents| {
+            std::io::copy(&mut archive.into_inner(), &mut std::io::sink())
+                .map_err(|error| eyre!("Cannot finish reading bundle archive: {error}"))
+                .map(|_| contents)
+        })
+}
+
+fn read_manifest<R: Read>(entry: &mut tar::Entry<'_, R>, contents: &mut Contents) -> Result<()> {
+    if contents.manifest.is_some() || entry.size() > MAX_MANIFEST_BYTES {
+        Err(eyre!("Bundle manifest is duplicated or too large"))
+    } else {
+        let mut bytes = Vec::with_capacity(entry.size() as usize);
+        entry
+            .read_to_end(&mut bytes)
+            .map_err(|error| eyre!("Cannot read bundle manifest: {error}"))
+            .and_then(|count| {
+                (count as u64 == entry.size())
+                    .then_some(bytes)
+                    .ok_or_else(|| eyre!("Bundle manifest is truncated"))
+            })
+            .and_then(|bytes| serde_json::from_slice::<BundleManifest>(&bytes).map_err(|error| eyre!("Bundle manifest is invalid: {error}")))
+            .map(|manifest| {
+                contents.manifest = Some(manifest);
+            })
+    }
+}
+
+fn read_binary<R: Read>(entry: &mut tar::Entry<'_, R>, name: String, contents: &mut Contents) -> Result<()> {
+    if contents.binaries.contains_key(&name) || entry.size() > MAX_BINARY_BYTES {
+        Err(eyre!("Bundle binary is duplicated or too large: {name}"))
+    } else {
+        let mut digest = Context::new(&SHA256);
+        let mut writer = DigestWriter(&mut digest);
+        std::io::copy(entry, &mut writer)
+            .map_err(|error| eyre!("Cannot read bundle binary {name}: {error}"))
+            .and_then(|count| {
+                (count == entry.size())
+                    .then_some(count)
+                    .ok_or_else(|| eyre!("Bundle binary is truncated: {name}"))
+            })
+            .map(|count| {
+                contents.binaries.insert(name, (count, HEXLOWER.encode(digest.finish().as_ref())));
+            })
+    }
+}
+
+struct DigestWriter<'a>(&'a mut Context);
+
+impl std::io::Write for DigestWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn validate_contents(contents: Contents, expected_version: &str, expected_target: &str) -> Result<BundleManifest> {
+    contents.manifest.ok_or_else(|| eyre!("Bundle manifest is missing")).and_then(|manifest| {
+        let names = if manifest.target == "x86_64-pc-windows-msvc" {
+            ["acorn.exe", "acornd.exe"]
+        } else {
+            ["acorn", "acornd"]
+        };
+        let valid_header = manifest.format_version == FORMAT_VERSION
+            && manifest.version == expected_version
+            && manifest.target == expected_target
+            && TARGETS.contains(&manifest.target.as_str());
+        let valid_binaries = manifest.binaries.len() == names.len()
+            && manifest.binaries.iter().zip(names).all(|(binary, name)| {
+                binary.name == name
+                    && binary.sha256.len() == 64
+                    && binary.sha256.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                    && contents.binaries.get(name) == Some(&(binary.size, binary.sha256.clone()))
+            });
+        (valid_header && valid_binaries && contents.binaries.len() == names.len())
+            .then_some(manifest)
+            .ok_or_else(|| eyre!("Bundle metadata or binary checksum does not match the expected release"))
+    })
 }
 
 #[cfg(test)]
@@ -378,14 +378,32 @@ mod tests {
     }
 
     #[test]
-    fn test_accepts_signed_complete_bundle() {
+    fn pinned_public_key_parses() {
+        assert!(PublicKey::decode(PUBLIC_KEY).is_ok());
+    }
+
+    #[test]
+    fn accepts_signed_complete_bundle() {
         let bytes = bundle("0.6.3", "x86_64-unknown-linux-musl", &[("acorn", b"cli"), ("acornd", b"daemon")]);
         let (key, signature) = signed(&bytes);
         assert_eq!(verify(&bytes, &key, &signature, "0.6.3").unwrap().version, "0.6.3");
     }
+
+    #[test]
+    fn rejects_wrong_key_and_changed_archive() {
+        let bytes = bundle("0.6.3", "x86_64-unknown-linux-musl", &[("acorn", b"cli"), ("acornd", b"daemon")]);
+        let (_, signature) = signed(&bytes);
+        let (wrong_key, _) = signed(&bytes);
+        assert!(verify(&bytes, &wrong_key, &signature, "0.6.3").is_err());
+        let (key, signature) = signed(&bytes);
+        let mut changed = bytes;
+        *changed.get_mut(12).unwrap() ^= 1;
+        assert!(verify(&changed, &key, &signature, "0.6.3").is_err());
+    }
+
     #[cfg(unix)]
     #[test]
-    fn test_extracts_from_the_verified_handle_after_path_replacement() {
+    fn extracts_from_the_verified_handle_after_path_replacement() {
         let bytes = bundle(
             "0.6.3",
             "x86_64-unknown-linux-musl",
@@ -403,12 +421,9 @@ mod tests {
         assert_eq!(fs::read(temporary.path().join("acorn")).unwrap(), b"original cli");
         assert_eq!(fs::read(temporary.path().join("acornd")).unwrap(), b"original daemon");
     }
+
     #[test]
-    fn test_pinned_public_key_parses() {
-        assert!(PublicKey::decode(PUBLIC_KEY).is_ok());
-    }
-    #[test]
-    fn test_rejects_missing_member_version_and_target() {
+    fn rejects_missing_member_version_and_target() {
         let bytes = bundle("0.6.3", "x86_64-unknown-linux-musl", &[("acorn", b"cli")]);
         let (key, signature) = signed(&bytes);
         assert!(verify(&bytes, &key, &signature, "0.6.3").is_err());
@@ -417,8 +432,9 @@ mod tests {
         assert!(verify(&bytes, &key, &signature, "0.6.4").is_err());
         assert!(verify_with_key(&mut Cursor::new(&bytes), &signature, "0.6.3", "aarch64-unknown-linux-musl", &key).is_err());
     }
+
     #[test]
-    fn test_rejects_signed_path_traversal_and_checksum_mismatch() {
+    fn rejects_signed_path_traversal_and_checksum_mismatch() {
         let bytes = bundle("0.6.3", "x86_64-unknown-linux-musl", &[("../acorn", b"cli"), ("acornd", b"daemon")]);
         let (key, signature) = signed(&bytes);
         assert!(verify(&bytes, &key, &signature, "0.6.3").is_err());
@@ -432,16 +448,5 @@ mod tests {
         bytes = encoder.finish().unwrap();
         let (key, signature) = signed(&bytes);
         assert!(verify(&bytes, &key, &signature, "0.6.3").unwrap_err().to_string().contains("checksum"));
-    }
-    #[test]
-    fn test_rejects_wrong_key_and_changed_archive() {
-        let bytes = bundle("0.6.3", "x86_64-unknown-linux-musl", &[("acorn", b"cli"), ("acornd", b"daemon")]);
-        let (_, signature) = signed(&bytes);
-        let (wrong_key, _) = signed(&bytes);
-        assert!(verify(&bytes, &wrong_key, &signature, "0.6.3").is_err());
-        let (key, signature) = signed(&bytes);
-        let mut changed = bytes;
-        *changed.get_mut(12).unwrap() ^= 1;
-        assert!(verify(&changed, &key, &signature, "0.6.3").is_err());
     }
 }

@@ -25,15 +25,56 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-async fn call(method: &str, params: Value, config: Option<&Path>) -> Result<()> {
-    match client(config) {
-        | Err(error) => Err(error),
-        | Ok(client) => client
-            .call::<_, Value>(method, &params)
-            .await
-            .map_err(|error| eyre!("Daemon request failed: {error}"))
-            .map(|value| info!("{} {value}", Label::output())),
-    }
+fn project_directories() -> Result<ProjectDirs> {
+    ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION).ok_or_else(|| eyre!("ACORN application directories are unavailable"))
+}
+fn config_path(override_path: Option<&Path>) -> Result<PathBuf> {
+    override_path.map_or_else(
+        || {
+            #[cfg(target_os = "linux")]
+            let active = install::active_directory();
+            #[cfg(not(target_os = "linux"))]
+            let active: Result<Option<PathBuf>> = Ok(None);
+            active.and_then(|directory| {
+                directory.map_or_else(
+                    || project_directories().map(|dirs| dirs.config_dir().join(DEFAULT_CONFIG_FILENAMES[1])),
+                    |directory| Ok(directory.join("config.jsonc")),
+                )
+            })
+        },
+        |path| Ok(path.to_path_buf()),
+    )
+}
+#[cfg(unix)]
+fn read_token(path: &Path) -> Result<String> {
+    fs::symlink_metadata(path)
+        .map_err(|error| eyre!("Cannot inspect daemon token {}: {error}", path.display()))
+        .and_then(|metadata| {
+            let private = {
+                use std::os::unix::fs::PermissionsExt;
+                metadata.permissions().mode() & 0o077 == 0
+            };
+            (metadata.file_type().is_file() && private)
+                .then_some(())
+                .ok_or_else(|| eyre!("Daemon token must be a private regular file: {}", path.display()))
+        })
+        .and_then(|()| fs::read_to_string(path).map_err(|error| eyre!("Cannot read daemon token {}: {error}", path.display())))
+        .and_then(|contents| {
+            let token = contents.trim();
+            (!token.is_empty() && !token.chars().any(char::is_control))
+                .then(|| token.to_string())
+                .ok_or_else(|| eyre!("Daemon token is empty or malformed: {}", path.display()))
+        })
+}
+#[cfg(unix)]
+fn local_client(address: SocketAddr, directory: &Path) -> Result<JsonRpcClient> {
+    acorn_server::local::verify_private_dir(directory)
+        .map_err(|error| eyre!("Daemon control directory is not private: {error}"))
+        .and_then(|()| read_token(&directory.join("token")))
+        .and_then(|token| {
+            let socket = acorn_server::local::socket_path(directory, address.port());
+            JsonRpcClient::new_unix_socket(&socket, token, Duration::from_secs(5), Memory::mb(1)).map_err(eyre::Report::from)
+        })
 }
 fn client(config: Option<&Path>) -> Result<JsonRpcClient> {
     config_path(config)
@@ -55,23 +96,6 @@ fn client(config: Option<&Path>) -> Result<JsonRpcClient> {
             };
             result
         })
-}
-fn config_path(override_path: Option<&Path>) -> Result<PathBuf> {
-    override_path.map_or_else(
-        || {
-            #[cfg(target_os = "linux")]
-            let active = install::active_directory();
-            #[cfg(not(target_os = "linux"))]
-            let active: Result<Option<PathBuf>> = Ok(None);
-            active.and_then(|directory| {
-                directory.map_or_else(
-                    || project_directories().map(|dirs| dirs.config_dir().join(DEFAULT_CONFIG_FILENAMES[1])),
-                    |directory| Ok(directory.join("config.jsonc")),
-                )
-            })
-        },
-        |path| Ok(path.to_path_buf()),
-    )
 }
 fn lifecycle(action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
     let active = if action == "install" {
@@ -117,39 +141,15 @@ fn lifecycle(action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
             cleared
         })
 }
-#[cfg(unix)]
-fn local_client(address: SocketAddr, directory: &Path) -> Result<JsonRpcClient> {
-    acorn_server::local::verify_private_dir(directory)
-        .map_err(|error| eyre!("Daemon control directory is not private: {error}"))
-        .and_then(|()| read_token(&directory.join("token")))
-        .and_then(|token| {
-            let socket = acorn_server::local::socket_path(directory, address.port());
-            JsonRpcClient::new_unix_socket(&socket, token, Duration::from_secs(5), Memory::mb(1)).map_err(eyre::Report::from)
-        })
-}
-fn project_directories() -> Result<ProjectDirs> {
-    ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION).ok_or_else(|| eyre!("ACORN application directories are unavailable"))
-}
-#[cfg(unix)]
-fn read_token(path: &Path) -> Result<String> {
-    fs::symlink_metadata(path)
-        .map_err(|error| eyre!("Cannot inspect daemon token {}: {error}", path.display()))
-        .and_then(|metadata| {
-            let private = {
-                use std::os::unix::fs::PermissionsExt;
-                metadata.permissions().mode() & 0o077 == 0
-            };
-            (metadata.file_type().is_file() && private)
-                .then_some(())
-                .ok_or_else(|| eyre!("Daemon token must be a private regular file: {}", path.display()))
-        })
-        .and_then(|()| fs::read_to_string(path).map_err(|error| eyre!("Cannot read daemon token {}: {error}", path.display())))
-        .and_then(|contents| {
-            let token = contents.trim();
-            (!token.is_empty() && !token.chars().any(char::is_control))
-                .then(|| token.to_string())
-                .ok_or_else(|| eyre!("Daemon token is empty or malformed: {}", path.display()))
-        })
+async fn call(method: &str, params: Value, config: Option<&Path>) -> Result<()> {
+    match client(config) {
+        | Err(error) => Err(error),
+        | Ok(client) => client
+            .call::<_, Value>(method, &params)
+            .await
+            .map_err(|error| eyre!("Daemon request failed: {error}"))
+            .map(|value| info!("{} {value}", Label::output())),
+    }
 }
 /// Execute a local daemon command.
 pub async fn run(command: &DaemonCommand) -> Result<()> {

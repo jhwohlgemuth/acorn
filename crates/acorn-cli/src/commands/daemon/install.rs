@@ -24,60 +24,30 @@ const TARGET: &str = if cfg!(target_arch = "aarch64") {
     "unsupported-linux-architecture"
 };
 
-pub(super) fn active_directory() -> Result<Option<PathBuf>> {
-    project_directories().and_then(|directories| {
-        let data = directories.data_local_dir().join(DAEMON_NAMESPACE);
-        active_name(&data).map(|name| name.map(|name| data.join("releases").join(name)))
-    })
-}
-
-fn active_name(data: &Path) -> Result<Option<String>> {
-    match fs::read_to_string(data.join("active-release")) {
-        | Ok(name) => {
-            let name = name.trim();
-            let valid = !name.is_empty()
-                && name.bytes().next().is_some_and(|byte| byte.is_ascii_alphanumeric())
-                && name
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'));
-            valid
-                .then(|| Some(name.to_string()))
-                .ok_or_else(|| eyre!("Active release marker is invalid"))
-        }
-        | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        | Err(error) => Err(eyre!("Cannot read active release marker: {error}")),
-    }
-}
-
-pub(super) fn clear_active() -> Result<()> {
-    project_directories().and_then(|directories| {
-        let path = directories.data_local_dir().join(DAEMON_NAMESPACE).join("active-release");
-        match fs::remove_file(&path) {
-            | Ok(()) => Ok(()),
-            | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            | Err(error) => Err(eyre!("Cannot clear active release marker: {error}")),
-        }
-    })
-}
-
-fn daemon_action(binary: &Path, action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
-    let mut command = Command::new(binary);
-    command.arg(action);
-    if let Some(config) = config {
-        command.arg("--config").arg(config);
-    }
-    if linger {
-        command.arg("--linger");
-    }
-    command
-        .status()
-        .map_err(|error| eyre!("Cannot run staged acornd {action}: {error}"))
-        .and_then(|status| {
-            status
-                .success()
-                .then_some(())
-                .ok_or_else(|| eyre!("Staged acornd {action} failed: {status}"))
+fn version_from_name(path: &Path) -> Result<String> {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_prefix("acornd-v"))
+        .and_then(|name| name.strip_suffix(&format!("-{TARGET}.tar.gz")))
+        .filter(|version| {
+            version.split('.').count() == 3
+                && version
+                    .split('.')
+                    .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
         })
+        .map(str::to_owned)
+        .ok_or_else(|| eyre!("Bundle name must be acornd-vVERSION-{TARGET}.tar.gz"))
+}
+
+fn private_file(path: &Path, bytes: &[u8], executable: bool) -> Result<()> {
+    let mode = if executable { 0o700 } else { 0o600 };
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(mode)
+        .open(path)
+        .and_then(|mut file| file.write_all(bytes).and_then(|()| file.sync_all()))
+        .map_err(|error| eyre!("Cannot stage {}: {error}", path.display()))
 }
 
 fn ensure_token(data: &Path) -> Result<()> {
@@ -102,31 +72,43 @@ fn ensure_token(data: &Path) -> Result<()> {
     }
 }
 
-fn preflight_existing_service(previous: Option<&str>) -> Result<()> {
-    match previous {
-        | Some(_) => Ok(()),
-        | None => BaseDirs::new()
-            .map(|directories| directories.config_dir().join("systemd/user/acornd.service"))
-            .ok_or_else(|| eyre!("Cannot inspect the current user service"))
-            .and_then(|path| match fs::symlink_metadata(&path) {
-                | Ok(_) => Err(eyre!(
-                    "An existing daemon service has no signed release marker; uninstall it before installing a bundle"
-                )),
-                | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                | Err(error) => Err(eyre!("Cannot inspect the current user service: {error}")),
-            }),
-    }
+fn stage_archive(bundle: &Path, destination: &Path, version: &str) -> Result<()> {
+    let signature_path = PathBuf::from(format!("{}.minisig", bundle.display()));
+    read_signature(&signature_path).and_then(|signature| {
+        fs::metadata(bundle)
+            .map_err(|error| eyre!("Cannot inspect bundle: {error}"))
+            .and_then(|metadata| {
+                (metadata.len() <= 512 * 1024 * 1024)
+                    .then_some(())
+                    .ok_or_else(|| eyre!("Bundle exceeds the size limit"))
+            })
+            .and_then(|()| fs::copy(bundle, destination).map_err(|error| eyre!("Cannot stage bundle: {error}")))
+            .and_then(|_| File::open(destination).map_err(|error| eyre!("Cannot open staged bundle: {error}")))
+            .and_then(|mut archive| {
+                verify_bundle(&mut archive, &signature, version, TARGET)
+                    .and_then(|_| extract_verified(&mut archive, destination.parent().unwrap_or_else(|| Path::new("."))))
+            })
+    })
 }
 
-fn private_file(path: &Path, bytes: &[u8], executable: bool) -> Result<()> {
-    let mode = if executable { 0o700 } else { 0o600 };
-    OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(mode)
-        .open(path)
-        .and_then(|mut file| file.write_all(bytes).and_then(|()| file.sync_all()))
-        .map_err(|error| eyre!("Cannot stage {}: {error}", path.display()))
+fn daemon_action(binary: &Path, action: &str, config: Option<&Path>, linger: bool) -> Result<()> {
+    let mut command = Command::new(binary);
+    command.arg(action);
+    if let Some(config) = config {
+        command.arg("--config").arg(config);
+    }
+    if linger {
+        command.arg("--linger");
+    }
+    command
+        .status()
+        .map_err(|error| eyre!("Cannot run staged acornd {action}: {error}"))
+        .and_then(|status| {
+            status
+                .success()
+                .then_some(())
+                .ok_or_else(|| eyre!("Staged acornd {action} failed: {status}"))
+        })
 }
 
 async fn ready(config: &Path) -> Result<()> {
@@ -157,6 +139,64 @@ async fn ready(config: &Path) -> Result<()> {
     } else {
         Err(last)
     }
+}
+
+fn active_name(data: &Path) -> Result<Option<String>> {
+    match fs::read_to_string(data.join("active-release")) {
+        | Ok(name) => {
+            let name = name.trim();
+            let valid = !name.is_empty()
+                && name.bytes().next().is_some_and(|byte| byte.is_ascii_alphanumeric())
+                && name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'));
+            valid
+                .then(|| Some(name.to_string()))
+                .ok_or_else(|| eyre!("Active release marker is invalid"))
+        }
+        | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        | Err(error) => Err(eyre!("Cannot read active release marker: {error}")),
+    }
+}
+
+fn preflight_existing_service(previous: Option<&str>) -> Result<()> {
+    match previous {
+        | Some(_) => Ok(()),
+        | None => BaseDirs::new()
+            .map(|directories| directories.config_dir().join("systemd/user/acornd.service"))
+            .ok_or_else(|| eyre!("Cannot inspect the current user service"))
+            .and_then(|path| match fs::symlink_metadata(&path) {
+                | Ok(_) => Err(eyre!(
+                    "An existing daemon service has no signed release marker; uninstall it before installing a bundle"
+                )),
+                | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                | Err(error) => Err(eyre!("Cannot inspect the current user service: {error}")),
+            }),
+    }
+}
+
+pub(super) fn active_directory() -> Result<Option<PathBuf>> {
+    project_directories().and_then(|directories| {
+        let data = directories.data_local_dir().join(DAEMON_NAMESPACE);
+        active_name(&data).map(|name| name.map(|name| data.join("releases").join(name)))
+    })
+}
+
+pub(super) fn clear_active() -> Result<()> {
+    project_directories().and_then(|directories| {
+        let path = directories.data_local_dir().join(DAEMON_NAMESPACE).join("active-release");
+        match fs::remove_file(&path) {
+            | Ok(()) => Ok(()),
+            | Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            | Err(error) => Err(eyre!("Cannot clear active release marker: {error}")),
+        }
+    })
+}
+
+fn set_active(data: &Path, name: &str) -> Result<()> {
+    let temporary = data.join(format!(".active-release-{}", nanoid::nanoid!()));
+    private_file(&temporary, name.as_bytes(), false)
+        .and_then(|()| fs::rename(&temporary, data.join("active-release")).map_err(|error| eyre!("Cannot activate release marker: {error}")))
 }
 
 async fn rollback(data: &Path, previous: Option<&str>, new_binary: &Path) -> Result<()> {
@@ -232,44 +272,4 @@ pub(super) async fn run(bundle: &Path, config: &Path, linger: bool) -> Result<()
             }
         }
     }
-}
-
-fn set_active(data: &Path, name: &str) -> Result<()> {
-    let temporary = data.join(format!(".active-release-{}", nanoid::nanoid!()));
-    private_file(&temporary, name.as_bytes(), false)
-        .and_then(|()| fs::rename(&temporary, data.join("active-release")).map_err(|error| eyre!("Cannot activate release marker: {error}")))
-}
-
-fn stage_archive(bundle: &Path, destination: &Path, version: &str) -> Result<()> {
-    let signature_path = PathBuf::from(format!("{}.minisig", bundle.display()));
-    read_signature(&signature_path).and_then(|signature| {
-        fs::metadata(bundle)
-            .map_err(|error| eyre!("Cannot inspect bundle: {error}"))
-            .and_then(|metadata| {
-                (metadata.len() <= 512 * 1024 * 1024)
-                    .then_some(())
-                    .ok_or_else(|| eyre!("Bundle exceeds the size limit"))
-            })
-            .and_then(|()| fs::copy(bundle, destination).map_err(|error| eyre!("Cannot stage bundle: {error}")))
-            .and_then(|_| File::open(destination).map_err(|error| eyre!("Cannot open staged bundle: {error}")))
-            .and_then(|mut archive| {
-                verify_bundle(&mut archive, &signature, version, TARGET)
-                    .and_then(|_| extract_verified(&mut archive, destination.parent().unwrap_or_else(|| Path::new("."))))
-            })
-    })
-}
-
-fn version_from_name(path: &Path) -> Result<String> {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .and_then(|name| name.strip_prefix("acornd-v"))
-        .and_then(|name| name.strip_suffix(&format!("-{TARGET}.tar.gz")))
-        .filter(|version| {
-            version.split('.').count() == 3
-                && version
-                    .split('.')
-                    .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
-        })
-        .map(str::to_owned)
-        .ok_or_else(|| eyre!("Bundle name must be acornd-vVERSION-{TARGET}.tar.gz"))
 }
