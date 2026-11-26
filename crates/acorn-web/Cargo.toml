@@ -10,6 +10,10 @@ repository.workspace = true
 rust-version.workspace = true
 description = "ACORN Research Intelligence browser application"
 
+[package.metadata.cargo-shear]
+# This enables the JS entropy backend for rustworkx-core's transitive rand dependency.
+ignored = ["getrandom"]
+
 [dependencies]
 acorn-analysis = { workspace = true, default-features = false, features = ["alloc"] }
 acorn-core = { workspace = true, features = ["alloc"] }
