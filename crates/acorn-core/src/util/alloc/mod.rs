@@ -16,6 +16,7 @@
 #[cfg(feature = "std")]
 use super::constants::app::{EXEC_HEADER_PREFIX, MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use super::constants::{CROCKFORD_BASE32_ALPHABET, LINE_SEPARATOR};
+#[cfg(feature = "alloc")]
 use super::types::OneOrMany;
 use crate::error::{AcornError, AcornResult};
 use crate::prelude::alloc::{format, vec, HashMap, HashSet, String, ToString, Vec};
@@ -46,6 +47,7 @@ use strum::EnumIs;
 use urlencoding::encode;
 
 static DATE_TIME_PARSER: DateTimeParser = DateTimeParser::new();
+
 /// Trait for augmenting data with linked data context
 pub trait LinkedData {
     /// Add linked data (e.g., JSON-LD) context
@@ -55,6 +57,11 @@ pub trait LinkedData {
 pub trait MarkdownDecode: Sized {
     /// Parse Markdown content into a value.
     fn from_markdown(content: &str) -> Result<Self, String>;
+}
+/// Heading used when an item is rendered as one entry of a Markdown list.
+pub trait MarkdownLabel {
+    /// Heading rendered above each item.
+    const LABEL: &'static str;
 }
 /// Write Markdown data, including YAML front matter and escaped text
 pub trait MarkdownSupport {
@@ -104,23 +111,6 @@ pub trait MarkdownSupport {
             .replace('&', "and")
             .trim()
             .to_string()
-    }
-}
-/// Heading used when an item is rendered as one entry of a Markdown list.
-pub trait MarkdownLabel {
-    /// Heading rendered above each item.
-    const LABEL: &'static str;
-}
-impl<T: MarkdownSupport + MarkdownLabel> MarkdownSupport for OneOrMany<T> {
-    fn to_markdown(&self) -> String {
-        match self {
-            | Self::One(value) => format!("- {}\n{}", T::LABEL, value.to_markdown().with_additional_indent(2)),
-            | Self::Many(values) => values
-                .iter()
-                .map(|value| format!("- {}\n{}", T::LABEL, value.to_markdown().with_additional_indent(2)))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        }
     }
 }
 /// Shared parsing policies for JSON-with-comments options.
@@ -574,7 +564,6 @@ pub struct Checksum {
 /// assert_eq!(version.major, 1);
 /// assert_eq!(version.to_string(), "1.2.3");
 /// ```
-
 #[derive(Builder, Clone, Copy, Debug, Deserialize, Display, Eq, Ord, PartialEq, PartialOrd, Serialize, JsonSchema)]
 #[builder(start_fn = init)]
 #[display("{}.{}.{}", major, minor, patch)]
@@ -588,6 +577,65 @@ pub struct SemanticVersion {
     /// Version when you make backward compatible bug fixes
     #[builder(default = 0)]
     pub patch: u32,
+}
+#[cfg(feature = "std")]
+impl StringConversion for &Path {
+    fn file_name_with_parent(&self) -> String {
+        <Path as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <Path as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <Path as StringConversion>::percent_encode(self)
+    }
+    fn sluggify(&self) -> String {
+        <Path as StringConversion>::sluggify(self)
+    }
+    fn to_absolute_path(&self) -> String {
+        <Path as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <Path as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_cross_platform_path(&self) -> String {
+        <Path as StringConversion>::to_cross_platform_path(self)
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <Path as StringConversion>::truncate_utf8(self, max_bytes)
+    }
+}
+impl StringConversion for &str {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        <str as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <str as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <str as StringConversion>::percent_encode(self)
+    }
+    fn sluggify(&self) -> String {
+        <str as StringConversion>::sluggify(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        <str as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <str as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        <str as StringConversion>::to_complete_date(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        <str as StringConversion>::to_cross_platform_path(self)
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <str as StringConversion>::truncate_utf8(self, max_bytes)
+    }
 }
 impl fmt::Display for Checksum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -673,25 +721,6 @@ where
 impl AsRef<std::ffi::OsStr> for MimeType {
     fn as_ref(&self) -> &std::ffi::OsStr {
         std::ffi::OsStr::new(self.file_type_ref())
-    }
-}
-#[cfg(feature = "std")]
-impl From<anydoc::Format> for MimeType {
-    fn from(value: anydoc::Format) -> Self {
-        match value {
-            | anydoc::Format::Csv => Self::Csv,
-            | anydoc::Format::Doc => Self::Doc,
-            | anydoc::Format::Docx => Self::Docx,
-            | anydoc::Format::Epub => Self::Epub,
-            | anydoc::Format::Excel => Self::Excel,
-            | anydoc::Format::Odp => Self::Odp,
-            | anydoc::Format::Ods => Self::Ods,
-            | anydoc::Format::Odt => Self::Odt,
-            | anydoc::Format::Pdf => Self::Pdf,
-            | anydoc::Format::Ppt => Self::Ppt,
-            | anydoc::Format::Pptx => Self::Powerpoint,
-            | anydoc::Format::Rtf => Self::Rtf,
-        }
     }
 }
 impl From<&str> for MimeType {
@@ -786,6 +815,25 @@ impl From<&str> for MimeType {
 impl From<&String> for MimeType {
     fn from(value: &String) -> Self {
         Self::from(value.as_str())
+    }
+}
+#[cfg(feature = "std")]
+impl From<anydoc::Format> for MimeType {
+    fn from(value: anydoc::Format) -> Self {
+        match value {
+            | anydoc::Format::Csv => Self::Csv,
+            | anydoc::Format::Doc => Self::Doc,
+            | anydoc::Format::Docx => Self::Docx,
+            | anydoc::Format::Epub => Self::Epub,
+            | anydoc::Format::Excel => Self::Excel,
+            | anydoc::Format::Odp => Self::Odp,
+            | anydoc::Format::Ods => Self::Ods,
+            | anydoc::Format::Odt => Self::Odt,
+            | anydoc::Format::Pdf => Self::Pdf,
+            | anydoc::Format::Ppt => Self::Ppt,
+            | anydoc::Format::Pptx => Self::Powerpoint,
+            | anydoc::Format::Rtf => Self::Rtf,
+        }
     }
 }
 impl From<String> for MimeType {
@@ -978,6 +1026,19 @@ impl MimeType {
             | Self::Jpeg => bytes.starts_with(&[0xff, 0xd8, 0xff]),
             | Self::Webp => bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP"),
             | _ => false,
+        }
+    }
+}
+#[cfg(feature = "alloc")]
+impl<T: MarkdownSupport + MarkdownLabel> MarkdownSupport for OneOrMany<T> {
+    fn to_markdown(&self) -> String {
+        match self {
+            | Self::One(value) => format!("- {}\n{}", T::LABEL, value.to_markdown().with_additional_indent(2)),
+            | Self::Many(values) => values
+                .iter()
+                .map(|value| format!("- {}\n{}", T::LABEL, value.to_markdown().with_additional_indent(2)))
+                .collect::<Vec<_>>()
+                .join("\n"),
         }
     }
 }
@@ -1264,65 +1325,6 @@ impl StringExt for String {
         self.as_str().is_numeric()
     }
 }
-#[cfg(feature = "std")]
-impl StringConversion for &Path {
-    fn file_name_with_parent(&self) -> String {
-        <Path as StringConversion>::file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        <Path as StringConversion>::normalized(self)
-    }
-    fn percent_encode(&self) -> String {
-        <Path as StringConversion>::percent_encode(self)
-    }
-    fn sluggify(&self) -> String {
-        <Path as StringConversion>::sluggify(self)
-    }
-    fn to_absolute_path(&self) -> String {
-        <Path as StringConversion>::to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <Path as StringConversion>::to_ascii_alphanumeric(self)
-    }
-    fn to_cross_platform_path(&self) -> String {
-        <Path as StringConversion>::to_cross_platform_path(self)
-    }
-    fn truncate_utf8(&self, max_bytes: usize) -> String {
-        <Path as StringConversion>::truncate_utf8(self, max_bytes)
-    }
-}
-impl StringConversion for &str {
-    #[cfg(feature = "std")]
-    fn file_name_with_parent(&self) -> String {
-        <str as StringConversion>::file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        <str as StringConversion>::normalized(self)
-    }
-    fn percent_encode(&self) -> String {
-        <str as StringConversion>::percent_encode(self)
-    }
-    fn sluggify(&self) -> String {
-        <str as StringConversion>::sluggify(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_absolute_path(&self) -> String {
-        <str as StringConversion>::to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <str as StringConversion>::to_ascii_alphanumeric(self)
-    }
-    fn to_complete_date(&self) -> Option<&str> {
-        <str as StringConversion>::to_complete_date(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_cross_platform_path(&self) -> String {
-        <str as StringConversion>::to_cross_platform_path(self)
-    }
-    fn truncate_utf8(&self, max_bytes: usize) -> String {
-        <str as StringConversion>::truncate_utf8(self, max_bytes)
-    }
-}
 impl<T: AsRef<str>> StringInterpolation<T> for T
 where
     T: ToString,
@@ -1519,6 +1521,7 @@ pub fn escape_ntriples_literal(value: &str) -> String {
             | '\r' => "\\r".chars().collect(),
             | '\t' => "\\t".chars().collect(),
             | '"' => "\\\"".chars().collect(),
+            | value if value.is_control() => format!("\\u{:04X}", value as u32).chars().collect(),
             | value => vec![value],
         })
         .collect()
@@ -1747,12 +1750,12 @@ pub fn merge_unique<T: Ord>(left: impl IntoIterator<Item = T>, right: impl IntoI
 }
 /// Merge two sequences in first-seen order using a caller-defined equality predicate.
 pub fn merge_unique_by<T>(left: impl IntoIterator<Item = T>, right: impl IntoIterator<Item = T>, equal: impl Fn(&T, &T) -> bool) -> Vec<T> {
-    right.into_iter().fold(left.into_iter().collect::<Vec<_>>(), |values, value| {
-        match values.iter().any(|existing| equal(existing, &value)) {
+    left.into_iter()
+        .chain(right)
+        .fold(Vec::new(), |values, value| match values.iter().any(|existing| equal(existing, &value)) {
             | true => values,
             | false => values.into_iter().chain(once(value)).collect(),
-        }
-    })
+        })
 }
 /// Mask bearer tokens, credential assignments, and URL user info, queries, and fragments in free-form text.
 ///

@@ -4,7 +4,70 @@ use super::{Degree, Monomial, Rational};
 use crate::ThisOrThat;
 #[cfg(feature = "alloc")]
 use core::cmp::Ordering;
+#[cfg(feature = "alloc")]
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
+#[cfg(feature = "alloc")]
+fn rational() -> impl Strategy<Value = Rational> {
+    (any::<i32>(), 1_i32..=1_000_000)
+        .prop_map(|(numerator, denominator)| Rational::new(i128::from(numerator), i128::from(denominator)).expect("positive generated denominator"))
+}
+
+#[cfg(feature = "alloc")]
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 256,
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/util/math.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_rational_addition_is_associative_when_defined(a in rational(), b in rational(), c in rational()) {
+        if let (Some(left), Some(right)) = (a.add(b).and_then(|sum| sum.add(c)), b.add(c).and_then(|sum| a.add(sum))) {
+            prop_assert_eq!(left, right);
+        }
+    }
+    #[test]
+    fn test_rational_addition_is_commutative(left in rational(), right in rational()) {
+        prop_assert_eq!(left.add(right), right.add(left));
+    }
+    #[test]
+    fn test_rational_construction_is_reduced(numerator in any::<i128>(), denominator in 1_i128..=i128::MAX) {
+        let value = Rational::new(numerator, denominator).expect("positive generated denominator");
+        prop_assert!(value.denominator > 0);
+        prop_assert_eq!(super::greatest_common_divisor(value.numerator, value.denominator), 1);
+        if numerator == 0 {
+            prop_assert_eq!(value, Rational::ZERO);
+        }
+    }
+    #[test]
+    fn test_rational_multiplication_is_associative_when_defined(a in rational(), b in rational(), c in rational()) {
+        if let (Some(left), Some(right)) = (a.multiply(b).and_then(|product| product.multiply(c)), b.multiply(c).and_then(|product| a.multiply(product))) {
+            prop_assert_eq!(left, right);
+        }
+    }
+    #[test]
+    fn test_rational_multiplication_is_commutative(left in rational(), right in rational()) {
+        prop_assert_eq!(left.multiply(right), right.multiply(left));
+    }
+    #[test]
+    fn test_rational_order_matches_widened_cross_product(a in any::<i64>(), b in 1_i64..=i64::MAX, c in any::<i64>(), d in 1_i64..=i64::MAX) {
+        let left = Rational::new(i128::from(a), i128::from(b)).expect("positive generated denominator");
+        let right = Rational::new(i128::from(c), i128::from(d)).expect("positive generated denominator");
+        let left_product = i128::from(a).checked_mul(i128::from(d)).expect("i64 products fit in i128");
+        let right_product = i128::from(c).checked_mul(i128::from(b)).expect("i64 products fit in i128");
+        let oracle = left_product.cmp(&right_product);
+        prop_assert_eq!(left.compare(right), oracle);
+    }
+    #[test]
+    fn test_rational_zero_and_one_are_identities(value in rational()) {
+        prop_assert_eq!(value.add(Rational::ZERO), Some(value));
+        prop_assert_eq!(value.multiply(Rational::ONE), Some(value));
+        prop_assert_eq!(value.multiply(Rational::ZERO), Some(Rational::ZERO));
+    }
+}
 #[cfg(feature = "alloc")]
 #[test]
 fn test_monomial_operations_compose_degrees() {

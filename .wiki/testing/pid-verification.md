@@ -50,7 +50,7 @@ PID-17 reuses the same Verus workflow and proof skeleton for `acorn-core`'s `Rat
 
 # Dependencies
 
-Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 claim the workspace manifest/lockfile integration lock; PID-06 no longer does, so the proof work itself does not contend with ACD-03 or SPD-24. PID-01, PID-14, and PID-16 are independent of one another and of the manifest lock. PID-14, PID-05, and PID-11 all claim the CI/build lock and run in that order, but none blocks the portability critical path or ordinary stable builds. PID-17 needs PID-06's recorded skeleton, [INV-01](invariant-verification.md#inv-01--property-test-rational-arithmetic) property tests, and an owner placement decision. It uses the proof-core lock, so it never runs alongside PID-06, PID-07, PID-09, PID-10, or PID-13.
+Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 claim the workspace manifest/lockfile integration lock; PID-06 no longer does, so the proof work itself does not contend with ACD-03 or SPD-24. PID-01, PID-14, and PID-16 are independent of one another and of the manifest lock. PID-14, PID-05, and PID-11 all claim the CI/build lock and run in that order, but none blocks the portability critical path or ordinary stable builds. PID-17 needs PID-06's recorded skeleton, completed INV-01 property tests, and an owner placement decision. It uses the proof-core lock, so it never runs alongside PID-06, PID-07, PID-09, PID-10, or PID-13.
 
 # Decisions
 

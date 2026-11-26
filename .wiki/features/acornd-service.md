@@ -15,10 +15,12 @@ phase_budget_hours: 5
 
 Ship `acornd` as a long-running ACORN host application. It serves the existing authenticated JSON-RPC and typed gRPC operations while it watches configured local project paths and runs `acorn check` or `acorn gather` on file changes and fixed intervals. A matching `acorn` CLI installs and manages it locally or over SSH on Linux, macOS, and Windows. The process runs as the chosen unprivileged user and survives logout and reboot.
 
-The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signed activation are accepted. Native Linux installation, reinstall, failed-readiness rollback, and data-preserving uninstall passed. ACD-31's SIGTERM socket cleanup repair passed native Linux testing and merged to main; the full v0.7.1 release now carries it to binary users. The macOS LaunchDaemon still needs owner-controlled logout, reboot, and uninstall acceptance. MacOS and Windows local signed activation follow their platform bundle and registration phases; SSH delivery remains later work.
+The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signed activation are accepted. Native Linux installation, reinstall, failed-readiness rollback, and data-preserving uninstall passed. ACD-31's SIGTERM socket cleanup repair passed native Linux testing and merged to main; the full v0.7.1 release now carries it to binary users. The macOS LaunchDaemon now uses persistent protected inputs and passed repeat reboot and logout recovery. ACD-27 still needs final data-preserving uninstall after ACD-36 restores host service/account lookup. MacOS and Windows local signed activation follow their platform bundle and registration phases; SSH delivery remains later work.
 
 # Current evidence
 
+- The first owner-run macOS uninstall after accepted logout returned before privileged removal: `launchctl print system/org.ornl.acornd` failed with 141 (`Reentrancy avoided`). All tested launchctl read commands and an unprivileged bootout failed the same way. `id -un` returned numeric UID 587589256, `dscacheutil` found no `o9w` entry, and `dscl` returned `eServerError`; the daemon remained healthy and the plist remained installed. A host recovery reboot is requested before retrying uninstall. This is an external host condition, not accepted service removal; see the [Mac record](../../crates/acorn-daemon/acceptance/macos-mvp.md).
+- On November 26, `wohlgemuthjh` first rebooted at Unix second 1795724399 with a failed LaunchDaemon start because its build-tree executable and config were absent. Protected token and 54 prior runs survived. The owner authenticated re-registration of paired 0.8.0 binaries and a two-job fixture under the protected daemon directory. A second reboot advanced boot time to 1795728233; launchd started the persistent daemon at 16:24:00 as `o9w` with parent 1, health returned 204, prior 76 runs and pause state survived, and new manual check/gather runs 77/78 succeeded with parseable mode-0600 reports. During an owner-confirmed second logout, successful gather interval runs 85–87 were recorded while `who` showed no console session; the same daemon PID and health remained after login. The fixture is restored to hourly paused state. Final uninstall remains. See the [Mac acceptance record](../../crates/acorn-daemon/acceptance/macos-mvp.md).
 - ACD-15 accepted [v0.7.0 tag pipeline 1065233](https://code.ornl.gov/research-enablement/acorn/-/pipelines/1065233): both native Linux builders and signed publication passed. Independently downloaded x86_64 and ARM64 bundles verified against the pinned key, with target/version manifests and paired binaries. Artifact URLs, hashes, and native Linux activation evidence are in [`linux-mvp.md`](../../crates/acorn-daemon/acceptance/linux-mvp.md). The v0.7.0 daemon leaves a stale socket on systemd stop. ACD-31's source repair passed native testing and [merged in MR !25](https://code.ornl.gov/research-enablement/acorn/-/merge_requests/25). MR !26 and main pipeline 1065282 published the full v0.7.1 patch.
 - ACD-34 published [v0.7.1 tag pipeline 1065604](https://code.ornl.gov/research-enablement/acorn/-/pipelines/1065604): full release jobs and signed Linux x86_64/ARM64 bundles passed. Independent downloads verified both signatures and manifests. Native Linux failed-readiness rollback restored the signed v0.7.0 release; a successful v0.7.1 upgrade retained check/gather history, and uninstall removed the unit and RPC socket while preserving protected data. The [acceptance record](../../crates/acorn-daemon/acceptance/linux-mvp.md) is in MR !27 pending CI merge.
 - ACD-18 accepted local Linux signed activation on `oklahoma`: a published bundle verified on host, installed and reinstalled into protected release directories, retained successful check/gather history, rolled back after occupied-port readiness failure, and uninstalled while preserving mode-0600 config, token, and history. ACD-32/33 own later macOS/Windows local signed activation after their platform prerequisites.
@@ -86,11 +88,22 @@ The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signe
 
 # Execution phases
 
+## ACD-36 — Restore macOS host control for uninstall
+
+- Status: blocked
+- Budget: 5 active hours maximum
+- Prerequisites: owner-controlled host reboot after launchctl and account lookup failed following logout
+- Exact write set: named macOS test host and `crates/acorn-daemon/acceptance/macos-mvp.md`
+- Primary integration lock: External macOS service host
+- Outcome: Restore reliable launchd and selected-user lookup so the managed service can be removed through its supported uninstall command.
+- Focused validation: Record new boot time, `id -un`, `launchctl print system/org.ornl.acornd`, plist state, and daemon health; identify a bounded native repair if reboot does not restore control.
+- Handoff: Remove ACD-36 only when host control is verified, then resume ACD-27 final uninstall.
+
 ## ACD-27 — Accept the source-built local macOS MVP
 
 - Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: accepted macOS registration implementation and native install on `wohlgemuthjh`; host-owner availability for logout/reboot observations and final uninstall
+- Prerequisites: accepted persistent-path reboot and logout recovery, ACD-36 host control recovery, and host-owner authentication for final uninstall
 - Exact write set: named macOS test host and `crates/acorn-daemon/acceptance/macos-mvp.md`
 - Primary integration lock: External macOS service host
 - Outcome: Prove same-version source-built `acorn`/`acornd` local installation, owner-scoped execution, authenticated socket control, check/gather runs, file/interval/manual triggers, pause/reload, restart and reboot recovery, logout persistence, idempotent reinstall, and uninstall without data loss.

@@ -8,7 +8,70 @@ use acorn_core::big_o::{
 use acorn_core::ThisOrThat;
 use alloc::collections::BTreeMap;
 use core::cmp::Ordering;
+use proptest::prelude::*;
 
+#[allow(clippy::expect_used, reason = "Generated test inputs must parse")]
+fn generated_expression(power: u8, logarithm: u8) -> Expression {
+    Expression::parse(&format!("O(n^{power}*log(n)^{logarithm})")).expect("generated expression is within grammar and term limit")
+}
+
+proptest! {
+    #[test]
+    fn test_comparison_swaps_verdicts(a in 1u8..5, b in 1u8..5, c in 1u8..5, d in 1u8..5) {
+        let left = generated_expression(a, b);
+        let right = generated_expression(c, d);
+        let assumptions = GrowthAssumptions::new().with("n", SymbolGrowth::Growing);
+        let forward = compare_growth(ThisOrThat::new(&left, &right), &assumptions);
+        let reverse = compare_growth(ThisOrThat::new(&right, &left), &assumptions);
+        let expected = match forward {
+            | Dominance::Left => Dominance::Right,
+            | Dominance::Right => Dominance::Left,
+            | other => other,
+        };
+        prop_assert_eq!(reverse, expected);
+    }
+    #[test]
+    fn test_determined_dominance_is_transitive(
+        a in 1u8..5, b in 1u8..5, c in 1u8..5, d in 1u8..5, e in 1u8..5, f in 1u8..5,
+    ) {
+        let first = generated_expression(a, b);
+        let second = generated_expression(c, d);
+        let third = generated_expression(e, f);
+        let assumptions = GrowthAssumptions::new().with("n", SymbolGrowth::Growing);
+        let first_second = compare_growth(ThisOrThat::new(&first, &second), &assumptions);
+        let second_third = compare_growth(ThisOrThat::new(&second, &third), &assumptions);
+        let first_third = compare_growth(ThisOrThat::new(&first, &third), &assumptions);
+        if matches!(first_second, Dominance::Left | Dominance::Equivalent)
+            && matches!(second_third, Dominance::Left | Dominance::Equivalent)
+        {
+            prop_assert!(matches!(first_third, Dominance::Left | Dominance::Equivalent));
+            if first_second == Dominance::Left || second_third == Dominance::Left {
+                prop_assert_eq!(first_third, Dominance::Left);
+            }
+        }
+    }
+    #[test]
+    fn test_equivalent_rewrites(a in 1u8..5, b in 1u8..5) {
+        let assumptions = GrowthAssumptions::new().with("n", SymbolGrowth::Growing);
+        let ordered = generated_expression(a, b);
+        let reversed = Expression::parse(&format!("O(log(n)^{b}*n^{a})")).expect("reordered product");
+        prop_assert_eq!(compare_growth(ThisOrThat::new(&ordered, &reversed), &assumptions), Dominance::Equivalent);
+
+        let product = Expression::parse(&format!("O(n^{a}*n^{b})")).expect("product of powers");
+        let merged = Expression::parse(&format!("O(n^{})", a.saturating_add(b))).expect("combined power");
+        prop_assert_eq!(compare_growth(ThisOrThat::new(&product, &merged), &assumptions), Dominance::Equivalent);
+    }
+    #[test]
+    fn test_parser_never_panics_on_arbitrary_text(input in any::<String>()) {
+        let _ = Expression::parse(&input);
+    }
+    #[test]
+    fn test_self_comparison_is_equivalent(power in 1u8..5, logarithm in 1u8..5) {
+        let expression = generated_expression(power, logarithm);
+        let assumptions = GrowthAssumptions::new().with("n", SymbolGrowth::Growing);
+        prop_assert_eq!(compare_growth(ThisOrThat::new(&expression, &expression), &assumptions), Dominance::Equivalent);
+    }
+}
 #[test]
 fn test_accepted_grammar_and_precedence() {
     for notation in [

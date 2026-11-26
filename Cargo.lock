@@ -101,6 +101,7 @@ version = "0.8.0"
 dependencies = [
  "acorn-macros",
  "command-group",
+ "proptest",
  "shell-words",
  "shuck-linter",
  "shuck-parser",
@@ -423,6 +424,7 @@ dependencies = [
  "acorn-core",
  "acorn-schema",
  "futures",
+ "proptest",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -434,6 +436,7 @@ name = "acorn-store"
 version = "0.8.0"
 dependencies = [
  "acorn-service",
+ "proptest",
  "rusqlite",
  "thiserror 2.0.18",
 ]
@@ -488,6 +491,7 @@ dependencies = [
  "getrandom 0.4.2",
  "js-sys",
  "jsonc-parser 0.33.0",
+ "proptest",
  "regex",
  "rust-embed",
  "rustworkx-core",

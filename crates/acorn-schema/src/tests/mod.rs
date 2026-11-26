@@ -17,9 +17,9 @@ use acorn_core::util::Searchable;
 use glob::glob;
 use pretty_assertions::assert_eq;
 
+mod codec;
 mod infrastructure;
 mod types;
-
 #[test]
 fn test_classification() {
     assert_eq!(ClassificationLevel::Secret.to_string(), "SECRET");

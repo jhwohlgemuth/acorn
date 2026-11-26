@@ -15,5 +15,8 @@ acorn-service = { workspace = true, features = ["std"] }
 rusqlite = { workspace = true, features = ["bundled"] }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+proptest = "1.9.0"
+
 [lints]
 workspace = true

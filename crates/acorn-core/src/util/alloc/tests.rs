@@ -1,18 +1,98 @@
 #[cfg(feature = "std")]
 use super::MimeType;
 use super::{
-    detect_json, escape_ntriples_literal, stable_deduplicate, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion,
-    StringConversion, StringExt, StringInterpolation,
+    detect_json, escape_ntriples_literal, expand_brace_glob, merge_unique, merge_unique_by, redact_sensitive_text, split_list, stable_deduplicate,
+    to_ascii_alphanumeric, Checksum, ChecksumAlgorithm, ParseOptions, ParseOptionsExt, SemanticVersion, StringConversion, StringExt,
+    StringInterpolation,
 };
 use crate::prelude::alloc::{String, ToString};
 use crate::util::constants::app::EXEC_HEADER_PREFIX;
 use jsonc_parser::parse_to_serde_value;
+use proptest::prelude::*;
 use serde_json::Value;
 
-#[test]
-fn test_words_excludes_paths_and_dotted_tokens() {
-    assert_eq!("Check the metadata in export/index.json".words(), vec!["check", "the", "metadata", "in"]);
-    assert_eq!("Export, then review!".words(), vec!["export", "then", "review"]);
+proptest! {
+    #[test]
+    fn test_ascii_alphanumeric_is_idempotent(input in any::<String>()) {
+        let normalized = to_ascii_alphanumeric(&input);
+        prop_assert!(normalized.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit()));
+        prop_assert_eq!(&normalized, &to_ascii_alphanumeric(&normalized));
+    }
+    #[test]
+    fn test_brace_expansion_only_substitutes_choices(
+        prefix in "[a-z]{0,8}", first in "[a-z]{1,8}", second in "[a-z]{1,8}", suffix in "[a-z]{0,8}",
+    ) {
+        let source = format!("{prefix}{{{first},{second}}}{suffix}");
+        let expanded = expand_brace_glob(&source).expect("generated brace expression");
+        prop_assert_eq!(expanded, vec![format!("{prefix}{first}{suffix}"), format!("{prefix}{second}{suffix}")]);
+        let plain = format!("{prefix}{suffix}");
+        prop_assert_eq!(expand_brace_glob(&plain).expect("brace-free expression"), vec![plain]);
+    }
+    #[test]
+    fn test_merge_unique_by_has_no_equal_pair(
+        left in proptest::collection::vec(any::<u8>(), 0..40),
+        right in proptest::collection::vec(any::<u8>(), 0..40),
+    ) {
+        let merged = merge_unique_by(left, right, u8::eq);
+        prop_assert!(merged.iter().enumerate().all(|(index, value)| merged.iter().skip(index.saturating_add(1)).all(|later| value != later)));
+    }
+    #[test]
+    fn test_merge_unique_obeys_set_laws(
+        left in proptest::collection::vec(any::<i16>(), 0..40),
+        right in proptest::collection::vec(any::<i16>(), 0..40),
+        third in proptest::collection::vec(any::<i16>(), 0..40),
+    ) {
+        let merged = merge_unique(left.clone(), right.clone());
+        prop_assert!(merged.windows(2).all(|pair| pair.first().zip(pair.get(1)).is_some_and(|(left, right)| left < right)));
+        prop_assert_eq!(&merged, &merge_unique(right.clone(), left.clone()));
+        prop_assert_eq!(&merged, &merge_unique(merged.clone(), merged.clone()));
+        let left_associative = merge_unique(merge_unique(left.clone(), right.clone()), third.clone());
+        let right_associative = merge_unique(left, merge_unique(right, third));
+        prop_assert_eq!(left_associative, right_associative);
+    }
+    #[test]
+    fn test_ntriples_literal_has_no_raw_delimiters(input in any::<String>(), control in 0_u8..=31) {
+        let input = format!("{}{input}", char::from(control));
+        let escaped = escape_ntriples_literal(&input);
+        prop_assert!(!escaped.chars().any(char::is_control));
+        let mut characters = escaped.chars();
+        while let Some(character) = characters.next() {
+            if character == '\\' {
+                match characters.next() {
+                    | Some('u') => {
+                        for _ in 0..4 {
+                            prop_assert!(characters.next().is_some_and(|digit| digit.is_ascii_hexdigit()));
+                        }
+                    }
+                    | Some('\\' | '"' | 'n' | 'r' | 't') => {}
+                    | _ => prop_assert!(false, "invalid N-Triples escape in {escaped:?}"),
+                }
+            } else {
+                prop_assert_ne!(character, '"');
+            }
+        }
+    }
+    #[test]
+    fn test_redaction_is_idempotent_and_removes_secrets(secret in "[a-z0-9]{6,20}") {
+        let source = format!("Bearer {secret} token={secret} https://user:{secret}@example.org/path?token={secret}#fragment");
+        let redacted = redact_sensitive_text(&source);
+        prop_assert!(!redacted.contains(&secret));
+        prop_assert_eq!(&redacted, &redact_sensitive_text(&redacted));
+    }
+    #[test]
+    fn test_split_list_has_only_trimmed_nonempty_items(input in any::<String>()) {
+        let items = split_list(&input);
+        prop_assert!(items.iter().all(|item| !item.is_empty() && item.trim() == item));
+    }
+    #[test]
+    fn test_stable_deduplicate_keeps_first_occurrences(input in proptest::collection::vec(any::<u8>(), 0..80)) {
+        let unique = stable_deduplicate(input.clone());
+        prop_assert!(unique.iter().enumerate().all(|(index, value)| unique.iter().skip(index.saturating_add(1)).all(|later| value != later)));
+        prop_assert!(unique.iter().all(|value| input.contains(value)));
+        let positions: Vec<_> = unique.iter().map(|value| input.iter().position(|original| original == value)).collect();
+        prop_assert!(positions.windows(2).all(|pair| pair.first().zip(pair.get(1)).is_some_and(|(left, right)| left < right)));
+        prop_assert_eq!(&unique, &stable_deduplicate(unique.clone()));
+    }
 }
 #[test]
 fn test_checksum_from_parses_borrowed_and_owned_values() {
@@ -129,6 +209,14 @@ fn test_mime_type_resolves_rdf_formats_without_claiming_generic_xml() {
     assert_eq!(MimeType::Turtle.to_string(), "text/turtle");
 }
 #[test]
+fn test_ntriples_escapes_every_ascii_control() {
+    for code_point in (0_u8..=31).chain(127..=159) {
+        let input = char::from(code_point).to_string();
+        let escaped = escape_ntriples_literal(&input);
+        assert!(!escaped.chars().any(char::is_control), "unescaped U+{code_point:04X}");
+    }
+}
+#[test]
 fn test_parse_options_strict_jsonc_enforces_shared_syntax() {
     let options = ParseOptions::strict_jsonc();
     [
@@ -215,4 +303,9 @@ fn test_string_interpolation_replaces_contiguous_scalar_placeholders() {
     );
     assert_eq!("before {{ title }} after".replace_placeholder_with_string("title", ""), "before  after");
     assert_eq!("{{ other }}".replace_placeholder_with_string("title", "Value"), "{{ other }}");
+}
+#[test]
+fn test_words_excludes_paths_and_dotted_tokens() {
+    assert_eq!("Check the metadata in export/index.json".words(), vec!["check", "the", "metadata", "in"]);
+    assert_eq!("Export, then review!".words(), vec!["export", "then", "review"]);
 }

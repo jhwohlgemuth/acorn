@@ -42,7 +42,9 @@ The Cesium wiki's own `CZML-Structure.md` and `CZML-Content.md` (Cesium wiki HEA
 
 # Current evidence
 
-Reviewed November 26, 2026 against `3eddc62b` and the working tree. Concurrent staged wiki, daemon, and CLI edits are unrelated and were preserved. This is a targeted addition. The November 13 portfolio-wide review remains current. No CZML code was written or tested in this pass.
+CZM-01 implemented the portable lexical `Time`, interval, sample-time, `Reference`, and `VelocityReference` types in `crates/acorn-schema/src/standard/czml/`. Six focused tests, the alloc-only schema check, and package Clippy passed on November 26. CZM-02 and CZM-02A added fixed-arity, scalar, integer RGBA, flat/nested, reference, and double-list value forms. Nine focused value tests, the alloc-only schema check, and strict package Clippy passed on November 26. An eserde-derived parent with an `#[eserde(compat)]` flat-list field retained the `points` error path. The runtime decoder enforces sample arity and RGBA bounds; generated JSON Schema describes the broad sampled-array form because draft-07 cannot express an unbounded repeating tuple. CZM-03 added all 16 enum types; three focused tests covered every pinned constant, defaults, unknown rejection, and schema output, and the alloc-only check and strict package Clippy passed. The Cesium [CZML Structure example](https://github.com/CesiumGS/cesium/wiki/CZML-Structure/1a77a2cfef27a0c97af7a3dcaa0bf69ebc299916) uses a date-less interval end. The CesiumJS source checks for durations and reference escaping remain unresolved.
+
+The planning baseline was reviewed November 26, 2026 against `3eddc62b`. Concurrent staged wiki, daemon, and CLI edits were unrelated and preserved. The November 13 portfolio-wide review remains current.
 
 | Verdict | Inspected source and observation | Implication |
 |---|---|---|
@@ -54,7 +56,7 @@ Reviewed November 26, 2026 against `3eddc62b` and the working tree. Concurrent s
 | verified | Native schema checks for a standard need three things. `impl InputOutput` in `acorn-lib/src/io/adapter/mod.rs` provides `read` and `read_json`. The `impl_schema_check!` list (`acorn-lib/src/analyzer/host/runtime/mod.rs:177`) requires `T: Validate`. `impl Analysis` in the same file supplies `standard()` and `output_path`. The portable `acorn-service/src/service.rs::validate_standard` dispatches through `validate_decoded::<T>` and has a wildcard "not available" arm. | CZML schema checks reuse these existing seams. No new trait or check category is needed. |
 | verified | `crates/acorn-schema/src/lib.rs`: `#![cfg_attr(not(feature = "std"), no_std)]`, `extern crate alloc`. `Cargo.toml` features `alloc`, `std`, `wasm = ["alloc"]`. Dependencies include `serde`, `serde_json`, `schemars` 1.0 (no default features), `serde_with`, `jiff` (`alloc`), `eserde`, `bon`, `strum`, `thiserror`. | Every CZML type must compile without `std`. No new dependency is needed. |
 | verified | `crates/acorn-schema/src/codec.rs`: the `DocumentCodec` trait (`NAME`, `decode`, `encode`). The Cff and RAiD JSON decoders call `eserde::json::from_str` and map errors to `CodecDiagnostic` with paths. | `czml::Document` implements `DocumentCodec` for `MimeType::Json` in the same style. |
-| verified | `crates/acorn-lib/src/io/config/application.rs:356–388`: `eserde::Deserialize` structs mark fields with hand-written serde types as `#[eserde(compat)]`. | CZML's hand-written array and envelope deserializers can sit inside eserde-derived parents. CZM-02 confirms this with a test before CZM-03 depends on it. |
+| verified | `crates/acorn-lib/src/io/config/application.rs:356–388`: `eserde::Deserialize` structs mark fields with hand-written serde types as `#[eserde(compat)]`. | CZML's hand-written array and envelope deserializers can sit inside eserde-derived parents. CZM-02A confirms this with a test before CZM-03 depends on it. |
 | verified | `crates/acorn-schema/src/standard/tests/ocp.rs` loads `tests/fixtures/schema/ocp/contribution.json` with `include_str!`. `tests/mod.rs` has a `canonical_json` helper. | CZML fixtures go under `tests/fixtures/schema/czml/`, and tests live in a module-local `czml/tests/` directory, as `modelkit` and `zon` do. |
 | verified | czml-writer wiki `CZML-Structure.md`: a document is one JSON array of packets. A property value is an interval list (array), a single interval object, or a bare string, number, or boolean when it is constant for all time. Composite values must be wrapped in an object. Samples use `[time, v…]` with ISO 8601 strings or seconds from `epoch`. `availability` is one interval string or an array of them. Custom properties should carry a prefix. | These rules define the property envelope (CZM-03) and the sample encoding (CZM-02). |
 | verified | czml-writer `Schema/Billboard.json`: `image` carries `czmlRequiredForDisplay: true`, not a JSON Schema `required` array. | Fields the wiki marks "Required" are only required once packets are merged for display. Streaming lets a later packet add a field, so a single packet can't be rejected for omitting one. |
@@ -84,7 +86,7 @@ Reviewed November 26, 2026 against `3eddc62b` and the working tree. Concurrent s
 
 # Dependencies and ownership
 
-- No other plan blocks this one. CZM-01 takes the shared Schema roots lock for its one-line `standard/mod.rs` registration. CZM-07 takes it again for `codec.rs`. The other phases write only inside `standard/czml/`, `tests/fixtures/schema/czml/`, and this plan.
+- No other plan blocks this one. CZM-01 completed the one-line `standard/mod.rs` registration. CZM-07 takes the shared Schema roots lock for `codec.rs`. The other early phases write only inside `standard/czml/`, `tests/fixtures/schema/czml/`, and this plan.
 - [ABW-72](../acorn-browser-workspace/index.md#abw-72--load-local-czml-on-the-cesium-globe) is independent. Its TypeScript preflight (2 MiB, 1,000 packets, document packet, external-resource rejection) doesn't wait for this model. A later, separately planned WASM validation export could replace that preflight. No edge is added until such a plan exists.
 - The owner approved `Standard::Czml` on November 26, 2026, which satisfies AGENTS.md's ask-first rule for the vocabulary change. CZM-09 needs CZM-08's accepted model and fixtures. It claims Schema roots and must find the Analyzer/check contract lock free, because it edits `check.rs` and the analyzer dispatch. CZM-11 claims Analyzer/check contract, CZM-12 claims CLI contract, and CZM-13 claims Service/RPC contract. CZM-12 and CZM-13 have disjoint write sets and can run in parallel after CZM-11. CZM-15 follows CZM-13 and claims the browser application shell lock on `acorn-web/src/ui.rs`, which serializes with ABW, browser format parity, browser performance, shadcn component, and USWDS phases that edit that file. CZM-14 runs last and owns workspace-wide validation and the generated help.
 
@@ -101,47 +103,36 @@ Reviewed November 26, 2026 against `3eddc62b` and the working tree. Concurrent s
 
 # Execution phases
 
-## CZM-01 — Scaffold the module with time, interval, and reference primitives
+## CZM-03A — Add the property envelope and base fields
 
 - Status: ready
 - Budget: 5 active hours maximum
-- Prerequisites: none. Confirm no other phase holds the Schema roots lock, and record a baseline `cargo check --package acorn-schema --no-default-features --features alloc`.
-- Exact write set: `crates/acorn-schema/src/standard/mod.rs` (add `pub mod czml;` only), `crates/acorn-schema/src/standard/czml/mod.rs` (new), `crates/acorn-schema/src/standard/czml/time.rs` (new), `crates/acorn-schema/src/standard/czml/reference.rs` (new), `crates/acorn-schema/src/standard/czml/tests/mod.rs` (new), `crates/acorn-schema/src/standard/czml/tests/time.rs` (new)
-- Primary integration lock: Schema roots
-- Outcome: Module docs say what the model does and does not do. `pub const CZML_VERSION: &str = "1.0"` and the pinned source constants exist. The lexical-preserving types `Time`, `TimeInterval`, `TimeIntervalCollection` (string or array), `SampleTime` (ISO string or seconds offset), `Reference` (`id#property.path`, both sides non-empty), and `VelocityReference` are in place, with serde, `JsonSchema`, and `Validate` following the time-validation decision.
-- Focused validation: `cargo nextest run --package acorn-schema czml::tests::time` covers full timestamps, both sentinels, the date-less end, rejected durations and leap seconds, interval separator errors, string and array availability, and reference forms. Also run the `alloc` check and package Clippy.
-- Handoff: Record the CesiumJS locators for the interval and reference rules if they were inspected. Make CZM-02 ready.
+- Prerequisites: none
+- Exact write set: `crates/acorn-schema/src/standard/czml/property.rs` (new), `crates/acorn-schema/src/standard/czml/tests/property.rs` (new), `crates/acorn-schema/src/standard/czml/mod.rs`, `crates/acorn-schema/src/standard/czml/tests/mod.rs`
+- Primary integration lock: CZML value encoding (plan-local)
+- Outcome: A generic `Property<T>` envelope covering interval lists, single intervals, and scalar shorthand where allowed. Add interpolation and deletion base fields, the private property macro, and the rule allowing at most one value form.
+- Focused validation: `cargo nextest run --package acorn-schema czml::tests::property` covers the three envelope shapes, a composite value rejected without its object wrapper, a delete-only interval, an interpolation-only update, two value forms rejected, and an unknown sub-property rejected.
+- Handoff: Make CZM-03B ready.
 
-## CZM-02 — Encode constant, sampled, and list value arrays
+## CZM-03B — Add scalar and deletable-only properties
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: CZM-01
-- Exact write set: `crates/acorn-schema/src/standard/czml/values.rs` (new), `crates/acorn-schema/src/standard/czml/tests/values.rs` (new), `crates/acorn-schema/src/standard/czml/mod.rs`, `crates/acorn-schema/src/standard/czml/tests/mod.rs`
+- Prerequisites: CZM-03A
+- Exact write set: `crates/acorn-schema/src/standard/czml/property.rs`, `crates/acorn-schema/src/standard/czml/tests/property.rs`, `crates/acorn-schema/src/standard/czml/mod.rs`
 - Primary integration lock: CZML value encoding (plan-local)
-- Outcome: A const-generic fixed-arity value that is either constant or a list of time-tagged samples. Typed aliases for every value kind in [schema-inventory.md](schema-inventory.md#value-encodings). `DoubleValue` and `IntegerValue` with scalar shorthand. Integer RGBA and float RGBAF. Flat lists, lists of lists, reference lists, and `DoubleList`. Sequence visitors decode directly into these types, with no intermediate `serde_json::Value`. Each has a matching `JsonSchema` and arity-specific error messages. A test proves an eserde-derived parent with an `#[eserde(compat)]` field keeps per-field paths.
-- Focused validation: `cargo nextest run --package acorn-schema czml::tests::values` covers each arity's constant, ISO-sampled, epoch-sampled, and invalid lengths, RGBA bounds, empty and ragged lists, and a numeric round trip. Also run the `alloc` check.
-- Handoff: Record the eserde compatibility result. If it fails, add a repair phase before CZM-03 instead of switching CZM-03 to `untagged`. Make CZM-03 ready.
-
-## CZM-03 — Add the property envelope, base fields, enumerations, and scalar properties
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: CZM-02
-- Exact write set: `crates/acorn-schema/src/standard/czml/property.rs` (new), `crates/acorn-schema/src/standard/czml/enums.rs` (new), `crates/acorn-schema/src/standard/czml/tests/property.rs` (new), `crates/acorn-schema/src/standard/czml/mod.rs`, `crates/acorn-schema/src/standard/czml/tests/mod.rs`
-- Primary integration lock: CZML value encoding (plan-local)
-- Outcome: A generic `Property<T>` envelope: interval list, single interval, or scalar shorthand where allowed. `Interpolation` and deletion base fields. The private property macro. All 16 enumerations (13 from the schema plus `InterpolationAlgorithm`, `ExtrapolationType`, and `ReferenceFrame`), serialized as `SCREAMING_SNAKE_CASE`. The 19 deletable-only property structs: `Boolean`, `String`, `Uri`, `Font`, `DoubleList`, `Shape`, `PositionList`, `PositionListOfLists`, and the 11 enum properties. `Double` and `Integer` with interpolation settings. The rule allowing at most one value form.
-- Focused validation: `cargo nextest run --package acorn-schema czml::tests::property` covers the three envelope shapes for scalar and enum properties, a composite value rejected without its object wrapper, a delete-only interval, an interpolation-only update, two value forms rejected, an unknown sub-property rejected, and every enum constant round-tripped.
+- Outcome: The 19 deletable-only property structs (`Boolean`, `String`, `Uri`, `Font`, `DoubleList`, `Shape`, `PositionList`, `PositionListOfLists`, and the 11 enum properties), plus interpolatable `Double` and `Integer`.
+- Focused validation: The property test filter covers scalar and enum shorthands, wrapped composite values, deletion, interpolation settings, and property JSON Schema keys.
 - Handoff: Make CZM-04 ready.
 
 ## CZM-04 — Add the geometric, color, and orientation properties
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: CZM-03
+- Prerequisites: CZM-03B
 - Exact write set: `crates/acorn-schema/src/standard/czml/property.rs`, `crates/acorn-schema/src/standard/czml/tests/property.rs`
 - Primary integration lock: CZML value encoding (plan-local)
-- Outcome: The 23 remaining interpolatable core properties: `Position` (with `referenceFrame` and its five value forms), `Orientation`, `ViewFrom`, `Color`, `AlignedAxis`, `EyeOffset`, `PixelOffset`, `BackgroundPadding`, `Repeat`, `LineCount`, `LineOffset`, `LineThickness`, `BoxDimensions`, `EllipsoidRadii`, `RectangleCoordinates`, `NearFarScalar`, `BoundingRectangle`, `DistanceDisplayCondition`, `Rotation`, `Scale`, `Translation`, `Articulation`, and `CustomProperty` (the 27-key union). Each is built with the CZM-03 macro and documented from its schema description.
+- Outcome: The 23 remaining interpolatable core properties: `Position` (with `referenceFrame` and its five value forms), `Orientation`, `ViewFrom`, `Color`, `AlignedAxis`, `EyeOffset`, `PixelOffset`, `BackgroundPadding`, `Repeat`, `LineCount`, `LineOffset`, `LineThickness`, `BoxDimensions`, `EllipsoidRadii`, `RectangleCoordinates`, `NearFarScalar`, `BoundingRectangle`, `DistanceDisplayCondition`, `Rotation`, `Scale`, `Translation`, `Articulation`, and `CustomProperty` (the 27-key union). Each is built with the CZM-03A macro and documented from its schema description.
 - Focused validation: The same test target covers the wiki's `Position` examples (constant cartographic and sampled ISS cartesian), `Color` RGBA and RGBAF, `Orientation` with `velocityReference`, a `CustomProperty` with each value key, and the schemars property names for every new struct.
 - Handoff: Make CZM-05 ready.
 
