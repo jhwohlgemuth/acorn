@@ -9,6 +9,7 @@ mod details;
 mod geospatial_page;
 mod icon;
 mod location;
+mod research_graph;
 mod results;
 mod sample;
 mod script;
@@ -18,6 +19,9 @@ mod syntax;
 mod ui;
 mod window_sync;
 mod workspace;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone, Copy)]
 struct RecoveryTimedOut(Signal<bool>);
@@ -157,7 +161,7 @@ fn app() -> Element {
     });
     use_context_provider(|| Signal::new(None::<details::Detail>));
     use_context_provider(|| Signal::new(geospatial_page::MapPins::default()));
-    use_context_provider(|| Signal::new(None::<Result<acorn_web::geospatial::LocationIndex, String>>));
+    use_context_provider(|| Signal::new(geospatial_page::LocationIndexCache::default()));
     rsx! {
         document::Link {
             id: "app-favicon",
@@ -181,6 +185,7 @@ fn app() -> Element {
         document::Script { src: asset!("/assets/remote.js") }
         document::Script { src: asset!("/assets/workspace-storage.js") }
         document::Script { src: asset!("/assets/dashboard-layout.js") }
+        document::Script { src: asset!("/assets/graph.js") }
         document::Script { src: asset!("/assets/syntax.js"), "data-prism": asset!("/assets/vendor/prism.js") }
         if restored() {
             if recovery_timed_out() {

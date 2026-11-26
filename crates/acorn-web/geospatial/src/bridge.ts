@@ -1,6 +1,6 @@
 export type Marker = { id: string; name: string; references: number; project_ids: string[]; location: null | { latitude: number; longitude: number; country: string } };
 export type Project = { id: string; title: string; activity_count: number };
-export type State = { version?: 1; projects?: Project[]; markers: Marker[]; selected: string | null; theme: "dark" | "light" };
+export type State = { version?: 1; projects?: Project[]; markers: Marker[]; selected: string | null; theme: "dark" | "light" | "uswds" };
 
 export function createBridge(render: (state: State) => void, destroy: () => void, notify: (event: { type: string; id?: string; message?: string }) => void) {
     let current: State | null = null;
@@ -13,7 +13,7 @@ export function createBridge(render: (state: State) => void, destroy: () => void
     };
 }
 export function validateState(state: State): State {
-    if (!state || (state.version !== undefined && state.version !== 1) || !Array.isArray(state.markers) || state.markers.length > 1000 || !["dark", "light"].includes(state.theme)) throw new Error("Invalid map state");
+    if (!state || (state.version !== undefined && state.version !== 1) || !Array.isArray(state.markers) || state.markers.length > 1000 || !["dark", "light", "uswds"].includes(state.theme)) throw new Error("Invalid map state");
     if (state.version === 1 && !Array.isArray(state.projects)) throw new Error("Missing map projects");
     const projects = state.projects ?? [];
     if (!Array.isArray(projects) || projects.length > 500) throw new Error("Invalid map projects");

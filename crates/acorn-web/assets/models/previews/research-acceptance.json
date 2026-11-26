@@ -1,0 +1,62 @@
+{
+  "renderer": "Cesium 1.147.0 / Chromium",
+  "assets": [
+    {
+      "id": "research/collaboration",
+      "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad"
+    },
+    {
+      "id": "research/dataset",
+      "sha256": "606d2beb0a9a9b54f6515c776954163cfc06d6dc4571797a231931268a0cee8f"
+    },
+    {
+      "id": "research/doe-national-laboratory",
+      "sha256": "e2c0cd9119bd1989848f1949815bd56ee7270cf91449e5794c337ad11cfb8add"
+    },
+    {
+      "id": "research/field-site",
+      "sha256": "431622fcc2febe117b6836574fad17d0a679f6916e0b0b45051eb478e90def65"
+    },
+    {
+      "id": "research/funding",
+      "sha256": "4e92afb41ceb67bb718e6eaedae901059cc146404287268c318697f602e32249"
+    },
+    {
+      "id": "research/laboratory",
+      "sha256": "06c42fc5a9e7b9b895bc49445789ccc86ec114340cc7b90fe868e2a146d7fb34"
+    },
+    {
+      "id": "research/publication",
+      "sha256": "fc28fa627612803783a7047962ad8d6bdd0f0b7d98640dc5604b11484b6105ef"
+    },
+    {
+      "id": "research/research-project",
+      "sha256": "e2c31ff5d541b9f576f191523fd5e753ec07d66ad22662c09f9e69346d114c9c"
+    },
+    {
+      "id": "research/research-team",
+      "sha256": "50100b7aeda4bc9a9b8ff157e12092830b1fff0c63ac612f6addb3904eaa4170"
+    },
+    {
+      "id": "research/software",
+      "sha256": "ddb036fe22132cb817060500756d5d308e0f99a49d08caa9340a42920b8e615e"
+    },
+    {
+      "id": "research/supercomputer",
+      "sha256": "ddd4a2bd13fd00ec51b0cc22889ee6b805ff3e9dd3a6596c644900f0ef45af02"
+    },
+    {
+      "id": "research/user-facility",
+      "sha256": "9291987cbe8fa902b5ea022b7c79fd0249cc07fa17f3e3265bd8f714f515b093"
+    }
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "views": [
+    "front",
+    "rear",
+    "top",
+    "small"
+  ],
+  "visualReview": "Reviewed 2026-11-26: supercomputer revision 5 front preview confirms bright cyan illuminated accents. Other assets retain their previously reviewed geometry and materials."
+}

@@ -1,0 +1,1447 @@
+{
+  "assets": [
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.3510205,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1766176,
+      "category": "drone",
+      "file": "drones/autel-evo-max-4t.glb",
+      "front_axis": "+Z",
+      "id": "drone/autel-evo-max-4t",
+      "label": "Autel EVO Max 4T",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by Autel EVO Max 4T; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "f418da115c96b14f1139e3f1c04bd4c458f72eb9c2de48302ec4b85c3bc4b159",
+      "source": "drones/autel-evo-max-4t.model.json",
+      "textures": 1,
+      "triangles": 18304,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.202346,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1422516,
+      "category": "drone",
+      "file": "drones/bitcraze-crazyflie-2-1.glb",
+      "front_axis": "+Z",
+      "id": "drone/bitcraze-crazyflie-2-1",
+      "label": "Bitcraze Crazyflie 2.1",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by Bitcraze Crazyflie 2.1; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "f06b059c00e95c22838ed7d2a6fb1f00612f09ee5aeaae5916d19ee44ac57cb7",
+      "source": "drones/bitcraze-crazyflie-2-1.model.json",
+      "textures": 1,
+      "triangles": 14724,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.174462,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1747744,
+      "category": "drone",
+      "file": "drones/dji-matrice-350-rtk.glb",
+      "front_axis": "+Z",
+      "id": "drone/dji-matrice-350-rtk",
+      "label": "DJI Matrice 350 RTK",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by DJI Matrice 350 RTK; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "45879ca8a8c782bd6dbd4faf7b6a0c1c02cdaa2fdf31b019367e303247adbda2",
+      "source": "drones/dji-matrice-350-rtk.model.json",
+      "textures": 1,
+      "triangles": 18112,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.4108496,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1577252,
+      "category": "drone",
+      "file": "drones/dji-mavic-3-enterprise.glb",
+      "front_axis": "+Z",
+      "id": "drone/dji-mavic-3-enterprise",
+      "label": "DJI Mavic 3 Enterprise",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by DJI Mavic 3 Enterprise; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "218730196badca338b7d0dd693ca0077772a4a2702fb8d40074b9dab9b971735",
+      "source": "drones/dji-mavic-3-enterprise.model.json",
+      "textures": 1,
+      "triangles": 16336,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.3831084,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1632176,
+      "category": "drone",
+      "file": "drones/dji-phantom-4-rtk.glb",
+      "front_axis": "+Z",
+      "id": "drone/dji-phantom-4-rtk",
+      "label": "DJI Phantom 4 RTK",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 7,
+      "provenance": "Original simplified illustration inspired by DJI Phantom 4 RTK; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "70e6f9d49a7ead1f5861882d690a1b3a6e8010c5d0b4694f00cdbbe32f4c335e",
+      "source": "drones/dji-phantom-4-rtk.model.json",
+      "textures": 1,
+      "triangles": 16900,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.0215,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 342996,
+      "category": "drone",
+      "file": "drones/ebee-x.glb",
+      "front_axis": "+Z",
+      "id": "drone/ebee-x",
+      "label": "eBee X",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by eBee X; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea",
+      "source": "drones/ebee-x.model.json",
+      "textures": 1,
+      "triangles": 3480,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.7927551,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1502012,
+      "category": "drone",
+      "file": "drones/freefly-astro.glb",
+      "front_axis": "+Z",
+      "id": "drone/freefly-astro",
+      "label": "Freefly Astro",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 7,
+      "provenance": "Original simplified illustration inspired by Freefly Astro; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "c183f5567c008ac020c638fc0b52f573e85e4e7bd4952e1ed9dfadbaeb1066d8",
+      "source": "drones/freefly-astro.model.json",
+      "textures": 1,
+      "triangles": 15544,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.193438,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1420576,
+      "category": "drone",
+      "file": "drones/holybro-x500-v2.glb",
+      "front_axis": "+Z",
+      "id": "drone/holybro-x500-v2",
+      "label": "Holybro X500 V2",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by Holybro X500 V2; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "752ef7a391cac1bec59e1e51905d66ac077e291a87c4323129669cedd253f26b",
+      "source": "drones/holybro-x500-v2.model.json",
+      "textures": 1,
+      "triangles": 14704,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.1767468,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1404836,
+      "category": "drone",
+      "file": "drones/ornl-strelka.glb",
+      "front_axis": "+Z",
+      "id": "drone/ornl-strelka",
+      "label": "ORNL Strelka",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by ORNL Strelka; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "d92415c8ca7ba356f98fe4759ff80833e289e5fb715f3600ffa89b9d54b6fe29",
+      "source": "drones/ornl-strelka.model.json",
+      "textures": 1,
+      "triangles": 14540,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.1346198,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1818796,
+      "category": "drone",
+      "file": "drones/parrot-anafi-ai.glb",
+      "front_axis": "+Z",
+      "id": "drone/parrot-anafi-ai",
+      "label": "Parrot ANAFI Ai",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 7,
+      "provenance": "Original simplified illustration inspired by Parrot ANAFI Ai; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "d6238cde7a46dc3ab2106233fb1e64975ea717325cd5edb1ff5da6c4043df9a5",
+      "source": "drones/parrot-anafi-ai.model.json",
+      "textures": 1,
+      "triangles": 18844,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.4208939,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1690116,
+      "category": "drone",
+      "file": "drones/skydio-x10.glb",
+      "front_axis": "+Z",
+      "id": "drone/skydio-x10",
+      "label": "Skydio X10",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by Skydio X10; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "0900de6d639c17055ec22f3059aa6b92c140399e7f3ef7e52193e02e2dc623c3",
+      "source": "drones/skydio-x10.model.json",
+      "textures": 1,
+      "triangles": 17512,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.0362632,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 358780,
+      "category": "drone",
+      "file": "drones/wingtraone-gen-ii.glb",
+      "front_axis": "+Z",
+      "id": "drone/wingtraone-gen-ii",
+      "label": "WingtraOne GEN II",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original simplified illustration inspired by WingtraOne GEN II; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
+      "revision": 4,
+      "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b",
+      "source": "drones/wingtraone-gen-ii.model.json",
+      "textures": 1,
+      "triangles": 3644,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.78,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 287280,
+      "category": "landmarks",
+      "file": "landmarks/gateway-arch.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/gateway-arch",
+      "label": "Gateway Arch",
+      "license": "MIT",
+      "materials": 4,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "dd44f0bacfca8253fe92e4273a6545dfcdfa85f9f5c6c2b397d11124e9d071b2",
+      "source": "landmarks/gateway-arch.model.json",
+      "textures": 1,
+      "triangles": 2916,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.0796825,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1285000,
+      "category": "landmarks",
+      "file": "landmarks/golden-gate-bridge.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/golden-gate-bridge",
+      "label": "Golden Gate Bridge",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "57275f6295efcbcf41e496da668c400b932f3d7cce7fa8b7aec9f0c08d01ae0c",
+      "source": "landmarks/golden-gate-bridge.model.json",
+      "textures": 1,
+      "triangles": 13292,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.5077,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 452456,
+      "category": "landmarks",
+      "file": "landmarks/grand-canyon.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/grand-canyon",
+      "label": "Grand Canyon",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "d36ad43d25709ae41fa5f90364c0118a58204b7a7d448d3b81ea32c7e0d5d8f2",
+      "source": "landmarks/grand-canyon.model.json",
+      "textures": 1,
+      "triangles": 4628,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.9589603,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 382624,
+      "category": "landmarks",
+      "file": "landmarks/hoover-dam.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/hoover-dam",
+      "label": "Hoover Dam",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 7,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "6509f2e5f98eb5e4db20eda280ada57454361257d06d698440c29d18e850f871",
+      "source": "landmarks/hoover-dam.model.json",
+      "textures": 1,
+      "triangles": 3884,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.78,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 452652,
+      "category": "landmarks",
+      "file": "landmarks/kennedy-space-center.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/kennedy-space-center",
+      "label": "Kennedy Space Center",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "7dc25edc3c0a7eae522bdf07af155bc29e1226e8a9643caca29624cda2ca37c0",
+      "source": "landmarks/kennedy-space-center.model.json",
+      "textures": 1,
+      "triangles": 4630,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.78,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 597060,
+      "category": "landmarks",
+      "file": "landmarks/statue-of-liberty.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/statue-of-liberty",
+      "label": "Statue of Liberty",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 5,
+      "sha256": "925b39ff833e16b75809bf6debf45aacdbcfa69857fe111c71e1365bcfe082b5",
+      "source": "landmarks/statue-of-liberty.model.json",
+      "textures": 1,
+      "triangles": 6126,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.2915417,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 936060,
+      "category": "landmarks",
+      "file": "landmarks/us-capitol.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/us-capitol",
+      "label": "U.S. Capitol",
+      "license": "MIT",
+      "materials": 4,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934",
+      "source": "landmarks/us-capitol.model.json",
+      "textures": 1,
+      "triangles": 9674,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.1545,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 3728780,
+      "category": "landmarks",
+      "file": "landmarks/yellowstone.glb",
+      "front_axis": "+Z",
+      "id": "landmarks/yellowstone",
+      "label": "Yellowstone",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 7,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "844f6fa179abf1f00c16e7067e5b3d3df79f469f57cfa307e5d0e88b281979ef",
+      "source": "landmarks/yellowstone.model.json",
+      "textures": 1,
+      "triangles": 38740,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.1693662,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 418220,
+      "category": "research",
+      "file": "research/collaboration.glb",
+      "front_axis": "+Z",
+      "id": "research/collaboration",
+      "label": "Collaboration",
+      "license": "MIT",
+      "materials": 3,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 3,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad",
+      "source": "research/collaboration.model.json",
+      "textures": 1,
+      "triangles": 4288,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.362153,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 818060,
+      "category": "research",
+      "file": "research/dataset.glb",
+      "front_axis": "+Z",
+      "id": "research/dataset",
+      "label": "Dataset",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "606d2beb0a9a9b54f6515c776954163cfc06d6dc4571797a231931268a0cee8f",
+      "source": "research/dataset.model.json",
+      "textures": 1,
+      "triangles": 8428,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.1200576,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 416764,
+      "category": "research",
+      "file": "research/doe-national-laboratory.glb",
+      "front_axis": "+Z",
+      "id": "research/doe-national-laboratory",
+      "label": "DOE National Laboratory",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "e2c0cd9119bd1989848f1949815bd56ee7270cf91449e5794c337ad11cfb8add",
+      "source": "research/doe-national-laboratory.model.json",
+      "textures": 1,
+      "triangles": 4256,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.7485438,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 496244,
+      "category": "research",
+      "file": "research/field-site.glb",
+      "front_axis": "+Z",
+      "id": "research/field-site",
+      "label": "Field Site",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "431622fcc2febe117b6836574fad17d0a679f6916e0b0b45051eb478e90def65",
+      "source": "research/field-site.model.json",
+      "textures": 1,
+      "triangles": 5076,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.5417978,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1250852,
+      "category": "research",
+      "file": "research/funding.glb",
+      "front_axis": "+Z",
+      "id": "research/funding",
+      "label": "Funding",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "4e92afb41ceb67bb718e6eaedae901059cc146404287268c318697f602e32249",
+      "source": "research/funding.model.json",
+      "textures": 1,
+      "triangles": 12936,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.6552,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 291908,
+      "category": "research",
+      "file": "research/laboratory.glb",
+      "front_axis": "+Z",
+      "id": "research/laboratory",
+      "label": "Laboratory",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "06c42fc5a9e7b9b895bc49445789ccc86ec114340cc7b90fe868e2a146d7fb34",
+      "source": "research/laboratory.model.json",
+      "textures": 1,
+      "triangles": 2948,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          0.9763988,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 297284,
+      "category": "research",
+      "file": "research/publication.glb",
+      "front_axis": "+Z",
+      "id": "research/publication",
+      "label": "Publication",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "fc28fa627612803783a7047962ad8d6bdd0f0b7d98640dc5604b11484b6105ef",
+      "source": "research/publication.model.json",
+      "textures": 1,
+      "triangles": 3012,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.308,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1510820,
+      "category": "research",
+      "file": "research/research-project.glb",
+      "front_axis": "+Z",
+      "id": "research/research-project",
+      "label": "Research Project",
+      "license": "MIT",
+      "materials": 8,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 8,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 5,
+      "sha256": "e2c31ff5d541b9f576f191523fd5e753ec07d66ad22662c09f9e69346d114c9c",
+      "source": "research/research-project.model.json",
+      "textures": 1,
+      "triangles": 15628,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.3321131,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1226264,
+      "category": "research",
+      "file": "research/research-team.glb",
+      "front_axis": "+Z",
+      "id": "research/research-team",
+      "label": "Research Team",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "50100b7aeda4bc9a9b8ff157e12092830b1fff0c63ac612f6addb3904eaa4170",
+      "source": "research/research-team.model.json",
+      "textures": 1,
+      "triangles": 12688,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.2007692,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 199460,
+      "category": "research",
+      "file": "research/software.glb",
+      "front_axis": "+Z",
+      "id": "research/software",
+      "label": "Software",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 7,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "ddb036fe22132cb817060500756d5d308e0f99a49d08caa9340a42920b8e615e",
+      "source": "research/software.model.json",
+      "textures": 1,
+      "triangles": 1976,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.05,
+          2.52,
+          2.05
+        ],
+        "min": [
+          -2.05,
+          0.0,
+          -2.05
+        ]
+      },
+      "bytes": 1946748,
+      "category": "research",
+      "file": "research/supercomputer.glb",
+      "front_axis": "+Z",
+      "id": "research/supercomputer",
+      "label": "Supercomputer",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "pedestal",
+        "rack-1",
+        "rack-2",
+        "rack-3"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 19,
+      "provenance": "Original ACORN procedural geometry based on the research-object concept sheet; generic three-rack system, no vendor branding or external meshes. ORNL brand palette with requested bright cyan illuminated accents.",
+      "revision": 5,
+      "sha256": "ddd4a2bd13fd00ec51b0cc22889ee6b805ff3e9dd3a6596c644900f0ef45af02",
+      "source": "research/supercomputer.model.json",
+      "textures": 1,
+      "triangles": 20108,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.5854777,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 799216,
+      "category": "research",
+      "file": "research/user-facility.glb",
+      "front_axis": "+Z",
+      "id": "research/user-facility",
+      "label": "User Facility",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "9291987cbe8fa902b5ea022b7c79fd0249cc07fa17f3e3265bd8f714f515b093",
+      "source": "research/user-facility.model.json",
+      "textures": 1,
+      "triangles": 8240,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.7934006,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1159812,
+      "category": "wonders",
+      "file": "wonders/chichen-itza.glb",
+      "front_axis": "+Z",
+      "id": "wonders/chichen-itza",
+      "label": "Chichen Itza",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "50f7bc06bcf396a63be23372237f4927025ba8100024caeb65e005f22b2ae87c",
+      "source": "wonders/chichen-itza.model.json",
+      "textures": 1,
+      "triangles": 11996,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.543787,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 631776,
+      "category": "wonders",
+      "file": "wonders/christ-the-redeemer.glb",
+      "front_axis": "+Z",
+      "id": "wonders/christ-the-redeemer",
+      "label": "Christ the Redeemer",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "7768fe88919fa8bd6f2abe2d9e97dea20c6c45d2fac39c8b3b58c77cc6eae4a6",
+      "source": "wonders/christ-the-redeemer.model.json",
+      "textures": 1,
+      "triangles": 6496,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.7770811,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1553784,
+      "category": "wonders",
+      "file": "wonders/colosseum.glb",
+      "front_axis": "+Z",
+      "id": "wonders/colosseum",
+      "label": "Colosseum",
+      "license": "MIT",
+      "materials": 4,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "fdc027ef7d1c104b319b8732ace93207494f5bbf3604d24b0148fcc68262addc",
+      "source": "wonders/colosseum.model.json",
+      "textures": 1,
+      "triangles": 16108,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.1675429,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1523432,
+      "category": "wonders",
+      "file": "wonders/great-pyramid-of-giza.glb",
+      "front_axis": "+Z",
+      "id": "wonders/great-pyramid-of-giza",
+      "label": "Great Pyramid of Giza",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "accd6d1d84d14b9bb2a1cf68f18a40783ab3add5276d46350dd76d58b20d0f9f",
+      "source": "wonders/great-pyramid-of-giza.model.json",
+      "textures": 1,
+      "triangles": 15784,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          1.8006667,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 851864,
+      "category": "wonders",
+      "file": "wonders/great-wall-of-china.glb",
+      "front_axis": "+Z",
+      "id": "wonders/great-wall-of-china",
+      "label": "Great Wall of China",
+      "license": "MIT",
+      "materials": 6,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 6,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "30dbb12716e48db728ac1bd2be7528d16104b3bf4fc752cfd8efa08cd4be00dc",
+      "source": "wonders/great-wall-of-china.model.json",
+      "textures": 1,
+      "triangles": 8780,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          2.9265625,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 628744,
+      "category": "wonders",
+      "file": "wonders/machu-picchu.glb",
+      "front_axis": "+Z",
+      "id": "wonders/machu-picchu",
+      "label": "Machu Picchu",
+      "license": "MIT",
+      "materials": 7,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 7,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "cc17bd78a6aead7b3fa67a32d310969dd09674a8e3adcfd99f38149f7fb688ad",
+      "source": "wonders/machu-picchu.model.json",
+      "textures": 1,
+      "triangles": 6448,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.2195623,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 583432,
+      "category": "wonders",
+      "file": "wonders/petra.glb",
+      "front_axis": "+Z",
+      "id": "wonders/petra",
+      "label": "Petra",
+      "license": "MIT",
+      "materials": 5,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 5,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "7fdf4ac072afcb7b44336431b785d0df9cabbf4a18f15359ac8f13687074cb6b",
+      "source": "wonders/petra.model.json",
+      "textures": 1,
+      "triangles": 5992,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          2.2,
+          3.002,
+          2.2
+        ],
+        "min": [
+          -2.2,
+          0.0,
+          -2.2
+        ]
+      },
+      "bytes": 1740240,
+      "category": "wonders",
+      "file": "wonders/taj-mahal.glb",
+      "front_axis": "+Z",
+      "id": "wonders/taj-mahal",
+      "label": "Taj Mahal",
+      "license": "MIT",
+      "materials": 8,
+      "nodes": [
+        "body",
+        "pedestal"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 8,
+      "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
+      "revision": 4,
+      "sha256": "d0def0a34b62e0b1a039f82da2e3e46f07be2e1fda81519da3a53e44aaeb125c",
+      "source": "wonders/taj-mahal.model.json",
+      "textures": 1,
+      "triangles": 18018,
+      "units": "meters",
+      "up_axis": "+Y"
+    }
+  ],
+  "version": 1
+}

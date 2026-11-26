@@ -87,10 +87,41 @@ try {
     assert.ok(JSON.parse(await readFile(await download.path(), "utf8")).diagnostics);
     await page.waitForFunction(() => window.__download.revoked.length > 0);
     assert.ok((await page.evaluate(() => window.__download.created)).some((mime) => mime.startsWith("application/json")));
+    await page.locator('nav a[title="Content diff"]').click();
+    await page.getByRole("heading", { name: "Content diff", exact: true }).waitFor();
+    await page.locator("#content-editor").fill("before\n");
+    await page.locator("#after-editor").fill("after\n");
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    const unifiedDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    const unified = await unifiedDownload;
+    assert.equal(unified.suggestedFilename(), "acorn-changes.diff");
+    assert.match(await readFile(await unified.path(), "utf8"), /\+after/);
+    assert.ok((await page.evaluate(() => window.__download.created)).includes("text/plain;charset=utf-8"));
+    await page.locator(".tool-settings > summary").click();
+    await page.getByRole("group", { name: "Diff format", exact: true }).getByRole("button", { name: "JSON Patch", exact: true }).click();
+    await page.locator("#content-editor").fill('{"title":"Before"}');
+    await page.locator("#after-editor").fill('{"title":"After"}');
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    const patchDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    const patch = await patchDownload;
+    assert.equal(patch.suggestedFilename(), "acorn-changes.json");
+    assert.equal(JSON.parse(await readFile(await patch.path(), "utf8"))[0].op, "replace");
+    assert.ok((await page.evaluate(() => window.__download.created)).includes("application/json-patch+json;charset=utf-8"));
+    await page.waitForFunction(() => window.__download.created.length === window.__download.revoked.length);
+    await page.evaluate(() => {
+        window.__downloadCreate = URL.createObjectURL;
+        URL.createObjectURL = () => { throw Error("denied"); };
+    });
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    await page.locator(".notifications .notification-text").getByText("Download unavailable. Copy the result instead.", { exact: true }).waitFor();
+    await page.evaluate(() => { URL.createObjectURL = window.__downloadCreate; });
     await page.locator('nav a[title="Home"]').click();
     await page.getByRole("heading", { name: "Research Intelligence" }).waitFor();
     const supportsFolder = await page.evaluate(() => "webkitdirectory" in document.createElement("input"));
     let folderResult = "browser fallback";
+    let maximumSession = "folder API unavailable";
     if (supportsFolder) {
         await mkdir(resolve(temporary, "folder/nested"), { recursive: true });
         await writeFile(resolve(temporary, "folder/nested/activity.json"), await readFile("crates/acorn-web/assets/examples/publications.json"));
@@ -113,6 +144,64 @@ try {
         } else {
             folderResult = "directory picker cancelled by automation; manual selection unverified";
         }
+        await mkdir(resolve(temporary, "maximum/a"), { recursive: true });
+        await mkdir(resolve(temporary, "maximum/b"), { recursive: true });
+        await Promise.all(Array.from({ length: 500 }, (_, index) => writeFile(resolve(temporary, `maximum/${index < 250 ? "a" : "b"}/file-${String(index).padStart(3, "0")}.txt`), `Folder item ${index}`)));
+        const loadStarted = Date.now();
+        const maximumSelection = await choose("Folder", resolve(temporary, "maximum"));
+        assert.equal(maximumSelection.type, "change", `Automated ${engine} maximum folder selection was cancelled`);
+        await page.locator(".sidebar-session").getByText("0 activities · 500 files", { exact: true }).waitFor();
+        const loadMs = Date.now() - loadStarted;
+        const treeStarted = Date.now();
+        if (await page.locator(".loaded-tree").getAttribute("open") === null) await page.locator(".loaded-tree > summary").click();
+        await page.locator(".loaded-tree summary").filter({ hasText: /^\s*b\s*$/ }).click();
+        await page.getByRole("button", { name: "file-499.txt", exact: true }).click();
+        const maximumDrawer = page.getByRole("dialog");
+        await maximumDrawer.waitFor();
+        await maximumDrawer.getByRole("tab", { name: "Source", exact: true }).click();
+        assert.equal(await maximumDrawer.locator("#drawer-source").inputValue(), "Folder item 499");
+        const inspectMs = Date.now() - treeStarted;
+        await page.keyboard.press("Escape");
+        await maximumDrawer.waitFor({ state: "hidden" });
+        maximumSession = `500-file load ${loadMs} ms and last-file inspection ${inspectMs} ms`;
+        await page.evaluate(() => {
+            const leaf = (name, content) => ({ name, isFile: true, file(resolve) { resolve(new File([content], name, { type: "text/plain" })); } });
+            const directory = (name, batches) => ({ name, isDirectory: true, createReader() { let index = 0; return { readEntries(resolve) { resolve(batches[index++] ?? []); } }; } });
+            const nested = directory("nested", [[leaf("a.txt", "Nested drop")], []]);
+            const root = directory("dropped", [[nested], [leaf("b.txt", "Root drop"), leaf("ignored.bin", "unsupported")], []]);
+            const event = new Event("drop", { bubbles: true, cancelable: true });
+            Object.defineProperty(event, "dataTransfer", { value: { items: [{ webkitGetAsEntry: () => root }], files: [] } });
+            document.querySelector("[data-workspace-drop]").dispatchEvent(event);
+        });
+        await page.locator(".sidebar-session").getByText("0 activities · 2 files", { exact: true }).waitFor();
+        await page.getByText(/2 files loaded; 1 entries skipped/).waitFor();
+        if (await page.locator(".loaded-tree").getAttribute("open") === null) await page.locator(".loaded-tree > summary").click();
+        for (const name of ["dropped", "nested"]) {
+            const summary = page.locator(".loaded-tree summary").filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) });
+            if (await summary.locator("..").getAttribute("open") === null) await summary.click();
+        }
+        await page.getByRole("button", { name: "a.txt", exact: true }).click();
+        const droppedDrawer = page.getByRole("dialog");
+        await droppedDrawer.waitFor();
+        await droppedDrawer.getByRole("tab", { name: "Source", exact: true }).click();
+        assert.equal(await droppedDrawer.locator("#drawer-source").inputValue(), "Nested drop");
+        await page.keyboard.press("Escape");
+        await droppedDrawer.waitFor({ state: "hidden" });
+        folderResult += ", batched nested drop with unsupported-file rejection";
+        await page.evaluate(() => {
+            window.__createElement = document.createElement;
+            document.createElement = function (tag, ...args) {
+                return tag === "input" ? { type: "", multiple: false, accept: "" } : window.__createElement.call(this, tag, ...args);
+            };
+        });
+        await page.getByRole("button", { name: "Open file or folder", exact: false }).click();
+        await page.getByRole("button", { name: "Folder", exact: true }).click();
+        await page.locator(".notifications .notification-text").getByText(/Folder selection is unavailable in this browser/).waitFor();
+        await page.evaluate(() => { document.createElement = window.__createElement; });
+        const fallbackSelection = await choose("Files", resolve("crates/acorn-web/assets/examples/publications.json"));
+        assert.equal(fallbackSelection.type, "change");
+        await page.locator(".sidebar-session").getByText("1 activity · 1 file", { exact: true }).waitFor();
+        folderResult += ", unavailable-directory fallback with file recovery";
     } else {
         await page.getByRole("button", { name: "Open file or folder", exact: false }).click();
         await page.getByRole("button", { name: "Folder", exact: true }).click();
@@ -154,7 +243,7 @@ try {
     await cancelPage.waitForFunction(() => !document.querySelector('input[type="file"]'));
     assert.equal(await cancelPage.locator(".sidebar-session").innerText(), beforeCancel, "Cancelling the picker preserves the prior session");
     await cancelPage.close();
-    console.log(`${engine} ${browser.version()}: ${engine === "firefox" ? "synthetic chooser cancellation and file selection" : "native chooser cancellation and file selection"}, ${folderResult}, copy feedback, JSON download, URL cleanup, USWDS persistence and flag label, and no external requests passed; native clipboard API ${nativeClipboard ? "present" : "unavailable"}.`);
+    console.log(`${engine} ${browser.version()}: ${engine === "firefox" ? "synthetic chooser cancellation and file selection" : "native chooser cancellation and file selection"}, ${folderResult}, ${maximumSession}, copy feedback, JSON/diff/Patch downloads, denied-download feedback, URL cleanup, USWDS persistence and flag label, and no external requests passed; native clipboard API ${nativeClipboard ? "present" : "unavailable"}.`);
 } finally {
     await browser.close();
     await new Promise((closed) => server.close(closed));

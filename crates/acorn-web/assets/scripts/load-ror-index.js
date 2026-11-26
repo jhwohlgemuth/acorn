@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
-const response = await fetch(__acornArgs, { credentials: 'omit', redirect: 'error' });
-if (!response.ok) throw new Error('Local registry unavailable');
-const bytes = await response.arrayBuffer();
-if (bytes.byteLength > 33554432) throw new Error('Local registry too large');
-return JSON.parse(new TextDecoder().decode(bytes));
+const [url, workerUrl, identifiers] = __acornArgs;
+const worker = new Worker(workerUrl);
+try {
+    return await new Promise((resolve, reject) => {
+        worker.onmessage = ({ data }) => data.error ? reject(new Error(data.error)) : resolve(data.index);
+        worker.onerror = () => reject(new Error('Local registry worker failed'));
+        worker.postMessage({ url, identifiers });
+    });
+} finally {
+    worker.terminate();
+}

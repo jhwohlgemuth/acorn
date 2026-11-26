@@ -5,6 +5,7 @@ use strum::EnumString;
 pub(crate) enum IconName {
     Alert,
     Book,
+    Building,
     Chart,
     Check,
     Code,
@@ -19,11 +20,15 @@ pub(crate) enum IconName {
     File,
     #[strum(serialize = "filecheck")]
     FileCheck,
+    Fit,
     Fold,
     FolderOpen,
     FontBig,
     FontSmall,
     Globe,
+    Graph,
+    GraphContributor,
+    GraphOrganization,
     Home,
     Info,
     Link,
@@ -35,6 +40,7 @@ pub(crate) enum IconName {
     Pause,
     Play,
     Portfolio,
+    Reset,
     Search,
     Settings,
     Shield,
@@ -46,6 +52,8 @@ pub(crate) enum IconName {
     Users,
     Wrap,
     X,
+    ZoomIn,
+    ZoomOut,
     Unknown,
 }
 impl IconName {
@@ -56,6 +64,7 @@ impl IconName {
                 r#"<path class="s" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5Z" />
       <path class="s" d="M4 6.5v13M9 10l2 2 4-4" />"#
             }
+            | Self::Building => r#"<path d="M3 21h18M5 21V5l7-3 7 3v16M9 8h1m4 0h1M9 12h1m4 0h1M9 16h1m4 0h1M11 21v-4h2v4"/>"#,
             | Self::Chart => r#"<path d="M4 3v17h17M7 16l4-3 4-5 5-4" fill="none" stroke="currentColor" stroke-width="1.6" />"#,
             | Self::Check => r#"<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>"#,
             | Self::Code => r#"<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/>"#,
@@ -83,6 +92,7 @@ impl IconName {
                 r#"<path class="s" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
       <path class="s" d="M14 2v6h6M9 15l2 2 4-4" />"#
             }
+            | Self::Fit => r#"<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M9 12h6m-3-3v6"/>"#,
             | Self::Fold => r#"<path d="m8 3 4 4 4-4m-4-1v5m-4 14 4-4 4 4m-4 1v-5M4 12h16"/>"#,
             | Self::FolderOpen => {
                 r#"<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>"#
@@ -94,6 +104,11 @@ impl IconName {
       <ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1.5" />
       <path d="M3 12h18" stroke="currentColor" />"#
             }
+            | Self::Graph => {
+                r#"<path d="m7.4 8.5 8.5-3.5M7.4 10.3l8.5 7M18.5 7.5v9"/><circle cx="5" cy="9" r="2.5"/><circle cx="18.5" cy="5" r="2.5"/><circle cx="18.5" cy="19" r="2.5"/>"#
+            }
+            | Self::GraphContributor => r#"<circle cx="12" cy="8" r="3.5"/><path d="M4 21v-1.5a8 8 0 0 1 16 0V21"/>"#,
+            | Self::GraphOrganization => r#"<path d="M2 9 12 3l10 6M3 9h18M4 21h16M6 11v8m4-8v8m4-8v8m4-8v8M2 21h20"/>"#,
             | Self::Home => r#"<path class="s" d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" />"#,
             | Self::Info => {
                 r#"<circle class="s" cx="12" cy="12" r="9" />
@@ -120,6 +135,7 @@ impl IconName {
       <rect class="s" x="3" y="14" width="7" height="7" rx="1" />
       <rect class="s" x="14" y="14" width="7" height="7" rx="1" />"#
             }
+            | Self::Reset => r#"<path d="M3 12a9 9 0 1 0 3-6.7M3 3v5h5"/>"#,
             | Self::Search => {
                 r#"<circle class="stroke" cx="11" cy="11" r="7" />
       <path class="stroke" d="m20 20-4-4" />"#
@@ -142,6 +158,8 @@ impl IconName {
             }
             | Self::Wrap => r#"<path class="s" d="M3 6h18M3 10h12a4 4 0 0 1 0 8H9m3-3-3 3 3 3M3 14h5M3 18h3"/>"#,
             | Self::X => r#"<path class="s" d="M5 5l14 14M19 5 5 19"/>"#,
+            | Self::ZoomIn => r#"<circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5M10.5 7v7m-3.5-3.5h7"/>"#,
+            | Self::ZoomOut => r#"<circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5M7 10.5h7"/>"#,
             | Self::Unknown => "",
         }
     }
@@ -149,6 +167,7 @@ impl IconName {
         match self {
             | Self::Alert => Some("warning"),
             | Self::Book => Some("menu_book"),
+            | Self::Building | Self::GraphOrganization => Some("account_balance"),
             | Self::Chart => Some("insights"),
             | Self::Check => Some("check_circle"),
             | Self::Code => Some("code"),
@@ -162,10 +181,12 @@ impl IconName {
             | Self::Eye => Some("visibility"),
             | Self::File => Some("file_present"),
             | Self::FileCheck => Some("verified"),
+            | Self::Fit => Some("zoom_out_map"),
             | Self::Fold => Some("unfold_less"),
             | Self::FolderOpen => Some("folder_open"),
             | Self::FontBig | Self::FontSmall => Some("format_size"),
             | Self::Globe => Some("public"),
+            | Self::Graph => Some("share"),
             | Self::Home => Some("home"),
             | Self::Info => Some("info"),
             | Self::Link => Some("link"),
@@ -177,6 +198,7 @@ impl IconName {
             | Self::Pause => Some("pause"),
             | Self::Play => Some("play_arrow"),
             | Self::Portfolio => Some("grid_view"),
+            | Self::Reset => Some("autorenew"),
             | Self::Search => Some("search"),
             | Self::Settings => Some("settings"),
             | Self::Shield => Some("verified_user"),
@@ -185,9 +207,11 @@ impl IconName {
             | Self::SortDesc => Some("arrow_downward"),
             | Self::SortTitle => Some("sort_arrow"),
             | Self::Upload => Some("file_upload"),
-            | Self::Users => Some("groups"),
+            | Self::Users | Self::GraphContributor => Some("groups"),
             | Self::Wrap => Some("wrap_text"),
             | Self::X => Some("close"),
+            | Self::ZoomIn => Some("zoom_in"),
+            | Self::ZoomOut => Some("zoom_out"),
             | Self::Unknown => None,
         }
     }

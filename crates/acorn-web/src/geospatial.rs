@@ -123,14 +123,7 @@ pub fn markers_with_identifiers(workspace: &Workspace, index: &LocationIndex, id
         .iter()
         .map(|activity| (activity.path.as_str(), activity.project_id.as_str()))
         .collect::<BTreeMap<_, _>>();
-    let mut references = BTreeMap::<String, (usize, BTreeSet<String>)>::new();
-    for (file, value) in workspace.activities() {
-        collect(value, "", file, &mut references);
-    }
-    for id in identifiers.iter().filter_map(|id| canonical_ror(id)) {
-        references.entry(id).or_default();
-    }
-    references
+    references(workspace, identifiers)
         .into_iter()
         .map(|(id, (count, activities))| {
             let organization = index.organizations.get(&id);
@@ -158,4 +151,18 @@ pub fn markers_with_identifiers(workspace: &Workspace, index: &LocationIndex, id
             }
         })
         .collect()
+}
+/// Canonical ROR records needed to resolve the current validated workspace and added locations.
+pub fn referenced_identifiers(workspace: &Workspace, identifiers: &BTreeSet<String>) -> BTreeSet<String> {
+    references(workspace, identifiers).into_keys().collect()
+}
+fn references(workspace: &Workspace, identifiers: &BTreeSet<String>) -> BTreeMap<String, (usize, BTreeSet<String>)> {
+    let mut references = BTreeMap::new();
+    for (file, value) in workspace.activities() {
+        collect(value, "", file, &mut references);
+    }
+    for id in identifiers.iter().filter_map(|id| canonical_ror(id)) {
+        references.entry(id).or_default();
+    }
+    references
 }

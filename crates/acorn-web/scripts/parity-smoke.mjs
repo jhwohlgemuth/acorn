@@ -271,8 +271,10 @@ try {
             await error.getByRole("button", { name: "Back to input" }).click();
             assert.equal(await page.locator("#content-editor").evaluate(node => node === document.activeElement), true);
         }
-        await page.getByRole("button", { name: "Use example", exact: true }).click();
-        assert.ok(await page.getByRole("button", { name: "Use example", exact: true }).evaluate((node) => node.classList.contains("sample-action") && node.closest(".input-heading")), "Examples use the Home sample style in the Input header");
+        const exampleButton = page.getByRole("button", { name: "Use example", exact: true });
+        assert.ok(await exampleButton.evaluate((node) => node.classList.contains("sample-action") && node.closest(".input-heading")), "Examples use the Home sample style in the Input header");
+        await exampleButton.click();
+        assert.equal(await exampleButton.count(), 0, "The example action hides while its content is loaded");
         fileContent = await page.locator("#content").inputValue();
         await page.locator("#content-editor").fill("Replace this from the URL");
         await openFileUrl();
@@ -573,6 +575,21 @@ try {
     assert.notEqual(scoreColors.get("pass"), scoreColors.get("review"));
     await shot("readability-threshold");
     checks.push("Readability colors score and marker for both threshold directions");
+    const readableText = "The research team collected clear observations. They published the methods and shared the results with colleagues. Readers can inspect the data and repeat the analysis.";
+    await page.locator("#content-editor").fill(readableText);
+    for (const [metric, title] of [["ARI", "Automated Readability Index"], ["CLI", "Coleman–Liau Index"], ["FKGL", "Flesch–Kincaid Grade Level"], ["FRES", "Flesch Reading Ease"], ["GFI", "Gunning Fog Index"], ["LIX", "LIX"], ["SMOG", "SMOG"]]) {
+        await page.getByRole("group", { name: "Readability metric" }).getByRole("button", { name: metric, exact: true }).click();
+        await page.getByRole("button", { name: "Analyze readability", exact: true }).click();
+        await page.locator(".readability-result").getByRole("heading", { name: title, exact: true }).waitFor();
+        await page.getByText("Raw result JSON", { exact: true }).click();
+        const check = JSON.parse(await page.locator(".results .code-block code").textContent()).checks[0];
+        assert.equal(check.metric, metric.toLowerCase());
+        assert.ok(Number.isFinite(check.score));
+        assert.equal(await page.locator(".readability-result .score").innerText(), check.score.toFixed(1));
+        await page.getByText("Raw result JSON", { exact: true }).click();
+    }
+    assert.equal(await page.locator("#content").inputValue(), readableText);
+    checks.push("Every readability metric presents the portable score and preserves source text");
     await nav("Content diff");
     await page.getByRole("group", { name: "Diff format" }).getByRole("button", { name: "Unified", exact: true }).click();
     await page.locator("#content-editor").fill("before\n"); await page.locator("#after-editor").fill("<script>literal</script>\n");
@@ -602,10 +619,22 @@ try {
     await page.getByRole("button", { name: "Compare", exact: true }).click();
     await page.getByText("1 JSON Patch operations", { exact: true }).waitFor();
     await shot("diff-json-patch");
+    await page.locator("#after-editor").fill('{"title":"Before"}');
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    await page.getByText("Documents are equal", { exact: true }).waitFor();
+    await page.getByText("0 JSON Patch operations", { exact: true }).waitFor();
+    await page.locator("#content-editor").fill("{invalid");
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    await page.locator(".operation-error").waitFor();
+    assert.equal(await page.locator("#content").inputValue(), "{invalid");
+    assert.equal(await page.locator("#after").inputValue(), '{"title":"Before"}');
+    await page.locator("#content-editor").fill('{"title":"Before"}');
+    await page.locator("#after-editor").fill('{"title":"After"}');
     await diffFormats.getByRole("button", { name: "Unified", exact: true }).click();
     assert.equal(await diffFormats.getByRole("button", { pressed: true }).count(), 1);
     assert.equal(await page.locator("#after").inputValue(), '{"title":"After"}');
     checks.push("Icon diff buttons switch formats exclusively and preserve both inputs");
+    checks.push("JSON Patch distinguishes equal, changed, and invalid documents without clearing inputs");
     await nav("Settings");
     const themeSelectors = page.getByRole("group", { name: "Themes" });
     const acornTheme = themeSelectors.getByRole("group", { name: "ACORN theme" });
@@ -685,6 +714,10 @@ try {
             assert.equal(await example.evaluate((button) => getComputedStyle(button).color), "rgb(255, 255, 255)");
             await example.hover();
             await page.waitForFunction(() => getComputedStyle(document.querySelector(".input-heading .sample-action")).backgroundColor === "rgb(26, 68, 128)");
+        }
+        if (name === "geospatial") {
+            await page.locator("#geospatial-map canvas").waitFor({ timeout: 60000 });
+            assert.equal(await page.getByText("Map unavailable. Organization data remains available in the table.").count(), 0);
         }
         await shot(`${name}-uswds`);
     }
@@ -1085,7 +1118,6 @@ try {
     for (const tool of ["Research Activity", "Metadata standard"]) {
         const identifiers = await context.newPage();
         await identifiers.goto(origin + prefix + (tool === "Research Activity" ? "/review" : "/metadata-standard"));
-        await identifiers.getByRole("button", { name: "Use example", exact: true }).click();
         const content = JSON.parse(validActivity);
         const invalid = structuredClone(content);
         invalid.meta.organizations[0].identifiers[0].value = "https://ror.org/01qz5mb56xxx";
@@ -1107,7 +1139,6 @@ try {
     for (const tool of ["Research Activity", "Metadata standard"]) {
         const validation = await context.newPage();
         await validation.goto(origin + prefix + (tool === "Research Activity" ? "/review" : "/metadata-standard"));
-        await validation.getByRole("button", { name: "Use example", exact: true }).click();
         const content = JSON.parse(validActivity);
         const invalid = structuredClone(content);
         invalid.aspect = { data: [{ Real: { license: " " } }] };
@@ -1133,6 +1164,136 @@ try {
         await validation.close();
     }
     checks.push("Canonical Review and legacy metadata routes enforce nested data, required text, language registry, URLs, chronology, scoped IDs and logbook ownership; Unicode prose remains valid");
+    const metadataBoundaries = await context.newPage();
+    await metadataBoundaries.goto(origin + prefix + "/review");
+    await metadataBoundaries.locator("#content-editor").fill(validActivity);
+    await metadataBoundaries.locator(".tool-settings > summary").click();
+    const matching = metadataBoundaries.getByRole("group", { name: "Vocabulary matching" });
+    for (const mode of ["Relaxed", "Strict", "Off"]) {
+        await matching.getByRole("button", { name: mode, exact: true }).click();
+        await metadataBoundaries.getByRole("button", { name: "Validate", exact: true }).click();
+        await metadataBoundaries.locator(".results .diagnostic-status").waitFor();
+        assert.equal(await metadataBoundaries.locator("#content").inputValue(), validActivity);
+        assert.equal(await matching.getByRole("button", { name: mode, exact: true }).getAttribute("aria-pressed"), "true");
+    }
+    await metadataBoundaries.goto(origin + prefix + "/crosswalk");
+    await metadataBoundaries.locator(".tool-settings > summary").click();
+    await metadataBoundaries.getByRole("group", { name: "Standard", exact: true }).getByRole("button", { name: "DC", exact: true }).click();
+    await metadataBoundaries.getByRole("group", { name: "Format", exact: true }).getByRole("button", { name: "TTL", exact: true }).click();
+    await metadataBoundaries.getByRole("group", { name: "Destination", exact: true }).getByRole("button", { name: "RADS", exact: true }).click();
+    const turtle = '@prefix dcterms: <http://purl.org/dc/terms/> .\n<https://example.org/dataset> dcterms:title "Imported dataset" .\n';
+    await metadataBoundaries.locator("#content-editor").fill(turtle);
+    await metadataBoundaries.getByRole("button", { name: "Convert", exact: true }).click();
+    await metadataBoundaries.locator(".operation-error-message").getByText(/contact seed/i).waitFor();
+    assert.equal(await metadataBoundaries.locator("#content").inputValue(), turtle);
+    await metadataBoundaries.getByRole("group", { name: "Standard", exact: true }).getByRole("button", { name: "DCITE", exact: true }).click();
+    await metadataBoundaries.getByRole("group", { name: "Format", exact: true }).getByRole("button", { name: "JSON", exact: true }).click();
+    await metadataBoundaries.getByRole("group", { name: "Destination", exact: true }).getByRole("button", { name: "RAiD", exact: true }).click();
+    await metadataBoundaries.locator("#content-editor").fill("{}");
+    await metadataBoundaries.getByRole("button", { name: "Convert", exact: true }).click();
+    await metadataBoundaries.locator(".operation-error-message").getByText(/Unsupported metadata crosswalk/i).waitFor();
+    assert.equal(await metadataBoundaries.locator("#content").inputValue(), "{}");
+    await metadataBoundaries.close();
+    checks.push("Metadata vocabulary controls and crosswalk failures preserve editor content in the built browser");
+    const complexityBoundary = await context.newPage();
+    await complexityBoundary.goto(origin + prefix + "/big-o");
+    for (const [left, right, dominance, explanation] of [
+        ["O(2*n+1)", "O(n)", "equivalent", "Both expressions have equivalent asymptotic growth."],
+        ["O(n)", "O(m)", "incomparable", "Independent growth directions prevent a single ordering."],
+        ["O(polylog(n))", "O(log(n)^2)", "undetermined", "The available assumptions do not prove an ordering."],
+    ]) {
+        await complexityBoundary.locator("#content-editor").fill(left);
+        await complexityBoundary.locator("#after-editor").fill(right);
+        await complexityBoundary.getByRole("button", { name: "Compare", exact: true }).click();
+        const verdict = complexityBoundary.locator(`.complexity-verdict[data-dominance="${dominance}"]`);
+        await verdict.getByRole("heading", { name: explanation, exact: true }).waitFor();
+        assert.equal(await complexityBoundary.locator("#content").inputValue(), left);
+        assert.equal(await complexityBoundary.locator("#after").inputValue(), right);
+        assert.match(await verdict.innerText(), /symbolic comparison/i);
+    }
+    await complexityBoundary.locator(".tool-settings > summary").click();
+    await complexityBoundary.locator("#assumptions-editor").fill('{"n":"invalid"}');
+    await complexityBoundary.getByRole("button", { name: "Compare", exact: true }).click();
+    await complexityBoundary.locator(".operation-error").waitFor();
+    assert.equal(await complexityBoundary.locator("#assumptions").inputValue(), '{"n":"invalid"}');
+    await complexityBoundary.locator("#assumptions-editor").fill("{}");
+    const maximumExpression = "O(n)" + " ".repeat(252);
+    await complexityBoundary.locator("#content-editor").fill(maximumExpression);
+    await complexityBoundary.locator("#after-editor").fill("O(1)");
+    await complexityBoundary.getByRole("button", { name: "Compare", exact: true }).click();
+    await complexityBoundary.locator('.complexity-verdict[data-dominance="left"]').waitFor();
+    await complexityBoundary.locator("#content-editor").fill(maximumExpression + " ");
+    await complexityBoundary.getByRole("button", { name: "Compare", exact: true }).click();
+    await complexityBoundary.locator(".operation-error-message").getByText(/256 UTF-8 bytes/).waitFor();
+    assert.equal(await complexityBoundary.locator("#content").inputValue(), maximumExpression + " ");
+    await complexityBoundary.close();
+    checks.push("Big-O manual results preserve symbolic verdicts, invalid assumptions, and the 256-byte boundary");
+    const fairMatrix = await context.newPage();
+    await fairMatrix.goto(origin + prefix + "/review");
+    await fairMatrix.getByRole("group", { name: "Review type" }).getByRole("button", { name: "FAIR assessment", exact: true }).click();
+    await fairMatrix.locator(".tool-settings > summary").click();
+    for (const [standard, content] of [
+        ["RADS", validActivity],
+        ["DCITE", '{"title":"Example dataset","doi":"10.1000/182","license":"https://spdx.org/licenses/MIT.html"}'],
+    ]) {
+        await fairMatrix.getByRole("group", { name: "Standard", exact: true }).getByRole("button", { name: standard, exact: true }).click();
+        await fairMatrix.locator("#content-editor").fill(content);
+        await fairMatrix.getByRole("button", { name: "Assess FAIR", exact: true }).click();
+        await fairMatrix.locator('.diagnostic-group[data-category="fair"] .diagnostic').first().waitFor();
+        assert.equal(await fairMatrix.locator('.diagnostic-group[data-category="fair"] .diagnostic').count(), fairRules.length);
+        assert.equal(await fairMatrix.locator("#content").inputValue(), content);
+    }
+    await fairMatrix.locator("#content-editor").fill("{invalid");
+    await fairMatrix.getByRole("button", { name: "Assess FAIR", exact: true }).click();
+    await fairMatrix.locator(".operation-error").waitFor();
+    assert.equal(await fairMatrix.locator("#content").inputValue(), "{invalid");
+    await fairMatrix.close();
+    checks.push("RAD and DataCite FAIR assessments expose all 41 findings and preserve invalid input");
+    const identifierMatrix = await context.newPage();
+    await identifierMatrix.goto(origin + prefix + "/inspect");
+    const identifierInput = identifierMatrix.locator("#content-editor");
+    const inspectIdentifier = identifierMatrix.getByRole("button", { name: "Inspect identifier", exact: true });
+    await identifierInput.fill("0000-0002-2057-9115");
+    await inspectIdentifier.click();
+    await identifierMatrix.locator(".results .status.invalid").waitFor();
+    assert.equal((await identifierMatrix.locator(".results .status.invalid").innerText()).trim(), "ambiguous");
+    assert.deepEqual(await identifierMatrix.locator(".results ul .pid-badge").allTextContents(), ["isni", "orcid"]);
+    assert.equal(await identifierMatrix.locator("#content").inputValue(), "0000-0002-2057-9115");
+    await identifierMatrix.locator(".tool-settings > summary").click();
+    await identifierMatrix.getByRole("group", { name: "Identifier", exact: true }).getByRole("button", { name: "DOI", exact: true }).click();
+    await identifierInput.fill("https://ror.org/01qz5mb56");
+    await inspectIdentifier.click();
+    await identifierMatrix.locator(".results .status.invalid").waitFor();
+    assert.equal((await identifierMatrix.locator(".results .status.invalid").innerText()).trim(), "invalid");
+    assert.match(await identifierMatrix.locator(".results").innerText(), /does not match the selected or recognized identifier syntax/);
+    assert.match(await identifierMatrix.locator(".results").innerText(), /does not establish that the identifier exists or resolves/);
+    assert.equal(await identifierMatrix.locator("#content").inputValue(), "https://ror.org/01qz5mb56");
+    await identifierMatrix.close();
+    checks.push("Identifier inspection preserves ambiguous candidate order and rejects an explicit kind mismatch without resolving it");
+    const discoveryMatrix = await context.newPage();
+    await discoveryMatrix.goto(origin + prefix + "/discover");
+    const discoveryInput = discoveryMatrix.locator("#content-editor");
+    const discoverIdentifiers = discoveryMatrix.getByRole("button", { name: "Discover identifiers", exact: true });
+    await discoveryInput.fill("doi:10.1000/182 doi:10.1000/182");
+    await discoverIdentifiers.click();
+    await discoveryMatrix.locator(".results .status:not(.invalid)").waitFor();
+    assert.match(await discoveryMatrix.locator(".results .status:not(.invalid)").innerText(), /^1 unique identifier/);
+    assert.equal(await discoveryMatrix.locator(".identifier-row").count(), 1);
+    await discoveryMatrix.locator(".identifier-row").getByRole("button", { name: "Inspect identifier" }).click();
+    await discoveryMatrix.getByRole("heading", { name: "Inspect identifier", exact: true }).waitFor();
+    assert.match(await discoveryMatrix.locator("#content").inputValue(), /10\.1000\/182/);
+    await discoveryMatrix.goto(origin + prefix + "/discover");
+    const manyIdentifiers = Array.from({ length: 101 }, (_, index) => `doi:10.1000/${index + 1}`).join(" ");
+    await discoveryInput.fill(manyIdentifiers);
+    await discoverIdentifiers.click();
+    await discoveryMatrix.locator(".results .status:not(.invalid)").waitFor();
+    assert.match(await discoveryMatrix.locator(".results .status:not(.invalid)").innerText(), /^101 unique identifiers/);
+    assert.equal(await discoveryMatrix.locator(".identifier-row").count(), 100);
+    assert.equal(await discoveryMatrix.locator(".pid-filter-summary").innerText(), "Showing 100 of 100 identifiers");
+    assert.match(await discoveryMatrix.locator(".results .status.invalid").innerText(), /truncated at the 100-identifier limit/);
+    assert.equal(await discoveryMatrix.locator("#content").inputValue(), manyIdentifiers);
+    await discoveryMatrix.close();
+    checks.push("Identifier discovery deduplicates, drills into inspection, and reports the 100-card limit with the full count");
     for (const reducedMotion of ["no-preference", "reduce"]) {
         const celebration = await context.newPage();
         await celebration.emulateMedia({ reducedMotion, colorScheme: reducedMotion === "reduce" ? "light" : "dark" });

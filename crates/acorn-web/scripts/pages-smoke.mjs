@@ -562,7 +562,8 @@ try {
     assert.equal(await validationTypes.getByRole("button", { name: /^All/ }).getAttribute("aria-pressed"), "false");
     assert.deepEqual(await skipGeometry(), beforeSkipAll, "Clearing every skip check keeps the controls in place");
     await page.getByRole("button", { name: "FAIR assessment", exact: true }).click();
-    await page.getByRole("button", { name: /Use example/ }).click();
+    const fairExample = page.getByRole("button", { name: /Use example/ });
+    if (await fairExample.count()) await fairExample.click();
     if (await page.locator(".tool-settings").getAttribute("open") === null) await page.locator(".tool-settings > summary").click();
     const fairStandardWidth = await page.locator('.choice-bar[aria-label="Standard"]').evaluate((choices) => choices.getBoundingClientRect().width);
     assert.ok(Math.abs(metadataStandardWidth - fairStandardWidth) <= 1, "Standard control keeps the same width across Review tabs");

@@ -116,8 +116,32 @@ test("format-specific downloads preserve bytes and revoke object URLs", async ()
     assert.equal(link.clicked, true);
     assert.equal(blobs[0].type, "text/plain;charset=utf-8");
     assert.equal(await blobs[0].text(), "+literal <script>\n");
+    context.window.acornDownload("<urn:acorn:test> <urn:acorn:predicate> <urn:acorn:target> .", "graph.ttl", "text/turtle;charset=utf-8");
+    assert.equal(link.download, "graph.ttl");
+    assert.equal(blobs[1].type, "text/turtle;charset=utf-8");
     timers[0]();
+    timers[1]();
+    assert.deepEqual(revoked, ["blob:test", "blob:test"]);
+});
+test("failed download creation or activation reports the failure and cleans up", async () => {
+    const revoked = [];
+    const notifications = [];
+    const context = await effectContext({
+        Blob,
+        URL: { createObjectURL() { return "blob:test"; }, revokeObjectURL(url) { revoked.push(url); } },
+        document: { getElementById: () => null, querySelector: () => null, createElement: () => ({ click() { throw Error("denied"); } }) },
+    });
+    context.window.acornChrome = { notifications: { notify: (message, kind) => notifications.push([message, kind]) } };
+    context.window.acornDownload("data");
     assert.deepEqual(revoked, ["blob:test"]);
+    assert.deepEqual(notifications, [["Download unavailable. Copy the result instead.", "warning"]]);
+    context.URL.createObjectURL = () => { throw Error("denied"); };
+    context.window.acornDownload("data");
+    assert.deepEqual(revoked, ["blob:test"]);
+    assert.deepEqual(notifications, [
+        ["Download unavailable. Copy the result instead.", "warning"],
+        ["Download unavailable. Copy the result instead.", "warning"],
+    ]);
 });
 test("leaving the drawer layout closes an open drawer through its state-owning control", async () => {
     const { readFile } = await import("node:fs/promises");

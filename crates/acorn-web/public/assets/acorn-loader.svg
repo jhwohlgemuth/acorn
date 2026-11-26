@@ -27,11 +27,16 @@
       .draw { stroke: #91d4a1; }
       .official-logo g { fill: #d9a17c; }
     }
+    :root:has(#theme-light:target) .draw { stroke: #176b3a; }
+    :root:has(#theme-light:target) .official-logo g { fill: #80350e; }
+    :root:has(#theme-dark:target) .draw { stroke: #91d4a1; }
+    :root:has(#theme-dark:target) .official-logo g { fill: #d9a17c; }
     @media (prefers-reduced-motion: reduce) {
       .draw, .acorn { animation: none; opacity: 1; }
       .draw { stroke-dashoffset: 0; }
     }
   </style>
+  <defs><g id="theme-light"/><g id="theme-dark"/></defs>
   <g class="phase-one" transform="rotate(0 60 60)">
     <path class="draw shaft" pathLength="100" d="M60 24 A36 36 0 0 1 95.4531 66.2513"/>
     <path class="draw head" pathLength="100" d="M95.4531 66.2513 L91.5152 59.3962"/>

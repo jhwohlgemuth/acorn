@@ -13,6 +13,13 @@ use alloc::collections::BTreeSet;
 use dioxus::prelude::*;
 use serde_json::Value;
 
+/// Retained ROR subset and the identifiers used to load it.
+#[derive(Default)]
+pub(crate) struct LocationIndexCache {
+    identifiers: BTreeSet<String>,
+    result: Option<Result<LocationIndex, String>>,
+    request: u64,
+}
 #[derive(Clone, Default)]
 pub(crate) struct MapPins {
     pub(crate) identifiers: BTreeSet<String>,
@@ -23,7 +30,7 @@ pub(crate) fn Geospatial() -> Element {
     let workspace = use_context::<Signal<Workspace>>();
     let mut pins = use_context::<Signal<MapPins>>();
     let drawer = use_context::<Signal<Option<Detail>>>();
-    let mut index = use_context::<Signal<Option<Result<LocationIndex, String>>>>();
+    let index = use_context::<Signal<LocationIndexCache>>();
     let mut search = use_signal(String::new);
     let regex = use_signal(|| false);
     let case_sensitive = use_signal(|| false);
@@ -33,12 +40,10 @@ pub(crate) fn Geospatial() -> Element {
     let mut expanded_projects = use_signal(|| None::<String>);
     let mut error = use_signal(String::new);
     let mut descending = use_signal(|| false);
-    use_future(move || async move {
-        // The session keeps one parsed registry; only a missing or failed load fetches again.
-        if !index.peek().as_ref().is_some_and(Result::is_ok) {
-            load_index(index).await;
-        }
-    });
+    let requested_identifiers = geospatial::referenced_identifiers(&workspace.read(), &pins.read().identifiers);
+    use_effect(use_reactive((&requested_identifiers,), move |(identifiers,)| {
+        reload_index(index, identifiers, false);
+    }));
     use_future(move || async move {
         let base = asset!("/assets/generated/geospatial").to_string();
         #[cfg(debug_assertions)]
@@ -57,7 +62,7 @@ pub(crate) fn Geospatial() -> Element {
             if event.get("type").unwrap_or(&Value::Null) == "select" {
                 let id = event.get("id").and_then(Value::as_str).map(str::to_owned);
                 selected.set(id.clone());
-                if let Some(Ok(index)) = index.peek().as_ref() {
+                if let Some(Ok(index)) = index.peek().result.as_ref() {
                     if let Some(marker) = geospatial::markers_with_identifiers(&workspace.read(), index, &pins.read().identifiers)
                         .iter()
                         .find(|marker| Some(&marker.id) == id.as_ref())
@@ -90,6 +95,7 @@ pub(crate) fn Geospatial() -> Element {
         String::new()
     };
     let all = data
+        .result
         .as_ref()
         .and_then(|result| result.as_ref().ok())
         .map(|index| geospatial::markers_with_identifiers(&snapshot, index, &pins.read().identifiers))
@@ -166,9 +172,9 @@ pub(crate) fn Geospatial() -> Element {
         h2 { class: "section-heading", Icon { name: "globe" } "Organization locations" }
         div { id: "geospatial-map", class: "geospatial-map", hidden: !error().is_empty(), "aria-label": "Organization globe. The table below provides equivalent organization data." }
         if !error().is_empty() { p { role: "status", class: "status invalid", "{error}" } }
-        match &*data {
+        match data.result.as_ref() {
             None => rsx! { p { role: "status", "Loading bundled organization locations…" } },
-            Some(Err(message)) => rsx! { div { p { role: "alert", class: "error", "{message}" } button { r#type: "button", onclick: move |_| { index.set(None); spawn(load_index(index)); }, "Retry local index" } } },
+            Some(Err(message)) => rsx! { div { p { role: "alert", class: "error", "{message}" } button { r#type: "button", onclick: move |_| reload_index(index, geospatial::referenced_identifiers(&workspace.read(), &pins.read().identifiers), true), "Retry local index" } } },
             Some(Ok(index)) => rsx! {
                 p { class: "small muted", "ROR {index.version} · {index.date} · {index.license}. Local NASA Black Marble imagery; no online map, terrain or registry services." }
                 details { summary { "Dataset provenance" } p { a { href: index.source.clone(), target: "_blank", rel: "noopener noreferrer", "Pinned ROR data release ↗" } } p { class: "small digest", "Source JSON SHA-256: {index.source_sha256}" } a { href: asset!("/assets/geospatial/ROR_PROVENANCE.md"), "Generation and license details" } }
@@ -194,11 +200,33 @@ pub(crate) fn Geospatial() -> Element {
         if filtered.is_empty() && !snapshot.activities().is_empty() { p { "No referenced ROR organizations match this view." } }
     }
 }
-async fn load_index(mut index: Signal<Option<Result<LocationIndex, String>>>) {
-    let url = asset!("/assets/geospatial/ror-locations.json").to_string();
-    index.set(Some(script::load_ror_index(&url).await.map_err(|_| {
-        "The bundled ROR location index could not load. Retry to read the local asset again; no online registry was contacted.".into()
-    })));
+fn needs_index_load(cache: &LocationIndexCache, identifiers: &BTreeSet<String>, retry: bool) -> bool {
+    retry || cache.identifiers != *identifiers || cache.result.is_none()
+}
+fn reload_index(mut cache: Signal<LocationIndexCache>, identifiers: BTreeSet<String>, retry: bool) {
+    let (reload, serial) = {
+        let state = cache.peek();
+        (needs_index_load(&state, &identifiers, retry), state.request.saturating_add(1))
+    };
+    if reload {
+        {
+            let mut state = cache.write();
+            state.identifiers = identifiers.clone();
+            state.result = None;
+            state.request = serial;
+        }
+        spawn(async move {
+            let url = asset!("/assets/geospatial/ror-locations.json").to_string();
+            let worker = asset!("/assets/scripts/ror-index-worker.js").to_string();
+            let result = script::load_ror_index(&url, &worker, &identifiers).await.map_err(|_| {
+                "The bundled ROR location index could not load. Retry to read the local asset again; no online registry was contacted.".into()
+            });
+            if cache.peek().request == serial {
+                let mut state = cache.write();
+                state.result = Some(result);
+            }
+        });
+    }
 }
 #[component]
 pub(crate) fn RorMapButton(identifier: String) -> Element {
@@ -220,5 +248,37 @@ pub(crate) fn RorMapButton(identifier: String) -> Element {
             },
             Icon { name: "globe" }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::collections::BTreeMap;
+
+    #[test]
+    fn test_location_index_cache_reuses_matching_subset_and_retries_on_request() {
+        let identifiers = BTreeSet::from(["https://ror.org/01qz5mb56".to_string()]);
+        let index = LocationIndex {
+            version: "test".into(),
+            date: "test".into(),
+            source: "test".into(),
+            source_sha256: "test".into(),
+            license: "test".into(),
+            organizations: BTreeMap::new(),
+        };
+        let mut cache = LocationIndexCache {
+            identifiers: identifiers.clone(),
+            result: Some(Ok(index)),
+            ..LocationIndexCache::default()
+        };
+        assert!(!needs_index_load(&cache, &identifiers, false));
+        assert!(needs_index_load(&cache, &BTreeSet::new(), false));
+        assert!(needs_index_load(&cache, &identifiers, true));
+        cache.result = Some(Err("failed".into()));
+        assert!(!needs_index_load(&cache, &identifiers, false));
+        assert!(needs_index_load(&cache, &identifiers, true));
+        cache.result = None;
+        assert!(needs_index_load(&cache, &identifiers, false));
     }
 }

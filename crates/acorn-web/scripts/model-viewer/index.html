@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ACORN · 3D model library</title>
+    <link rel="icon" href="/acorn-icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/cesium/Widgets/widgets.css">
+    <link rel="stylesheet" href="/acorn.css">
+    <link rel="stylesheet" href="/viewer.css">
+    <script src="/cesium/Cesium.js" defer></script>
+    <script src="/viewer.js" defer></script>
+</head>
+<body class="workspace standalone-window model-workspace" data-theme="dark">
+    <a class="skip" href="#content-main">Skip to content</a>
+    <main id="content-main" tabindex="-1">
+        <div class="page-toolbar"><button id="theme-toggle" class="theme-toggle" title="Switch between dark and light themes" aria-label="Switch to dark theme (current: System light)" aria-pressed="false"><span class="switch-track"><span class="switch-thumb"></span></span><span class="theme-icon" aria-hidden="true"><span class="theme-moon">☾</span><span class="theme-sun">☀</span></span><span id="theme-label" class="nav-label">Light</span></button><span class="theme-static"><span class="theme-flag" aria-hidden="true">🇺🇸</span><a href="https://designsystem.digital.gov/" target="_blank" rel="noopener noreferrer">USWDS</a></span></div>
+        <div class="page info-page model-page" data-page="geospatial">
+            <section class="options filterbar" aria-label="Find a model">
+                <label class="field">Collection<select id="categories" aria-label="Filter by collection"><option value="">All models</option></select></label>
+                <label class="field">Search models<input id="asset-search" type="search" placeholder="Search by name or collection…" autocomplete="off"></label>
+                <label class="field">Model <span id="result-count" aria-live="polite"></span><select id="asset" disabled><option>Loading collection…</option></select></label>
+                <button id="clear-filters" type="button" hidden>Clear filters</button>
+            </section>
+            <p id="empty-results" role="status" hidden>No models match your search. Clear the filters to browse all models.</p>
+            <div class="model-layout">
+                <section class="stage" aria-label="Model preview">
+                    <div id="viewport" tabindex="0" role="region" aria-label="Interactive 3D model" aria-describedby="controls-help"></div>
+                    <div class="scene-heading"><span class="eyebrow">3D PREVIEW</span><span id="view-name">Perspective</span></div>
+                    <div class="toolbar skip-check-choices" role="group" aria-label="Model view controls">
+                        <button data-view="perspective" title="Reset view (R)">Reset view</button>
+                        <button data-view="front">Front</button><button data-view="back">Back</button><button data-view="top">Top</button>
+                        <span class="divider" aria-hidden="true"></span><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button>
+                    </div>
+                </section>
+                <aside class="card collection" aria-labelledby="model-name">
+                    <span id="category" class="eyebrow">COLLECTION</span><h2 id="model-name">Loading…</h2><p id="description"></p>
+                    <h3>Asset details</h3><dl id="metadata"></dl>
+                    <a id="download" hidden download>Download GLB <span aria-hidden="true">↓</span></a>
+                    <p class="collection-note">ORNL & natural finishes · Original miniature<br>Refresh after adding or rebuilding assets.</p>
+                </aside>
+            </div>
+            <footer class="scene-footer"><p id="status" role="status" aria-live="polite">Loading collection…</p><p id="controls-help">Drag to orbit · Scroll or pinch to zoom<br>Keyboard: arrows to orbit · + / − to zoom · R to reset</p></footer>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,62 @@
+{
+  "renderer": "Cesium 1.147.0 / Chromium",
+  "assets": [
+    {
+      "id": "drone/autel-evo-max-4t",
+      "sha256": "f418da115c96b14f1139e3f1c04bd4c458f72eb9c2de48302ec4b85c3bc4b159"
+    },
+    {
+      "id": "drone/bitcraze-crazyflie-2-1",
+      "sha256": "f06b059c00e95c22838ed7d2a6fb1f00612f09ee5aeaae5916d19ee44ac57cb7"
+    },
+    {
+      "id": "drone/dji-matrice-350-rtk",
+      "sha256": "45879ca8a8c782bd6dbd4faf7b6a0c1c02cdaa2fdf31b019367e303247adbda2"
+    },
+    {
+      "id": "drone/dji-mavic-3-enterprise",
+      "sha256": "218730196badca338b7d0dd693ca0077772a4a2702fb8d40074b9dab9b971735"
+    },
+    {
+      "id": "drone/dji-phantom-4-rtk",
+      "sha256": "70e6f9d49a7ead1f5861882d690a1b3a6e8010c5d0b4694f00cdbbe32f4c335e"
+    },
+    {
+      "id": "drone/ebee-x",
+      "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea"
+    },
+    {
+      "id": "drone/freefly-astro",
+      "sha256": "c183f5567c008ac020c638fc0b52f573e85e4e7bd4952e1ed9dfadbaeb1066d8"
+    },
+    {
+      "id": "drone/holybro-x500-v2",
+      "sha256": "752ef7a391cac1bec59e1e51905d66ac077e291a87c4323129669cedd253f26b"
+    },
+    {
+      "id": "drone/ornl-strelka",
+      "sha256": "d92415c8ca7ba356f98fe4759ff80833e289e5fb715f3600ffa89b9d54b6fe29"
+    },
+    {
+      "id": "drone/parrot-anafi-ai",
+      "sha256": "d6238cde7a46dc3ab2106233fb1e64975ea717325cd5edb1ff5da6c4043df9a5"
+    },
+    {
+      "id": "drone/skydio-x10",
+      "sha256": "0900de6d639c17055ec22f3059aa6b92c140399e7f3ef7e52193e02e2dc623c3"
+    },
+    {
+      "id": "drone/wingtraone-gen-ii",
+      "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b"
+    }
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "views": [
+    "front",
+    "rear",
+    "top",
+    "small"
+  ],
+  "visualReview": "Prior visual review retained: asset hashes, geometry and materials unchanged by the supercomputer cyan update on 2026-11-26."
+}

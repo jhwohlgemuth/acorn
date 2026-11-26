@@ -1,0 +1,46 @@
+{
+  "renderer": "Cesium 1.147.0 / Chromium",
+  "assets": [
+    {
+      "id": "landmarks/gateway-arch",
+      "sha256": "dd44f0bacfca8253fe92e4273a6545dfcdfa85f9f5c6c2b397d11124e9d071b2"
+    },
+    {
+      "id": "landmarks/golden-gate-bridge",
+      "sha256": "57275f6295efcbcf41e496da668c400b932f3d7cce7fa8b7aec9f0c08d01ae0c"
+    },
+    {
+      "id": "landmarks/grand-canyon",
+      "sha256": "d36ad43d25709ae41fa5f90364c0118a58204b7a7d448d3b81ea32c7e0d5d8f2"
+    },
+    {
+      "id": "landmarks/hoover-dam",
+      "sha256": "6509f2e5f98eb5e4db20eda280ada57454361257d06d698440c29d18e850f871"
+    },
+    {
+      "id": "landmarks/kennedy-space-center",
+      "sha256": "7dc25edc3c0a7eae522bdf07af155bc29e1226e8a9643caca29624cda2ca37c0"
+    },
+    {
+      "id": "landmarks/statue-of-liberty",
+      "sha256": "925b39ff833e16b75809bf6debf45aacdbcfa69857fe111c71e1365bcfe082b5"
+    },
+    {
+      "id": "landmarks/us-capitol",
+      "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934"
+    },
+    {
+      "id": "landmarks/yellowstone",
+      "sha256": "844f6fa179abf1f00c16e7067e5b3d3df79f469f57cfa307e5d0e88b281979ef"
+    }
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "views": [
+    "front",
+    "rear",
+    "top",
+    "small"
+  ],
+  "visualReview": "Prior visual review retained: asset hashes, geometry and materials unchanged by the supercomputer cyan update on 2026-11-26."
+}

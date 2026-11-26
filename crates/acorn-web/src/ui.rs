@@ -1,5 +1,6 @@
 use crate::geospatial_page::{Geospatial, MapPins};
 use crate::icon::IconName;
+use crate::research_graph::ResearchGraphPage;
 use crate::results::ResultView;
 use crate::sample;
 use crate::script;
@@ -58,6 +59,13 @@ pub(crate) enum Route {
     #[layout(Shell)]
     #[route("/")]
     Home {},
+    #[route("/graph?:gkind&:gedge&:gsel&:gsig")]
+    Graph {
+        gkind: String,
+        gedge: String,
+        gsel: String,
+        gsig: String,
+    },
     #[route("/:page")]
     Page { page: String },
 }
@@ -87,6 +95,7 @@ impl ToolSessions {
         let review_seen_session = Signal::new(String::new());
         let review_drafts = Signal::new(BTreeMap::new());
         let review_editor_source = Signal::new(None);
+        let review_example_loaded = Signal::new(false);
         Self {
             activity: ToolSignals::isolated(),
             big_o: ToolSignals::isolated(),
@@ -99,6 +108,7 @@ impl ToolSessions {
                 review_seen_session,
                 review_drafts,
                 review_editor_source,
+                review_example_loaded,
             ),
             inspect: ToolSignals::isolated(),
             readability: ToolSignals::new(
@@ -107,6 +117,7 @@ impl ToolSessions {
                 review_seen_session,
                 review_drafts,
                 review_editor_source,
+                review_example_loaded,
             ),
             standard: ToolSignals::new(
                 review_request,
@@ -114,6 +125,7 @@ impl ToolSessions {
                 review_seen_session,
                 review_drafts,
                 review_editor_source,
+                review_example_loaded,
             ),
         }
     }
@@ -158,7 +170,7 @@ impl WindowType {
         }
         match route {
             | Route::Page { page } if page == "dashboard" => Self::Dashboard,
-            | Route::Home {} | Route::Page { .. } => Self::Workspace,
+            | Route::Home {} | Route::Graph { .. } | Route::Page { .. } => Self::Workspace,
         }
     }
 }
@@ -311,77 +323,20 @@ pub(crate) fn FileInput(
         }
     }
 }
-fn template_format_choices() -> Vec<(String, String, &'static str)> {
-    [(MimeType::Json, "JSON starter files"), (MimeType::Yaml, "YAML starter files")]
-        .into_iter()
-        .map(|(format, title)| {
-            let value = format.file_type();
-            (value.clone(), value.to_uppercase(), title)
-        })
-        .collect()
-}
-#[component]
-pub(crate) fn TemplatePicker(onselect: EventHandler<(String, MimeType)>) -> Element {
-    let template_query = use_signal(String::new);
-    let template_regex = use_signal(|| false);
-    let template_case_sensitive = use_signal(|| false);
-    let mut template_format = use_signal(|| MimeType::Json);
-    let mut template_descending = use_signal(|| false);
-    let pattern = SearchPattern::new(&template_query(), template_regex(), template_case_sensitive());
-    let mut visible_templates = pattern
-        .as_ref()
-        .map(|pattern| {
-            templates::TEMPLATES
-                .iter()
-                .filter(|template| {
-                    [
-                        template.title.as_str(),
-                        template.description.as_str(),
-                        template.includes.as_str(),
-                        template.replace.as_str(),
-                    ]
-                    .iter()
-                    .any(|text| pattern.matches(text))
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    visible_templates.sort_by(|left, right| {
-        left.title
-            .to_lowercase()
-            .cmp(&right.title.to_lowercase())
-            .then_with(|| left.id.cmp(&right.id))
-    });
-    if template_descending() {
-        visible_templates.reverse();
-    }
-    rsx! { div { class: "template-picker", role: "region", "aria-label": "Project templates",
-        div { class: "template-picker-controls",
-            SearchField { label: "Search templates", visible_label: Some("Search"), placeholder: "Search templates…", query: template_query, regex: template_regex, case_sensitive: template_case_sensitive, error: pattern.as_ref().err().cloned(), compact: true }
-            ChoiceField { label: "Format", value: template_format().file_type(), choices: template_format_choices(), width: 48, widths: vec![48, 52], onchange: move |value: String| template_format.set(MimeType::from(value.as_str())) }
-            div { class: "template-sort", role: "group", "aria-label": "Sort templates",
-                span { "Sort" }
-                div { class: "template-sort-buttons",
-                    button { r#type: "button", "aria-label": "Name A to Z", title: "Name A–Z", "aria-pressed": !template_descending(), onclick: move |_| template_descending.set(false), Icon { name: "sort-asc" } }
-                    button { r#type: "button", "aria-label": "Name Z to A", title: "Name Z–A", "aria-pressed": template_descending(), onclick: move |_| template_descending.set(true), Icon { name: "sort-desc" } }
-                }
-            }
-        }
-        p { class: "small muted template-picker-count", role: "status", "{visible_templates.len()} of {templates::TEMPLATES.len()} templates" }
-        if visible_templates.is_empty() && pattern.is_ok() { p { class: "small muted template-picker-empty", "No templates match your search." } }
-        if !visible_templates.is_empty() { div { class: "template-list",
-            for template in visible_templates {
-                button { r#type: "button", class: "template-option", "data-template-id": template.id.as_str(), onclick: move |_| onselect.call((template.id.clone(), template_format())),
-                    span { strong { "{template.title}" } small { if template.files.len() == 1 { "1 file" } else { "{template.files.len()} files" } } }
-                    small { "{template.description}" }
-                }
-            }
-        } }
-    } }
-}
 #[component]
 fn Footer() -> Element {
     rsx! { footer { div { class: "credit-line", "Made with ❤️ by " a { href: "https://github.com/jhwohlgemuth", target: "_blank", rel: "noopener noreferrer", strong { "jhwohlgemuth" } } } } }
+}
+#[component]
+fn Graph(gkind: String, gedge: String, gsel: String, gsig: String) -> Element {
+    let _ = (gkind, gedge, gsel, gsig);
+    rsx! {
+        document::Title { "Graph · {APP_NAME}" }
+        section { class: "page info-page", "data-page": "graph",
+            h1 { class: "page-title", title: RAD_TITLE, Icon { name: "graph" } "Graph" }
+            ResearchGraphPage {}
+        }
+    }
 }
 #[component]
 fn Home() -> Element {
@@ -533,6 +488,7 @@ fn InfoPage(page: String) -> Element {
     let title = match page.as_str() {
         | "aspect" => "ASPECT",
         | "portfolio" => "Portfolio",
+        | "graph" => "Graph",
         | "dashboard" => "Dashboard",
         | "geospatial" => "Geospatial",
         | "s3a" => "S3A",
@@ -567,7 +523,7 @@ fn InfoPage(page: String) -> Element {
     };
     rsx! {
         document::Title { "{document_title}" }
-        section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "aspect" => "chart", "portfolio" | "dashboard" => "portfolio", "geospatial" => "globe", "s3a" => "database", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } }
+        section { class: "page info-page", "data-page": "{page}", h1 { class: "page-title", title: RAD_TITLE, Icon { name: match page.as_str() { "aspect" => "chart", "portfolio" | "dashboard" => "portfolio", "graph" => "graph", "geospatial" => "globe", "s3a" => "database", "install" => "download", "skill" => "book", "settings" => "settings", _ => "info" } }
             "{title}"
         }
             match page.as_str() {
@@ -577,6 +533,7 @@ fn InfoPage(page: String) -> Element {
                     img { class: "construction-gif", src: asset!("/assets/my_acorn_is_missing.gif"), alt: "My acorn is missing", width: "400", height: "237" }
                 } },
                 "portfolio" => rsx! { Portfolio { dashboard_only: false } },
+                "graph" => rsx! { ResearchGraphPage {} },
                 "dashboard" => rsx! { Portfolio { dashboard_only: true } },
                 "geospatial" => rsx! { Geospatial {} },
                 "install" => rsx! { Install {} },
@@ -896,6 +853,7 @@ fn Shell() -> Element {
     let window_type = WindowType::for_route(&route, editor_popout());
     let current = match route {
         | Route::Home {} => "home".to_owned(),
+        | Route::Graph { .. } => "graph".to_owned(),
         | Route::Page { page } => page,
     };
     let review_active = matches!(current.as_str(), "review" | "metadata" | "research-activity" | "metadata-standard")
@@ -948,7 +906,7 @@ fn Shell() -> Element {
                         Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", "{label}" } }
                     }
                     p { class: "nav-heading", "ANALYZE" }
-                    for (slug, name, icon) in [("geospatial", "Geospatial", "globe"), ("aspect", "ASPECT", "chart"), ("s3a", "S3A", "database")] {
+                    for (slug, name, icon) in [("geospatial", "Geospatial", "globe"), ("graph", "Graph", "graph"), ("aspect", "ASPECT", "chart"), ("s3a", "S3A", "database")] {
                         Link { to: Route::Page { page: slug.into() }, class: if current == slug { "nav-item active" } else { "nav-item" }, title: name, "aria-label": name, "aria-current": if current == slug { "page" } else { "false" }, Icon { name: icon } span { class: "nav-label", "{name}" } }
                     }
                     for tool in [Tool::Diff, Tool::BigO] {
@@ -1052,6 +1010,74 @@ fn Technology() -> Element {
         p { class: "small muted", "Technology names and marks identify their respective projects; no endorsement is implied. " a { href: asset!("/assets/NOTICE.md"), "Artwork sources and notices" } }
     }
 }
+fn template_format_choices() -> Vec<(String, String, &'static str)> {
+    [(MimeType::Json, "JSON starter files"), (MimeType::Yaml, "YAML starter files")]
+        .into_iter()
+        .map(|(format, title)| {
+            let value = format.file_type();
+            (value.clone(), value.to_uppercase(), title)
+        })
+        .collect()
+}
+#[component]
+pub(crate) fn TemplatePicker(onselect: EventHandler<(String, MimeType)>) -> Element {
+    let template_query = use_signal(String::new);
+    let template_regex = use_signal(|| false);
+    let template_case_sensitive = use_signal(|| false);
+    let mut template_format = use_signal(|| MimeType::Json);
+    let mut template_descending = use_signal(|| false);
+    let pattern = SearchPattern::new(&template_query(), template_regex(), template_case_sensitive());
+    let mut visible_templates = pattern
+        .as_ref()
+        .map(|pattern| {
+            templates::TEMPLATES
+                .iter()
+                .filter(|template| {
+                    [
+                        template.title.as_str(),
+                        template.description.as_str(),
+                        template.includes.as_str(),
+                        template.replace.as_str(),
+                    ]
+                    .iter()
+                    .any(|text| pattern.matches(text))
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    visible_templates.sort_by(|left, right| {
+        left.title
+            .to_lowercase()
+            .cmp(&right.title.to_lowercase())
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    if template_descending() {
+        visible_templates.reverse();
+    }
+    rsx! { div { class: "template-picker", role: "region", "aria-label": "Project templates",
+        div { class: "template-picker-controls",
+            SearchField { label: "Search templates", visible_label: Some("Search"), placeholder: "Search templates…", query: template_query, regex: template_regex, case_sensitive: template_case_sensitive, error: pattern.as_ref().err().cloned(), compact: true }
+            ChoiceField { label: "Format", value: template_format().file_type(), choices: template_format_choices(), width: 48, widths: vec![48, 52], onchange: move |value: String| template_format.set(MimeType::from(value.as_str())) }
+            div { class: "template-sort", role: "group", "aria-label": "Sort templates",
+                span { "Sort" }
+                div { class: "template-sort-buttons",
+                    button { r#type: "button", "aria-label": "Name A to Z", title: "Name A–Z", "aria-pressed": !template_descending(), onclick: move |_| template_descending.set(false), Icon { name: "sort-asc" } }
+                    button { r#type: "button", "aria-label": "Name Z to A", title: "Name Z–A", "aria-pressed": template_descending(), onclick: move |_| template_descending.set(true), Icon { name: "sort-desc" } }
+                }
+            }
+        }
+        p { class: "small muted template-picker-count", role: "status", "{visible_templates.len()} of {templates::TEMPLATES.len()} templates" }
+        if visible_templates.is_empty() && pattern.is_ok() { p { class: "small muted template-picker-empty", "No templates match your search." } }
+        if !visible_templates.is_empty() { div { class: "template-list",
+            for template in visible_templates {
+                button { r#type: "button", class: "template-option", "data-template-id": template.id.as_str(), onclick: move |_| onselect.call((template.id.clone(), template_format())),
+                    span { strong { "{template.title}" } small { if template.files.len() == 1 { "1 file" } else { "{template.files.len()} files" } } }
+                    small { "{template.description}" }
+                }
+            }
+        } }
+    } }
+}
 #[component]
 fn TemplatePrompt(
     id: String,
@@ -1135,6 +1161,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut seen_session = signals.seen_session;
     let mut drafts = signals.drafts;
     let mut editor_source = signals.editor_source;
+    let mut example_loaded = signals.example_loaded;
     let mut last_url_intent = use_signal(|| None::<Intent>);
     let mut pending_code = use_signal(|| None::<String>);
     let mut url_draft = use_signal(|| false);
@@ -1160,6 +1187,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         | Intent::Code(content) => {
                             seen_session.set(session.peek().clone());
                             editor_source.set(None);
+                            example_loaded.set(false);
                             url_draft.set(true);
                             request.set(Request {
                                 input: content,
@@ -1221,6 +1249,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 previous.format.clone()
             };
             editor_source.set(source);
+            example_loaded.set(false);
             request.set(Request {
                 input: content,
                 format,
@@ -1313,6 +1342,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 p { "This link contains code. Replace the current editor draft?" }
                 button { r#type: "button", onclick: move |_| {
                     editor_source.set(None);
+                    example_loaded.set(false);
                     url_draft.set(true);
                     request.set(Request { input: content.clone(), ..Request::default() });
                     result.set(None);
@@ -1383,7 +1413,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     initial_url: url_prefill(),
                     selected_tool: Some(tool),
                     ontemplate: move |template: (String, MimeType)| toolbar_template.set(Some(template)),
-                    onload: move |text: String| { workspace.write().selected = None; editor_source.set(None); request.set(Request { input: text, ..request() }); result.set(None); },
+                    onload: move |text: String| { workspace.write().selected = None; editor_source.set(None); example_loaded.set(false); request.set(Request { input: text, ..request() }); result.set(None); },
                     onselect: move |file: SuppliedFile| {
                         let previous = request();
                         let content = drafts.read().get(&file.path).filter(|(source, _)| source == &file.content).map(|(_, draft)| draft.clone()).unwrap_or_else(|| file.content.clone());
@@ -1393,6 +1423,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             previous.format.clone()
                         };
                         editor_source.set(Some(file));
+                        example_loaded.set(false);
                         request.set(Request { input: content, format, ..previous });
                         result.set(None);
                     },
@@ -1400,7 +1431,12 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 section { class: "card editor",
                     div { class: "input-heading",
                         h2 { class: "section-heading", "Input" }
-                        button { class: "sample-action", title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" }, onclick: move |_| { workspace.write().selected = None; editor_source.set(None); let example = operations::example_request(tool); if tool == Tool::Discover { script::sync_popout_input("content", &example.input); } request.set(example); result.set(None); }, span { "aria-hidden": "true", "✨" } "Use example" }
+                        button { class: if !example_loaded() || input.trim().is_empty() { "sample-action" } else { "sample-action example-hidden" },
+                            disabled: example_loaded() && !input.trim().is_empty(),
+                            title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" },
+                            onclick: move |_| { workspace.write().selected = None; editor_source.set(None); let example = operations::example_request(tool); if tool == Tool::Discover { script::sync_popout_input("content", &example.input); } example_loaded.set(true); request.set(example); result.set(None); },
+                            span { "aria-hidden": "true", "✨" } "Use example"
+                        }
                     }
                     if tool != Tool::Discover { details { class: "tool-settings",
                         summary { Icon { name: "settings" } "Settings"
@@ -1507,6 +1543,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                                 span { "{field_label}" }
                             }
                             CodeEditor { id: "content", label: editor_label, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, popout_state: window_sync::handoff(tool, signals), title_icon: if is_editor_popout { Some(tool.icon()) } else { None }, oninput: move |value: String| {
+                                if value.trim().is_empty() { example_loaded.set(false); }
                                 if let Some(file) = &selected_file {
                                     if value == file.content { drafts.write().remove(&file.path); }
                                     else { drafts.write().insert(file.path.clone(), (file.content.clone(), value.clone())); }
@@ -1543,7 +1580,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         if *request.peek() == submitted {
                             result.set(Some(output)); window_sync::publish_snapshot(tool, signals); script::show_tool_result(tool.slug(), celebrate);
                         }
-                    }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); if tool == Tool::Discover { script::sync_popout_input("content", ""); } request.set(Request::default()); result.set(None); }, "Clear" } }
+                    }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); example_loaded.set(false); if tool == Tool::Discover { script::sync_popout_input("content", ""); } request.set(Request::default()); result.set(None); }, "Clear" } }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
                 }
                 }

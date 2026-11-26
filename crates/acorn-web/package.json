@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:editor": "node scripts/build-editor.mjs"
+    "build:editor": "node scripts/build-editor.mjs",
+    "models": "node scripts/model-viewer.mjs",
+    "test:models-viewer": "node scripts/model-viewer-smoke.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

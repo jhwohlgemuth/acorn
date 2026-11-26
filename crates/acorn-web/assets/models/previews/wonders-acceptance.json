@@ -1,0 +1,46 @@
+{
+  "renderer": "Cesium 1.147.0 / Chromium",
+  "assets": [
+    {
+      "id": "wonders/chichen-itza",
+      "sha256": "50f7bc06bcf396a63be23372237f4927025ba8100024caeb65e005f22b2ae87c"
+    },
+    {
+      "id": "wonders/christ-the-redeemer",
+      "sha256": "7768fe88919fa8bd6f2abe2d9e97dea20c6c45d2fac39c8b3b58c77cc6eae4a6"
+    },
+    {
+      "id": "wonders/colosseum",
+      "sha256": "fdc027ef7d1c104b319b8732ace93207494f5bbf3604d24b0148fcc68262addc"
+    },
+    {
+      "id": "wonders/great-pyramid-of-giza",
+      "sha256": "accd6d1d84d14b9bb2a1cf68f18a40783ab3add5276d46350dd76d58b20d0f9f"
+    },
+    {
+      "id": "wonders/great-wall-of-china",
+      "sha256": "30dbb12716e48db728ac1bd2be7528d16104b3bf4fc752cfd8efa08cd4be00dc"
+    },
+    {
+      "id": "wonders/machu-picchu",
+      "sha256": "cc17bd78a6aead7b3fa67a32d310969dd09674a8e3adcfd99f38149f7fb688ad"
+    },
+    {
+      "id": "wonders/petra",
+      "sha256": "7fdf4ac072afcb7b44336431b785d0df9cabbf4a18f15359ac8f13687074cb6b"
+    },
+    {
+      "id": "wonders/taj-mahal",
+      "sha256": "d0def0a34b62e0b1a039f82da2e3e46f07be2e1fda81519da3a53e44aaeb125c"
+    }
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "views": [
+    "front",
+    "rear",
+    "top",
+    "small"
+  ],
+  "visualReview": "Prior visual review retained: asset hashes, geometry and materials unchanged by the supercomputer cyan update on 2026-11-26."
+}

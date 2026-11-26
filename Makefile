@@ -605,7 +605,7 @@ web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and pla
 	@node --test crates/acorn-web/scripts/workspace-storage-browser.test.mjs
 
 web-test-wasm: web-prepare ## Run all nine browser operations in the real WASM runtime.
-	@python3 crates/acorn-web/scripts/rust.py wasm-pack test --node crates/acorn-web --lib
+	@python3 crates/acorn-web/scripts/rust.py wasm-pack test --node crates/acorn-web --lib --bin acorn-web
 
 .DEFAULT_GOAL := setup
 ACORN_DOCKER_AMD64 = jhwohlgemuth/acorn:$(VERSION)-amd64

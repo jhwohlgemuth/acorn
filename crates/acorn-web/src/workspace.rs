@@ -648,7 +648,7 @@ async fn reset_tile_layout() -> bool {
 fn route_tool(route: &Route) -> Option<Tool> {
     match route {
         | Route::Page { page } => Tool::iter().find(|tool| tool.slug() == page),
-        | Route::Home {} => None,
+        | Route::Home {} | Route::Graph { .. } => None,
     }
 }
 async fn save_tile_layout(layout: &TileLayout) -> bool {

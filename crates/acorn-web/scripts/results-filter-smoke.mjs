@@ -39,13 +39,11 @@ try {
         await settings.locator("summary").click();
         const filters = page.getByRole("group", { name: label });
         await filters.waitFor();
-        if (tool === "FAIR assessment") {
-            const positions = await filters.evaluate(node => ({
-                showTop: node.getBoundingClientRect().top,
-                searchBottom: node.parentElement.querySelector(".search-control").getBoundingClientRect().bottom,
-            }));
-            assert.ok(positions.showTop >= positions.searchBottom, "FAIR Show controls start below the search field");
-        }
+        const positions = await filters.evaluate(node => ({
+            showTop: node.getBoundingClientRect().top,
+            searchBottom: node.parentElement.querySelector(".search-control").getBoundingClientRect().bottom,
+        }));
+        assert.ok(positions.showTop >= positions.searchBottom, `${tool}: Show controls start below the search field`);
         const all = filters.getByRole("button", { name: /^All/ });
         const selectedStyle = node => {
             const style = getComputedStyle(node);
@@ -133,6 +131,7 @@ try {
             await error.click();
             assert.equal(await diagnostics.count(), initial, `${tool}: Error filter restores errors`);
         }
+        await page.getByRole("button", { name: "Clear", exact: true }).click();
     }
     console.log("Results severity filters and pressed toggle styles passed in Chromium.");
 } finally {

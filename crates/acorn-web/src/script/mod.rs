@@ -15,10 +15,10 @@
 #![allow(clippy::disallowed_methods)]
 use crate::dashboard::TileLayout;
 use crate::workspace::BucketHistory;
-use acorn_core::big_o::AsStr;
 use acorn_macros::{js, js_file};
 use acorn_web::geospatial::LocationIndex;
 use acorn_web::session::SuppliedFile;
+use alloc::collections::BTreeSet;
 use core::future::Future;
 use dioxus::prelude::{document, spawn};
 use serde::de::DeserializeOwned;
@@ -26,13 +26,8 @@ use serde::de::DeserializeOwned;
 /// Diagnostic name for a browser script event.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct EventName(String);
-impl<const N: usize> From<[&str; N]> for EventName {
-    fn from(parts: [&str; N]) -> Self {
-        Self(parts.join("_"))
-    }
-}
-impl AsStr for EventName {
-    fn as_str(&self) -> &str {
+impl AsRef<str> for EventName {
+    fn as_ref(&self) -> &str {
         &self.0
     }
 }
@@ -40,6 +35,11 @@ impl EventName {
     /// Run the named browser script and log failures against this event.
     pub(crate) fn fire(self, source: Result<String, serde_json::Error>) {
         fire(self, source);
+    }
+}
+impl<const N: usize> From<[&str; N]> for EventName {
+    fn from(parts: [&str; N]) -> Self {
+        Self(parts.join("_"))
     }
 }
 fn bound_channel(name: &'static str, source: Result<String, serde_json::Error>) -> document::Eval {
@@ -140,11 +140,11 @@ pub(crate) fn fire(name: EventName, source: Result<String, serde_json::Error>) {
             let eval = document::eval(&observed);
             spawn(async move {
                 if let Err(error) = eval.join::<serde_json::Value>().await {
-                    tracing::warn!(script = name.as_str(), %error, "Browser script failed");
+                    tracing::warn!(script = name.as_ref(), %error, "Browser script failed");
                 }
             });
         }
-        | Err(error) => tracing::warn!(script = name.as_str(), %error, "Browser script serialization failed"),
+        | Err(error) => tracing::warn!(script = name.as_ref(), %error, "Browser script serialization failed"),
     }
 }
 pub(crate) fn focus_content() {
@@ -200,6 +200,13 @@ pub(crate) fn focus_url_loader() {
 pub(crate) fn fold_editor(id: &'static str) {
     EventName::from(["fold", "editor"]).fire(js!("window.acornEditors?.fold({id})"));
 }
+pub(crate) async fn graph_url_state() -> Result<[String; 4], String> {
+    query(
+        "graph_url_state",
+        js!("return ['gkind','gedge','gsel','gsig'].map(k=>window.acornUrl.getParameters(k)[0]??'')"),
+    )
+    .await
+}
 pub(crate) async fn highlight(text: &str, language: &str) -> Result<String, String> {
     let args = (text, language);
     query("highlight", js!("if (!window.acornSyntax) await new Promise(resolve => window.addEventListener('acorn-syntax-ready', resolve, {once:true})); const [text, language] = {args}; return window.acornSyntax.highlight(text, language);")).await
@@ -211,8 +218,8 @@ pub(crate) async fn load_remote_bucket(url: &str, reference: &str) -> Result<ser
     let args = (url, reference);
     query("load_remote_bucket", js_file!("load-remote-bucket.js", args)).await
 }
-pub(crate) async fn load_ror_index(url: &str) -> Result<LocationIndex, String> {
-    query("load_ror_index", js_file!("load-ror-index.js", url)).await
+pub(crate) async fn load_ror_index(url: &str, worker: &str, identifiers: &BTreeSet<String>) -> Result<LocationIndex, String> {
+    query("load_ror_index", js_file!("load-ror-index.js", (url, worker, identifiers))).await
 }
 pub(crate) async fn load_skill(base: &str, version: &str) -> Result<serde_json::Value, String> {
     let args = (base, version);
@@ -226,10 +233,10 @@ pub(crate) fn map_channel(module: &str, css: &str) -> document::Eval {
     let args = (module, css);
     bound_channel("map_channel", js_file!("map-channel.js", args))
 }
-
 pub(crate) fn navigate_editor_issue(id: &'static str, direction: i8) {
     EventName::from(["navigate", "editor", "issue"]).fire(js!("window.acornEditors?.navigateIssue({id}, {direction})"));
 }
+
 pub(crate) fn notify_dashboard(message: &str, kind: &'static str) {
     EventName::from(["notify", "dashboard"]).fire(js!("window.acornChrome?.notifications.notify({message}, {kind})"));
 }
@@ -257,9 +264,6 @@ pub(crate) fn open_editor_find(id: &'static str) {
 }
 pub(crate) fn open_editor_in_new_tab(id: &'static str, state: Option<String>) {
     EventName::from(["open", "editor", "in", "new", "tab"]).fire(js!("window.acornEditors?.openInNewTab({id}, {state})"));
-}
-pub(crate) fn sync_popout_input(id: &'static str, value: &str) {
-    EventName::from(["sync", "popout", "input"]).fire(js!("window.acornEditors?.syncPopoutInput({id}, {value})"));
 }
 pub(crate) fn open_file_picker(slug: &'static str) {
     EventName::from(["open", "file", "picker"]).fire(js!(
@@ -353,6 +357,10 @@ pub(crate) fn scroll_details_to_top() {
 pub(crate) fn set_editor_font_size(id: &'static str, size: &'static str) {
     EventName::from(["set", "editor", "font", "size"]).fire(js!("window.acornEditors?.setFontSize({id}, {size})"));
 }
+pub(crate) fn set_graph_url(kind: &str, edge: &str, selection: &str, signature: &str) {
+    let args = (kind, edge, selection, signature);
+    EventName::from(["set", "graph", "url"]).fire(js!("const [kind,edge,selection,signature]={args}; for (const [key,value] of [['gkind',kind],['gedge',edge],['gsel',selection],['gsig',signature]]) window.acornUrl.setParameters(key,value || null,true)"));
+}
 pub(crate) fn set_review_fragment(fragment: &'static str) {
     EventName::from(["set", "review", "fragment"]).fire( js!("if (!window.acornUrl) await new Promise(resolve => window.addEventListener('acorn-url-ready', resolve, {once:true})); window.acornInitialReviewFragment = ''; window.acornUrl.setFragment({fragment})"));
 }
@@ -394,6 +402,9 @@ pub(crate) fn sync_editor(
 }
 pub(crate) fn sync_page_navigation() {
     EventName::from(["sync", "page", "navigation"]).fire(js_file!("sync-page-navigation.js", ()));
+}
+pub(crate) fn sync_popout_input(id: &'static str, value: &str) {
+    EventName::from(["sync", "popout", "input"]).fire(js!("window.acornEditors?.syncPopoutInput({id}, {value})"));
 }
 pub(crate) fn toggle_editor_fullscreen(id: &'static str) {
     EventName::from(["toggle", "editor", "fullscreen"]).fire(js!("window.acornEditors?.toggleFullscreen({id})"));

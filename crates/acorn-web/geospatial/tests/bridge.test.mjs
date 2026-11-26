@@ -35,6 +35,7 @@ test("500 projects and 1000 marker DTOs remain bounded and retain selection", ()
 });
 test("map bridge bounds its DTO and copies caller-owned state", () => {
     const copy = validateState(state);
+    assert.equal(validateState({ ...state, theme: "uswds" }).theme, "uswds");
     copy.markers[0].name = "changed";
     copy.projects[0].title = "changed";
     assert.equal(marker.name, "<b>Literal name</b>");

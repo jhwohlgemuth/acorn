@@ -1,0 +1,174 @@
+{
+  "renderer": "Cesium 1.147.0 / Chromium",
+  "assets": [
+    {
+      "id": "drone/autel-evo-max-4t",
+      "sha256": "f418da115c96b14f1139e3f1c04bd4c458f72eb9c2de48302ec4b85c3bc4b159"
+    },
+    {
+      "id": "drone/bitcraze-crazyflie-2-1",
+      "sha256": "f06b059c00e95c22838ed7d2a6fb1f00612f09ee5aeaae5916d19ee44ac57cb7"
+    },
+    {
+      "id": "drone/dji-matrice-350-rtk",
+      "sha256": "45879ca8a8c782bd6dbd4faf7b6a0c1c02cdaa2fdf31b019367e303247adbda2"
+    },
+    {
+      "id": "drone/dji-mavic-3-enterprise",
+      "sha256": "218730196badca338b7d0dd693ca0077772a4a2702fb8d40074b9dab9b971735"
+    },
+    {
+      "id": "drone/dji-phantom-4-rtk",
+      "sha256": "70e6f9d49a7ead1f5861882d690a1b3a6e8010c5d0b4694f00cdbbe32f4c335e"
+    },
+    {
+      "id": "drone/ebee-x",
+      "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea"
+    },
+    {
+      "id": "drone/freefly-astro",
+      "sha256": "c183f5567c008ac020c638fc0b52f573e85e4e7bd4952e1ed9dfadbaeb1066d8"
+    },
+    {
+      "id": "drone/holybro-x500-v2",
+      "sha256": "752ef7a391cac1bec59e1e51905d66ac077e291a87c4323129669cedd253f26b"
+    },
+    {
+      "id": "drone/ornl-strelka",
+      "sha256": "d92415c8ca7ba356f98fe4759ff80833e289e5fb715f3600ffa89b9d54b6fe29"
+    },
+    {
+      "id": "drone/parrot-anafi-ai",
+      "sha256": "d6238cde7a46dc3ab2106233fb1e64975ea717325cd5edb1ff5da6c4043df9a5"
+    },
+    {
+      "id": "drone/skydio-x10",
+      "sha256": "0900de6d639c17055ec22f3059aa6b92c140399e7f3ef7e52193e02e2dc623c3"
+    },
+    {
+      "id": "drone/wingtraone-gen-ii",
+      "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b"
+    },
+    {
+      "id": "landmarks/gateway-arch",
+      "sha256": "dd44f0bacfca8253fe92e4273a6545dfcdfa85f9f5c6c2b397d11124e9d071b2"
+    },
+    {
+      "id": "landmarks/golden-gate-bridge",
+      "sha256": "57275f6295efcbcf41e496da668c400b932f3d7cce7fa8b7aec9f0c08d01ae0c"
+    },
+    {
+      "id": "landmarks/grand-canyon",
+      "sha256": "d36ad43d25709ae41fa5f90364c0118a58204b7a7d448d3b81ea32c7e0d5d8f2"
+    },
+    {
+      "id": "landmarks/hoover-dam",
+      "sha256": "6509f2e5f98eb5e4db20eda280ada57454361257d06d698440c29d18e850f871"
+    },
+    {
+      "id": "landmarks/kennedy-space-center",
+      "sha256": "7dc25edc3c0a7eae522bdf07af155bc29e1226e8a9643caca29624cda2ca37c0"
+    },
+    {
+      "id": "landmarks/statue-of-liberty",
+      "sha256": "925b39ff833e16b75809bf6debf45aacdbcfa69857fe111c71e1365bcfe082b5"
+    },
+    {
+      "id": "landmarks/us-capitol",
+      "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934"
+    },
+    {
+      "id": "landmarks/yellowstone",
+      "sha256": "844f6fa179abf1f00c16e7067e5b3d3df79f469f57cfa307e5d0e88b281979ef"
+    },
+    {
+      "id": "research/collaboration",
+      "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad"
+    },
+    {
+      "id": "research/dataset",
+      "sha256": "606d2beb0a9a9b54f6515c776954163cfc06d6dc4571797a231931268a0cee8f"
+    },
+    {
+      "id": "research/doe-national-laboratory",
+      "sha256": "e2c0cd9119bd1989848f1949815bd56ee7270cf91449e5794c337ad11cfb8add"
+    },
+    {
+      "id": "research/field-site",
+      "sha256": "431622fcc2febe117b6836574fad17d0a679f6916e0b0b45051eb478e90def65"
+    },
+    {
+      "id": "research/funding",
+      "sha256": "4e92afb41ceb67bb718e6eaedae901059cc146404287268c318697f602e32249"
+    },
+    {
+      "id": "research/laboratory",
+      "sha256": "06c42fc5a9e7b9b895bc49445789ccc86ec114340cc7b90fe868e2a146d7fb34"
+    },
+    {
+      "id": "research/publication",
+      "sha256": "fc28fa627612803783a7047962ad8d6bdd0f0b7d98640dc5604b11484b6105ef"
+    },
+    {
+      "id": "research/research-project",
+      "sha256": "e2c31ff5d541b9f576f191523fd5e753ec07d66ad22662c09f9e69346d114c9c"
+    },
+    {
+      "id": "research/research-team",
+      "sha256": "50100b7aeda4bc9a9b8ff157e12092830b1fff0c63ac612f6addb3904eaa4170"
+    },
+    {
+      "id": "research/software",
+      "sha256": "ddb036fe22132cb817060500756d5d308e0f99a49d08caa9340a42920b8e615e"
+    },
+    {
+      "id": "research/supercomputer",
+      "sha256": "ddd4a2bd13fd00ec51b0cc22889ee6b805ff3e9dd3a6596c644900f0ef45af02"
+    },
+    {
+      "id": "research/user-facility",
+      "sha256": "9291987cbe8fa902b5ea022b7c79fd0249cc07fa17f3e3265bd8f714f515b093"
+    },
+    {
+      "id": "wonders/chichen-itza",
+      "sha256": "50f7bc06bcf396a63be23372237f4927025ba8100024caeb65e005f22b2ae87c"
+    },
+    {
+      "id": "wonders/christ-the-redeemer",
+      "sha256": "7768fe88919fa8bd6f2abe2d9e97dea20c6c45d2fac39c8b3b58c77cc6eae4a6"
+    },
+    {
+      "id": "wonders/colosseum",
+      "sha256": "fdc027ef7d1c104b319b8732ace93207494f5bbf3604d24b0148fcc68262addc"
+    },
+    {
+      "id": "wonders/great-pyramid-of-giza",
+      "sha256": "accd6d1d84d14b9bb2a1cf68f18a40783ab3add5276d46350dd76d58b20d0f9f"
+    },
+    {
+      "id": "wonders/great-wall-of-china",
+      "sha256": "30dbb12716e48db728ac1bd2be7528d16104b3bf4fc752cfd8efa08cd4be00dc"
+    },
+    {
+      "id": "wonders/machu-picchu",
+      "sha256": "cc17bd78a6aead7b3fa67a32d310969dd09674a8e3adcfd99f38149f7fb688ad"
+    },
+    {
+      "id": "wonders/petra",
+      "sha256": "7fdf4ac072afcb7b44336431b785d0df9cabbf4a18f15359ac8f13687074cb6b"
+    },
+    {
+      "id": "wonders/taj-mahal",
+      "sha256": "d0def0a34b62e0b1a039f82da2e3e46f07be2e1fda81519da3a53e44aaeb125c"
+    }
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "views": [
+    "front",
+    "rear",
+    "top",
+    "small"
+  ],
+  "visualReview": "Reviewed 2026-11-26: supercomputer revision 5 front preview confirms bright cyan illuminated accents. Other assets retain their previously reviewed geometry and materials."
+}

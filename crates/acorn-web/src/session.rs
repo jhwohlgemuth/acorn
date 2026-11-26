@@ -202,13 +202,17 @@ fn identifier_label(kind: &PID) -> String {
     match kind {
         | PID::Handle => "Handle".into(),
         | PID::RAID => "RAiD".into(),
-        | _ => kind.as_str().to_ascii_uppercase(),
+        | _ => kind.as_ref().to_ascii_uppercase(),
     }
+}
+/// One scheme label for each unique explicit PID in validated records.
+pub fn identifier_labels(records: &[(&SuppliedFile, &Value)]) -> impl Iterator<Item = String> {
+    identifier_types(records).into_values().map(|kind| identifier_label(&kind))
 }
 fn identifier_types(records: &[(&SuppliedFile, &Value)]) -> BTreeMap<String, PID> {
     let direct = records.iter().flat_map(|(_, value)| {
         PID::iter().filter(PID::supports_discovery).flat_map(move |kind| {
-            many(metadata(value, kind.as_str()))
+            many(metadata(value, kind.as_ref()))
                 .into_iter()
                 .filter_map(Value::as_str)
                 .filter_map(move |value| {
@@ -243,10 +247,6 @@ fn identifier_types(records: &[(&SuppliedFile, &Value)]) -> BTreeMap<String, PID
             types.entry(key).or_insert(kind);
             types
         })
-}
-/// One scheme label for each unique explicit PID in validated records.
-pub fn identifier_labels(records: &[(&SuppliedFile, &Value)]) -> impl Iterator<Item = String> {
-    identifier_types(records).into_values().map(|kind| identifier_label(&kind))
 }
 /// Unique persistent identifiers from explicit schema PID fields and typed identities.
 pub fn identifiers(records: &[(&SuppliedFile, &Value)]) -> BTreeSet<String> {

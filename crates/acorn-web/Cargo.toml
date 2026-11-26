@@ -1,6 +1,7 @@
 [package]
 name = "acorn-web"
 publish = false
+exclude.workspace = true
 version.workspace = true
 edition = "2021"
 authors.workspace = true
@@ -22,6 +23,7 @@ js-sys = "0.3.105"
 jsonc-parser.workspace = true
 regex.workspace = true
 rust-embed = { workspace = true, features = ["debug-embed"] }
+rustworkx-core.workspace = true
 serde.workspace = true
 serde-wasm-bindgen = "0.6.5"
 serde_json.workspace = true
@@ -33,6 +35,9 @@ wasm-bindgen = "0.2.128"
 [features]
 default = []
 js-lint = ["acorn-macros/js-lint"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
 
 [lints]
 workspace = true

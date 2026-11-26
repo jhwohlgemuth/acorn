@@ -87,7 +87,7 @@ impl Activity {
             .collect::<Vec<_>>();
         let identifiers = PID::iter()
             .filter(PID::supports_discovery)
-            .flat_map(|kind| many(&meta[kind.as_str()]))
+            .flat_map(|kind| many(&meta[kind.as_ref()]))
             .filter_map(string)
             .chain([&meta["organizations"], &meta["contributors"]].into_iter().flat_map(|values| {
                 many(values)
@@ -283,11 +283,11 @@ fn entities(value: &Value) -> Vec<String> {
         .into_iter()
         .collect()
 }
-fn string(value: &Value) -> Option<&str> {
-    value.as_str().filter(|value| !value.trim().is_empty())
-}
 fn relation_key(value: &str) -> String {
     Identifier::new(value)
         .normalized()
         .map_or_else(|| value.trim().to_lowercase(), |identifier| identifier.identity_key())
+}
+fn string(value: &Value) -> Option<&str> {
+    value.as_str().filter(|value| !value.trim().is_empty())
 }

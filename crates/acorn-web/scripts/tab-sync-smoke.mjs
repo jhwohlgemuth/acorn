@@ -154,6 +154,11 @@ try {
     const expandedEditorWidth = await editor.locator(".tool-input-column").evaluate(node => node.getBoundingClientRect().width);
     const expandedResultsIcon = await editor.locator(".results-toggle .legacy-icon").innerHTML();
     assert.ok(expandedResultsIcon.includes("m4-12 3 4-3 4"), "the expanded results use the panel-open icon");
+    await editor.locator('.cm-content').first().focus();
+    await editor.keyboard.press('Control+Shift+\\');
+    assert.equal(await editor.locator('#tool-result-content').isVisible(), false, 'Ctrl+Shift+backslash hides Results from editor focus');
+    await editor.keyboard.press('Meta+Shift+\\');
+    assert.equal(await editor.locator('#tool-result-content').isVisible(), true, 'Command+Shift+backslash restores Results');
     await editor.getByRole("button", { name: "Hide results" }).click();
     assert.equal(await editor.locator("#tool-result-content").isVisible(), false, "hiding results hides their content");
     assert.ok((await editor.locator(".results-toggle .legacy-icon").innerHTML()).includes("M14 8l-3 4 3 4"), "the collapsed results use the panel icon");
@@ -195,6 +200,7 @@ try {
     await editor.locator("#content-editor").press("ControlOrMeta+End");
     await editor.keyboard.insertText(" ");
     await page.waitForFunction(text => document.getElementById("content")?.value === `${text} `, source);
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
     await page.getByRole("button", { name: "Use example" }).click();
     await editor.waitForFunction(() => document.getElementById("content")?.value.length > 20);
     const example = await editor.locator("#content").inputValue();
@@ -305,6 +311,7 @@ try {
     assert.notEqual(await copiedToggle.getAttribute("aria-label"), copiedToggleLabel, "a copied editor URL can toggle results");
     await copiedEditor.close();
 
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
     await page.getByRole("button", { name: "Use example" }).click();
     assert.ok((await page.locator("#content").inputValue()).length > 0);
     let releaseNavigation;

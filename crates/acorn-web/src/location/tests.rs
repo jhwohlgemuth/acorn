@@ -47,21 +47,21 @@ fn test_identifier_location_finds_discovery_example_identifiers() {
         .filter_map(|identifier| identifier.normalized())
     {
         assert!(
-            identifier_location(source, identifier.kind.as_str(), &identifier.value).is_some(),
+            identifier_location(source, identifier.kind.as_ref(), &identifier.value).is_some(),
             "missing source location for {:?}",
             identifier
         );
     }
 }
 #[test]
-fn test_identifier_location_skips_invalid_prefix_and_counts_unicode() {
-    let source = "é\nhttps://ror.org/01qz5mb56xxx\nROR 01qz5mb56";
-    assert_eq!(identifier_location(source, "ror", "https://ror.org/01qz5mb56"), Some((3, 5, 3, 14)));
-}
-#[test]
 fn test_identifier_location_handles_json_escaped_slashes() {
     let source = "é\nhttps:\\/\\/doi.org\\/10.15760\\/etd.6294";
     assert!(identifier_location(source, "doi", "10.15760/etd.6294").is_some());
+}
+#[test]
+fn test_identifier_location_skips_invalid_prefix_and_counts_unicode() {
+    let source = "é\nhttps://ror.org/01qz5mb56xxx\nROR 01qz5mb56";
+    assert_eq!(identifier_location(source, "ror", "https://ror.org/01qz5mb56"), Some((3, 5, 3, 14)));
 }
 #[test]
 fn test_identifier_locations_mark_repeated_aliases_once_each() {

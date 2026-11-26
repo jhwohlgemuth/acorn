@@ -13,6 +13,10 @@ pub struct Slide {
     pub(crate) alt: String,
 }
 impl Slide {
+    /// Caption displayed with the slide image.
+    pub fn caption(&self) -> &str {
+        &self.caption
+    }
     /// URL or data URL used to display the slide image.
     pub fn src(&self) -> &str {
         &self.src

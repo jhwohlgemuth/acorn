@@ -19,6 +19,7 @@ enum ToolMessage {
 pub(crate) struct ToolSignals {
     pub(crate) drafts: Signal<BTreeMap<String, (String, String)>>,
     pub(crate) editor_source: Signal<Option<SuppliedFile>>,
+    pub(crate) example_loaded: Signal<bool>,
     pub(crate) last_request: Signal<Request>,
     pub(crate) request: Signal<Request>,
     pub(crate) result: Signal<Option<Result<Value, String>>>,
@@ -29,6 +30,8 @@ pub(crate) struct ToolSignals {
 struct ToolSnapshot {
     drafts: BTreeMap<String, (String, String)>,
     editor_source: Option<SuppliedFile>,
+    #[serde(default)]
+    example_loaded: bool,
     request: Request,
     result: Option<Result<Value, String>>,
 }
@@ -39,10 +42,12 @@ impl ToolSignals {
         seen_session: Signal<String>,
         drafts: Signal<BTreeMap<String, (String, String)>>,
         editor_source: Signal<Option<SuppliedFile>>,
+        example_loaded: Signal<bool>,
     ) -> Self {
         Self {
             drafts,
             editor_source,
+            example_loaded,
             last_request,
             request,
             result: Signal::new(None),
@@ -57,12 +62,14 @@ impl ToolSignals {
             Signal::new(String::new()),
             Signal::new(BTreeMap::new()),
             Signal::new(None),
+            Signal::new(false),
         )
     }
     fn snapshot(self) -> ToolSnapshot {
         ToolSnapshot {
             drafts: self.drafts.peek().clone(),
             editor_source: self.editor_source.peek().clone(),
+            example_loaded: *self.example_loaded.peek(),
             request: self.request.peek().clone(),
             result: self.result.peek().clone(),
         }
@@ -73,6 +80,7 @@ impl ToolSnapshot {
         self.drafts.is_empty()
             && self.result.is_none()
             && self.editor_source.as_ref().is_none_or(|source| source.content == session)
+            && !self.example_loaded
             && self.request
                 == Request {
                     input: session.to_owned(),
@@ -186,6 +194,7 @@ pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signa
                 signals.last_request.set(snapshot.request.clone());
                 signals.drafts.set(snapshot.drafts);
                 signals.editor_source.set(snapshot.editor_source);
+                signals.example_loaded.set(snapshot.example_loaded);
                 signals.request.set(snapshot.request);
                 signals.result.set(snapshot.result);
                 signals.seen_session.set(session.peek().clone());
@@ -200,6 +209,7 @@ pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signa
             let snapshot = ToolSnapshot {
                 drafts: (signals.drafts)(),
                 editor_source: (signals.editor_source)(),
+                example_loaded: (signals.example_loaded)(),
                 request: (signals.request)(),
                 result: (signals.result)(),
             };

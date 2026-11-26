@@ -1,11 +1,17 @@
 // Explicit user-mediated output effects; no content leaves the browser.
 window.acornDownload = (text, filename = "acorn-result.json", mime = "application/json;charset=utf-8") => {
-    const url = URL.createObjectURL(new Blob([text], { type: ["application/json;charset=utf-8", "application/json-patch+json;charset=utf-8", "text/plain;charset=utf-8"].includes(mime) ? mime : "text/plain;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100) || "acorn-result.txt";
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    let url;
+    try {
+        url = URL.createObjectURL(new Blob([text], { type: ["application/json;charset=utf-8", "application/json-patch+json;charset=utf-8", "text/plain;charset=utf-8", "text/turtle;charset=utf-8"].includes(mime) ? mime : "text/plain;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100) || "acorn-result.txt";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+        if (url) URL.revokeObjectURL(url);
+        window.acornChrome?.notifications.notify("Download unavailable. Copy the result instead.", "warning");
+    }
 };
 window.acornCopy = async (text) => {
     const status = document.getElementById("output-status");
@@ -383,6 +389,12 @@ function createWorkspaceInput() {
 }
 window.acornWorkspace = { ...createWorkspaceInput(), validPath: validWorkspacePath, imageMime: workspaceImageMime, imageContent: workspaceImageContent };
 if (document.addEventListener) {
+    document.addEventListener("keydown", (event) => {
+        if ((!event.metaKey && !event.ctrlKey) || event.altKey || event.repeat || (event.code !== "Backslash" && event.key !== "\\" && !(event.shiftKey && event.key === "|"))) return;
+        const selector = event.shiftKey ? ".graph-panel-toggle, .editor-popout .results-toggle" : "#nav-toggle, .nav-controls button.collapse";
+        const toggle = [...document.querySelectorAll(selector)].find(button => button.getClientRects().length && getComputedStyle(button).visibility !== "hidden");
+        if (toggle) { event.preventDefault(); event.stopPropagation(); toggle.click(); }
+    }, true);
     document.addEventListener("click", (event) => {
         document.querySelectorAll(".workflow-menu[open]").forEach((menu) => { if (!menu.contains(event.target)) menu.removeAttribute("open"); });
     });
@@ -470,7 +482,7 @@ window.acornMap = (() => {
                 if (workspace) observer.observe(workspace, { attributes: true, attributeFilter: ["data-theme"] });
             } catch (error) {
                 // The Dioxus development log bridge accepts only string arguments; an Error object arrives as {}.
-                console.error(`Local map initialization failed: ${error?.stack ?? error}`);
+                console.error(`Local map initialization failed: ${error?.message ?? error}\n${error?.stack ?? ""}`);
                 if (request === generation) notify({ type: "error", message: "Map unavailable. Organization data remains available in the table." });
             }
         },
