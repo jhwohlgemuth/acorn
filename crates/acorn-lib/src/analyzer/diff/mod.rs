@@ -5,7 +5,7 @@ use acorn_schema::{
     codec::DocumentCodec,
     pid::raid,
     research_activity::ResearchActivity,
-    standard::{cff, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile::Kitfile, zon, Standard},
+    standard::{cff, czml, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile::Kitfile, zon, Standard},
 };
 use core::{error::Error, fmt};
 use serde::{de::DeserializeOwned, Serialize};
@@ -16,7 +16,7 @@ trait StandardDiffExt {
     fn detect(input: &DiffInput<'_>) -> Result<Self, SemanticDiffError>
     where
         Self: Sized;
-    fn detect_value(value: &Value) -> Option<Self>
+    fn detect_nested_value(value: &Value) -> Option<Self>
     where
         Self: Sized;
     fn render(self, value: &Value, media_type: &MimeType) -> Result<String, SemanticDiffError>;
@@ -178,6 +178,10 @@ impl StandardDiffExt for Standard {
     fn canonical(self, input: &DiffInput<'_>) -> Result<Value, SemanticDiffError> {
         match self {
             | Standard::CitationFileFormat => input.parse_typed::<cff::Cff>(),
+            | Standard::Czml => input
+                .parse_untyped()
+                .and_then(|value| serde_json::from_value::<czml::Document>(value).map_err(|error| input.parse_error(error.to_string())))
+                .and_then(to_value),
             | Standard::Datacite => input.parse_typed::<datacite::Record>(),
             | Standard::Dcat => input.parse_typed::<dcat::Dataset>(),
             | Standard::DublinCore => DublinCoreDocument::decode(input.content, &input.media_type)
@@ -219,22 +223,21 @@ impl StandardDiffExt for Standard {
             | _ => input
                 .parse_untyped()
                 .ok()
-                .and_then(|value| Self::detect_value(&value))
+                .and_then(|value| Self::detect_nested_value(&value))
                 .ok_or_else(|| SemanticDiffError::UnknownStandard {
                     label: input.label.to_string(),
                 }),
         }
     }
-    fn detect_value(value: &Value) -> Option<Self> {
-        match value {
-            | Value::Object(object) => Self::detect_object(object),
+    fn detect_nested_value(value: &Value) -> Option<Self> {
+        Standard::detect_value(value).or_else(|| match value {
             | Value::Array(values) => {
-                let mut standards = values.iter().map(Self::detect_value);
+                let mut standards = values.iter().map(Self::detect_nested_value);
                 let first = standards.next().flatten();
                 first.filter(|standard| standards.all(|candidate| candidate == Some(*standard)))
             }
             | _ => None,
-        }
+        })
     }
     fn render(self, value: &Value, media_type: &MimeType) -> Result<String, SemanticDiffError> {
         match (self, media_type) {

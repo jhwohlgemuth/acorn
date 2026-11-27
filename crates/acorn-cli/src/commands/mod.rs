@@ -235,7 +235,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
             | Some(CreateCommands::Secret { paste }) => create::secret::run(*paste),
             | None => Err(eyre::eyre!("No subcommand provided for 'create'")),
         },
-        | Some(Commands::Daemon { command }) => with_runtime(daemon::run(command)),
+        | Some(Commands::Daemon { host, command }) => with_runtime(daemon::run(command, host.as_ref(), offline)),
         | Some(Commands::Doctor(arguments)) => {
             let arguments::Doctor {
                 fix,

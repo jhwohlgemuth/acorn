@@ -1,7 +1,7 @@
 //! Portable content codecs for schema-owned document types.
 use crate::pid::raid;
 use crate::research_activity::ResearchActivity;
-use crate::standard::{cff::Cff, ckan, datacite, invenio, modelkit::kitfile::Kitfile, text, zon};
+use crate::standard::{cff::Cff, ckan, czml, datacite, invenio, modelkit::kitfile::Kitfile, text, zon};
 #[cfg(feature = "std")]
 use crate::standard::{dcat, huwise};
 use crate::types::OneOrMany;
@@ -45,6 +45,9 @@ pub struct CodecDiagnostic {
     /// Optional document field path.
     pub path: Option<String>,
 }
+single_document_codec!(datacite::Record => "DataCite record", invenio::Record => "Invenio record");
+#[cfg(feature = "std")]
+single_document_codec!(dcat::Dataset => "DCAT dataset", huwise::Dataset => "HuWise dataset");
 impl DocumentCodec for Cff {
     const NAME: &'static str = "CFF";
     fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
@@ -60,23 +63,6 @@ impl DocumentCodec for Cff {
             }
             | _ => Err(vec![CodecDiagnostic::unsupported(format, Self::NAME)]),
         }
-    }
-    fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
-        encode_structured(self, format)
-    }
-}
-impl DocumentCodec for ckan::Package {
-    const NAME: &'static str = "CKAN package";
-    fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
-        ckan::Package::parse(content, format.clone())
-            .map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())])
-            .and_then(|packages| match packages {
-                | OneOrMany::One(package) => Ok(package),
-                | OneOrMany::Many(mut packages) if packages.len() == 1 => {
-                    packages.pop().ok_or_else(|| vec![CodecDiagnostic::expected_one(Self::NAME, 0)])
-                }
-                | OneOrMany::Many(packages) => Err(vec![CodecDiagnostic::expected_one(Self::NAME, packages.len())]),
-            })
     }
     fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
         encode_structured(self, format)
@@ -114,9 +100,30 @@ impl fmt::Display for CodecDiagnostic {
         }
     }
 }
-single_document_codec!(datacite::Record => "DataCite record", invenio::Record => "Invenio record");
-#[cfg(feature = "std")]
-single_document_codec!(dcat::Dataset => "DCAT dataset", huwise::Dataset => "HuWise dataset");
+impl DocumentCodec for czml::Document {
+    const NAME: &'static str = "CZML document";
+    fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
+        match format {
+            | MimeType::Json => serde_json::from_str::<serde_json::Value>(content)
+                .map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())])
+                .and_then(|_| {
+                    eserde::json::from_str::<Self>(content).map_err(|errors| {
+                        errors
+                            .iter()
+                            .map(|error| CodecDiagnostic::deserialize(error.message()).with_path(error.path().map(ToString::to_string)))
+                            .collect()
+                    })
+                }),
+            | _ => Err(vec![CodecDiagnostic::unsupported(format, Self::NAME)]),
+        }
+    }
+    fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
+        match format {
+            | MimeType::Json => serde_json::to_string(self).map_err(|error| CodecDiagnostic::serialize(error.to_string())),
+            | _ => Err(CodecDiagnostic::unsupported(format, Self::NAME)),
+        }
+    }
+}
 impl DocumentCodec for Kitfile {
     const NAME: &'static str = "Kitfile";
     fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
@@ -143,6 +150,23 @@ impl DocumentCodec for raid::Metadata {
             | MimeType::Yaml => serde_norway::from_str(content).map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())]),
             | _ => Err(vec![CodecDiagnostic::unsupported(format, Self::NAME)]),
         }
+    }
+    fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
+        encode_structured(self, format)
+    }
+}
+impl DocumentCodec for ckan::Package {
+    const NAME: &'static str = "CKAN package";
+    fn decode(content: &str, format: &MimeType) -> Result<Self, Vec<CodecDiagnostic>> {
+        ckan::Package::parse(content, format.clone())
+            .map_err(|error| vec![CodecDiagnostic::deserialize(error.to_string())])
+            .and_then(|packages| match packages {
+                | OneOrMany::One(package) => Ok(package),
+                | OneOrMany::Many(mut packages) if packages.len() == 1 => {
+                    packages.pop().ok_or_else(|| vec![CodecDiagnostic::expected_one(Self::NAME, 0)])
+                }
+                | OneOrMany::Many(packages) => Err(vec![CodecDiagnostic::expected_one(Self::NAME, packages.len())]),
+            })
     }
     fn encode(&self, format: &MimeType) -> Result<String, CodecDiagnostic> {
         encode_structured(self, format)

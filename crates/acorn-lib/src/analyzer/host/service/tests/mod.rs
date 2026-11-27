@@ -84,6 +84,7 @@ async fn test_analyze_paths_dispatches_every_standard() {
     for standard in [
         Standard::ApplicationConfigurationResearchEnablement,
         Standard::CitationFileFormat,
+        Standard::Czml,
         Standard::Datacite,
         Standard::Dcat,
         Standard::Document,
@@ -215,6 +216,37 @@ fn test_classify_paths_applies_explicit_standard_to_every_path() {
             standard: Standard::Datacite,
             paths: vec![PathBuf::from("one.json"), PathBuf::from("two.yaml")],
         }]
+    );
+}
+#[test]
+fn test_classify_paths_detects_czml_extension_and_document_first_json() {
+    let directory = tempdir().expect("temporary directory");
+    let scene = directory.path().join("scene.CZML");
+    let document = directory.path().join("scene.json");
+    let rad = directory.path().join("activity.json");
+    write(&scene, "[]").expect("CZML extension fixture");
+    write(&document, r#"[{"id":"document"}]"#).expect("document-first fixture");
+    write(
+        &rad,
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/analyzer/fair/metadata-minimal-rad.json"
+        )),
+    )
+    .expect("RAD fixture");
+    let groups = classify_paths(&[scene.clone(), document.clone(), rad.clone()], Standard::ResearchActivityData);
+    assert_eq!(
+        groups,
+        [
+            StandardPaths {
+                standard: Standard::Czml,
+                paths: vec![scene, document]
+            },
+            StandardPaths {
+                standard: Standard::ResearchActivityData,
+                paths: vec![rad]
+            },
+        ]
     );
 }
 #[test]
@@ -350,6 +382,45 @@ fn test_correlate_link_evidence_reuses_matching_result() {
     ]);
     let finding = categories[1].checks.iter().next().and_then(Check::fair_details);
     assert!(finding.is_some_and(|finding| finding.state == FairState::Supported));
+}
+#[tokio::test]
+async fn test_czml_schema_check_runs_without_other_categories() {
+    let directory = tempdir().expect("temporary directory");
+    let valid = directory.path().join("scene.czml");
+    let invalid = directory.path().join("invalid.czml");
+    write(
+        &valid,
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/fixtures/schema/czml/acorn/scene.czml")),
+    )
+    .expect("valid scene");
+    write(
+        &invalid,
+        r#"[{"id":"document","version":"1.0"},{"id":"entity","position":{"reference":"missing"}}]"#,
+    )
+    .expect("invalid scene");
+    let options = AnalysisContext::init().build();
+    let valid_report = analyze_paths(&[valid], &options).await;
+    assert_eq!(valid_report.batches[0].standard, Standard::Czml);
+    assert!(valid_report.batches[0]
+        .categories
+        .iter()
+        .find(|category| category.category == CheckCategory::Schema)
+        .is_some_and(|category| category.status == ExecutionStatus::Executed && category.checks.iter().all(|check| !check.is_failure())));
+    assert!(valid_report.batches[0]
+        .categories
+        .iter()
+        .filter(|category| category.category != CheckCategory::Schema)
+        .all(|category| category.status.is_unsupported()));
+
+    let invalid_report = analyze_paths(&[invalid], &options).await;
+    assert!(invalid_report.batches[0]
+        .categories
+        .iter()
+        .find(|category| category.category == CheckCategory::Schema)
+        .is_some_and(|category| category
+            .checks
+            .iter()
+            .any(|check| check.is_failure() && check.locator.as_deref().is_some_and(|path| path.contains("reference")))));
 }
 #[test]
 fn test_document_indexes_keep_first_source_when_display_keys_collide() {

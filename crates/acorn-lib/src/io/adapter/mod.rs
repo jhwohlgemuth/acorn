@@ -30,7 +30,7 @@ use acorn_schema::{
     research_activity::{Logbook, LogbookEntry, ResearchActivity, ResearchActivityMetadata},
     standard::{
         cff::Cff,
-        ckan, datacite, dcat,
+        ckan, czml, datacite, dcat,
         dublin_core::DublinCoreDocument,
         huwise, invenio,
         modelkit::kitfile::{Kitfile, LayerInfo, McpServer},
@@ -176,39 +176,6 @@ impl InputOutput for Cff {
         Codec::write(MimeType::Yaml, self, output)
     }
 }
-impl InputOutput for ckan::Package {
-    fn parse(content: &str) -> Option<Self> {
-        Self::decode(content, &MimeType::Json).ok()
-    }
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match MimeType::from_path(&source) {
-            | MimeType::Json => Self::read_json(source),
-            | MimeType::Yaml => Self::read_yaml(source),
-            | _ => Err(eyre!("Unsupported CKAN package file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        Codec::read(MimeType::Json, path)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        Codec::read(MimeType::Yaml, path)
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from_path(&output) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported CKAN package file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        Codec::write(MimeType::Json, self, path.into().with_extension("json"))
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        Codec::write(MimeType::Yaml, self, path.into().with_extension("yaml"))
-    }
-}
 impl Codec {
     fn errors(errors: Vec<CodecDiagnostic>) -> color_eyre::Report {
         eyre!(errors.into_iter().map(|error| error.to_string()).collect::<Vec<_>>().join("\n"))
@@ -223,36 +190,43 @@ impl Codec {
             .and_then(|content| write_file(path, content))
     }
 }
-impl InputOutput for datacite::Record {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<datacite::Record> {
+impl InputOutput for opencode::Config {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Json => datacite::Record::read_json(source),
-            | MimeType::Yaml => datacite::Record::read_yaml(source),
-            | _ => Err(eyre!("Unsupported DataCite data file extension")),
+        match MimeType::from_path(&source) {
+            | MimeType::Json => Self::read_json(source.clone()),
+            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
+            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
         }
     }
-    fn read_json(path: PathBuf) -> ApiResult<datacite::Record> {
-        Codec::read(MimeType::Json, path)
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_file(path.clone())
+            .and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
     }
-    fn read_yaml(path: PathBuf) -> ApiResult<datacite::Record> {
-        Codec::read(MimeType::Yaml, path)
+    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
+        read_file(path.clone()).and_then(|content| {
+            parse_jsonc_cst::<Self>(&content)
+                .map(|(config, _)| config)
+                .map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
+        })
+    }
+    fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
+        Err(eyre!("YAML format is not supported for OpenCode configuration"))
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported DataCite data file extension for writing")),
+        let target = path.into();
+        match MimeType::from_path(&target) {
+            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
+            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
         }
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        Codec::write(MimeType::Json, self, output)
+        serde_json::to_string_pretty(self)
+            .map_err(|why| eyre!("Failed to serialize OpenCode config — {why}"))
+            .and_then(|content| write_file(path.into(), content))
     }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        Codec::write(MimeType::Yaml, self, output)
+    fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
+        Err(eyre!("YAML format is not supported for OpenCode configuration"))
     }
 }
 impl InputOutput for dcat::Dataset {
@@ -285,6 +259,113 @@ impl InputOutput for dcat::Dataset {
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         let output = path.into().with_extension("yaml");
         Codec::write(MimeType::Yaml, self, output)
+    }
+}
+impl InputOutput for huwise::Dataset {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<huwise::Dataset> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => huwise::Dataset::read_json(source),
+            | MimeType::Yaml => huwise::Dataset::read_yaml(source),
+            | _ => Err(eyre!("Unsupported HuWise data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<huwise::Dataset> {
+        Codec::read(MimeType::Json, path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<huwise::Dataset> {
+        Codec::read(MimeType::Yaml, path)
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported HuWise data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        Codec::write(MimeType::Json, self, output)
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        Codec::write(MimeType::Yaml, self, output)
+    }
+}
+impl InputOutput for czml::Document {
+    fn parse(content: &str) -> Option<Self> {
+        Self::decode(content, &MimeType::Json).ok()
+    }
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match source.extension().and_then(|extension| extension.to_str()) {
+            | Some(extension) if extension.eq_ignore_ascii_case("czml") || extension.eq_ignore_ascii_case("json") => Self::read_json(source),
+            | _ => Err(eyre!("Unsupported CZML data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        Codec::read(MimeType::Json, path)
+    }
+    fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
+        Err(eyre!("CZML supports only JSON input"))
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match output.extension().and_then(|extension| extension.to_str()) {
+            | Some(extension) if extension.eq_ignore_ascii_case("czml") || extension.eq_ignore_ascii_case("json") => self.write_json(output),
+            | _ => Err(eyre!("Unsupported CZML data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        Codec::write(MimeType::Json, self, path.into())
+    }
+    fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
+        Err(eyre!("CZML supports only JSON output"))
+    }
+}
+impl InputOutput for text::Document {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
+        let source = path.into();
+        match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
+            | Ok(_) => read_document(source),
+            | Err(_) => match file_extension(source.display().to_string()).as_deref() {
+                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => read_document_text(source),
+                | _ => Err(eyre!("Unsupported document file extension")),
+            },
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<Self> {
+        read_document_text(path)
+    }
+    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
+        read_document_text(path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        read_document_text(path)
+    }
+    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
+        match mime {
+            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
+            | _ => Err(eyre!("Unsupported document workflow serialization mime type: {mime:?}")),
+        }
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match file_extension(output.display().to_string()).as_deref() {
+            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => write_document_text(self, output),
+            | Some("docx") => Err(eyre!("Document writing is not implemented for DOCX")),
+            | _ => Err(eyre!("Unsupported document file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        write_document_text(self, path)
+    }
+    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        write_document_text(self, path)
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        write_document_text(self, path)
     }
 }
 impl InputOutput for DublinCoreDocument {
@@ -323,70 +404,6 @@ impl InputOutput for DublinCoreDocument {
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         Codec::write(MimeType::Yaml, self, path.into().with_extension("yaml"))
-    }
-}
-impl InputOutput for huwise::Dataset {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<huwise::Dataset> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Json => huwise::Dataset::read_json(source),
-            | MimeType::Yaml => huwise::Dataset::read_yaml(source),
-            | _ => Err(eyre!("Unsupported HuWise data file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<huwise::Dataset> {
-        Codec::read(MimeType::Json, path)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<huwise::Dataset> {
-        Codec::read(MimeType::Yaml, path)
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported HuWise data file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        Codec::write(MimeType::Json, self, output)
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        Codec::write(MimeType::Yaml, self, output)
-    }
-}
-impl InputOutput for invenio::Record {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<invenio::Record> {
-        let source = path.into();
-        match MimeType::from(source.display().to_string()) {
-            | MimeType::Json => invenio::Record::read_json(source),
-            | MimeType::Yaml => invenio::Record::read_yaml(source),
-            | _ => Err(eyre!("Unsupported Invenio data file extension")),
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<invenio::Record> {
-        Codec::read(MimeType::Json, path)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<invenio::Record> {
-        Codec::read(MimeType::Yaml, path)
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match MimeType::from(output.display().to_string()) {
-            | MimeType::Json => self.write_json(output),
-            | MimeType::Yaml => self.write_yaml(output),
-            | _ => Err(eyre!("Unsupported Invenio data file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("json");
-        Codec::write(MimeType::Json, self, output)
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into().with_extension("yaml");
-        Codec::write(MimeType::Yaml, self, output)
     }
 }
 impl InputOutput for Kitfile {
@@ -503,43 +520,101 @@ impl Batch for OneOrMany<ResearchActivity> {
             .and_then(|content| write_file(output, content))
     }
 }
-impl InputOutput for opencode::Config {
+impl InputOutput for ckan::Package {
+    fn parse(content: &str) -> Option<Self> {
+        Self::decode(content, &MimeType::Json).ok()
+    }
     fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
         let source = path.into();
         match MimeType::from_path(&source) {
-            | MimeType::Json => Self::read_json(source.clone()),
-            | MimeType::Jsonc => Self::read_jsonc(source.clone()),
-            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
+            | MimeType::Json => Self::read_json(source),
+            | MimeType::Yaml => Self::read_yaml(source),
+            | _ => Err(eyre!("Unsupported CKAN package file extension")),
         }
     }
     fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone())
-            .and_then(|content| serde_json::from_str(&content).map_err(|why| eyre!("Failed to read JSON config `{}` — {}", path.display(), why)))
+        Codec::read(MimeType::Json, path)
     }
-    fn read_jsonc(path: PathBuf) -> ApiResult<Self> {
-        read_file(path.clone()).and_then(|content| {
-            parse_jsonc_cst::<Self>(&content)
-                .map(|(config, _)| config)
-                .map_err(|why| eyre!("Failed to read JSONC config `{}` — {}", path.display(), why))
-        })
-    }
-    fn read_yaml(_path: PathBuf) -> ApiResult<Self> {
-        Err(eyre!("YAML format is not supported for OpenCode configuration"))
+    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
+        Codec::read(MimeType::Yaml, path)
     }
     fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let target = path.into();
-        match MimeType::from_path(&target) {
-            | MimeType::Json | MimeType::Jsonc => self.write_json(&target),
-            | _ => Err(eyre!("Unsupported OpenCode configuration file extension")),
+        let output = path.into();
+        match MimeType::from_path(&output) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported CKAN package file extension for writing")),
         }
     }
     fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        serde_json::to_string_pretty(self)
-            .map_err(|why| eyre!("Failed to serialize OpenCode config — {why}"))
-            .and_then(|content| write_file(path.into(), content))
+        Codec::write(MimeType::Json, self, path.into().with_extension("json"))
     }
-    fn write_yaml(&self, _path: impl Into<PathBuf>) -> ApiResult<()> {
-        Err(eyre!("YAML format is not supported for OpenCode configuration"))
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        Codec::write(MimeType::Yaml, self, path.into().with_extension("yaml"))
+    }
+}
+impl InputOutput for datacite::Record {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<datacite::Record> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => datacite::Record::read_json(source),
+            | MimeType::Yaml => datacite::Record::read_yaml(source),
+            | _ => Err(eyre!("Unsupported DataCite data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<datacite::Record> {
+        Codec::read(MimeType::Json, path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<datacite::Record> {
+        Codec::read(MimeType::Yaml, path)
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported DataCite data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        Codec::write(MimeType::Json, self, output)
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        Codec::write(MimeType::Yaml, self, output)
+    }
+}
+impl InputOutput for invenio::Record {
+    fn read(path: impl Into<PathBuf>) -> ApiResult<invenio::Record> {
+        let source = path.into();
+        match MimeType::from(source.display().to_string()) {
+            | MimeType::Json => invenio::Record::read_json(source),
+            | MimeType::Yaml => invenio::Record::read_yaml(source),
+            | _ => Err(eyre!("Unsupported Invenio data file extension")),
+        }
+    }
+    fn read_json(path: PathBuf) -> ApiResult<invenio::Record> {
+        Codec::read(MimeType::Json, path)
+    }
+    fn read_yaml(path: PathBuf) -> ApiResult<invenio::Record> {
+        Codec::read(MimeType::Yaml, path)
+    }
+    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into();
+        match MimeType::from(output.display().to_string()) {
+            | MimeType::Json => self.write_json(output),
+            | MimeType::Yaml => self.write_yaml(output),
+            | _ => Err(eyre!("Unsupported Invenio data file extension for writing")),
+        }
+    }
+    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("json");
+        Codec::write(MimeType::Json, self, output)
+    }
+    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
+        let output = path.into().with_extension("yaml");
+        Codec::write(MimeType::Yaml, self, output)
     }
 }
 impl Batch for ResearchActivity {
@@ -720,50 +795,6 @@ impl InputOutput for Text {
     }
     fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
         write_text(self, path)
-    }
-}
-impl InputOutput for text::Document {
-    fn read(path: impl Into<PathBuf>) -> ApiResult<Self> {
-        let source = path.into();
-        match DocumentFormat::try_from(&MimeType::from(source.display().to_string())) {
-            | Ok(_) => read_document(source),
-            | Err(_) => match file_extension(source.display().to_string()).as_deref() {
-                | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => read_document_text(source),
-                | _ => Err(eyre!("Unsupported document file extension")),
-            },
-        }
-    }
-    fn read_json(path: PathBuf) -> ApiResult<Self> {
-        read_document_text(path)
-    }
-    fn read_markdown(path: PathBuf) -> ApiResult<Self> {
-        read_document_text(path)
-    }
-    fn read_yaml(path: PathBuf) -> ApiResult<Self> {
-        read_document_text(path)
-    }
-    fn serialize_as(&self, mime: &MimeType) -> ApiResult<String> {
-        match mime {
-            | MimeType::Json | MimeType::Markdown | MimeType::Text | MimeType::Yaml => Ok(self.content.clone()),
-            | _ => Err(eyre!("Unsupported document workflow serialization mime type: {mime:?}")),
-        }
-    }
-    fn write(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        let output = path.into();
-        match file_extension(output.display().to_string()).as_deref() {
-            | Some("md") | Some("markdown") | Some("txt") | Some("json") | Some("yml") | Some("yaml") => write_document_text(self, output),
-            | Some("docx") => Err(eyre!("Document writing is not implemented for DOCX")),
-            | _ => Err(eyre!("Unsupported document file extension for writing")),
-        }
-    }
-    fn write_json(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_document_text(self, path)
-    }
-    fn write_markdown(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_document_text(self, path)
-    }
-    fn write_yaml(&self, path: impl Into<PathBuf>) -> ApiResult<()> {
-        write_document_text(self, path)
     }
 }
 impl WeightsExt for Weights {

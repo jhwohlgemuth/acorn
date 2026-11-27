@@ -8,6 +8,7 @@ use shuck_parser::parser::Parser;
 use std::{
     env,
     ffi::{OsStr, OsString},
+    fs::File,
     io::{self, Write},
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus, Output, Stdio},
@@ -252,7 +253,7 @@ where
 fn escape(value: &str) -> String {
     if value.is_empty() {
         "\"\"".to_string()
-    } else if value.chars().any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\'' | '\\')) {
+    } else if value.chars().any(|ch| ch.is_whitespace() || matches!(ch, '"' | '\'' | '\\' | '#')) {
         format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
     } else {
         value.to_string()
@@ -421,6 +422,18 @@ where
             .and_then(|mut stdin| stdin.write_all(input))
             .and_then(|()| child.wait_with_output())
     })
+}
+/// Run a command with standard input streamed from a file and capture its output.
+#[doc(hidden)]
+pub fn run_output_with_stdin_file<I, S>(binary: impl AsRef<OsStr>, args: I, path: &Path) -> io::Result<Output>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let binary = binary.as_ref();
+    let args = args.into_iter().map(|value| value.as_ref().to_os_string()).collect::<Vec<OsString>>();
+    log_command(&binary.to_string_lossy(), &args, None);
+    File::open(path).and_then(|file| Command::new(binary).args(&args).stdin(Stdio::from(file)).output())
 }
 /// Run a command string using a shell, capture output, with optional working directory.
 #[doc(hidden)]

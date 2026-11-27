@@ -90,6 +90,7 @@ async function start() {
         cancelPending();
         report(`Loading ${asset.label}…`);
         viewport.setAttribute("aria-busy", "true");
+        updateNavigation();
         try {
             const model = await Cesium.Model.fromGltfAsync({ url: `/models/${asset.file}`, modelMatrix: frame });
             if (ticket !== generation) {
@@ -129,6 +130,8 @@ async function start() {
                 viewport.setAttribute("aria-busy", "false");
                 report(`Could not load ${asset.label}.${active ? ` ${active.asset.label} is still shown.` : " Check the GLB file and refresh to retry."}`, true);
             }
+        } finally {
+            if (ticket === generation) updateNavigation();
         }
     }
     function zoom(factor) {
@@ -137,18 +140,45 @@ async function start() {
     const search = document.getElementById("asset-search");
     const categories = document.getElementById("categories");
     const clear = document.getElementById("clear-filters");
-    const labels = { drone: "Drones", landmarks: "USA landmarks", research: "Research & ACORN", risk: "Risk pieces", wonders: "World wonders" };
+    const nextModel = document.getElementById("next-model");
+    const previousModel = document.getElementById("previous-model");
+    const labels = { drone: "Drones", landmarks: "USA landmarks", other: "Other", research: "Research & ACORN", risk: "Risk pieces" };
 
+    function adjacentOption(direction) {
+        const index = assetPicker.selectedIndex;
+        return assetPicker.options[index < 0 ? (direction > 0 ? 0 : assetPicker.options.length - 1) : index + direction];
+    }
+    function updateNavigation() {
+        const loading = viewport.getAttribute("aria-busy") === "true";
+        previousModel.disabled = loading || !adjacentOption(-1);
+        nextModel.disabled = loading || !adjacentOption(1);
+    }
+    function browse(direction) {
+        const option = adjacentOption(direction);
+        if (option) {
+            assetPicker.value = option.value;
+            void select(assets.find((asset) => asset.id === option.value));
+        }
+    }
     function filter() {
         const query = search.value.trim().toLocaleLowerCase();
         const matches = assets.filter((asset) => (!categories.value || asset.category === categories.value) && `${asset.label} ${asset.category}`.toLocaleLowerCase().includes(query));
         const selected = assets.some((asset) => asset.id === assetPicker.value) ? assetPicker.value : (active?.asset.id ?? initial.id);
-        assetPicker.replaceChildren(...matches.map((asset) => new Option(asset.label, asset.id)));
+        const folders = [...new Set(matches.map((asset) => asset.file.split("/")[0]))].sort();
+        assetPicker.replaceChildren(...folders.map((folder) => {
+            const group = document.createElement("optgroup");
+            group.label = folder.charAt(0).toUpperCase() + folder.slice(1);
+            group.replaceChildren(...matches.filter((asset) => asset.file.startsWith(`${folder}/`))
+                .sort((left, right) => left.label.localeCompare(right.label))
+                .map((asset) => new Option(asset.label, asset.id)));
+            return group;
+        }));
         assetPicker.value = matches.some((asset) => asset.id === selected) ? selected : "";
         assetPicker.disabled = matches.length === 0;
         document.getElementById("result-count").textContent = `${matches.length} of ${assets.length}`;
         document.getElementById("empty-results").hidden = matches.length > 0;
         clear.hidden = !query && !categories.value;
+        updateNavigation();
     }
     categories.replaceChildren(...["", ...new Set(assets.map((asset) => asset.category))].map((category) =>
         new Option(`${labels[category] ?? "All models"} (${assets.filter((asset) => !category || asset.category === category).length})`, category)));
@@ -171,6 +201,8 @@ async function start() {
         try { localStorage.setItem("acorn-model-theme", document.body.dataset.theme); } catch { /* Theme still works when storage is disabled. */ }
     });
     assetPicker.addEventListener("change", () => { void select(assets.find((asset) => asset.id === assetPicker.value)); });
+    nextModel.addEventListener("click", () => browse(1));
+    previousModel.addEventListener("click", () => browse(-1));
     document.querySelectorAll("[data-view]").forEach((button) => { button.addEventListener("click", () => reset(button.dataset.view)); });
     document.getElementById("zoom-in").addEventListener("click", () => zoom(0.85));
     document.getElementById("zoom-out").addEventListener("click", () => zoom(1.18));

@@ -35,40 +35,10 @@ use std::fs::{create_dir_all, write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-mod relocated_arguments_bot_tests {
-    use super::super::arguments::bot::{Common, EventSource};
-
-    fn common(bind: Option<&str>, port: Option<u16>) -> Common {
-        Common {
-            identifier: "123".to_string(),
-            bind: bind.map(String::from),
-            port,
-            after: None,
-            poll_interval: 10,
-            runtime: None,
-            event_source: EventSource::Poll,
-            public_url: None,
-            register_webhook: false,
-            config: None,
-        }
-    }
-
-    #[test]
-    fn test_bind_address_uses_default_host_with_port() {
-        assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");
-        assert_eq!(common(Some("0.0.0.0"), Some(8080)).bind_address(), "0.0.0.0:8080");
-        assert_eq!(common(Some("0.0.0.0"), None).bind_address(), "0.0.0.0:3000");
-        assert_eq!(common(Some("0.0.0.0:9000"), Some(8080)).bind_address(), "0.0.0.0:8080");
-        assert_eq!(common(None, None).bind_address_if_configured(), None);
-    }
-}
-
 static ENV_LOCK: Mutex<()> = Mutex::new(());
-
 fn fixture_content_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/filter")
 }
-
 fn has_suffix(path: &Path, suffix: &str) -> bool {
     path.to_string_lossy().replace('\\', "/").ends_with(suffix)
 }
@@ -464,6 +434,11 @@ fn test_create_runner_no_config_arguments() {
             && arguments.repo.as_deref() == Some("code.ornl.gov")
     ));
     assert!(Arguments::try_parse_from(["acorn", "create", "runner", "--no-config", "--config", "runner.json",]).is_err());
+}
+#[test]
+fn test_czml_standard_name_and_unknown_name_hint() {
+    assert_eq!(super::parse::parse_standard("czml"), Ok(Standard::Czml));
+    assert!(super::parse::parse_standard("unknown").expect_err("unknown standard").contains("czml"));
 }
 #[test]
 fn test_dcat_standard_inference_precedes_dublin_core_for_linked_data_syntaxes() {
@@ -2120,4 +2095,31 @@ fn test_what_if_aliases_dry_run_flags() {
     assert!(Arguments::try_parse_from(["acorn", "link", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "import", "spec", "--what-if"]).is_ok());
     assert!(Arguments::try_parse_from(["acorn", "sync", "--what-if"]).is_ok());
+}
+mod relocated_arguments_bot_tests {
+    use super::super::arguments::bot::{Common, EventSource};
+
+    fn common(bind: Option<&str>, port: Option<u16>) -> Common {
+        Common {
+            identifier: "123".to_string(),
+            bind: bind.map(String::from),
+            port,
+            after: None,
+            poll_interval: 10,
+            runtime: None,
+            event_source: EventSource::Poll,
+            public_url: None,
+            register_webhook: false,
+            config: None,
+        }
+    }
+
+    #[test]
+    fn test_bind_address_uses_default_host_with_port() {
+        assert_eq!(common(None, Some(8080)).bind_address(), "localhost:8080");
+        assert_eq!(common(Some("0.0.0.0"), Some(8080)).bind_address(), "0.0.0.0:8080");
+        assert_eq!(common(Some("0.0.0.0"), None).bind_address(), "0.0.0.0:3000");
+        assert_eq!(common(Some("0.0.0.0:9000"), Some(8080)).bind_address(), "0.0.0.0:8080");
+        assert_eq!(common(None, None).bind_address_if_configured(), None);
+    }
 }

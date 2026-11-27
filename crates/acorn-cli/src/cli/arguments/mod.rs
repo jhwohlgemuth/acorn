@@ -190,7 +190,7 @@ pub enum DaemonCommand {
         #[arg(value_hint = ValueHint::FilePath)]
         bundle: PathBuf,
     },
-    /// Install or update the local daemon service with a configuration file.
+    /// Install or update the daemon service with a configuration file.
     Install {
         /// ACRE configuration path.
         #[arg(long, value_hint = ValueHint::FilePath)]
@@ -198,6 +198,9 @@ pub enum DaemonCommand {
         /// Signed paired acorn/acornd release archive to stage and activate.
         #[arg(long, value_hint = ValueHint::FilePath)]
         bundle: Option<PathBuf>,
+        /// Public package registry base URL for a remote signed bundle.
+        #[arg(long, conflicts_with = "bundle")]
+        release_url: Option<String>,
         /// Ask logind to keep this user's service manager after logout.
         #[arg(long)]
         linger: bool,
@@ -639,7 +642,7 @@ pub struct Check {
     pub(crate) skip_verify_checksum: bool,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, oci, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, oci, raid, text (`docx` and `pdf` alias `document`)
     #[arg(short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Option<Standard>,
     /// Readability test to use
@@ -1054,7 +1057,7 @@ pub(crate) struct Export {
     pub(crate) reference: Option<PathBuf>,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     /// Fail if conversion loses data (only for crosswalk exports)
@@ -1080,7 +1083,7 @@ pub(crate) struct Export {
     pub(crate) since: Option<String>,
     /// Metadata standard to use for source data inference (default: auto-detect)
     ///
-    /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) from: Option<Standard>,
     /// JSON or YAML contact required for Dublin Core or RAiD import; overrides options.crosswalk.contact
@@ -1098,7 +1101,7 @@ pub(crate) struct Export {
     pub(crate) local_identifier: Option<String>,
     /// Target metadata standard for crosswalk conversion
     ///
-    /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS", conflicts_with = "schema")]
     pub(crate) to: Option<Standard>,
     #[command(flatten)]
@@ -1156,7 +1159,7 @@ pub(crate) struct Format {
     pub(crate) merge_request: bool,
     /// Metadata standard to validate against
     ///
-    /// Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+    /// Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
     #[arg(default_value = "rads", short, long, value_name = "STANDARD", value_parser = parse_standard, help_heading = "OPTIONS")]
     pub(crate) standard: Standard,
     #[command(flatten)]
@@ -1833,16 +1836,6 @@ impl CheckOutputFormat {
         self.is_diff() || self.is_json_patch()
     }
 }
-impl From<&GatherOutputFormat> for context::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Text,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
-        }
-    }
-}
 impl Download {
     /// Bucket-only flag that the selected subcommand does not support, if any.
     ///
@@ -1991,6 +1984,16 @@ impl From<&FileFormat> for OutputFormat {
             | FileFormat::Json => Self::Json,
             | FileFormat::Yaml => Self::Yaml,
             | _ => Self::default(),
+        }
+    }
+}
+impl From<&GatherOutputFormat> for context::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Text,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
         }
     }
 }

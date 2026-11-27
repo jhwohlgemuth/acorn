@@ -1,17 +1,7 @@
 //! CZML constants pinned to the czml-writer value schemas.
+use super::macros::czml_enum;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-macro_rules! czml_enum {
-    ($(#[$type_meta:meta])* pub enum $name:ident { $($(#[$variant_meta:meta])* $variant:ident),+ $(,)? }) => {
-        $(#[$type_meta])*
-        #[derive(Clone, Copy, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-        #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-        pub enum $name {
-            $($(#[$variant_meta])* $variant),+
-        }
-    };
-}
 czml_enum! {
     /// Arc construction mode.
     pub enum ArcTypeValue {

@@ -1,12 +1,12 @@
 [
   {
     "id": "drone/autel-evo-max-4t",
-    "sha256": "f418da115c96b14f1139e3f1c04bd4c458f72eb9c2de48302ec4b85c3bc4b159",
+    "sha256": "3837aedfc5ed0783b21bda1ffc4f4c093d58f1abd7ccaf9313e334dd6147d41c",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/autel-evo-max-4t.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.645Z",
+    "validatedAt": "2026-11-27T03:03:18.155Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -23,7 +23,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1760732
+          "byteLength": 1808732
         },
         {
           "pointer": "/images/0",
@@ -46,8 +46,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 54912,
-      "totalTriangleCount": 18304,
+      "totalVertexCount": 56412,
+      "totalTriangleCount": 18804,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -55,12 +55,12 @@
   },
   {
     "id": "drone/bitcraze-crazyflie-2-1",
-    "sha256": "f06b059c00e95c22838ed7d2a6fb1f00612f09ee5aeaae5916d19ee44ac57cb7",
+    "sha256": "7aaf200961dc57b8ec2cd6eda16a7a67c7005769f3eabcf6ce52d4671f26551d",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/bitcraze-crazyflie-2-1.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.657Z",
+    "validatedAt": "2026-11-27T03:03:18.174Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -77,7 +77,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1417052
+          "byteLength": 1043420
         },
         {
           "pointer": "/images/0",
@@ -100,8 +100,386 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 44172,
-      "totalTriangleCount": 14724,
+      "totalVertexCount": 32496,
+      "totalTriangleCount": 10832,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/brinc-responder",
+    "sha256": "44bca6831941ed50b38fefafdbc512467bfec6e5d8848df5d7cf5ee9d88e73b3",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/brinc-responder.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.189Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 702812
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 8,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 8,
+      "totalVertexCount": 21852,
+      "totalTriangleCount": 7284,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/brinc-responder-station",
+    "sha256": "7b96d92beee29d199d1fdd2fe192998bf4d49380e1fa44a70592f38a7a9c53c2",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/brinc-responder-station.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.201Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 668636
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 8,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 22,
+      "totalVertexCount": 20784,
+      "totalTriangleCount": 6928,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/dji-agras-t50",
+    "sha256": "28d819cb3bf6514f2ba45e7642c147778fd15ac415ca2d89ed599f0159cdf862",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/dji-agras-t50.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.217Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1078364
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 33588,
+      "totalTriangleCount": 11196,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/dji-avata-2",
+    "sha256": "a3d9cf23bb1b41d5837725c681bc405172653a7d2e0f2631615c2fd6c420298b",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/dji-avata-2.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.231Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1388252
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 43272,
+      "totalTriangleCount": 14424,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/dji-dock-3",
+    "sha256": "a48ec15ad1ffaaadc5e81b932247864469d4f45e43b27e734cc91d4f385a08ec",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/dji-dock-3.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.237Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 510044
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 7,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 7,
+      "totalVertexCount": 15828,
+      "totalTriangleCount": 5276,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/dji-flycart-30",
+    "sha256": "b26263e9767d228698c437501c73e5562f91ee9ce2ef47ee13ef4d42e5cd58a0",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/dji-flycart-30.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.248Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1067996
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 33264,
+      "totalTriangleCount": 11088,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/dji-inspire-3",
+    "sha256": "d729d6af47d4c953c05f67cd34c9a31623ad110b79acaa910060293f9f8b7306",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/dji-inspire-3.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.257Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 894812
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 5,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 5,
+      "totalVertexCount": 27852,
+      "totalTriangleCount": 9284,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -109,12 +487,12 @@
   },
   {
     "id": "drone/dji-matrice-350-rtk",
-    "sha256": "45879ca8a8c782bd6dbd4faf7b6a0c1c02cdaa2fdf31b019367e303247adbda2",
+    "sha256": "07eaab7e88da50267120b59f5d2326cbbebca29a88e1a977b9a8abc0a89d9f73",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/dji-matrice-350-rtk.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.671Z",
+    "validatedAt": "2026-11-27T03:03:18.273Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -162,13 +540,13 @@
     }
   },
   {
-    "id": "drone/dji-mavic-3-enterprise",
-    "sha256": "218730196badca338b7d0dd693ca0077772a4a2702fb8d40074b9dab9b971735",
+    "id": "drone/dji-matrice-4d",
+    "sha256": "eefba212ac6e34957f829eb6f162112f17c7cc1e908853c47f7dd6dbf9941916",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "drones/dji-mavic-3-enterprise.glb",
+    "uri": "drones/dji-matrice-4d.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.680Z",
+    "validatedAt": "2026-11-27T03:03:18.284Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -185,7 +563,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1571804
+          "byteLength": 1153244
         },
         {
           "pointer": "/images/0",
@@ -208,8 +586,62 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 49008,
-      "totalTriangleCount": 16336,
+      "totalVertexCount": 35928,
+      "totalTriangleCount": 11976,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/dji-mavic-3-enterprise",
+    "sha256": "9dccb7ad898058af41e81c5f56bb2cb0f10b1601060d693335da649ab665878b",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/dji-mavic-3-enterprise.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.310Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1728092
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 53892,
+      "totalTriangleCount": 17964,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -217,12 +649,12 @@
   },
   {
     "id": "drone/dji-phantom-4-rtk",
-    "sha256": "70e6f9d49a7ead1f5861882d690a1b3a6e8010c5d0b4694f00cdbbe32f4c335e",
+    "sha256": "6874d7b1051692f54e1164ab6d58c541e68f8106f9be90c28c0d55c1da29e472",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/dji-phantom-4-rtk.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.693Z",
+    "validatedAt": "2026-11-27T03:03:18.325Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -276,7 +708,7 @@
     "uri": "drones/ebee-x.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.697Z",
+    "validatedAt": "2026-11-27T03:03:18.329Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -324,13 +756,229 @@
     }
   },
   {
+    "id": "drone/elistair-khronos",
+    "sha256": "8edb4af10f092afe24cdba24d0871af8c64bab2562d265dcf3a8c9b439d70e39",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/elistair-khronos.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.337Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 759644
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 23628,
+      "totalTriangleCount": 7876,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/elistair-khronos-station",
+    "sha256": "ee8168300bb60af0e7640e85aaa0c85c4bdda3b4f5dbaa773e31979e1bb827a0",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/elistair-khronos-station.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.350Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 838748
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 7,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 7,
+      "totalVertexCount": 26100,
+      "totalTriangleCount": 8700,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/flyability-elios-3",
+    "sha256": "eef66d370b86152a581d7a6122d449cec052003de70384ce4f5382ad9e2249bf",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/flyability-elios-3.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.364Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1436636
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 44784,
+      "totalTriangleCount": 14928,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/freefly-alta-x",
+    "sha256": "b85235a647269e48727739e349a0b5f4e9a3edd29465703651ea159d96161408",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/freefly-alta-x.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.372Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 760796
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 23664,
+      "totalTriangleCount": 7888,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
     "id": "drone/freefly-astro",
-    "sha256": "c183f5567c008ac020c638fc0b52f573e85e4e7bd4952e1ed9dfadbaeb1066d8",
+    "sha256": "7bc3f180ba80e2247bb014932eefadef3f730be03879802f04b962044eb751ab",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/freefly-astro.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.708Z",
+    "validatedAt": "2026-11-27T03:03:18.385Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -379,12 +1027,12 @@
   },
   {
     "id": "drone/holybro-x500-v2",
-    "sha256": "752ef7a391cac1bec59e1e51905d66ac077e291a87c4323129669cedd253f26b",
+    "sha256": "6b40758c8c06862d10e0c6650767347a6e1f385c6e8a8701628d5f4df82aee71",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/holybro-x500-v2.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.717Z",
+    "validatedAt": "2026-11-27T03:03:18.398Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -432,13 +1080,229 @@
     }
   },
   {
+    "id": "drone/inspired-flight-if1200a",
+    "sha256": "a7b7a0f4d7e49d7417f375d892196b55b5be2fcd3b7b1d859e02abd874f4ec68",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/inspired-flight-if1200a.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.410Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1290332
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 40212,
+      "totalTriangleCount": 13404,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/jouav-cw-15",
+    "sha256": "9b3f08d5422a48cb99b4b73fbbce2b47dcef37a741671ad8bacc717b337abd91",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/jouav-cw-15.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.418Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 720092
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 22392,
+      "totalTriangleCount": 7464,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/landing-pad",
+    "sha256": "7ef8e072d6f5a37b48cb123f5cfa5414d39f496322ad0b0f6a6dcc983847a6b5",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/landing-pad.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.426Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 884060
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 5,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 5,
+      "totalVertexCount": 27516,
+      "totalTriangleCount": 9172,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/modalai-starling-2",
+    "sha256": "7fe6a0476cbaf23442c6ea9befea1aa987e9cf4fb478b785b61d5a1f876be306",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/modalai-starling-2.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.432Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 577244
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 17928,
+      "totalTriangleCount": 5976,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
     "id": "drone/ornl-strelka",
-    "sha256": "d92415c8ca7ba356f98fe4759ff80833e289e5fb715f3600ffa89b9d54b6fe29",
+    "sha256": "886a69f7cc939fa9a5c6d84f690c1517eadb93b6a94dfa4568a54fc10fba65ff",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/ornl-strelka.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.732Z",
+    "validatedAt": "2026-11-27T03:03:18.444Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -487,12 +1351,12 @@
   },
   {
     "id": "drone/parrot-anafi-ai",
-    "sha256": "d6238cde7a46dc3ab2106233fb1e64975ea717325cd5edb1ff5da6c4043df9a5",
+    "sha256": "691f9c4e57d0f1af502d683f9f80dea5d756044b45f51278e26309a8dc08537e",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "drones/parrot-anafi-ai.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.744Z",
+    "validatedAt": "2026-11-27T03:03:18.459Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -540,13 +1404,13 @@
     }
   },
   {
-    "id": "drone/skydio-x10",
-    "sha256": "0900de6d639c17055ec22f3059aa6b92c140399e7f3ef7e52193e02e2dc623c3",
+    "id": "drone/quantum-trinity-pro",
+    "sha256": "9dddc150df3ae8f0f309f40cc4703d97d08061ef3efa520f94339e4d0da51169",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "drones/skydio-x10.glb",
+    "uri": "drones/quantum-trinity-pro.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.757Z",
+    "validatedAt": "2026-11-27T03:03:18.466Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -563,7 +1427,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1684700
+          "byteLength": 670940
         },
         {
           "pointer": "/images/0",
@@ -586,8 +1450,224 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 52536,
-      "totalTriangleCount": 17512,
+      "totalVertexCount": 20856,
+      "totalTriangleCount": 6952,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/skydio-x10",
+    "sha256": "9421ed274ae8e6b916d0708ef5256f1a154cc901880cceb836bb092e6b120047",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/skydio-x10.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.481Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1829468
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 57060,
+      "totalTriangleCount": 19020,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/swissdrones-sdo-50-v3",
+    "sha256": "945fc214b8e385e04048d98ef1bf07fa9e5f419556a640b3282f7068fd5a58e4",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/swissdrones-sdo-50-v3.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.490Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1009628
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 31440,
+      "totalTriangleCount": 10480,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/voliro-t",
+    "sha256": "e8f4dcac681034e5a60a9a6ce71d68fbcc37c27f6603d7ff271dfd2865bb1737",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/voliro-t.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.496Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 592220
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 7,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 7,
+      "totalVertexCount": 18396,
+      "totalTriangleCount": 6132,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/wingcopter-198",
+    "sha256": "62ee2c708d868ce6887e9e2397c2fadcae55ad92a0602bc79e9e5497beacebd4",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "drones/wingcopter-198.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.503Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 655964
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 20388,
+      "totalTriangleCount": 6796,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -600,7 +1680,7 @@
     "uri": "drones/wingtraone-gen-ii.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.760Z",
+    "validatedAt": "2026-11-27T03:03:18.507Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -648,13 +1728,13 @@
     }
   },
   {
-    "id": "landmarks/gateway-arch",
-    "sha256": "dd44f0bacfca8253fe92e4273a6545dfcdfa85f9f5c6c2b397d11124e9d071b2",
+    "id": "drone/zipline-delivery-droid",
+    "sha256": "36676bd4b88ab09580817e758f652640e780afdf8903cefe8856302e62a31bda",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "landmarks/gateway-arch.glb",
+    "uri": "drones/zipline-delivery-droid.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.763Z",
+    "validatedAt": "2026-11-27T03:03:18.515Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -671,61 +1751,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 283484
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 4,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 4,
-      "totalVertexCount": 8748,
-      "totalTriangleCount": 2916,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "landmarks/golden-gate-bridge",
-    "sha256": "57275f6295efcbcf41e496da668c400b932f3d7cce7fa8b7aec9f0c08d01ae0c",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "landmarks/golden-gate-bridge.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.778Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 1279580
+          "byteLength": 748124
         },
         {
           "pointer": "/images/0",
@@ -748,21 +1774,21 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 39876,
-      "totalTriangleCount": 13292,
+      "totalVertexCount": 23268,
+      "totalTriangleCount": 7756,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
     }
   },
   {
-    "id": "landmarks/grand-canyon",
-    "sha256": "d36ad43d25709ae41fa5f90364c0118a58204b7a7d448d3b81ea32c7e0d5d8f2",
+    "id": "drone/zipline-platform-2",
+    "sha256": "89ef948d92c60a6770a568f8e7991420c604b5e878352f34c151976eb1b94b5d",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "landmarks/grand-canyon.glb",
+    "uri": "drones/zipline-platform-2.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.782Z",
+    "validatedAt": "2026-11-27T03:03:18.521Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -779,61 +1805,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 447836
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 5,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 13884,
-      "totalTriangleCount": 4628,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "landmarks/hoover-dam",
-    "sha256": "6509f2e5f98eb5e4db20eda280ada57454361257d06d698440c29d18e850f871",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "landmarks/hoover-dam.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.785Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 376412
+          "byteLength": 545756
         },
         {
           "pointer": "/images/0",
@@ -856,21 +1828,21 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 11652,
-      "totalTriangleCount": 3884,
+      "totalVertexCount": 16944,
+      "totalTriangleCount": 5648,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
     }
   },
   {
-    "id": "landmarks/kennedy-space-center",
-    "sha256": "7dc25edc3c0a7eae522bdf07af155bc29e1226e8a9643caca29624cda2ca37c0",
+    "id": "landmarks/gateway-arch",
+    "sha256": "376959930fc71175b7553da5c6587442497c31ebe284da13ec6f1353b0f89070",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "landmarks/kennedy-space-center.glb",
+    "uri": "landmarks/gateway-arch.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.788Z",
+    "validatedAt": "2026-11-27T03:03:18.525Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -887,7 +1859,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 448028
+          "byteLength": 367004
         },
         {
           "pointer": "/images/0",
@@ -904,27 +1876,27 @@
         }
       ],
       "animationCount": 0,
-      "materialCount": 5,
+      "materialCount": 4,
       "hasMorphTargets": false,
       "hasSkins": false,
       "hasTextures": true,
       "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 13890,
-      "totalTriangleCount": 4630,
+      "drawCallCount": 4,
+      "totalVertexCount": 11358,
+      "totalTriangleCount": 3786,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
     }
   },
   {
-    "id": "landmarks/statue-of-liberty",
-    "sha256": "925b39ff833e16b75809bf6debf45aacdbcfa69857fe111c71e1365bcfe082b5",
+    "id": "landmarks/golden-gate-bridge",
+    "sha256": "ea293dcd0d7433b1e3438cb7df73bfd0fa1cde23e72aeeb17a79aacd0c6e6f9c",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "landmarks/statue-of-liberty.glb",
+    "uri": "landmarks/golden-gate-bridge.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.792Z",
+    "validatedAt": "2026-11-27T03:03:18.537Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -941,7 +1913,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 591644
+          "byteLength": 1431644
         },
         {
           "pointer": "/images/0",
@@ -964,8 +1936,170 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 18378,
-      "totalTriangleCount": 6126,
+      "totalVertexCount": 44628,
+      "totalTriangleCount": 14876,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "landmarks/grand-canyon",
+    "sha256": "4bd38c8bd895044f2e1ec001e354edadc5d12fc45a92dbcae30adc1a2e287a0f",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "landmarks/grand-canyon.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.545Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1042844
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 5,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 5,
+      "totalVertexCount": 32478,
+      "totalTriangleCount": 10826,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "landmarks/hoover-dam",
+    "sha256": "4d5b508b1016c674db3a3b6bd01222b60f1bd9ce0380927bbd740da411b2541e",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "landmarks/hoover-dam.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.556Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 1184348
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 36900,
+      "totalTriangleCount": 12300,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "landmarks/kennedy-space-center",
+    "sha256": "f4ccb024d83e97dfb46b0528e35154a726fe8b18c6ae9ef91e0a500bbcacacda",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "landmarks/kennedy-space-center.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:18.569Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 941276
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 7,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 7,
+      "totalVertexCount": 29304,
+      "totalTriangleCount": 9768,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -978,7 +2112,7 @@
     "uri": "landmarks/us-capitol.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.797Z",
+    "validatedAt": "2026-11-27T03:03:18.580Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1026,67 +2160,13 @@
     }
   },
   {
-    "id": "landmarks/yellowstone",
-    "sha256": "844f6fa179abf1f00c16e7067e5b3d3df79f469f57cfa307e5d0e88b281979ef",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "landmarks/yellowstone.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.817Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 3722588
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 7,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 7,
-      "totalVertexCount": 116220,
-      "totalTriangleCount": 38740,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
     "id": "research/collaboration",
     "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/collaboration.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.820Z",
+    "validatedAt": "2026-11-27T03:03:18.584Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1135,12 +2215,12 @@
   },
   {
     "id": "research/dataset",
-    "sha256": "606d2beb0a9a9b54f6515c776954163cfc06d6dc4571797a231931268a0cee8f",
+    "sha256": "84e26f725244883d1e34e201db520976afd73a46a203cc4f62217f1e6e17b4d5",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/dataset.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.825Z",
+    "validatedAt": "2026-11-27T03:03:18.599Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1157,7 +2237,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 812636
+          "byteLength": 1742300
         },
         {
           "pointer": "/images/0",
@@ -1174,14 +2254,14 @@
         }
       ],
       "animationCount": 0,
-      "materialCount": 6,
+      "materialCount": 7,
       "hasMorphTargets": false,
       "hasSkins": false,
       "hasTextures": true,
       "hasDefaultScene": true,
-      "drawCallCount": 6,
-      "totalVertexCount": 25284,
-      "totalTriangleCount": 8428,
+      "drawCallCount": 7,
+      "totalVertexCount": 54336,
+      "totalTriangleCount": 18112,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1189,12 +2269,12 @@
   },
   {
     "id": "research/doe-national-laboratory",
-    "sha256": "e2c0cd9119bd1989848f1949815bd56ee7270cf91449e5794c337ad11cfb8add",
+    "sha256": "c452fcd7b6cf618448d092af1d9efd13e96977c4330c683aef56f0be3d26c320",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/doe-national-laboratory.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.828Z",
+    "validatedAt": "2026-11-27T03:03:18.635Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1211,7 +2291,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 412124
+          "byteLength": 4292444
         },
         {
           "pointer": "/images/0",
@@ -1228,14 +2308,14 @@
         }
       ],
       "animationCount": 0,
-      "materialCount": 5,
+      "materialCount": 8,
       "hasMorphTargets": false,
       "hasSkins": false,
       "hasTextures": true,
       "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 12768,
-      "totalTriangleCount": 4256,
+      "drawCallCount": 8,
+      "totalVertexCount": 134028,
+      "totalTriangleCount": 44676,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1243,12 +2323,12 @@
   },
   {
     "id": "research/field-site",
-    "sha256": "431622fcc2febe117b6836574fad17d0a679f6916e0b0b45051eb478e90def65",
+    "sha256": "4d810af780d4cd94a49e1c2055110cce06b5e694ca9973146c35ad64befd6173",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/field-site.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.831Z",
+    "validatedAt": "2026-11-27T03:03:18.642Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1265,7 +2345,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 490844
+          "byteLength": 518876
         },
         {
           "pointer": "/images/0",
@@ -1282,14 +2362,14 @@
         }
       ],
       "animationCount": 0,
-      "materialCount": 6,
+      "materialCount": 7,
       "hasMorphTargets": false,
       "hasSkins": false,
       "hasTextures": true,
       "hasDefaultScene": true,
-      "drawCallCount": 6,
-      "totalVertexCount": 15228,
-      "totalTriangleCount": 5076,
+      "drawCallCount": 7,
+      "totalVertexCount": 16104,
+      "totalTriangleCount": 5368,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1302,7 +2382,7 @@
     "uri": "research/funding.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.838Z",
+    "validatedAt": "2026-11-27T03:03:18.655Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1351,12 +2431,12 @@
   },
   {
     "id": "research/laboratory",
-    "sha256": "06c42fc5a9e7b9b895bc49445789ccc86ec114340cc7b90fe868e2a146d7fb34",
+    "sha256": "2590b9851df7a32f3a4724abc53c3e9d1eeec813f207e0fd75235d0171e1e639",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/laboratory.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.840Z",
+    "validatedAt": "2026-11-27T03:03:18.669Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1373,7 +2453,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 286556
+          "byteLength": 1644188
         },
         {
           "pointer": "/images/0",
@@ -1390,14 +2470,133 @@
         }
       ],
       "animationCount": 0,
-      "materialCount": 6,
+      "materialCount": 9,
       "hasMorphTargets": false,
       "hasSkins": false,
       "hasTextures": true,
       "hasDefaultScene": true,
-      "drawCallCount": 6,
-      "totalVertexCount": 8844,
-      "totalTriangleCount": 2948,
+      "drawCallCount": 9,
+      "totalVertexCount": 51270,
+      "totalTriangleCount": 17090,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/ornl-campus",
+    "sha256": "49bde708a05c4b05a84a16102c3d7927ee98127a966c2144048071a324c56578",
+    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "uri": "research/ornl-campus.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T03:03:19.030Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 46011040
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        },
+        {
+          "pointer": "/images/1",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 1024,
+            "height": 1024,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        },
+        {
+          "pointer": "/images/2",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 1024,
+            "height": 1024,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        },
+        {
+          "pointer": "/images/3",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 1024,
+            "height": 1024,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        },
+        {
+          "pointer": "/images/4",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 1024,
+            "height": 1024,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        },
+        {
+          "pointer": "/images/5",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 1024,
+            "height": 1024,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 26,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 81,
+      "totalVertexCount": 1308786,
+      "totalTriangleCount": 436262,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1410,7 +2609,7 @@
     "uri": "research/publication.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.842Z",
+    "validatedAt": "2026-11-27T03:03:19.034Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1464,7 +2663,7 @@
     "uri": "research/research-project.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.851Z",
+    "validatedAt": "2026-11-27T03:03:19.051Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1513,12 +2712,12 @@
   },
   {
     "id": "research/research-team",
-    "sha256": "50100b7aeda4bc9a9b8ff157e12092830b1fff0c63ac612f6addb3904eaa4170",
+    "sha256": "2284cd92cc6b57719fa49fae5485c0219ecfbabc6c259a947ca6d35855046bfd",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/research-team.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.858Z",
+    "validatedAt": "2026-11-27T03:03:19.065Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1535,7 +2734,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1221596
+          "byteLength": 953756
         },
         {
           "pointer": "/images/0",
@@ -1558,8 +2757,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 5,
-      "totalVertexCount": 38064,
-      "totalTriangleCount": 12688,
+      "totalVertexCount": 29694,
+      "totalTriangleCount": 9898,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1567,12 +2766,12 @@
   },
   {
     "id": "research/software",
-    "sha256": "ddb036fe22132cb817060500756d5d308e0f99a49d08caa9340a42920b8e615e",
+    "sha256": "4ce70d5e61b53f5adb424343a49e47395ac07287f987f580a59e12092f530218",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/software.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.860Z",
+    "validatedAt": "2026-11-27T03:03:19.071Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1589,7 +2788,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 193244
+          "byteLength": 307676
         },
         {
           "pointer": "/images/0",
@@ -1606,14 +2805,14 @@
         }
       ],
       "animationCount": 0,
-      "materialCount": 7,
+      "materialCount": 9,
       "hasMorphTargets": false,
       "hasSkins": false,
       "hasTextures": true,
       "hasDefaultScene": true,
-      "drawCallCount": 7,
-      "totalVertexCount": 5928,
-      "totalTriangleCount": 1976,
+      "drawCallCount": 9,
+      "totalVertexCount": 9504,
+      "totalTriangleCount": 3168,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1626,7 +2825,7 @@
     "uri": "research/supercomputer.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.872Z",
+    "validatedAt": "2026-11-27T03:03:19.089Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1675,12 +2874,12 @@
   },
   {
     "id": "research/user-facility",
-    "sha256": "9291987cbe8fa902b5ea022b7c79fd0249cc07fa17f3e3265bd8f714f515b093",
+    "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f",
     "palette": "ORNL with recorded natural finishes and requested custom accents",
     "uri": "research/user-facility.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.876Z",
+    "validatedAt": "2026-11-27T03:03:19.107Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1697,7 +2896,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 794588
+          "byteLength": 2024732
         },
         {
           "pointer": "/images/0",
@@ -1714,446 +2913,14 @@
         }
       ],
       "animationCount": 0,
-      "materialCount": 5,
+      "materialCount": 9,
       "hasMorphTargets": false,
       "hasSkins": false,
       "hasTextures": true,
       "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 24720,
-      "totalTriangleCount": 8240,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/chichen-itza",
-    "sha256": "50f7bc06bcf396a63be23372237f4927025ba8100024caeb65e005f22b2ae87c",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/chichen-itza.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.882Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 1155164
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 5,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 35988,
-      "totalTriangleCount": 11996,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/christ-the-redeemer",
-    "sha256": "7768fe88919fa8bd6f2abe2d9e97dea20c6c45d2fac39c8b3b58c77cc6eae4a6",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/christ-the-redeemer.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.886Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 627164
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 5,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 19488,
-      "totalTriangleCount": 6496,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/colosseum",
-    "sha256": "fdc027ef7d1c104b319b8732ace93207494f5bbf3604d24b0148fcc68262addc",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/colosseum.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.894Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 1549916
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 4,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 4,
-      "totalVertexCount": 48324,
-      "totalTriangleCount": 16108,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/great-pyramid-of-giza",
-    "sha256": "accd6d1d84d14b9bb2a1cf68f18a40783ab3add5276d46350dd76d58b20d0f9f",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/great-pyramid-of-giza.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.902Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 1518812
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 5,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 47352,
-      "totalTriangleCount": 15784,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/great-wall-of-china",
-    "sha256": "30dbb12716e48db728ac1bd2be7528d16104b3bf4fc752cfd8efa08cd4be00dc",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/great-wall-of-china.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.907Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 846428
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 6,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 6,
-      "totalVertexCount": 26340,
-      "totalTriangleCount": 8780,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/machu-picchu",
-    "sha256": "cc17bd78a6aead7b3fa67a32d310969dd09674a8e3adcfd99f38149f7fb688ad",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/machu-picchu.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.917Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 622556
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 7,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 7,
-      "totalVertexCount": 19344,
-      "totalTriangleCount": 6448,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/petra",
-    "sha256": "7fdf4ac072afcb7b44336431b785d0df9cabbf4a18f15359ac8f13687074cb6b",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/petra.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.921Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 578780
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 5,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 5,
-      "totalVertexCount": 17976,
-      "totalTriangleCount": 5992,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "wonders/taj-mahal",
-    "sha256": "d0def0a34b62e0b1a039f82da2e3e46f07be2e1fda81519da3a53e44aaeb125c",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "wonders/taj-mahal.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-26T20:13:32.934Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 1733276
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 8,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 8,
-      "totalVertexCount": 54054,
-      "totalTriangleCount": 18018,
+      "drawCallCount": 9,
+      "totalVertexCount": 63162,
+      "totalTriangleCount": 21054,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3

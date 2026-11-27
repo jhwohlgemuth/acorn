@@ -3,51 +3,139 @@
   "assets": [
     {
       "id": "drone/autel-evo-max-4t",
-      "sha256": "f418da115c96b14f1139e3f1c04bd4c458f72eb9c2de48302ec4b85c3bc4b159"
+      "sha256": "3837aedfc5ed0783b21bda1ffc4f4c093d58f1abd7ccaf9313e334dd6147d41c"
     },
     {
       "id": "drone/bitcraze-crazyflie-2-1",
-      "sha256": "f06b059c00e95c22838ed7d2a6fb1f00612f09ee5aeaae5916d19ee44ac57cb7"
+      "sha256": "7aaf200961dc57b8ec2cd6eda16a7a67c7005769f3eabcf6ce52d4671f26551d"
+    },
+    {
+      "id": "drone/brinc-responder",
+      "sha256": "44bca6831941ed50b38fefafdbc512467bfec6e5d8848df5d7cf5ee9d88e73b3"
+    },
+    {
+      "id": "drone/brinc-responder-station",
+      "sha256": "7b96d92beee29d199d1fdd2fe192998bf4d49380e1fa44a70592f38a7a9c53c2"
+    },
+    {
+      "id": "drone/dji-agras-t50",
+      "sha256": "28d819cb3bf6514f2ba45e7642c147778fd15ac415ca2d89ed599f0159cdf862"
+    },
+    {
+      "id": "drone/dji-avata-2",
+      "sha256": "a3d9cf23bb1b41d5837725c681bc405172653a7d2e0f2631615c2fd6c420298b"
+    },
+    {
+      "id": "drone/dji-dock-3",
+      "sha256": "a48ec15ad1ffaaadc5e81b932247864469d4f45e43b27e734cc91d4f385a08ec"
+    },
+    {
+      "id": "drone/dji-flycart-30",
+      "sha256": "b26263e9767d228698c437501c73e5562f91ee9ce2ef47ee13ef4d42e5cd58a0"
+    },
+    {
+      "id": "drone/dji-inspire-3",
+      "sha256": "d729d6af47d4c953c05f67cd34c9a31623ad110b79acaa910060293f9f8b7306"
     },
     {
       "id": "drone/dji-matrice-350-rtk",
-      "sha256": "45879ca8a8c782bd6dbd4faf7b6a0c1c02cdaa2fdf31b019367e303247adbda2"
+      "sha256": "07eaab7e88da50267120b59f5d2326cbbebca29a88e1a977b9a8abc0a89d9f73"
+    },
+    {
+      "id": "drone/dji-matrice-4d",
+      "sha256": "eefba212ac6e34957f829eb6f162112f17c7cc1e908853c47f7dd6dbf9941916"
     },
     {
       "id": "drone/dji-mavic-3-enterprise",
-      "sha256": "218730196badca338b7d0dd693ca0077772a4a2702fb8d40074b9dab9b971735"
+      "sha256": "9dccb7ad898058af41e81c5f56bb2cb0f10b1601060d693335da649ab665878b"
     },
     {
       "id": "drone/dji-phantom-4-rtk",
-      "sha256": "70e6f9d49a7ead1f5861882d690a1b3a6e8010c5d0b4694f00cdbbe32f4c335e"
+      "sha256": "6874d7b1051692f54e1164ab6d58c541e68f8106f9be90c28c0d55c1da29e472"
     },
     {
       "id": "drone/ebee-x",
       "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea"
     },
     {
+      "id": "drone/elistair-khronos",
+      "sha256": "8edb4af10f092afe24cdba24d0871af8c64bab2562d265dcf3a8c9b439d70e39"
+    },
+    {
+      "id": "drone/elistair-khronos-station",
+      "sha256": "ee8168300bb60af0e7640e85aaa0c85c4bdda3b4f5dbaa773e31979e1bb827a0"
+    },
+    {
+      "id": "drone/flyability-elios-3",
+      "sha256": "eef66d370b86152a581d7a6122d449cec052003de70384ce4f5382ad9e2249bf"
+    },
+    {
+      "id": "drone/freefly-alta-x",
+      "sha256": "b85235a647269e48727739e349a0b5f4e9a3edd29465703651ea159d96161408"
+    },
+    {
       "id": "drone/freefly-astro",
-      "sha256": "c183f5567c008ac020c638fc0b52f573e85e4e7bd4952e1ed9dfadbaeb1066d8"
+      "sha256": "7bc3f180ba80e2247bb014932eefadef3f730be03879802f04b962044eb751ab"
     },
     {
       "id": "drone/holybro-x500-v2",
-      "sha256": "752ef7a391cac1bec59e1e51905d66ac077e291a87c4323129669cedd253f26b"
+      "sha256": "6b40758c8c06862d10e0c6650767347a6e1f385c6e8a8701628d5f4df82aee71"
+    },
+    {
+      "id": "drone/inspired-flight-if1200a",
+      "sha256": "a7b7a0f4d7e49d7417f375d892196b55b5be2fcd3b7b1d859e02abd874f4ec68"
+    },
+    {
+      "id": "drone/jouav-cw-15",
+      "sha256": "9b3f08d5422a48cb99b4b73fbbce2b47dcef37a741671ad8bacc717b337abd91"
+    },
+    {
+      "id": "drone/landing-pad",
+      "sha256": "7ef8e072d6f5a37b48cb123f5cfa5414d39f496322ad0b0f6a6dcc983847a6b5"
+    },
+    {
+      "id": "drone/modalai-starling-2",
+      "sha256": "7fe6a0476cbaf23442c6ea9befea1aa987e9cf4fb478b785b61d5a1f876be306"
     },
     {
       "id": "drone/ornl-strelka",
-      "sha256": "d92415c8ca7ba356f98fe4759ff80833e289e5fb715f3600ffa89b9d54b6fe29"
+      "sha256": "886a69f7cc939fa9a5c6d84f690c1517eadb93b6a94dfa4568a54fc10fba65ff"
     },
     {
       "id": "drone/parrot-anafi-ai",
-      "sha256": "d6238cde7a46dc3ab2106233fb1e64975ea717325cd5edb1ff5da6c4043df9a5"
+      "sha256": "691f9c4e57d0f1af502d683f9f80dea5d756044b45f51278e26309a8dc08537e"
+    },
+    {
+      "id": "drone/quantum-trinity-pro",
+      "sha256": "9dddc150df3ae8f0f309f40cc4703d97d08061ef3efa520f94339e4d0da51169"
     },
     {
       "id": "drone/skydio-x10",
-      "sha256": "0900de6d639c17055ec22f3059aa6b92c140399e7f3ef7e52193e02e2dc623c3"
+      "sha256": "9421ed274ae8e6b916d0708ef5256f1a154cc901880cceb836bb092e6b120047"
+    },
+    {
+      "id": "drone/swissdrones-sdo-50-v3",
+      "sha256": "945fc214b8e385e04048d98ef1bf07fa9e5f419556a640b3282f7068fd5a58e4"
+    },
+    {
+      "id": "drone/voliro-t",
+      "sha256": "e8f4dcac681034e5a60a9a6ce71d68fbcc37c27f6603d7ff271dfd2865bb1737"
+    },
+    {
+      "id": "drone/wingcopter-198",
+      "sha256": "62ee2c708d868ce6887e9e2397c2fadcae55ad92a0602bc79e9e5497beacebd4"
     },
     {
       "id": "drone/wingtraone-gen-ii",
       "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b"
+    },
+    {
+      "id": "drone/zipline-delivery-droid",
+      "sha256": "36676bd4b88ab09580817e758f652640e780afdf8903cefe8856302e62a31bda"
+    },
+    {
+      "id": "drone/zipline-platform-2",
+      "sha256": "89ef948d92c60a6770a568f8e7991420c604b5e878352f34c151976eb1b94b5d"
     }
   ],
   "externalRequests": 0,
@@ -58,5 +146,5 @@
     "top",
     "small"
   ],
-  "visualReview": "Prior visual review retained: asset hashes, geometry and materials unchanged by the supercomputer cyan update on 2026-11-26."
+  "visualReview": "Inspect saved images before acceptance"
 }

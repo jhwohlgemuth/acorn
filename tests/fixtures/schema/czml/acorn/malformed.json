@@ -1,0 +1,12 @@
+{
+  "wrongArity": [{"id":"document","version":"1.0"},{"position":{"cartesian":[1,2]}}],
+  "rgbaFraction": [{"id":"document","version":"1.0"},{"billboard":{"color":{"rgba":[1.5,0,0,255]}}}],
+  "unknownSubproperty": [{"id":"document","version":"1.0"},{"position":{"unlisted":true}}],
+  "bareComposite": [{"id":"document","version":"1.0"},{"position":[1,2,3]}],
+  "invalidTime": [{"id":"document","version":"1.0"},{"position":{"cartesian":["not-a-time",1,2,3]}}],
+  "invalidInterval": [{"id":"document","version":"1.0"},{"position":{"interval":"bad","cartesian":[1,2,3]}}],
+  "malformedReference": [{"id":"document","version":"1.0"},{"position":{"reference":"missing-property"}}],
+  "outOfOrderSamples": [{"id":"document","version":"1.0"},{"position":{"cartesian":["2026-01-02T00:00:00Z",1,2,3,"2026-01-01T00:00:00Z",4,5,6]}}],
+  "misplacedVersion": [{"id":"document","version":"1.0"},{"id":"entity","version":"1.0"}],
+  "misplacedClock": [{"id":"document","version":"1.0"},{"id":"entity","clock":{}}]
+}

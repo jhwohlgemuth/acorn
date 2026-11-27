@@ -94,7 +94,7 @@ This document contains the help content for the `acorn-cli` command-line program
 
 * `check` — Perform static analysis on research activity data and apply standardized best practices
 * `create` — Create research resources like GitLab runners, MCP servers, etc.
-* `daemon` — Manage the local ACORN daemon and its configured jobs
+* `daemon` — Manage the ACORN daemon and its configured jobs locally or over SSH
 * `doctor` — Diagnose and correct system requirements for using acorn
 * `diff` — Compare files semantically or calculate pairwise similarity
 * `download` — Download research activity data from buckets or model weights for local inference
@@ -447,14 +447,14 @@ Cryptographically secure 256-bit secret
 
 ## `acorn-cli daemon`
 
-Manage the local ACORN daemon and its configured jobs
+Manage the ACORN daemon and its configured jobs locally or over SSH
 
-**Usage:** `acorn-cli daemon <COMMAND>`
+**Usage:** `acorn-cli daemon [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
 * `verify-bundle` — Verify a signed paired release archive without installing it
-* `install` — Install or update the local daemon service with a configuration file
+* `install` — Install or update the daemon service with a configuration file
 * `uninstall` — Remove the registered user service
 * `start` — Start the registered user service
 * `stop` — Stop the registered user service
@@ -467,6 +467,10 @@ Manage the local ACORN daemon and its configured jobs
 * `pause` — Pause a configured job
 * `resume` — Resume a configured job
 * `reload` — Reload configured jobs atomically
+
+###### **Options:**
+
+* `--host <HOST>` — SSH host or alias for remote daemon management
 
 
 
@@ -484,7 +488,7 @@ Verify a signed paired release archive without installing it
 
 ## `acorn-cli daemon install`
 
-Install or update the local daemon service with a configuration file
+Install or update the daemon service with a configuration file
 
 **Usage:** `acorn-cli daemon install [OPTIONS] --config <CONFIG>`
 
@@ -492,6 +496,7 @@ Install or update the local daemon service with a configuration file
 
 * `--config <CONFIG>` — ACRE configuration path
 * `--bundle <BUNDLE>` — Signed paired acorn/acornd release archive to stage and activate
+* `--release-url <RELEASE_URL>` — Public package registry base URL for a remote signed bundle
 * `--linger` — Ask logind to keep this user's service manager after logout
 
 

@@ -1,6 +1,35 @@
 use super::*;
 use acorn_core::prelude::{vec, ToString, Vec};
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(256),
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/job-id.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_job_id_generated_valid_values_round_trip(
+        value in prop_oneof!["[a-z0-9]", "[a-z0-9][a-z0-9-]{0,62}[a-z0-9]"],
+    ) {
+        let identifier = JobId::new(value.clone()).expect("generated valid job identifier");
+        let encoded = serde_json::to_string(&identifier).expect("serialize job identifier");
+        let decoded: JobId = serde_json::from_str(&encoded).expect("deserialize job identifier");
+        prop_assert_eq!(decoded.as_ref(), value);
+        prop_assert_eq!(decoded, identifier);
+    }
+    #[test]
+    fn test_job_id_generated_invalid_values_are_rejected(value in "[a-z]{1,63}") {
+        for invalid in [format!("-{value}"), format!("{value}-"), format!("{value}_"), value.to_uppercase(), "a".repeat(MAX_JOB_ID_BYTES.saturating_add(1))] {
+            prop_assert!(JobId::new(invalid.clone()).is_err());
+            let encoded = serde_json::to_string(&invalid).expect("serialize invalid value");
+            prop_assert!(serde_json::from_str::<JobId>(&encoded).is_err());
+        }
+    }
+}
 #[test]
 fn test_coalescing_finish_transitions() {
     assert_eq!(CoalescingState::Running.finish(), Ok(CoalescingState::Idle));

@@ -515,6 +515,29 @@ fn test_research_activity_vocabulary_request_defaults_and_rejects_unknown_modes(
     .is_err());
 }
 #[test]
+fn test_standard_validation_accepts_czml_and_reports_field_path() {
+    let request = |content: &str| ValidateStandardRequest {
+        content: content.to_string(),
+        format: MimeType::Json,
+        source_uri: Some("scene.czml".to_string()),
+        standard: Standard::Czml,
+    };
+    let valid = AcornService
+        .validate_standard(request(include_str!("../../../../tests/fixtures/schema/czml/acorn/scene.czml")))
+        .expect("valid CZML response");
+    assert!(valid.valid);
+    let malformed = AcornService
+        .validate_standard(request(
+            r#"[{"id":"document","version":"1.0"},{"id":"entity","position":{"reference":"missing"}}]"#,
+        ))
+        .expect("malformed CZML response");
+    assert!(!malformed.valid);
+    assert!(malformed.diagnostics.iter().any(|diagnostic| diagnostic
+        .path
+        .as_deref()
+        .is_some_and(|path| path.starts_with("scene.czml:") && path.contains("reference"))));
+}
+#[test]
 fn test_standard_validation_supports_text_and_rejects_malformed_datacite() {
     let text = AcornService
         .validate_standard(ValidateStandardRequest {

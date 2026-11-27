@@ -8,11 +8,55 @@
 
 use super::canonical_json;
 use crate::standard::huwise::{Catalog, DublinCoreType};
+use crate::standard::zon;
+use crate::validation::Validate;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 use serde_json::Value;
+
 const FIXTURE_PATH: &str = "../../tests/fixtures/schema/ods.json";
 fn load_fixture_text() -> String {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(FIXTURE_PATH);
     std::fs::read_to_string(path).expect("failed to read ods.json fixture")
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(64),
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/standard/huwise.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_dataset_round_trips_in_supported_formats(
+        id in "[a-z][a-z0-9-]{0,24}",
+        title in prop_oneof![Just("𝄞 dataset".to_string()), Just("Alpha\r\nBeta".to_string()), "[A-Za-z0-9][A-Za-z0-9 ]{0,39}"],
+        creator in any::<String>(),
+        has_records in any::<bool>(),
+        attachments_count in 0_u64..100,
+    ) {
+        let source = serde_json::json!({
+            "dataset_id": id,
+            "has_attachments": attachments_count > 0,
+            "attachments_count": attachments_count,
+            "has_records": has_records,
+            "fields": {},
+            "metas": {"default": {"title": title}, "dcat": {"creator": creator}},
+            "features": [],
+        });
+        let dataset: crate::standard::huwise::Dataset = serde_json::from_value(source).expect("generated HuWise dataset");
+        prop_assert!(dataset.validate().is_ok());
+        let expected = serde_json::to_value(&dataset).expect("serialize HuWise dataset");
+        let json: crate::standard::huwise::Dataset = serde_json::from_str(&serde_json::to_string(&dataset).expect("JSON encoding")).expect("JSON decoding");
+        let yaml: crate::standard::huwise::Dataset = serde_norway::from_str(&serde_norway::to_string(&dataset).expect("YAML encoding")).expect("YAML decoding");
+        let zon: crate::standard::huwise::Dataset = zon::decode(&zon::encode(&dataset).expect("ZON encoding")).expect("ZON decoding");
+        for decoded in [json, yaml, zon] {
+            let value = serde_json::to_value(&decoded).expect("serialize decoded dataset");
+            prop_assert_eq!(&value, &expected);
+            prop_assert_eq!(decoded.validate().is_ok(), dataset.validate().is_ok());
+        }
+    }
 }
 #[test]
 fn test_ods_fixture_parsing() {

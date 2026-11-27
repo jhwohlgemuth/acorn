@@ -269,6 +269,7 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "rad" | "rads" | "research-activity-data" => Ok(Standard::ResearchActivityData),
         | "cff" => Ok(Standard::CitationFileFormat),
         | "ckan" => Ok(Standard::Ckan),
+        | "czml" => Ok(Standard::Czml),
         | "datacite" => Ok(Standard::Datacite),
         | "dcat" => Ok(Standard::Dcat),
         | "dcmi" | "dublin-core" => Ok(Standard::DublinCore),
@@ -282,7 +283,7 @@ pub(crate) fn parse_standard(s: &str) -> Result<Standard, String> {
         | "text" => Ok(Standard::Text),
         | _ => Err(format!(
             "unknown standard '{s}' — expected one of: \
-             acre, rad/rads, cff, ckan, datacite, dcat, dcmi, document, huwise, invenio/inveniordm, kitfile, modelkit, oci, raid, text"
+             acre, rad/rads, cff, ckan, czml, datacite, dcat, dcmi, document, huwise, invenio/inveniordm, kitfile, modelkit, oci, raid, text"
         )),
     }
 }

@@ -3,83 +3,163 @@
   "assets": [
     {
       "id": "drone/autel-evo-max-4t",
-      "sha256": "f418da115c96b14f1139e3f1c04bd4c458f72eb9c2de48302ec4b85c3bc4b159"
+      "sha256": "3837aedfc5ed0783b21bda1ffc4f4c093d58f1abd7ccaf9313e334dd6147d41c"
     },
     {
       "id": "drone/bitcraze-crazyflie-2-1",
-      "sha256": "f06b059c00e95c22838ed7d2a6fb1f00612f09ee5aeaae5916d19ee44ac57cb7"
+      "sha256": "7aaf200961dc57b8ec2cd6eda16a7a67c7005769f3eabcf6ce52d4671f26551d"
+    },
+    {
+      "id": "drone/brinc-responder",
+      "sha256": "44bca6831941ed50b38fefafdbc512467bfec6e5d8848df5d7cf5ee9d88e73b3"
+    },
+    {
+      "id": "drone/brinc-responder-station",
+      "sha256": "7b96d92beee29d199d1fdd2fe192998bf4d49380e1fa44a70592f38a7a9c53c2"
+    },
+    {
+      "id": "drone/dji-agras-t50",
+      "sha256": "28d819cb3bf6514f2ba45e7642c147778fd15ac415ca2d89ed599f0159cdf862"
+    },
+    {
+      "id": "drone/dji-avata-2",
+      "sha256": "a3d9cf23bb1b41d5837725c681bc405172653a7d2e0f2631615c2fd6c420298b"
+    },
+    {
+      "id": "drone/dji-dock-3",
+      "sha256": "a48ec15ad1ffaaadc5e81b932247864469d4f45e43b27e734cc91d4f385a08ec"
+    },
+    {
+      "id": "drone/dji-flycart-30",
+      "sha256": "b26263e9767d228698c437501c73e5562f91ee9ce2ef47ee13ef4d42e5cd58a0"
+    },
+    {
+      "id": "drone/dji-inspire-3",
+      "sha256": "d729d6af47d4c953c05f67cd34c9a31623ad110b79acaa910060293f9f8b7306"
     },
     {
       "id": "drone/dji-matrice-350-rtk",
-      "sha256": "45879ca8a8c782bd6dbd4faf7b6a0c1c02cdaa2fdf31b019367e303247adbda2"
+      "sha256": "07eaab7e88da50267120b59f5d2326cbbebca29a88e1a977b9a8abc0a89d9f73"
+    },
+    {
+      "id": "drone/dji-matrice-4d",
+      "sha256": "eefba212ac6e34957f829eb6f162112f17c7cc1e908853c47f7dd6dbf9941916"
     },
     {
       "id": "drone/dji-mavic-3-enterprise",
-      "sha256": "218730196badca338b7d0dd693ca0077772a4a2702fb8d40074b9dab9b971735"
+      "sha256": "9dccb7ad898058af41e81c5f56bb2cb0f10b1601060d693335da649ab665878b"
     },
     {
       "id": "drone/dji-phantom-4-rtk",
-      "sha256": "70e6f9d49a7ead1f5861882d690a1b3a6e8010c5d0b4694f00cdbbe32f4c335e"
+      "sha256": "6874d7b1051692f54e1164ab6d58c541e68f8106f9be90c28c0d55c1da29e472"
     },
     {
       "id": "drone/ebee-x",
       "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea"
     },
     {
+      "id": "drone/elistair-khronos",
+      "sha256": "8edb4af10f092afe24cdba24d0871af8c64bab2562d265dcf3a8c9b439d70e39"
+    },
+    {
+      "id": "drone/elistair-khronos-station",
+      "sha256": "ee8168300bb60af0e7640e85aaa0c85c4bdda3b4f5dbaa773e31979e1bb827a0"
+    },
+    {
+      "id": "drone/flyability-elios-3",
+      "sha256": "eef66d370b86152a581d7a6122d449cec052003de70384ce4f5382ad9e2249bf"
+    },
+    {
+      "id": "drone/freefly-alta-x",
+      "sha256": "b85235a647269e48727739e349a0b5f4e9a3edd29465703651ea159d96161408"
+    },
+    {
       "id": "drone/freefly-astro",
-      "sha256": "c183f5567c008ac020c638fc0b52f573e85e4e7bd4952e1ed9dfadbaeb1066d8"
+      "sha256": "7bc3f180ba80e2247bb014932eefadef3f730be03879802f04b962044eb751ab"
     },
     {
       "id": "drone/holybro-x500-v2",
-      "sha256": "752ef7a391cac1bec59e1e51905d66ac077e291a87c4323129669cedd253f26b"
+      "sha256": "6b40758c8c06862d10e0c6650767347a6e1f385c6e8a8701628d5f4df82aee71"
+    },
+    {
+      "id": "drone/inspired-flight-if1200a",
+      "sha256": "a7b7a0f4d7e49d7417f375d892196b55b5be2fcd3b7b1d859e02abd874f4ec68"
+    },
+    {
+      "id": "drone/jouav-cw-15",
+      "sha256": "9b3f08d5422a48cb99b4b73fbbce2b47dcef37a741671ad8bacc717b337abd91"
+    },
+    {
+      "id": "drone/landing-pad",
+      "sha256": "7ef8e072d6f5a37b48cb123f5cfa5414d39f496322ad0b0f6a6dcc983847a6b5"
+    },
+    {
+      "id": "drone/modalai-starling-2",
+      "sha256": "7fe6a0476cbaf23442c6ea9befea1aa987e9cf4fb478b785b61d5a1f876be306"
     },
     {
       "id": "drone/ornl-strelka",
-      "sha256": "d92415c8ca7ba356f98fe4759ff80833e289e5fb715f3600ffa89b9d54b6fe29"
+      "sha256": "886a69f7cc939fa9a5c6d84f690c1517eadb93b6a94dfa4568a54fc10fba65ff"
     },
     {
       "id": "drone/parrot-anafi-ai",
-      "sha256": "d6238cde7a46dc3ab2106233fb1e64975ea717325cd5edb1ff5da6c4043df9a5"
+      "sha256": "691f9c4e57d0f1af502d683f9f80dea5d756044b45f51278e26309a8dc08537e"
+    },
+    {
+      "id": "drone/quantum-trinity-pro",
+      "sha256": "9dddc150df3ae8f0f309f40cc4703d97d08061ef3efa520f94339e4d0da51169"
     },
     {
       "id": "drone/skydio-x10",
-      "sha256": "0900de6d639c17055ec22f3059aa6b92c140399e7f3ef7e52193e02e2dc623c3"
+      "sha256": "9421ed274ae8e6b916d0708ef5256f1a154cc901880cceb836bb092e6b120047"
+    },
+    {
+      "id": "drone/swissdrones-sdo-50-v3",
+      "sha256": "945fc214b8e385e04048d98ef1bf07fa9e5f419556a640b3282f7068fd5a58e4"
+    },
+    {
+      "id": "drone/voliro-t",
+      "sha256": "e8f4dcac681034e5a60a9a6ce71d68fbcc37c27f6603d7ff271dfd2865bb1737"
+    },
+    {
+      "id": "drone/wingcopter-198",
+      "sha256": "62ee2c708d868ce6887e9e2397c2fadcae55ad92a0602bc79e9e5497beacebd4"
     },
     {
       "id": "drone/wingtraone-gen-ii",
       "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b"
     },
     {
+      "id": "drone/zipline-delivery-droid",
+      "sha256": "36676bd4b88ab09580817e758f652640e780afdf8903cefe8856302e62a31bda"
+    },
+    {
+      "id": "drone/zipline-platform-2",
+      "sha256": "89ef948d92c60a6770a568f8e7991420c604b5e878352f34c151976eb1b94b5d"
+    },
+    {
       "id": "landmarks/gateway-arch",
-      "sha256": "dd44f0bacfca8253fe92e4273a6545dfcdfa85f9f5c6c2b397d11124e9d071b2"
+      "sha256": "376959930fc71175b7553da5c6587442497c31ebe284da13ec6f1353b0f89070"
     },
     {
       "id": "landmarks/golden-gate-bridge",
-      "sha256": "57275f6295efcbcf41e496da668c400b932f3d7cce7fa8b7aec9f0c08d01ae0c"
+      "sha256": "ea293dcd0d7433b1e3438cb7df73bfd0fa1cde23e72aeeb17a79aacd0c6e6f9c"
     },
     {
       "id": "landmarks/grand-canyon",
-      "sha256": "d36ad43d25709ae41fa5f90364c0118a58204b7a7d448d3b81ea32c7e0d5d8f2"
+      "sha256": "4bd38c8bd895044f2e1ec001e354edadc5d12fc45a92dbcae30adc1a2e287a0f"
     },
     {
       "id": "landmarks/hoover-dam",
-      "sha256": "6509f2e5f98eb5e4db20eda280ada57454361257d06d698440c29d18e850f871"
+      "sha256": "4d5b508b1016c674db3a3b6bd01222b60f1bd9ce0380927bbd740da411b2541e"
     },
     {
       "id": "landmarks/kennedy-space-center",
-      "sha256": "7dc25edc3c0a7eae522bdf07af155bc29e1226e8a9643caca29624cda2ca37c0"
-    },
-    {
-      "id": "landmarks/statue-of-liberty",
-      "sha256": "925b39ff833e16b75809bf6debf45aacdbcfa69857fe111c71e1365bcfe082b5"
+      "sha256": "f4ccb024d83e97dfb46b0528e35154a726fe8b18c6ae9ef91e0a500bbcacacda"
     },
     {
       "id": "landmarks/us-capitol",
       "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934"
-    },
-    {
-      "id": "landmarks/yellowstone",
-      "sha256": "844f6fa179abf1f00c16e7067e5b3d3df79f469f57cfa307e5d0e88b281979ef"
     },
     {
       "id": "research/collaboration",
@@ -87,15 +167,15 @@
     },
     {
       "id": "research/dataset",
-      "sha256": "606d2beb0a9a9b54f6515c776954163cfc06d6dc4571797a231931268a0cee8f"
+      "sha256": "84e26f725244883d1e34e201db520976afd73a46a203cc4f62217f1e6e17b4d5"
     },
     {
       "id": "research/doe-national-laboratory",
-      "sha256": "e2c0cd9119bd1989848f1949815bd56ee7270cf91449e5794c337ad11cfb8add"
+      "sha256": "c452fcd7b6cf618448d092af1d9efd13e96977c4330c683aef56f0be3d26c320"
     },
     {
       "id": "research/field-site",
-      "sha256": "431622fcc2febe117b6836574fad17d0a679f6916e0b0b45051eb478e90def65"
+      "sha256": "4d810af780d4cd94a49e1c2055110cce06b5e694ca9973146c35ad64befd6173"
     },
     {
       "id": "research/funding",
@@ -103,7 +183,11 @@
     },
     {
       "id": "research/laboratory",
-      "sha256": "06c42fc5a9e7b9b895bc49445789ccc86ec114340cc7b90fe868e2a146d7fb34"
+      "sha256": "2590b9851df7a32f3a4724abc53c3e9d1eeec813f207e0fd75235d0171e1e639"
+    },
+    {
+      "id": "research/ornl-campus",
+      "sha256": "49bde708a05c4b05a84a16102c3d7927ee98127a966c2144048071a324c56578"
     },
     {
       "id": "research/publication",
@@ -115,11 +199,11 @@
     },
     {
       "id": "research/research-team",
-      "sha256": "50100b7aeda4bc9a9b8ff157e12092830b1fff0c63ac612f6addb3904eaa4170"
+      "sha256": "2284cd92cc6b57719fa49fae5485c0219ecfbabc6c259a947ca6d35855046bfd"
     },
     {
       "id": "research/software",
-      "sha256": "ddb036fe22132cb817060500756d5d308e0f99a49d08caa9340a42920b8e615e"
+      "sha256": "4ce70d5e61b53f5adb424343a49e47395ac07287f987f580a59e12092f530218"
     },
     {
       "id": "research/supercomputer",
@@ -127,39 +211,7 @@
     },
     {
       "id": "research/user-facility",
-      "sha256": "9291987cbe8fa902b5ea022b7c79fd0249cc07fa17f3e3265bd8f714f515b093"
-    },
-    {
-      "id": "wonders/chichen-itza",
-      "sha256": "50f7bc06bcf396a63be23372237f4927025ba8100024caeb65e005f22b2ae87c"
-    },
-    {
-      "id": "wonders/christ-the-redeemer",
-      "sha256": "7768fe88919fa8bd6f2abe2d9e97dea20c6c45d2fac39c8b3b58c77cc6eae4a6"
-    },
-    {
-      "id": "wonders/colosseum",
-      "sha256": "fdc027ef7d1c104b319b8732ace93207494f5bbf3604d24b0148fcc68262addc"
-    },
-    {
-      "id": "wonders/great-pyramid-of-giza",
-      "sha256": "accd6d1d84d14b9bb2a1cf68f18a40783ab3add5276d46350dd76d58b20d0f9f"
-    },
-    {
-      "id": "wonders/great-wall-of-china",
-      "sha256": "30dbb12716e48db728ac1bd2be7528d16104b3bf4fc752cfd8efa08cd4be00dc"
-    },
-    {
-      "id": "wonders/machu-picchu",
-      "sha256": "cc17bd78a6aead7b3fa67a32d310969dd09674a8e3adcfd99f38149f7fb688ad"
-    },
-    {
-      "id": "wonders/petra",
-      "sha256": "7fdf4ac072afcb7b44336431b785d0df9cabbf4a18f15359ac8f13687074cb6b"
-    },
-    {
-      "id": "wonders/taj-mahal",
-      "sha256": "d0def0a34b62e0b1a039f82da2e3e46f07be2e1fda81519da3a53e44aaeb125c"
+      "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f"
     }
   ],
   "externalRequests": 0,
@@ -170,5 +222,5 @@
     "top",
     "small"
   ],
-  "visualReview": "Reviewed 2026-11-26: supercomputer revision 5 front preview confirms bright cyan illuminated accents. Other assets retain their previously reviewed geometry and materials."
+  "visualReview": "Inspect saved images before acceptance"
 }

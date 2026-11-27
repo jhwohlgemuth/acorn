@@ -1,6 +1,11 @@
 use crate::standard::ocp::{Contribution, ContributionId, ManagementProfileClaim, Project, Recognition, RecognitionProgram};
+use crate::standard::zon;
 use crate::standard::{ClaimAssessment, ConformanceResult, ContributionKind, StandardReference, StandardsClaim, StandardsRelationship};
 use crate::validation::Validate;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
 fn reference(identifier: &str) -> StandardReference {
     StandardReference::init()
@@ -8,6 +13,38 @@ fn reference(identifier: &str) -> StandardReference {
         .identifier(identifier)
         .canonical_uri(format!("https://www.opencompute.org/contributions/{identifier}"))
         .build()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(64),
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/standard/ocp.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_contribution_round_trips_in_supported_formats(
+        number in 0_u16..10_000,
+        title in prop_oneof![Just("𝄞 Dataset".to_string()), Just("Alpha\r\nBeta".to_string()), "[A-Za-z0-9]{1,40}"],
+        project in prop_oneof![Just("𝄞 Project".to_string()), Just("Alpha\r\nBeta".to_string()), "[A-Za-z0-9]{1,40}"],
+        kind in prop_oneof![Just("𝄞 Kind".to_string()), Just("Alpha\r\nBeta".to_string()), "[A-Za-z0-9]{1,25}"],
+    ) {
+        let identifier = format!("S{number:04}");
+        let contribution = Contribution::init()
+            .identifier(ContributionId::from(identifier.as_str()))
+            .title(title)
+            .project(Project::from(project))
+            .kind(ContributionKind::Other(kind))
+            .canonical_uri(format!("https://www.opencompute.org/contributions/{identifier}"))
+            .build();
+        prop_assert!(contribution.validate().is_ok());
+        let json: Contribution = serde_json::from_str(&serde_json::to_string(&contribution).expect("JSON encoding")).expect("JSON decoding");
+        let yaml: Contribution = serde_norway::from_str(&serde_norway::to_string(&contribution).expect("YAML encoding")).expect("YAML decoding");
+        let zon: Contribution = zon::decode(&zon::encode(&contribution).expect("ZON encoding")).expect("ZON decoding");
+        for decoded in [json, yaml, zon] {
+            prop_assert_eq!(&decoded, &contribution);
+            prop_assert_eq!(decoded.validate().is_ok(), contribution.validate().is_ok());
+        }
+    }
 }
 #[test]
 fn test_management_profile_claim_requires_test_evidence() {

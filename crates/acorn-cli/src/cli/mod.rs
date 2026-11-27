@@ -1,6 +1,6 @@
 use acorn::io::{
     files_all, files_from_git_branch, files_from_git_commit, files_from_gitlab_merge_request, filter_ignored, filter_ignored_with_root, ApiResult,
-    FromPath, Source, SourceAction,
+    FromPath, Remote, Source, SourceAction,
 };
 use acorn::util::constants::app::DEFAULT_HUGGINGFACE_MINIMUM_DOWNLOAD_COUNT;
 use acorn::util::constants::env::{CACHE_TTL, DATABASE_BACKEND, DATABASE_PATH, NO_LOCAL_DATABASE};
@@ -86,8 +86,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: Option<CreateCommands>,
     },
-    /// Manage the local ACORN daemon and its configured jobs.
+    /// Manage the ACORN daemon and its configured jobs locally or over SSH.
     Daemon {
+        /// SSH host or alias for remote daemon management.
+        #[arg(long)]
+        host: Option<Remote>,
         #[command(subcommand)]
         command: arguments::DaemonCommand,
     },

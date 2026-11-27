@@ -16,9 +16,37 @@ pub struct VelocityReference(pub Reference);
 
 impl Validate for Reference {
     fn validate(&self) -> Result<(), ValidationReport> {
-        let valid = self.0.split_once('#').is_some_and(|(id, path)| {
-            !id.is_empty() && !path.is_empty() && !path.contains('#') && path.split('.').all(|segment| !segment.is_empty())
-        });
+        let mut escaped = false;
+        let mut has_separator = false;
+        let mut has_id = false;
+        let mut has_segment = false;
+        let mut valid = true;
+        for character in self.0.chars() {
+            if escaped {
+                if has_separator {
+                    has_segment = true;
+                } else {
+                    has_id = true;
+                }
+                escaped = false;
+            } else {
+                match character {
+                    | '\\' => escaped = true,
+                    | '#' if !has_separator => {
+                        valid &= has_id;
+                        has_separator = true;
+                    }
+                    | '#' => valid = false,
+                    | '.' if has_separator => {
+                        valid &= has_segment;
+                        has_segment = false;
+                    }
+                    | _ if has_separator => has_segment = true,
+                    | _ => has_id = true,
+                }
+            }
+        }
+        valid &= has_separator && has_id && has_segment && !escaped;
         valid.then_some(()).ok_or_else(|| {
             ValidationReport::from_error(
                 "",

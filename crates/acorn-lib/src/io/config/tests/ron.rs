@@ -1,9 +1,34 @@
 use super::*;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
 fn fixture(name: &str) -> String {
     read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/config/ron").join(name)).expect("read RON configuration fixture")
 }
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(64),
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/io/ron.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_generated_ron_configuration_is_canonical_and_idempotent(
+        member in "[a-z]{1,12}",
+        model in "[a-z]{1,12}",
+        alias in "[a-z]{1,12}",
+    ) {
+        let source = format!("{{\"members\":\"{member}@example.org\",\"models\":[\"acme/{model}\"],\"folders\":[{{\"id\":\"{alias}\"}}]}}");
+        let configuration = ApplicationConfiguration::parse_ron(&source).expect("generated RON configuration");
+        let encoded = configuration.to_ron().expect("encode generated RON");
+        let reparsed = ApplicationConfiguration::parse_ron(&encoded).expect("reparse generated RON");
+        let canonical = reparsed.to_ron().expect("re-encode generated RON");
+        prop_assert_eq!(&canonical, &encoded);
+        prop_assert_eq!(serde_json::to_value(reparsed).expect("serialize reparsed configuration"), serde_json::to_value(configuration).expect("serialize original configuration"));
+    }
+}
 #[test]
 fn test_ron_adapter_matches_equivalent_json_across_acre_sections() {
     let json = ApplicationConfiguration::parse(fixture("equivalent.json")).expect("parse equivalent JSON configuration");
@@ -86,17 +111,43 @@ fn test_ron_adapter_retains_finite_recursion_limit() {
     assert!(message.contains("recursion limit"), "unexpected error: {message}");
 }
 #[test]
-fn test_ron_serialization_is_canonical_and_round_trips() {
-    let configuration = ApplicationConfiguration::parse_ron(fixture("equivalent.ron")).expect("parse RON fixture");
-    let serialized = configuration.to_ron().expect("serialize RON configuration");
-    assert!(serialized.ends_with('\n'));
-    assert!(!serialized.contains("\r\n"));
-    assert!(serialized.lines().any(|line| line.starts_with("  \"auth\"")));
-    let reparsed = ApplicationConfiguration::parse_ron(&serialized).expect("reparse canonical RON");
+fn test_ron_auth_profile_order_survives_format_and_write() {
+    let source = read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/oauth2/config/ordered.json"))
+        .expect("read ordered auth fixture");
+    let configuration = ApplicationConfiguration::parse_ron(&source).expect("parse ordered RON profiles");
     assert_eq!(
-        serde_json::to_value(reparsed).expect("serialize reparsed configuration"),
-        serde_json::to_value(configuration).expect("serialize original configuration")
+        configuration.auth.as_ref().and_then(|auth| auth.profile(None)).map(|(name, _)| name),
+        Some("zeta")
     );
+    for formatted in [
+        ApplicationConfiguration::format_ron(&source).expect("format RON"),
+        configuration.to_ron().expect("write RON"),
+    ] {
+        let reparsed = ApplicationConfiguration::parse_ron(&formatted).expect("reparse ordered RON profiles");
+        assert_eq!(
+            reparsed.auth.as_ref().and_then(|auth| auth.profile(None)).map(|(name, _)| name),
+            Some("zeta")
+        );
+        assert!(formatted.find("\"zeta\"").expect("zeta key") < formatted.find("\"alpha\"").expect("alpha key"));
+    }
+}
+#[test]
+fn test_ron_discovery_precedence_and_explicit_errors() {
+    let directory = super::temp_resolve_dir("ron-precedence");
+    create_dir_all(&directory).expect("create RON directory");
+    let ron = directory.join(".acorn.ron");
+    write(&ron, "{}\n").expect("write RON source");
+    for name in DEFAULT_CONFIG_FILENAMES[..4].iter().rev() {
+        let higher = directory.join(name);
+        write(&higher, "{}\n").expect("write higher-priority source");
+        assert_eq!(ApplicationConfiguration::resolve_in(&None, &directory), Some(higher));
+    }
+    assert_eq!(ApplicationConfiguration::resolve_in(&Some(ron.clone()), &directory), Some(ron));
+    assert!(ApplicationConfiguration::load(&Some(directory.join("missing.ron"))).is_err());
+    let malformed = directory.join("malformed.ron");
+    write(&malformed, "{\"models\": [}").expect("write malformed RON");
+    assert!(ApplicationConfiguration::load(&Some(malformed)).is_err());
+    remove_dir_all(directory).expect("remove RON directory");
 }
 #[test]
 fn test_ron_file_lifecycle_and_codec() {
@@ -139,24 +190,6 @@ fn test_ron_file_lifecycle_and_codec() {
     remove_dir_all(directory).expect("remove RON directory");
 }
 #[test]
-fn test_ron_discovery_precedence_and_explicit_errors() {
-    let directory = super::temp_resolve_dir("ron-precedence");
-    create_dir_all(&directory).expect("create RON directory");
-    let ron = directory.join(".acorn.ron");
-    write(&ron, "{}\n").expect("write RON source");
-    for name in DEFAULT_CONFIG_FILENAMES[..4].iter().rev() {
-        let higher = directory.join(name);
-        write(&higher, "{}\n").expect("write higher-priority source");
-        assert_eq!(ApplicationConfiguration::resolve_in(&None, &directory), Some(higher));
-    }
-    assert_eq!(ApplicationConfiguration::resolve_in(&Some(ron.clone()), &directory), Some(ron));
-    assert!(ApplicationConfiguration::load(&Some(directory.join("missing.ron"))).is_err());
-    let malformed = directory.join("malformed.ron");
-    write(&malformed, "{\"models\": [}").expect("write malformed RON");
-    assert!(ApplicationConfiguration::load(&Some(malformed)).is_err());
-    remove_dir_all(directory).expect("remove RON directory");
-}
-#[test]
 fn test_ron_format_preserves_source_data_and_omissions() {
     let source = "// remove this comment\r\n{\"models\":[\"acme/example\",],\"members\":(),}\r\n";
     let formatted = ApplicationConfiguration::format_ron(source).expect("format RON data");
@@ -175,23 +208,15 @@ fn test_ron_format_preserves_source_data_and_omissions() {
     assert!(ApplicationConfiguration::format_ron("{\"models\":[}").is_err());
 }
 #[test]
-fn test_ron_auth_profile_order_survives_format_and_write() {
-    let source = read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/oauth2/config/ordered.json"))
-        .expect("read ordered auth fixture");
-    let configuration = ApplicationConfiguration::parse_ron(&source).expect("parse ordered RON profiles");
+fn test_ron_serialization_is_canonical_and_round_trips() {
+    let configuration = ApplicationConfiguration::parse_ron(fixture("equivalent.ron")).expect("parse RON fixture");
+    let serialized = configuration.to_ron().expect("serialize RON configuration");
+    assert!(serialized.ends_with('\n'));
+    assert!(!serialized.contains("\r\n"));
+    assert!(serialized.lines().any(|line| line.starts_with("  \"auth\"")));
+    let reparsed = ApplicationConfiguration::parse_ron(&serialized).expect("reparse canonical RON");
     assert_eq!(
-        configuration.auth.as_ref().and_then(|auth| auth.profile(None)).map(|(name, _)| name),
-        Some("zeta")
+        serde_json::to_value(reparsed).expect("serialize reparsed configuration"),
+        serde_json::to_value(configuration).expect("serialize original configuration")
     );
-    for formatted in [
-        ApplicationConfiguration::format_ron(&source).expect("format RON"),
-        configuration.to_ron().expect("write RON"),
-    ] {
-        let reparsed = ApplicationConfiguration::parse_ron(&formatted).expect("reparse ordered RON profiles");
-        assert_eq!(
-            reparsed.auth.as_ref().and_then(|auth| auth.profile(None)).map(|(name, _)| name),
-            Some("zeta")
-        );
-        assert!(formatted.find("\"zeta\"").expect("zeta key") < formatted.find("\"alpha\"").expect("alpha key"));
-    }
 }

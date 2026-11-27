@@ -50,7 +50,7 @@ use acorn_schema::{
     research_activity::ResearchActivity,
     standard::{
         cff::{self, Cff, IdentifierType, Reference},
-        ckan, datacite, dcat,
+        ckan, czml, datacite, dcat,
         dublin_core::{self, DublinCoreDocument, DublinCoreRelationshipKind, DublinCoreResource, DublinCoreValue},
         huwise, invenio,
         modelkit::kitfile::{Kitfile, ModelKitError},
@@ -87,19 +87,6 @@ use tracing::{debug, error, info, warn};
 use which::which;
 use zip::ZipArchive;
 
-fn parse_vale_checksums(content: &str, release: SemanticVersion) -> HashMap<String, String> {
-    let prefix = format!("vale_{release}_");
-    content
-        .lines()
-        .filter_map(|line| {
-            line.split_once("  ").and_then(|(checksum, filename)| {
-                filename
-                    .strip_prefix(&prefix)
-                    .map(|platform| (platform.to_string(), checksum.to_string()))
-            })
-        })
-        .collect()
-}
 macro_rules! impl_schema_check {
     ($($schema:ty),+ $(,)?) => {
         $(
@@ -177,6 +164,7 @@ pub trait StaticAnalyzerConfig {
 impl_schema_check!(
     Cff,
     ckan::Package,
+    czml::Document,
     Document,
     Text,
     datacite::Record,
@@ -387,16 +375,6 @@ impl CheckBatchExt for CheckBatch {
         join_all(futures).await.into_iter().collect()
     }
 }
-#[cfg(feature = "analysis")]
-#[async_trait]
-impl Analysis for ckan::Package {
-    fn standard() -> Standard {
-        Standard::Ckan
-    }
-    fn output_path(path: &Path, _data: &Self) -> PathBuf {
-        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
-    }
-}
 impl<'a> ContentPaths<'a> {
     fn new(kitfile: &'a Kitfile) -> Self {
         Self { kitfile }
@@ -453,73 +431,6 @@ impl<'a> ContentPaths<'a> {
         mcp_bundle: bool,
     ) -> impl Iterator<Item = (String, &'a str, bool)> + 'a {
         values.map(move |(index, value)| (format!("{section}[{index}].path"), path(value), mcp_bundle))
-    }
-}
-#[cfg(feature = "analysis")]
-#[async_trait]
-impl Analysis for datacite::Record {
-    fn standard() -> Standard {
-        Standard::Datacite
-    }
-    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_fair_for::<Self>(paths, "DataCite 4.7")
-    }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        check_prose_for::<Self>(paths, options).await
-    }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_quality_for::<Self>(paths)
-    }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        check_readability_for::<Self>(paths, options)
-    }
-    #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        let futures = paths.iter().map(|path| {
-            let path = path.clone();
-            async move {
-                match Self::read(&path) {
-                    | Ok(data) => {
-                        let data = Arc::new(data);
-                        let attributes = &data.attributes;
-                        let root_futures = attributes
-                            .url
-                            .as_deref()
-                            .map(|value| link_check(Some(value), Some("attributes.url".into())))
-                            .into_iter();
-                        let rights_futures = attributes.rights_list.iter().flatten().enumerate().filter_map(|(index, value)| {
-                            value
-                                .rights_uri
-                                .as_deref()
-                                .map(|uri| link_check(Some(uri), Some(format!("attributes.rights_list[{index}].rights_uri"))))
-                        });
-                        let related_futures = attributes.related_identifiers.iter().flatten().enumerate().filter_map(|(index, value)| {
-                            match value.related_identifier_type {
-                                | Some(datacite::RelatedIdentifierType::Doi) => {
-                                    let url = DOI::from_string(value.related_identifier.as_str()).url();
-                                    let target = if url.is_empty() { value.related_identifier.clone() } else { url };
-                                    Some(link_check(
-                                        Some(target),
-                                        Some(format!("attributes.related_identifiers[{index}].related_identifier")),
-                                    ))
-                                }
-                                | Some(datacite::RelatedIdentifierType::Url) => Some(link_check(
-                                    Some(value.related_identifier.as_str()),
-                                    Some(format!("attributes.related_identifiers[{index}].related_identifier")),
-                                )),
-                                | _ => None,
-                            }
-                        });
-                        Self::collect_checks(root_futures.chain(rights_futures).chain(related_futures).collect::<Vec<_>>(), &path).await
-                    }
-                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
-                }
-            }
-        });
-        Self::flatten_checks(futures).await
-    }
-    fn output_path(path: &Path, _data: &Self) -> PathBuf {
-        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
 #[cfg(feature = "analysis")]
@@ -584,6 +495,38 @@ impl Analysis for dcat::Dataset {
             }
         });
         Self::flatten_checks(futures).await
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for huwise::Dataset {
+    fn standard() -> Standard {
+        Standard::Huwise
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "Huwise")
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_quality_for::<Self>(paths)
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_readability_for::<Self>(paths, options)
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for czml::Document {
+    fn standard() -> Standard {
+        Standard::Czml
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
@@ -717,111 +660,6 @@ impl Analysis for DublinCoreDocument {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
-#[cfg(feature = "analysis")]
-#[async_trait]
-impl Analysis for huwise::Dataset {
-    fn standard() -> Standard {
-        Standard::Huwise
-    }
-    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_fair_for::<Self>(paths, "Huwise")
-    }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        check_prose_for::<Self>(paths, options).await
-    }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_quality_for::<Self>(paths)
-    }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        check_readability_for::<Self>(paths, options)
-    }
-    fn output_path(path: &Path, _data: &Self) -> PathBuf {
-        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
-    }
-}
-#[cfg(feature = "analysis")]
-#[async_trait]
-impl Analysis for invenio::Record {
-    fn standard() -> Standard {
-        Standard::Invenio
-    }
-    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_fair_for::<Self>(paths, "InvenioRDM")
-    }
-    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        check_prose_for::<Self>(paths, options).await
-    }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_quality_for::<Self>(paths)
-    }
-    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
-        check_readability_for::<Self>(paths, options)
-    }
-    #[cfg(any(feature = "analysis", feature = "std"))]
-    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        let futures = paths.iter().map(|path| {
-            let path = path.clone();
-            async move {
-                match Self::read(&path) {
-                    | Ok(data) => {
-                        let data = Arc::new(data);
-                        let pid_futures = data.pids.iter().flat_map(|pids| {
-                            [
-                                pids.doi.as_ref().map(|value| {
-                                    link_check(
-                                        Some(DOI::from_string(value.identifier.as_str()).url()),
-                                        Some("pids.doi.identifier".into()),
-                                    )
-                                }),
-                                pids.concept_doi.as_ref().map(|value| {
-                                    link_check(
-                                        Some(DOI::from_string(value.identifier.as_str()).url()),
-                                        Some("pids.concept_doi.identifier".into()),
-                                    )
-                                }),
-                            ]
-                            .into_iter()
-                            .flatten()
-                        });
-                        let related_futures = data.metadata.iter().flat_map(|metadata| {
-                            metadata.related_identifiers.iter().flatten().enumerate().filter_map(|(index, value)| {
-                                match value.scheme.to_lowercase().as_str() {
-                                    | "doi" => {
-                                        let url = DOI::from_string(value.identifier.as_str()).url();
-                                        let target = if url.is_empty() { value.identifier.clone() } else { url };
-                                        Some(link_check(
-                                            Some(target),
-                                            Some(format!("metadata.related_identifiers[{index}].identifier")),
-                                        ))
-                                    }
-                                    | "url" => Some(link_check(
-                                        Some(value.identifier.as_str()),
-                                        Some(format!("metadata.related_identifiers[{index}].identifier")),
-                                    )),
-                                    | _ => None,
-                                }
-                            })
-                        });
-                        let rights_futures = data.metadata.iter().flat_map(|metadata| {
-                            metadata.rights.iter().flatten().enumerate().filter_map(|(index, value)| {
-                                value
-                                    .link
-                                    .as_deref()
-                                    .map(|uri| link_check(Some(uri), Some(format!("metadata.rights[{index}].link"))))
-                            })
-                        });
-                        Self::collect_checks(pid_futures.chain(related_futures).chain(rights_futures).collect::<Vec<_>>(), &path).await
-                    }
-                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
-                }
-            }
-        });
-        Self::flatten_checks(futures).await
-    }
-    fn output_path(path: &Path, _data: &Self) -> PathBuf {
-        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
-    }
-}
 impl KitfileSchemaCheck for Kitfile {
     fn check_schema_path(path: PathBuf, document: ApiResult<Self>) -> BoxFuture<'static, CheckBatch> {
         async move {
@@ -930,6 +768,27 @@ impl LinkOutcome {
 }
 #[cfg(feature = "analysis")]
 #[async_trait]
+impl Analysis for raid::Metadata {
+    fn standard() -> Standard {
+        Standard::Raid
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "RAiD metadata 1.6")
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_quality_for::<Self>(paths)
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+impl SchemaCheck for raid::Metadata {
+    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
+        Some(check_schema_path(path.clone(), Self::read(path.to_path_buf())).boxed())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
 impl Analysis for ModelKitStandard {
     async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
         paths
@@ -955,23 +814,162 @@ impl SchemaCheck for ModelKitStandard {
 }
 #[cfg(feature = "analysis")]
 #[async_trait]
-impl Analysis for raid::Metadata {
+impl Analysis for ckan::Package {
     fn standard() -> Standard {
-        Standard::Raid
-    }
-    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_fair_for::<Self>(paths, "RAiD metadata 1.6")
-    }
-    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
-        check_quality_for::<Self>(paths)
+        Standard::Ckan
     }
     fn output_path(path: &Path, _data: &Self) -> PathBuf {
         standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
-impl SchemaCheck for raid::Metadata {
-    fn check_schema_path(path: &PathBuf) -> Option<BoxFuture<'static, CheckBatch>> {
-        Some(check_schema_path(path.clone(), Self::read(path.to_path_buf())).boxed())
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for datacite::Record {
+    fn standard() -> Standard {
+        Standard::Datacite
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "DataCite 4.7")
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_quality_for::<Self>(paths)
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_readability_for::<Self>(paths, options)
+    }
+    #[cfg(any(feature = "analysis", feature = "std"))]
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(data) => {
+                        let data = Arc::new(data);
+                        let attributes = &data.attributes;
+                        let root_futures = attributes
+                            .url
+                            .as_deref()
+                            .map(|value| link_check(Some(value), Some("attributes.url".into())))
+                            .into_iter();
+                        let rights_futures = attributes.rights_list.iter().flatten().enumerate().filter_map(|(index, value)| {
+                            value
+                                .rights_uri
+                                .as_deref()
+                                .map(|uri| link_check(Some(uri), Some(format!("attributes.rights_list[{index}].rights_uri"))))
+                        });
+                        let related_futures = attributes.related_identifiers.iter().flatten().enumerate().filter_map(|(index, value)| {
+                            match value.related_identifier_type {
+                                | Some(datacite::RelatedIdentifierType::Doi) => {
+                                    let url = DOI::from_string(value.related_identifier.as_str()).url();
+                                    let target = if url.is_empty() { value.related_identifier.clone() } else { url };
+                                    Some(link_check(
+                                        Some(target),
+                                        Some(format!("attributes.related_identifiers[{index}].related_identifier")),
+                                    ))
+                                }
+                                | Some(datacite::RelatedIdentifierType::Url) => Some(link_check(
+                                    Some(value.related_identifier.as_str()),
+                                    Some(format!("attributes.related_identifiers[{index}].related_identifier")),
+                                )),
+                                | _ => None,
+                            }
+                        });
+                        Self::collect_checks(root_futures.chain(rights_futures).chain(related_futures).collect::<Vec<_>>(), &path).await
+                    }
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
+                }
+            }
+        });
+        Self::flatten_checks(futures).await
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
+    }
+}
+#[cfg(feature = "analysis")]
+#[async_trait]
+impl Analysis for invenio::Record {
+    fn standard() -> Standard {
+        Standard::Invenio
+    }
+    async fn check_fair(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_fair_for::<Self>(paths, "InvenioRDM")
+    }
+    async fn check_prose(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_prose_for::<Self>(paths, options).await
+    }
+    async fn check_quality(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        check_quality_for::<Self>(paths)
+    }
+    async fn check_readability(paths: &[PathBuf], options: Option<&AnalysisContext>) -> CheckBatch {
+        check_readability_for::<Self>(paths, options)
+    }
+    #[cfg(any(feature = "analysis", feature = "std"))]
+    async fn check_links(paths: &[PathBuf], _options: Option<&AnalysisContext>) -> CheckBatch {
+        let futures = paths.iter().map(|path| {
+            let path = path.clone();
+            async move {
+                match Self::read(&path) {
+                    | Ok(data) => {
+                        let data = Arc::new(data);
+                        let pid_futures = data.pids.iter().flat_map(|pids| {
+                            [
+                                pids.doi.as_ref().map(|value| {
+                                    link_check(
+                                        Some(DOI::from_string(value.identifier.as_str()).url()),
+                                        Some("pids.doi.identifier".into()),
+                                    )
+                                }),
+                                pids.concept_doi.as_ref().map(|value| {
+                                    link_check(
+                                        Some(DOI::from_string(value.identifier.as_str()).url()),
+                                        Some("pids.concept_doi.identifier".into()),
+                                    )
+                                }),
+                            ]
+                            .into_iter()
+                            .flatten()
+                        });
+                        let related_futures = data.metadata.iter().flat_map(|metadata| {
+                            metadata.related_identifiers.iter().flatten().enumerate().filter_map(|(index, value)| {
+                                match value.scheme.to_lowercase().as_str() {
+                                    | "doi" => {
+                                        let url = DOI::from_string(value.identifier.as_str()).url();
+                                        let target = if url.is_empty() { value.identifier.clone() } else { url };
+                                        Some(link_check(
+                                            Some(target),
+                                            Some(format!("metadata.related_identifiers[{index}].identifier")),
+                                        ))
+                                    }
+                                    | "url" => Some(link_check(
+                                        Some(value.identifier.as_str()),
+                                        Some(format!("metadata.related_identifiers[{index}].identifier")),
+                                    )),
+                                    | _ => None,
+                                }
+                            })
+                        });
+                        let rights_futures = data.metadata.iter().flat_map(|metadata| {
+                            metadata.rights.iter().flatten().enumerate().filter_map(|(index, value)| {
+                                value
+                                    .link
+                                    .as_deref()
+                                    .map(|uri| link_check(Some(uri), Some(format!("metadata.rights[{index}].link"))))
+                            })
+                        });
+                        Self::collect_checks(pid_futures.chain(related_futures).chain(rights_futures).collect::<Vec<_>>(), &path).await
+                    }
+                    | Err(why) => CheckCategory::Link.failure_checks(why, Some(path.file_name_with_parent())),
+                }
+            }
+        });
+        Self::flatten_checks(futures).await
+    }
+    fn output_path(path: &Path, _data: &Self) -> PathBuf {
+        standard_project_folder("check", None).join(path.to_path_buf().file_name_with_parent())
     }
 }
 #[cfg(feature = "analysis")]
@@ -1885,6 +1883,19 @@ fn modelkit_quality_checks(path: &Path, value: &Kitfile, inspect_packaging: bool
         | true => vec![check_ok!(CheckCategory::Quality, uri: uri)],
         | false => checks,
     }
+}
+fn parse_vale_checksums(content: &str, release: SemanticVersion) -> HashMap<String, String> {
+    let prefix = format!("vale_{release}_");
+    content
+        .lines()
+        .filter_map(|line| {
+            line.split_once("  ").and_then(|(checksum, filename)| {
+                filename
+                    .strip_prefix(&prefix)
+                    .map(|platform| (platform.to_string(), checksum.to_string()))
+            })
+        })
+        .collect()
 }
 /// Prints `text` to stdout using syntax highlighting for the specified `syntax`.
 ///

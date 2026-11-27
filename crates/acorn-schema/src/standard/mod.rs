@@ -92,6 +92,9 @@ pub enum Standard {
     /// Comprehensive Knowledge Archive Network (CKAN).
     #[display("ckan")]
     Ckan,
+    /// Cesium Language (CZML).
+    #[display("czml")]
+    Czml,
     /// DataCite.
     #[display("datacite")]
     Datacite,
@@ -247,6 +250,14 @@ impl From<&Map<String, Value>> for Standard {
     }
 }
 impl Standard {
+    /// Detect a supported metadata standard from a JSON value.
+    pub fn detect_value(value: &Value) -> Option<Self> {
+        match value {
+            | Value::Array(packets) if packets.first().is_some_and(is_czml_document) => Some(Self::Czml),
+            | Value::Object(object) => Self::detect_object(object),
+            | _ => None,
+        }
+    }
     /// Strictly detect a supported metadata standard from a JSON object.
     pub fn detect_object(object: &Map<String, Value>) -> Option<Self> {
         if object.contains_key("cff-version") {
@@ -321,6 +332,9 @@ fn is_ckan(object: &Map<String, Value>) -> bool {
             .into_iter()
             .any(|field| object.contains_key(field));
     package || object.get("success").and_then(Value::as_bool).is_some() && object.get("result").and_then(Value::as_object).is_some_and(is_ckan)
+}
+fn is_czml_document(packet: &Value) -> bool {
+    packet.get("id").and_then(Value::as_str) == Some("document")
 }
 fn is_dcat_type(value: &Value) -> bool {
     match value {

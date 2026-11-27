@@ -7,15 +7,15 @@
     },
     {
       "id": "research/dataset",
-      "sha256": "606d2beb0a9a9b54f6515c776954163cfc06d6dc4571797a231931268a0cee8f"
+      "sha256": "84e26f725244883d1e34e201db520976afd73a46a203cc4f62217f1e6e17b4d5"
     },
     {
       "id": "research/doe-national-laboratory",
-      "sha256": "e2c0cd9119bd1989848f1949815bd56ee7270cf91449e5794c337ad11cfb8add"
+      "sha256": "c452fcd7b6cf618448d092af1d9efd13e96977c4330c683aef56f0be3d26c320"
     },
     {
       "id": "research/field-site",
-      "sha256": "431622fcc2febe117b6836574fad17d0a679f6916e0b0b45051eb478e90def65"
+      "sha256": "4d810af780d4cd94a49e1c2055110cce06b5e694ca9973146c35ad64befd6173"
     },
     {
       "id": "research/funding",
@@ -23,7 +23,11 @@
     },
     {
       "id": "research/laboratory",
-      "sha256": "06c42fc5a9e7b9b895bc49445789ccc86ec114340cc7b90fe868e2a146d7fb34"
+      "sha256": "2590b9851df7a32f3a4724abc53c3e9d1eeec813f207e0fd75235d0171e1e639"
+    },
+    {
+      "id": "research/ornl-campus",
+      "sha256": "49bde708a05c4b05a84a16102c3d7927ee98127a966c2144048071a324c56578"
     },
     {
       "id": "research/publication",
@@ -35,11 +39,11 @@
     },
     {
       "id": "research/research-team",
-      "sha256": "50100b7aeda4bc9a9b8ff157e12092830b1fff0c63ac612f6addb3904eaa4170"
+      "sha256": "2284cd92cc6b57719fa49fae5485c0219ecfbabc6c259a947ca6d35855046bfd"
     },
     {
       "id": "research/software",
-      "sha256": "ddb036fe22132cb817060500756d5d308e0f99a49d08caa9340a42920b8e615e"
+      "sha256": "4ce70d5e61b53f5adb424343a49e47395ac07287f987f580a59e12092f530218"
     },
     {
       "id": "research/supercomputer",
@@ -47,7 +51,7 @@
     },
     {
       "id": "research/user-facility",
-      "sha256": "9291987cbe8fa902b5ea022b7c79fd0249cc07fa17f3e3265bd8f714f515b093"
+      "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f"
     }
   ],
   "externalRequests": 0,
@@ -58,5 +62,5 @@
     "top",
     "small"
   ],
-  "visualReview": "Reviewed 2026-11-26: supercomputer revision 5 front preview confirms bright cyan illuminated accents. Other assets retain their previously reviewed geometry and materials."
+  "visualReview": "Inspect saved images before acceptance"
 }

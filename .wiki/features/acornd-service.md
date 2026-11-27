@@ -5,7 +5,7 @@ description: Run ACORN request endpoints and configured local check/gather jobs 
 difficulty: high
 impact: high
 package: [acorn-service, acorn-server, acorn-daemon, acorn-store, acorn-cli]
-tags: [feature, daemon, jobs, service, ssh, release, os:linux, os:macos, os:windows]
+tags: [feature, daemon, jobs, service, ssh, release, os:linux, os:macos]
 status: planned
 execution: phased
 phase_budget_hours: 5
@@ -15,12 +15,13 @@ phase_budget_hours: 5
 
 Ship `acornd` as a long-running ACORN host application. It serves the existing authenticated JSON-RPC and typed gRPC operations while it watches configured local project paths and runs `acorn check` or `acorn gather` on file changes and fixed intervals. A matching `acorn` CLI installs and manages it locally or over SSH on Linux, macOS, and Windows. The process runs as the chosen unprivileged user and survives logout and reboot.
 
-The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signed activation are accepted. Native Linux installation, reinstall, failed-readiness rollback, and data-preserving uninstall passed. ACD-31's SIGTERM socket cleanup repair passed native Linux testing and merged to main; the full v0.7.1 release now carries it to binary users. The macOS LaunchDaemon now uses persistent protected inputs and passed repeat reboot and logout recovery. ACD-27 still needs final data-preserving uninstall after ACD-36 restores host service/account lookup. MacOS and Windows local signed activation follow their platform bundle and registration phases; SSH delivery remains later work.
+The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signed activation are accepted. Native Linux installation, reinstall, failed-readiness rollback, and data-preserving uninstall passed. ACD-31's SIGTERM socket cleanup repair passed native Linux testing and merged to main; the full v0.7.1 release now carries it to binary users. The source-built macOS MVP passed persistent-path reboot, logout, and data-preserving uninstall acceptance. Linux SSH delivery and host-side control are implemented and await live host acceptance. MacOS and Windows signed activation and SSH extensions follow their platform bundle and registration phases.
 
 # Current evidence
 
-- The first owner-run macOS uninstall after accepted logout returned before privileged removal: `launchctl print system/org.ornl.acornd` failed with 141 (`Reentrancy avoided`). All tested launchctl read commands and an unprivileged bootout failed the same way. `id -un` returned numeric UID 587589256, `dscacheutil` found no `o9w` entry, and `dscl` returned `eServerError`; the daemon remained healthy and the plist remained installed. A host recovery reboot is requested before retrying uninstall. This is an external host condition, not accepted service removal; see the [Mac record](../../crates/acorn-daemon/acceptance/macos-mvp.md).
-- On November 26, `wohlgemuthjh` first rebooted at Unix second 1795724399 with a failed LaunchDaemon start because its build-tree executable and config were absent. Protected token and 54 prior runs survived. The owner authenticated re-registration of paired 0.8.0 binaries and a two-job fixture under the protected daemon directory. A second reboot advanced boot time to 1795728233; launchd started the persistent daemon at 16:24:00 as `o9w` with parent 1, health returned 204, prior 76 runs and pause state survived, and new manual check/gather runs 77/78 succeeded with parseable mode-0600 reports. During an owner-confirmed second logout, successful gather interval runs 85–87 were recorded while `who` showed no console session; the same daemon PID and health remained after login. The fixture is restored to hourly paused state. Final uninstall remains. See the [Mac acceptance record](../../crates/acorn-daemon/acceptance/macos-mvp.md).
+- ACD-20 Linux SSH acceptance passed on `oklahoma` (`PCWF05230`). Signed v0.7.0 and v0.7.1 bundles verified locally; remote install, occupied-port rollback, upgrade, control, protected reports, and data-preserving uninstall passed. After an owner-authenticated reboot, the v0.7.1 unit started before the first observed login and retained pre-reboot history. A second signed install enabled a direct last-logout test from the lingering user manager: with zero `o9w` logins, the daemon retained its PID and health 204; it remained healthy 45 seconds later. Herdr auto-reconnected during those 45 seconds, so a continuous zero-login interval was not observed. Final uninstall removed the unit and socket while retaining protected config, token, history, and reports. The [dated Linux record](../../crates/acorn-daemon/acceptance/linux-mvp.md) preserves exact host and run evidence; ACD-20 is accepted and pruned.
+- ACD-27 macOS MVP and ACD-20 Linux SSH acceptance are accepted. ACDW-12 lacks a verified reachable native Windows OS host or VM with administrator access; the recorded Windows shell runner still awaits a completed native smoke job. ACD-16 lacks verified native macOS x86_64/ARM64 builder availability and protected signing execution in this session. GitLab runner inspection returned an IP-range 403 both inside and outside the sandbox, so no current CI availability or release artifact is claimed. ACD-19 Linux SSH dispatch, private signed staging, byte checks, host activation, and fixed remote control passed fake SSH tests and native host acceptance.
+- The source-built Mac MVP passed on `wohlgemuthjh` after the owner re-registered paired 0.8.0 binaries under protected persistent paths. The repeat reboot started launchd with retained history and successful check/gather reports; interval gather runs 85–87 succeeded during a confirmed logout. A temporary post-logout host failure caused `launchctl` error 141 and unresolved account lookup; another reboot restored host control. The owner then ran supported uninstall: launchd returned service-absent code 113, the plist and socket disappeared, and 91 history runs plus mode-0600 config, token, DB, and sampled reports remained. See the [Mac record](../../crates/acorn-daemon/acceptance/macos-mvp.md).
 - ACD-15 accepted [v0.7.0 tag pipeline 1065233](https://code.ornl.gov/research-enablement/acorn/-/pipelines/1065233): both native Linux builders and signed publication passed. Independently downloaded x86_64 and ARM64 bundles verified against the pinned key, with target/version manifests and paired binaries. Artifact URLs, hashes, and native Linux activation evidence are in [`linux-mvp.md`](../../crates/acorn-daemon/acceptance/linux-mvp.md). The v0.7.0 daemon leaves a stale socket on systemd stop. ACD-31's source repair passed native testing and [merged in MR !25](https://code.ornl.gov/research-enablement/acorn/-/merge_requests/25). MR !26 and main pipeline 1065282 published the full v0.7.1 patch.
 - ACD-34 published [v0.7.1 tag pipeline 1065604](https://code.ornl.gov/research-enablement/acorn/-/pipelines/1065604): full release jobs and signed Linux x86_64/ARM64 bundles passed. Independent downloads verified both signatures and manifests. Native Linux failed-readiness rollback restored the signed v0.7.0 release; a successful v0.7.1 upgrade retained check/gather history, and uninstall removed the unit and RPC socket while preserving protected data. The [acceptance record](../../crates/acorn-daemon/acceptance/linux-mvp.md) is in MR !27 pending CI merge.
 - ACD-18 accepted local Linux signed activation on `oklahoma`: a published bundle verified on host, installed and reinstalled into protected release directories, retained successful check/gather history, rolled back after occupied-port readiness failure, and uninstalled while preserving mode-0600 config, token, and history. ACD-32/33 own later macOS/Windows local signed activation after their platform prerequisites.
@@ -42,16 +43,16 @@ The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signe
 - ACD-25 accepted the source-built local Linux MVP on `oklahoma` (Ubuntu 22.04.5 x86_64, systemd 249). The unit started seven seconds after reboot and before the first observed SSH login, retained paused gather state and prior check/gather history, and produced valid new check and gather reports. Authentication, file/interval/manual jobs, restart, reload, stop, and idempotent reinstall passed. Final uninstall removed the unit while preserving protected config, token, and history. A direct last-logout transition remained unavailable because other sessions were active; [dated native evidence](../../crates/acorn-daemon/acceptance/linux-mvp.md) records that row as incomplete.
 - ACD-09S fixed the local CLI token disclosure risk from a forged loopback listener. The CLI verifies an owner-only daemon directory with non-writable, trusted-owner ancestors, then sends the bearer only through its Unix socket; the daemon binds that socket with mode 0600 and safely recovers stale paths. TCP JSON-RPC remains available for other bearer-authenticated clients. On `oklahoma`, the rebuilt CLI listed jobs through a mode-0600 socket in a mode-0700 directory, and uninstall removed it. The occupied-port test received no TCP connection. Local tests passed for 17 server, 55 daemon, and four focused CLI cases; native Linux tests and Clippy also passed. Windows local job control fails closed until its platform adapter supplies an owner-verified transport.
 - November 25 Hunk review removed the temporary ACD-25V managed Vale rule cleanup and the associated default disabled-rule entry. A rebuilt native check initially exited 70 under Vale 3.9.4 because sync restored `LexicalIllusions.yml`. ACORN now pins Vale 3.28.1 in a versioned managed cache and parses checksums independently of version-string length. On `oklahoma`, the rebuilt CLI downloaded Vale 3.28.1 and `acorn --quiet check check.json --output json` exited 0 with no checks. The native service check-job itself was not rerun after this upgrade.
-- November 25 macOS implementation at `041577d0` plus the working tree adds selected-user preflight, XML-safe system LaunchDaemon rendering, a private runtime umask, managed-plist checks, and fixed lifecycle commands through narrow administrator operations. All 58 daemon library tests, four focused installer tests after the read-only status repair, `plutil` fixture validation, package Clippy with warnings denied, and a paired 0.6.3 `acorn`/`acornd` build pass. The new `acornd` help lists macOS lifecycle commands and rejects Linux-only `--linger`. On `wohlgemuthjh`, the owner installed the service; launchd reports a running unprivileged process and protected plist/socket/token. Health, authenticated local control, auth denial, startup/manual/interval/file-change jobs, reload, and automatic restart with retained pause/history have passed. The owner reported idempotent reinstall and stop/start/restart completion; the final running service, protected files, local control, and retained history were independently verified. [Mac acceptance evidence](../../crates/acorn-daemon/acceptance/macos-mvp.md) retains logout, reboot, and uninstall rows. Both fixture jobs are paused with hourly schedules while waiting.
+- November 25 macOS implementation at `041577d0` plus the working tree adds selected-user preflight, XML-safe system LaunchDaemon rendering, a private runtime umask, managed-plist checks, and fixed lifecycle commands through narrow administrator operations. All 58 daemon library tests, four focused installer tests after the read-only status repair, `plutil` fixture validation, package Clippy with warnings denied, and a paired 0.6.3 `acorn`/`acornd` build pass. The new `acornd` help lists macOS lifecycle commands and rejects Linux-only `--linger`. On `wohlgemuthjh`, the owner installed the service; launchd reports a running unprivileged process and protected plist/socket/token. Health, authenticated local control, auth denial, startup/manual/interval/file-change jobs, reload, and automatic restart with retained pause/history have passed. The owner reported idempotent reinstall and stop/start/restart completion; the final running service, protected files, local control, and retained history were independently verified. [Mac acceptance evidence](../../crates/acorn-daemon/acceptance/macos-mvp.md) records the accepted reboot, logout, and uninstall gates.
 - ACD-14 accepted the maintainer-provisioned Minisign public key and a bounded streaming verifier for the signed paired bundle. Six focused tests now pass for a complete signed archive, wrong key, changed archive, missing member, version/target mismatch, path traversal, signed binary checksum mismatch, and extraction from the verified file handle after pathname replacement. Changed-file formatting and package Clippy passed with the concurrent unrelated `download/mod.rs` unused import allowed on the command line. The pinned public-key file has SHA-256 fingerprint `85183f4b0a77c5a12441397a5423edaa033d4fa991afcc5250d0f78c12656b83`; the private key is a protected GitLab file variable and remains outside the repository. ACD-18 consumed the verifier for accepted local Linux staging and activation.
 
 # Boundaries and dependencies
 
 - `acorn-service` owns portable job identifiers, trigger/state values, and coalescing policy; host paths remain in daemon config. `acorn-store` initially owns only the SQLite daemon-history adapter; migration of the existing `acorn-lib` database remains separate. `acorn-daemon` owns filesystem watching, clock, process execution, host control, installation, and service-manager integration. It calls the existing `acorn-lib` cache-path helper rather than copying its path convention. `acorn-server` remains the protocol boundary.
 - The daemon ships the existing portable request methods unchanged. Host job-control methods are registered by the daemon on JSON-RPC only; the typed gRPC service stays limited to its present supplied-content operations. Neither path exposes arbitrary process execution or config mutation.
-- The portable service contract, composable server lifecycle, versioned history store, fixed runners, foreground scheduler, authenticated listener composition, job-control methods, atomic job reload, and local CLI management are available. ACD-09 released the CLI syntax lock for [CLI composition](../refactors/core/cli-composition-boundary.md) CLI-01. ACD-18 released its CLI contract lock after local Linux acceptance; ACD-19 owns later remote command leaves. Release wiring serializes with [Podman](../migrations/podman-makefile.md), runner-pool, and other CI/build owners. ACD-12/13/26 need a native Windows OS test environment (host or VM) to close their SCM, registration, and local-control gates; ACD-17 needs a native Windows build and runtime environment, and ACD-22 needs a named Windows SSH host. The [shell-runner plan](../testing/gitlab-shell-runner-readiness.md) may supply a Windows environment but is not a code prerequisite.
-- ACD-10 Linux systemd registration and ACD-25 native Linux MVP acceptance are complete. ACD-12 Windows SCM work and its dependent registration, bundle, and live-host phases may now proceed on their own locks. ACD-20 remains the later signed SSH installation and upgrade acceptance on Linux; the MVP does not imply that release gate passed.
-- ACD-11A launchd preflight, ACD-11 registration, and ACD-11R read-only status repair are implemented. ACD-27 native local acceptance uses same-version source-built binaries and does not depend on signing, package builders, SSH, ACD-12, or desktop integration. ACD-16/21 retain separate signed distribution and remote acceptance gates. The named Mac is running the service; its owner must provide real logout/reboot windows and perform final uninstall before ACD-27 can close.
+- The portable service contract, composable server lifecycle, versioned history store, fixed runners, foreground scheduler, authenticated listener composition, job-control methods, atomic job reload, and local CLI management are available. ACD-09 released the CLI syntax lock for [CLI composition](../refactors/core/cli-composition-boundary.md) CLI-01. ACD-18 released its CLI contract lock after local Linux acceptance; ACD-19 implemented Linux remote command dispatch and released the CLI contract lock. Release wiring serializes with [Podman](../migrations/podman-makefile.md), runner-pool, and other CI/build owners. ACDW-12/13/26 need a native Windows OS test environment (host or VM) to close their SCM, registration, and local-control gates; ACDW-17 needs a native Windows build and runtime environment, and ACDW-22 needs a named Windows SSH host. The [shell-runner plan](../testing/gitlab-shell-runner-readiness.md) may supply a Windows environment but is not a code prerequisite.
+- ACD-10 Linux systemd registration, ACD-25 native Linux MVP, and ACD-20 signed SSH installation/upgrade acceptance are complete. ACDW-12 Windows SCM work and its dependent registration, bundle, and live-host phases may now proceed on their own locks.
+- ACD-11A launchd preflight, ACD-11 registration, and ACD-11R read-only status repair are implemented. Native local macOS acceptance passed with same-version source-built binaries and did not depend on signing, package builders, SSH, ACDW-12, or desktop integration. ACD-16/21 retain separate signed distribution and remote acceptance gates.
 - Service registration requires explicit elevation when the host requires it. Linux user lingering, macOS system LaunchDaemon registration, and Windows Service registration are platform-specific gates; the daemon process still runs as the chosen user. Do not claim persistent operation on a host that cannot pass the registration and reboot/logout smoke test. See [systemd lingering](https://www.freedesktop.org/software/systemd/man/257/loginctl.html), [Apple launch daemons](https://developer.apple.com/documentation/servicemanagement/updating-helper-executables-from-earlier-versions-of-macos), and [Windows service creation](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-create).
 
 # Decisions and public contract
@@ -82,160 +83,61 @@ The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signe
 - Config tests cover valid defaults, duplicate jobs, path escape, no trigger, malformed intervals, and no listener; token and error diagnostics are redacted. Service tests prove the existing JSON-RPC/gRPC methods and health behavior still work while the worker is active.
 - Deterministic clock/watcher and fake executable tests prove startup runs, interval and file-event coalescing, one-at-a-time execution, pause/resume/reload, timeout/cancellation, crash recovery, report paths, expected check findings, failed commands, and retention. No test executes arbitrary configured commands.
 - API/CLI tests cover authentication, mutation denial, bounded history, unknown jobs, SSH argument safety, no token transfer, installer preflight, idempotent reinstall, failed upgrade rollback, wrong architecture, and corrupted or unsigned bundles.
-- Native host acceptance proves installation, request handling, scheduled and watched jobs, logout/reboot persistence, service-manager restart, status/history, and uninstall on each supported OS/architecture family. Record the exact tested host and version. Cross-target compilation and fake SCM/peer tests cannot replace execution on Windows for ACD-12/13/26/17/22; leave each phase open if its native Windows OS test environment is unavailable. Windows service-account credentials or service-logon rights and the release signing key must be available before their dependent live/release phases.
+- Native host acceptance proves installation, request handling, scheduled and watched jobs, logout/reboot persistence, service-manager restart, status/history, and uninstall on each supported OS/architecture family. Record the exact tested host and version. Cross-target compilation and fake SCM/peer tests cannot replace execution on Windows for ACDW-12/13/26/17/22; leave each phase open if its native Windows OS test environment is unavailable. Windows service-account credentials or service-logon rights and the release signing key must be available before their dependent live/release phases.
 - The macOS MVP acceptance specifically uses paired source-built binaries on one named native Mac. Record the selected user, macOS version/architecture, launchd domain, binary versions, owner-only socket/token permissions, job/report evidence, logout and reboot observations, and cleanup. This local acceptance does not satisfy ACD-21's signed SSH install/upgrade and rollback matrix.
 - Final integration runs focused crate tests, relevant feature/portable checks, `make lint`, `make test`, generated CLI help, and documentation build. Do not mark the plan complete from simulated platform tests alone.
 
 # Execution phases
 
-## ACD-36 — Restore macOS host control for uninstall
-
-- Status: blocked
-- Budget: 5 active hours maximum
-- Prerequisites: owner-controlled host reboot after launchctl and account lookup failed following logout
-- Exact write set: named macOS test host and `crates/acorn-daemon/acceptance/macos-mvp.md`
-- Primary integration lock: External macOS service host
-- Outcome: Restore reliable launchd and selected-user lookup so the managed service can be removed through its supported uninstall command.
-- Focused validation: Record new boot time, `id -un`, `launchctl print system/org.ornl.acornd`, plist state, and daemon health; identify a bounded native repair if reboot does not restore control.
-- Handoff: Remove ACD-36 only when host control is verified, then resume ACD-27 final uninstall.
-
-## ACD-27 — Accept the source-built local macOS MVP
-
-- Status: blocked
-- Budget: 5 active hours maximum
-- Prerequisites: accepted persistent-path reboot and logout recovery, ACD-36 host control recovery, and host-owner authentication for final uninstall
-- Exact write set: named macOS test host and `crates/acorn-daemon/acceptance/macos-mvp.md`
-- Primary integration lock: External macOS service host
-- Outcome: Prove same-version source-built `acorn`/`acornd` local installation, owner-scoped execution, authenticated socket control, check/gather runs, file/interval/manual triggers, pause/reload, restart and reboot recovery, logout persistence, idempotent reinstall, and uninstall without data loss.
-- Focused validation: Capture `launchctl` status and user identity, protected path modes, health, parseable report/history, trigger and persistence evidence before/after logout and reboot, and final service removal. Record any unavailable row as incomplete.
-- Handoff: Remove ACD-27 only after the durable acceptance record passes every MVP row; create bounded repair phases for defects. ACD-16/21 retain signed bundle and SSH host acceptance.
-
-## ACD-12 — Run acornd under Windows Service Control Manager
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: accepted foreground daemon composition and ACD-27 macOS MVP; native Windows OS host or VM with administrator access available for temporary test registration and phase acceptance
-- Exact write set: `crates/acorn-daemon/Cargo.toml`, `crates/acorn-daemon/src/main.rs`, `crates/acorn-daemon/src/windows_service.rs`, `Cargo.lock`
-- Primary integration lock: Workspace graph
-- Outcome: Use a safe Windows Service wrapper to accept SCM start/stop events and drain worker/listeners within the service timeout while retaining foreground development mode; preserve the workspace ban on unsafe code.
-- Focused validation: Cross-target compile and fake SCM start/stop/forced-termination tests, followed by actual SCM start/stop and worker/listener shutdown through a temporary test registration on Windows. ACD-22 owns logout/reboot and remote deployment acceptance.
-- Handoff: Remove ACD-12 after recording the SCM event contract and native Windows start/stop evidence; release the workspace graph lock.
-
-## ACD-13 — Register persistent Windows service
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: accepted local CLI management and ACD-12; native Windows OS host or VM with administrator access and a test service identity available for phase acceptance
-- Exact write set: `crates/acorn-daemon/src/install/windows.rs`, `crates/acorn-daemon/src/install/mod.rs`
-- Primary integration lock: Host service registration
-- Outcome: Install/start/stop/uninstall a Windows Service under the selected user. Registration obtains credentials through a protected target-side interactive prompt or a preprovisioned managed identity; no credential enters arguments, config, or logs.
-- Focused validation: Registration/ACL tests with a fake SCM adapter, then native Windows install/start/stop/uninstall and service-identity/rights checks. ACD-22 owns logout/reboot and remote deployment acceptance.
-- Handoff: Remove ACD-13 after recording rights preflight, fake-SCM tests, and native Windows registration evidence; no credentials are retained.
-
-## ACD-26 — Add owner-verified Windows local control
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-12 and ACD-13; Windows service identity and ACL contract available; native Windows OS host or VM available for phase acceptance
-- Exact write set: `crates/acorn-cli/Cargo.toml`, `crates/acorn-cli/src/commands/daemon/mod.rs`, `crates/acorn-cli/src/commands/daemon/windows.rs`, `crates/acorn-daemon/Cargo.toml`, `crates/acorn-daemon/src/lib.rs`, `crates/acorn-daemon/src/local/windows.rs`, `crates/acorn-server/Cargo.toml`, `crates/acorn-server/src/client/mod.rs`, `crates/acorn-server/src/runtime.rs`, `Cargo.lock`
-- Primary integration lock: Local daemon control transport
-- Outcome: Give the Windows CLI an owner-verified local control channel to the selected service identity, with no bearer token sent to an unverified loopback listener.
-- Focused validation: Fake peer and ACL denial tests and a Windows target compile, followed by native Windows peer-identity denial, stopped/restarting service behavior, and local job-control round trips. ACD-22 owns remote deployment and persistence acceptance.
-- Handoff: Remove ACD-26 after the control channel and fail-closed behavior pass on the Windows OS test environment; release the local transport lock.
-
 ## ACD-16 — Produce macOS release bundles
 
-- Status: planned
+- Status: blocked
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-27 and accepted signed bundle verification; native macOS x86_64 and ARM64 builders and protected release signing access available
+- Prerequisites: accepted native macOS MVP and signed bundle verification; native macOS x86_64 and ARM64 builders and protected release signing access available
 - Exact write set: `Makefile`, `.gitlab-ci.yml`, `scripts/upload-binaries.sh`, `scripts/package-acornd.sh`
 - Primary integration lock: CI/build
 - Outcome: Build, sign, and publish matching macOS x86_64/ARM64 bundles under the same verified format.
 - Focused validation: Native macOS build jobs, signature round trips, target metadata, and downloaded artifact inspection.
 - Handoff: Remove ACD-16 after recording artifacts and builder evidence; release the CI/build lock.
 
-## ACD-17 — Produce Windows release bundle
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-13 and accepted signed bundle verification; native Windows x86_64 build and runtime test environment and protected release signing access available
-- Exact write set: `Makefile`, `.gitlab-ci.yml`, `scripts/upload-binaries.sh`, `scripts/package-acornd.ps1`
-- Primary integration lock: CI/build
-- Outcome: Build, sign, and publish a paired Windows x86_64 bundle, including the SCM-capable daemon.
-- Focused validation: Build and run the paired binaries on Windows, then check the signature round trip, target metadata, and downloaded artifact on that OS.
-- Handoff: Remove ACD-17 after recording artifact and builder evidence; release the CI/build lock.
-
 ## ACD-32 — Accept local signed activation on macOS
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-16 and ACD-27; native macOS host with a signed bundle available
+- Prerequisites: ACD-16 and accepted native macOS MVP; native macOS host with a signed bundle available
 - Exact write set: `crates/acorn-cli/src/commands/daemon/install.rs`, `crates/acorn-daemon/src/install/macos.rs`, `crates/acorn-daemon/acceptance/macos-mvp.md`, and the named macOS acceptance host
 - Primary integration lock: External macOS service host
 - Outcome: Activate and replace a verified paired macOS bundle through launchd, preserve user data, and restore the prior release after failed readiness.
 - Focused validation: Native bundle install/reinstall/upgrade, signature and target rejection, local control and jobs, failed-readiness rollback, and data-preserving uninstall.
 - Handoff: Record the native macOS release and rollback evidence before removing ACD-32.
 
-## ACD-33 — Accept local signed activation on Windows
+## ACD-19M — Extend SSH transfer and control to macOS
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-13, ACD-17, and ACD-26; native Windows OS test environment with a signed bundle available
-- Exact write set: `crates/acorn-cli/src/commands/daemon/install.rs`, `crates/acorn-daemon/src/install/mod.rs`, `crates/acorn-daemon/src/install/windows.rs`, `crates/acorn-daemon/acceptance/windows-mvp.md`, and the named Windows OS test environment
-- Primary integration lock: External Windows service host
-- Outcome: Activate and replace a verified paired Windows bundle through SCM, preserve user data, and restore the prior release after failed readiness.
-- Focused validation: On the Windows OS test environment, run bundle install/reinstall/upgrade, signature and target rejection, local control and jobs, failed-readiness rollback, and data-preserving uninstall.
-- Handoff: Record native Windows OS release and rollback evidence before removing ACD-33.
-
-## ACD-19 — Implement SSH transfer and remote control
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: accepted Linux local signed activation, signed bundle verification, and graceful SIGTERM cleanup
-- Exact write set: `crates/acorn-cli/src/commands/daemon/remote.rs`, `crates/acorn-cli/src/commands/daemon/mod.rs`, `crates/acorn-cli/src/commands/daemon/tests.rs`
+- Prerequisites: ACD-16 and ACD-32
+- Exact write set: `crates/acorn-cli/src/commands/daemon/remote.rs`, `crates/acorn-cli/src/commands/daemon/tests.rs`, `CommandLineHelp.md`, `README.md`
 - Primary integration lock: CLI contract
-- Outcome: Detect remote target, verify and upload a signed bundle, invoke fixed host commands, check remote bytes/readiness, and support `--bundle` for offline hosts without transferring the token.
-- Focused validation: Fake SSH tests for quoting, target mismatch, interrupted transfer, elevation denial, secret redaction, idempotence, and rollback.
-- Handoff: Remove ACD-19 after freezing remote command and transfer behavior; release the CLI contract lock.
-
-## ACD-20 — Accept SSH installation on Linux
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: accepted Linux registration, published signed Linux bundles, and ACD-19; named Linux SSH host and approved lingering/elevation
-- Exact write set: named Linux SSH test host and its user service manager
-- Primary integration lock: External Linux service host
-- Outcome: Prove signed remote install, update, control, logout/reboot persistence, rollback, and uninstall on Linux.
-- Focused validation: Capture service status, health, job report/history, before/after version, and post-reboot results on the host.
-- Handoff: Remove ACD-20 after preserving host/version evidence in durable deployment documentation.
+- Outcome: Detect macOS architecture, verify and transfer its signed bundle, invoke the native installer and fixed host commands, and check transferred bytes and readiness without moving the token.
+- Focused validation: Fake SSH tests for macOS target selection, transfer, quoting, administrator denial, and rollback.
+- Handoff: Remove ACD-19M before macOS SSH host acceptance.
 
 ## ACD-21 — Accept SSH installation on macOS
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-19 and ACD-32; named macOS SSH host and administrator approval
+- Prerequisites: ACD-19M and ACD-32; named macOS SSH host and administrator approval
 - Exact write set: named macOS SSH test host and its system launchd domain
 - Primary integration lock: External macOS service host
 - Outcome: Prove signed remote install, update, control, logout/reboot persistence, rollback, and uninstall on macOS.
 - Focused validation: Capture launchd status, health, job report/history, before/after version, and post-reboot results on the host.
 - Handoff: Remove ACD-21 after preserving host/version evidence in durable deployment documentation.
 
-## ACD-22 — Accept SSH installation on Windows
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: ACD-19 and ACD-33; named native Windows OS SSH test host or VM, administrator approval, and provisioned service account
-- Exact write set: named Windows SSH test host and its Service Control Manager
-- Primary integration lock: External Windows service host
-- Outcome: Prove signed remote install, update, control, logout/reboot persistence, rollback, and uninstall on Windows.
-- Focused validation: On the Windows OS test host, capture SCM status, health, job report/history, before/after version, logout and post-reboot results, rollback, and uninstall without exposing credentials.
-- Handoff: Remove ACD-22 after preserving host/version evidence in durable deployment documentation.
-
 ## ACD-23 — Publish daemon documentation and generated help
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ACD-19; platform adapters and release formats stable
+- Prerequisites: platform adapters and release formats stable
 - Exact write set: `README.md`, `ARCHITECTURE.md`, `docs/src/packages/acornd.md`, `docs/src/SUMMARY.md`, `CommandLineHelp.md`
 - Primary integration lock: Documentation generation
 - Outcome: Document config, local/SSH installation, service identities, SSH tunnels, cache/report paths, security, retention, upgrade, and recovery; regenerate CLI help.
@@ -246,7 +148,7 @@ The source-built Linux service MVP, signed v0.7.0 Linux bundles, and local signe
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: all remaining ACD phases including ACD-26 and ACD-27; five bundles and all three OS acceptance records available
+- Prerequisites: all remaining ACD phases and the [ACDW](acornd-windows.md) Windows phases (including ACDW-26, ACDW-33 and ACDW-22); five bundles and all three OS acceptance records available
 - Exact write set: repository CI and named Linux, macOS, and Windows acceptance records
 - Primary integration lock: CI/build
 - Outcome: Run final workspace gates, review native host evidence against every acceptance criterion, and retire this plan only when no required work remains.

@@ -7,8 +7,8 @@ COLORS = {
 }
 ROLES = {
     "amber": "Forge", "bezel": "Dark Matter", "blue": "Infinity", "cabinet": "Graphite", "copper": "ORNL Green",
-    "dark": "Dark Matter", "gold": "Forge", "grass": "ORNL Green", "ivory": "Graphite", "leaf": "Energy",
-    "magenta": "Plasma", "orange": "Spark", "pages": "Polar", "pedestal": "Hale Navy", "purple": "Pulsar",
+    "dark": "Dark Matter", "glass": "Hydro", "gold": "Forge", "grass": "ORNL Green", "ivory": "Graphite", "leaf": "Energy",
+    "light": "Mist", "magenta": "Plasma", "orange": "Spark", "pages": "Polar", "pedestal": "Hale Navy", "purple": "Pulsar",
     "red": "Spark", "rose": "Spark", "sand": "Graphite", "steel": "Graphite", "teal": "ORNL Green",
     "terracotta": "Forge", "water": "Hydro", "white": "Polar", "yellow": "Forge",
 }

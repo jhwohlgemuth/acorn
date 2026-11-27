@@ -2,6 +2,7 @@
 
 - [✅ Check](./check.md)
 - [🏗️ Create](./create.md)
+- [⚙️ Daemon](./daemon.md)
 - [👨‍⚕️ Doctor](./doctor.md)
 - [🔀 Diff](./diff.md)
 - [📥 Download](./download.md)

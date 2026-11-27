@@ -51,7 +51,7 @@ The canonical **ABW-11** prerequisite is ABW-18 plus the accepted browser compos
 
 ABW-11 creates only the minimal Tauri shell and restrictive asset/CSP boundary. **ABW-12** adds native single-file open/save after ABW-06; **ABW-17** adds selected-folder loading after ABW-12 and ABW-16. **ABW-45** freezes the broader companion/capability matrix after those native effects. These are successive desktop implementation gates, not work to fold into ABW-08 or ABW-11.
 
-The separate ACD plan owns daemon service registration. Its ACD-11 macOS and ACD-13 Windows service-manager contracts affect **ABW-53** native daemon controls; they do not block ABW-11/12/17. Recheck its accepted contract when ABW-53 becomes eligible.
+The separate ACD plan owns daemon service registration. Its ACD-11 macOS and ACDW-13 Windows service-manager contracts affect **ABW-53** native daemon controls; they do not block ABW-11/12/17. Recheck its accepted contract when ABW-53 becomes eligible.
 
 **ABW-36** hosted Pages/HTTPS verification is blocked on the mirror deployment/certificate and does not block local Tauri development. **ABW-22–31**, **ABW-13–15**, **ABW-56**, and final **ABW-09** cover native capability, platform, signed distribution, accessibility, and release acceptance after the MVP shell; they are outside the browser-to-shell gate. **ABW-69** freezes a later React migration handoff after ABW-08 and ABW-11; it does not change the Dioxus frontend being embedded.
 

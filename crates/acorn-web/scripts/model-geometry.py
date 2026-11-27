@@ -38,6 +38,28 @@ def cross(a, b):
     return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 
 
+def dodecahedron(radius=1):
+    """Triangulate twelve flat pentagonal faces with outward winding."""
+    phi = (1 + math.sqrt(5)) / 2
+    vertices = [(x, y, z) for x in [-1, 1] for y in [-1, 1] for z in [-1, 1]] + [
+        point for a in [-1, 1] for b in [-1, 1] for point in
+        [(0, a / phi, b * phi), (a / phi, b * phi, 0), (a * phi, 0, b / phi)]]
+    normals = [point for a in [-1, 1] for b in [-1, 1] for point in
+               [(0, a * phi, b), (a, 0, b * phi), (a * phi, b, 0)]]
+    triangles = []
+    for normal in normals:
+        dots = [sum(a * b for a, b in zip(vertex, normal)) for vertex in vertices]
+        face = [i for i, value in enumerate(dots) if abs(value - max(dots)) < 1e-9]
+        center = tuple(sum(vertices[i][axis] for i in face) / len(face) for axis in range(3))
+        right = unit(tuple(a - b for a, b in zip(vertices[face[0]], center)))
+        up = cross(unit(normal), right)
+        ordered = sorted(face, key=lambda i: math.atan2(
+            sum((a - b) * c for a, b, c in zip(vertices[i], center, up)),
+            sum((a - b) * c for a, b, c in zip(vertices[i], center, right))))
+        triangles.extend((ordered[0], ordered[i], ordered[i + 1]) for i in range(1, len(ordered) - 1))
+    return ([tuple(value * radius / math.sqrt(3) for value in vertex) for vertex in vertices], triangles)
+
+
 def extrude(polygon, depth):
     """Extrude a simple XY polygon, using ear clipping for concave glyphs."""
     area = sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(polygon, polygon[1:] + polygon[:1]))

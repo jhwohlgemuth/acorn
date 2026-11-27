@@ -67,6 +67,15 @@ fn test_isni_requires_uppercase_x_check_digit() {
     assert!(!ISNI::is_valid("000000022816415x"));
 }
 #[test]
+fn test_isni_spacing_and_x_payload_boundary() {
+    ["0000000492299539", "0000 0004 9229 9539", "0000-0004-9229-9539"]
+        .into_iter()
+        .for_each(|value| assert_eq!(ISNI::from_string(value).identifier(), "0000000492299539", "{value}"));
+    assert_eq!(ISNI::from_string("000000049229953X").identifier(), "000000049229953X");
+    assert!(!ISNI::is_valid("000000049229953X"));
+    assert!(ISNI::is_valid("0000-0002-2816-415X"));
+}
+#[test]
 fn test_isni_trait_contract() {
     assert_eq!(ISNI::new().to_string(), ISNI::default().to_string());
     assert!(ISNI::is_valid(CONTRACT_VALID));

@@ -156,6 +156,8 @@ impl Request {
                 "Each input is limited to {} UTF-8 bytes. Your editor has been preserved.",
                 tool.limit()
             ))
+        } else if tool == Tool::Fair && self.standard == "czml" {
+            Err("FAIR assessment is unsupported for CZML.".into())
         } else if unsupported_metric {
             Err("Choose a supported Research Activity readability metric.".into())
         } else if invalid_maximum || invalid_threshold {
@@ -621,25 +623,6 @@ mod wasm_tests {
         }
     }
     #[wasm_bindgen_test]
-    fn test_each_readability_metric_keeps_its_portable_score() {
-        for metric in ["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"] {
-            let request = Request {
-                input: "The research team collected clear observations. They published the methods and shared the results with colleagues. Readers can inspect the data and repeat the analysis.".into(),
-                metric: metric.into(),
-                ..Request::default()
-            };
-            let result = run(Tool::Readability, &request).expect("supported readability metric");
-            assert!(
-                result["checks"].as_array().is_some_and(|checks| {
-                    checks
-                        .iter()
-                        .any(|check| check["metric"] == metric && check["score"].as_f64().is_some_and(f64::is_finite))
-                }),
-                "{metric}: {result}"
-            );
-        }
-    }
-    #[wasm_bindgen_test]
     fn test_bundled_research_activity_examples_validate() {
         for (name, content) in [
             ("computing", include_str!("../assets/examples/computing.json")),
@@ -710,6 +693,25 @@ mod wasm_tests {
             .collect::<alloc::collections::BTreeSet<_>>();
         assert_eq!(unique.len(), identifiers.len(), "aliases should deduplicate");
         assert_eq!(result["truncated"], false);
+    }
+    #[wasm_bindgen_test]
+    fn test_each_readability_metric_keeps_its_portable_score() {
+        for metric in ["ari", "cli", "fkgl", "fres", "gfi", "lix", "smog"] {
+            let request = Request {
+                input: "The research team collected clear observations. They published the methods and shared the results with colleagues. Readers can inspect the data and repeat the analysis.".into(),
+                metric: metric.into(),
+                ..Request::default()
+            };
+            let result = run(Tool::Readability, &request).expect("supported readability metric");
+            assert!(
+                result["checks"].as_array().is_some_and(|checks| {
+                    checks
+                        .iter()
+                        .any(|check| check["metric"] == metric && check["score"].as_f64().is_some_and(f64::is_finite))
+                }),
+                "{metric}: {result}"
+            );
+        }
     }
     #[wasm_bindgen_test]
     fn test_identifier_boundaries_keep_ambiguity_and_full_discovery_count() {

@@ -1,0 +1,910 @@
+{
+  "revision": "61cd1d5a890ad955da081250849b99c5fd238921",
+  "types": {
+    "AlignedAxis": {
+      "properties": [
+        "reference",
+        "unitCartesian",
+        "unitSpherical",
+        "velocityReference"
+      ],
+      "requiredForDisplay": []
+    },
+    "ArcType": {
+      "properties": [
+        "arcType",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Articulation": {
+      "properties": [
+        "number",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Articulations": {
+      "properties": [],
+      "requiredForDisplay": []
+    },
+    "BackgroundPadding": {
+      "properties": [
+        "cartesian2",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Billboard": {
+      "properties": [
+        "alignedAxis",
+        "color",
+        "disableDepthTestDistance",
+        "distanceDisplayCondition",
+        "eyeOffset",
+        "height",
+        "heightReference",
+        "horizontalOrigin",
+        "image",
+        "imageSubRegion",
+        "pixelOffset",
+        "pixelOffsetScaleByDistance",
+        "rotation",
+        "scale",
+        "scaleByDistance",
+        "show",
+        "sizeInMeters",
+        "translucencyByDistance",
+        "verticalOrigin",
+        "width"
+      ],
+      "requiredForDisplay": [
+        "image"
+      ]
+    },
+    "Boolean": {
+      "properties": [
+        "boolean",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "BoundingRectangle": {
+      "properties": [
+        "boundingRectangle",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Box": {
+      "properties": [
+        "dimensions",
+        "distanceDisplayCondition",
+        "fill",
+        "heightReference",
+        "material",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "shadows",
+        "show"
+      ],
+      "requiredForDisplay": [
+        "dimensions"
+      ]
+    },
+    "BoxDimensions": {
+      "properties": [
+        "cartesian",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "CheckerboardMaterial": {
+      "properties": [
+        "evenColor",
+        "oddColor",
+        "repeat"
+      ],
+      "requiredForDisplay": []
+    },
+    "ClassificationType": {
+      "properties": [
+        "classificationType",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Clock": {
+      "properties": [
+        "currentTime",
+        "multiplier",
+        "range",
+        "step"
+      ],
+      "requiredForDisplay": []
+    },
+    "Color": {
+      "properties": [
+        "reference",
+        "rgba",
+        "rgbaf"
+      ],
+      "requiredForDisplay": []
+    },
+    "ColorBlendMode": {
+      "properties": [
+        "colorBlendMode",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "CornerType": {
+      "properties": [
+        "cornerType",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Corridor": {
+      "properties": [
+        "classificationType",
+        "cornerType",
+        "distanceDisplayCondition",
+        "extrudedHeight",
+        "extrudedHeightReference",
+        "fill",
+        "granularity",
+        "height",
+        "heightReference",
+        "material",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "positions",
+        "shadows",
+        "show",
+        "width",
+        "zIndex"
+      ],
+      "requiredForDisplay": [
+        "positions",
+        "width"
+      ]
+    },
+    "CustomProperties": {
+      "properties": [],
+      "requiredForDisplay": []
+    },
+    "CustomProperty": {
+      "properties": [
+        "boolean",
+        "boundingRectangle",
+        "cartesian",
+        "cartesian2",
+        "cartographicDegrees",
+        "cartographicRadians",
+        "colorBlendMode",
+        "cornerType",
+        "heightReference",
+        "horizontalOrigin",
+        "labelStyle",
+        "nearFarScalar",
+        "number",
+        "pathMode",
+        "rgba",
+        "rgbaf",
+        "shadowMode",
+        "spherical",
+        "string",
+        "stripeOrientation",
+        "unitCartesian",
+        "unitQuaternion",
+        "unitSpherical",
+        "uri",
+        "verticalOrigin",
+        "wsen",
+        "wsenDegrees"
+      ],
+      "requiredForDisplay": []
+    },
+    "Cylinder": {
+      "properties": [
+        "bottomRadius",
+        "distanceDisplayCondition",
+        "fill",
+        "heightReference",
+        "length",
+        "material",
+        "numberOfVerticalLines",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "shadows",
+        "show",
+        "slices",
+        "topRadius"
+      ],
+      "requiredForDisplay": [
+        "bottomRadius",
+        "length",
+        "topRadius"
+      ]
+    },
+    "DeletableProperty": {
+      "properties": [
+        "delete"
+      ],
+      "requiredForDisplay": []
+    },
+    "Direction": {
+      "properties": [
+        "cartesian",
+        "reference",
+        "spherical",
+        "unitCartesian",
+        "unitSpherical"
+      ],
+      "requiredForDisplay": []
+    },
+    "DirectionList": {
+      "properties": [
+        "cartesian",
+        "spherical",
+        "unitCartesian",
+        "unitSpherical"
+      ],
+      "requiredForDisplay": []
+    },
+    "DistanceDisplayCondition": {
+      "properties": [
+        "distanceDisplayCondition",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Document": {
+      "properties": [],
+      "requiredForDisplay": []
+    },
+    "Double": {
+      "properties": [
+        "number",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "DoubleList": {
+      "properties": [
+        "array",
+        "references"
+      ],
+      "requiredForDisplay": []
+    },
+    "Ellipse": {
+      "properties": [
+        "classificationType",
+        "distanceDisplayCondition",
+        "extrudedHeight",
+        "extrudedHeightReference",
+        "fill",
+        "granularity",
+        "height",
+        "heightReference",
+        "material",
+        "numberOfVerticalLines",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "rotation",
+        "semiMajorAxis",
+        "semiMinorAxis",
+        "shadows",
+        "show",
+        "stRotation",
+        "zIndex"
+      ],
+      "requiredForDisplay": [
+        "semiMajorAxis",
+        "semiMinorAxis"
+      ]
+    },
+    "Ellipsoid": {
+      "properties": [
+        "distanceDisplayCondition",
+        "fill",
+        "heightReference",
+        "innerRadii",
+        "material",
+        "maximumClock",
+        "maximumCone",
+        "minimumClock",
+        "minimumCone",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "radii",
+        "shadows",
+        "show",
+        "slicePartitions",
+        "stackPartitions",
+        "subdivisions"
+      ],
+      "requiredForDisplay": [
+        "radii"
+      ]
+    },
+    "EllipsoidRadii": {
+      "properties": [
+        "cartesian",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "EyeOffset": {
+      "properties": [
+        "cartesian",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Font": {
+      "properties": [
+        "font",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "GridMaterial": {
+      "properties": [
+        "cellAlpha",
+        "color",
+        "lineCount",
+        "lineOffset",
+        "lineThickness"
+      ],
+      "requiredForDisplay": []
+    },
+    "HeightReference": {
+      "properties": [
+        "heightReference",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "HorizontalOrigin": {
+      "properties": [
+        "horizontalOrigin",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "ImageMaterial": {
+      "properties": [
+        "color",
+        "image",
+        "repeat",
+        "transparent"
+      ],
+      "requiredForDisplay": []
+    },
+    "Integer": {
+      "properties": [
+        "number",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "InterpolatableProperty": {
+      "properties": [
+        "backwardExtrapolationDuration",
+        "backwardExtrapolationType",
+        "epoch",
+        "forwardExtrapolationDuration",
+        "forwardExtrapolationType",
+        "interpolationAlgorithm",
+        "interpolationDegree"
+      ],
+      "requiredForDisplay": []
+    },
+    "Label": {
+      "properties": [
+        "backgroundColor",
+        "backgroundPadding",
+        "disableDepthTestDistance",
+        "distanceDisplayCondition",
+        "eyeOffset",
+        "fillColor",
+        "font",
+        "heightReference",
+        "horizontalOrigin",
+        "outlineColor",
+        "outlineWidth",
+        "pixelOffset",
+        "pixelOffsetScaleByDistance",
+        "scale",
+        "scaleByDistance",
+        "show",
+        "showBackground",
+        "style",
+        "text",
+        "translucencyByDistance",
+        "verticalOrigin"
+      ],
+      "requiredForDisplay": []
+    },
+    "LabelStyle": {
+      "properties": [
+        "labelStyle",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "LineCount": {
+      "properties": [
+        "cartesian2",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "LineOffset": {
+      "properties": [
+        "cartesian2",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "LineThickness": {
+      "properties": [
+        "cartesian2",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Material": {
+      "properties": [
+        "checkerboard",
+        "grid",
+        "image",
+        "solidColor",
+        "stripe"
+      ],
+      "requiredForDisplay": []
+    },
+    "Model": {
+      "properties": [
+        "articulations",
+        "color",
+        "colorBlendAmount",
+        "colorBlendMode",
+        "distanceDisplayCondition",
+        "gltf",
+        "heightReference",
+        "incrementallyLoadTextures",
+        "maximumScale",
+        "minimumPixelSize",
+        "nodeTransformations",
+        "runAnimations",
+        "scale",
+        "shadows",
+        "show",
+        "silhouetteColor",
+        "silhouetteSize"
+      ],
+      "requiredForDisplay": [
+        "gltf"
+      ]
+    },
+    "NearFarScalar": {
+      "properties": [
+        "nearFarScalar",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "NodeTransformation": {
+      "properties": [
+        "rotation",
+        "scale",
+        "translation"
+      ],
+      "requiredForDisplay": []
+    },
+    "NodeTransformations": {
+      "properties": [],
+      "requiredForDisplay": []
+    },
+    "Orientation": {
+      "properties": [
+        "reference",
+        "unitQuaternion",
+        "velocityReference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Packet": {
+      "properties": [
+        "agi_conicSensor",
+        "agi_customPatternSensor",
+        "agi_fan",
+        "agi_groundElevationVolume",
+        "agi_rectangularSensor",
+        "agi_vector",
+        "availability",
+        "billboard",
+        "box",
+        "clock",
+        "corridor",
+        "cylinder",
+        "delete",
+        "description",
+        "ellipse",
+        "ellipsoid",
+        "id",
+        "label",
+        "model",
+        "name",
+        "orientation",
+        "parent",
+        "path",
+        "point",
+        "polygon",
+        "polyline",
+        "polylineVolume",
+        "position",
+        "properties",
+        "rectangle",
+        "tileset",
+        "version",
+        "viewFrom",
+        "wall"
+      ],
+      "requiredForDisplay": []
+    },
+    "Path": {
+      "properties": [
+        "distanceDisplayCondition",
+        "leadTime",
+        "material",
+        "materialMode",
+        "relativeTo",
+        "resolution",
+        "show",
+        "trailTime",
+        "width"
+      ],
+      "requiredForDisplay": []
+    },
+    "PathMode": {
+      "properties": [
+        "pathMode",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "PixelOffset": {
+      "properties": [
+        "cartesian2",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Point": {
+      "properties": [
+        "color",
+        "disableDepthTestDistance",
+        "distanceDisplayCondition",
+        "heightReference",
+        "outlineColor",
+        "outlineWidth",
+        "pixelSize",
+        "scaleByDistance",
+        "show",
+        "translucencyByDistance"
+      ],
+      "requiredForDisplay": []
+    },
+    "Polygon": {
+      "properties": [
+        "arcType",
+        "classificationType",
+        "closeBottom",
+        "closeTop",
+        "distanceDisplayCondition",
+        "extrudedHeight",
+        "extrudedHeightReference",
+        "fill",
+        "granularity",
+        "height",
+        "heightReference",
+        "holes",
+        "material",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "perPositionHeight",
+        "positions",
+        "shadows",
+        "show",
+        "stRotation",
+        "zIndex"
+      ],
+      "requiredForDisplay": [
+        "positions"
+      ]
+    },
+    "Polyline": {
+      "properties": [
+        "arcType",
+        "clampToGround",
+        "classificationType",
+        "depthFailMaterial",
+        "distanceDisplayCondition",
+        "followSurface",
+        "granularity",
+        "material",
+        "positions",
+        "shadows",
+        "show",
+        "width",
+        "zIndex"
+      ],
+      "requiredForDisplay": [
+        "positions"
+      ]
+    },
+    "PolylineArrowMaterial": {
+      "properties": [
+        "color"
+      ],
+      "requiredForDisplay": []
+    },
+    "PolylineDashMaterial": {
+      "properties": [
+        "color",
+        "dashLength",
+        "dashPattern",
+        "gapColor"
+      ],
+      "requiredForDisplay": []
+    },
+    "PolylineGlowMaterial": {
+      "properties": [
+        "color",
+        "glowPower",
+        "taperPower"
+      ],
+      "requiredForDisplay": []
+    },
+    "PolylineMaterial": {
+      "properties": [
+        "checkerboard",
+        "grid",
+        "image",
+        "polylineArrow",
+        "polylineDash",
+        "polylineGlow",
+        "polylineOutline",
+        "solidColor",
+        "stripe"
+      ],
+      "requiredForDisplay": []
+    },
+    "PolylineOutlineMaterial": {
+      "properties": [
+        "color",
+        "outlineColor",
+        "outlineWidth"
+      ],
+      "requiredForDisplay": []
+    },
+    "PolylineVolume": {
+      "properties": [
+        "cornerType",
+        "distanceDisplayCondition",
+        "fill",
+        "granularity",
+        "material",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "positions",
+        "shadows",
+        "shape",
+        "show"
+      ],
+      "requiredForDisplay": [
+        "positions",
+        "shape"
+      ]
+    },
+    "Position": {
+      "properties": [
+        "cartesian",
+        "cartesianVelocity",
+        "cartographicDegrees",
+        "cartographicRadians",
+        "reference",
+        "referenceFrame"
+      ],
+      "requiredForDisplay": []
+    },
+    "PositionList": {
+      "properties": [
+        "cartesian",
+        "cartographicDegrees",
+        "cartographicRadians",
+        "referenceFrame",
+        "references"
+      ],
+      "requiredForDisplay": []
+    },
+    "PositionListOfLists": {
+      "properties": [
+        "cartesian",
+        "cartographicDegrees",
+        "cartographicRadians",
+        "references"
+      ],
+      "requiredForDisplay": []
+    },
+    "Rectangle": {
+      "properties": [
+        "classificationType",
+        "coordinates",
+        "distanceDisplayCondition",
+        "extrudedHeight",
+        "extrudedHeightReference",
+        "fill",
+        "granularity",
+        "height",
+        "heightReference",
+        "material",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "rotation",
+        "shadows",
+        "show",
+        "stRotation",
+        "zIndex"
+      ],
+      "requiredForDisplay": [
+        "coordinates"
+      ]
+    },
+    "RectangleCoordinates": {
+      "properties": [
+        "reference",
+        "wsen",
+        "wsenDegrees"
+      ],
+      "requiredForDisplay": []
+    },
+    "Repeat": {
+      "properties": [
+        "cartesian2",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Rotation": {
+      "properties": [
+        "reference",
+        "unitQuaternion"
+      ],
+      "requiredForDisplay": []
+    },
+    "Scale": {
+      "properties": [
+        "cartesian",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "ShadowMode": {
+      "properties": [
+        "reference",
+        "shadowMode"
+      ],
+      "requiredForDisplay": []
+    },
+    "Shape": {
+      "properties": [
+        "cartesian2"
+      ],
+      "requiredForDisplay": []
+    },
+    "SolidColorMaterial": {
+      "properties": [
+        "color"
+      ],
+      "requiredForDisplay": []
+    },
+    "String": {
+      "properties": [
+        "reference",
+        "string"
+      ],
+      "requiredForDisplay": []
+    },
+    "StripeMaterial": {
+      "properties": [
+        "evenColor",
+        "oddColor",
+        "offset",
+        "orientation",
+        "repeat"
+      ],
+      "requiredForDisplay": []
+    },
+    "StripeOrientation": {
+      "properties": [
+        "reference",
+        "stripeOrientation"
+      ],
+      "requiredForDisplay": []
+    },
+    "Tileset": {
+      "properties": [
+        "maximumScreenSpaceError",
+        "show",
+        "uri"
+      ],
+      "requiredForDisplay": [
+        "uri"
+      ]
+    },
+    "Translation": {
+      "properties": [
+        "cartesian",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Uri": {
+      "properties": [
+        "reference",
+        "uri"
+      ],
+      "requiredForDisplay": []
+    },
+    "VerticalOrigin": {
+      "properties": [
+        "reference",
+        "verticalOrigin"
+      ],
+      "requiredForDisplay": []
+    },
+    "ViewFrom": {
+      "properties": [
+        "cartesian",
+        "reference"
+      ],
+      "requiredForDisplay": []
+    },
+    "Wall": {
+      "properties": [
+        "distanceDisplayCondition",
+        "fill",
+        "granularity",
+        "material",
+        "maximumHeights",
+        "minimumHeights",
+        "outline",
+        "outlineColor",
+        "outlineWidth",
+        "positions",
+        "shadows",
+        "show"
+      ],
+      "requiredForDisplay": [
+        "positions"
+      ]
+    },
+    "package": {
+      "properties": [],
+      "requiredForDisplay": []
+    }
+  }
+}

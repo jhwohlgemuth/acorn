@@ -123,3 +123,11 @@ fn test_orcid_trait_contract() {
     assert_eq!(CONTRACT_VALID.format_as(PID::ORCID), CONTRACT_CANONICAL);
     assert_eq!(CONTRACT_VALID.to_pid(PID::ORCID).to_orcid().to_string(), CONTRACT_CANONICAL);
 }
+#[test]
+fn test_orcid_x_check_character_in_payload() {
+    let pid = ORCID::from_string("000000049229953X");
+    assert_eq!(pid.identifier(), "0000-0004-9229-953X");
+    assert_eq!(pid.check_digit(), Some(vec!['9']));
+    assert!(!ORCID::is_valid("000000049229953X"));
+    assert_eq!(ORCID::from_string("0000-0002-2816-415X").check_digit(), Some(vec!['X']));
+}

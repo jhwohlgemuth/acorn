@@ -924,22 +924,6 @@ impl IntoIterator for Findings {
         self.values.into_iter()
     }
 }
-impl StandardCheckCapabilities for Standard {
-    fn supports_check(self, category: &CheckCategory) -> bool {
-        match self {
-            | Self::ApplicationConfigurationResearchEnablement | Self::Ckan => category.is_schema(),
-            | Self::CitationFileFormat | Self::Document => {
-                category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
-            }
-            | Self::Datacite | Self::Dcat | Self::DublinCore | Self::Invenio => !category.is_compute() && !category.is_crosswalk(),
-            | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
-            | Self::Kitfile | Self::ModelKit | Self::Oci => category.is_schema() || category.is_quality(),
-            | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
-            | Self::ResearchActivityData => !category.is_crosswalk(),
-            | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
-        }
-    }
-}
 #[cfg(feature = "analysis")]
 impl StandardCrosswalk for Standard {
     /// Convert serialized content from one metadata standard to another.
@@ -960,102 +944,108 @@ impl StandardCrosswalk for Standard {
             | MimeType::JsonLines => format!("record at index {index} (line {})", index.saturating_add(1)),
             | _ => format!("record at index {index}"),
         };
-        match *self {
-            | Standard::Ckan => ckan::Package::parse(content, mime).and_then(|source| match target {
-                | Standard::Dcat => crosswalk_batch::<ckan::Package, dcat::Dataset>(source, &source_mime, target_mime).map(Conversion::into_value),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::Datacite => OneOrMany::<datacite::Record>::parse(content, mime).and_then(|source| match target {
-                | Standard::Datacite => source.encode(target_mime),
-                | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
-                | Standard::Dcat => source
-                    .try_map_with_label(dcat::Dataset::try_from, label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::Invenio => source
-                    .try_map_with_label(invenio::Record::try_from, label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::Huwise => source
-                    .try_map_with_label(huwise::Dataset::try_from, label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::Dcat => OneOrMany::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
-                | Standard::Dcat => source.encode(target_mime),
-                | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
-                | Standard::Datacite => source
-                    .try_map_with_label(datacite::Record::try_from, label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::Invenio => source
-                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(invenio::Record::try_from), label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::Huwise => source
-                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(huwise::Dataset::try_from), label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::DublinCore => DublinCoreDocument::decode(content, &mime)
-                .map_err(CrosswalkError::from)
-                .and_then(|source| match target {
-                    | Standard::Datacite => crosswalk_single::<_, datacite::Record>(source, target_mime).map(Conversion::into_value),
-                    | Standard::Dcat => crosswalk_single::<_, dcat::Dataset>(source, target_mime).map(Conversion::into_value),
-                    | Standard::DublinCore => source.encode(&target_mime).map_err(CrosswalkError::from),
-                    | Standard::Huwise => crosswalk_single::<_, huwise::Dataset>(source, target_mime).map(Conversion::into_value),
-                    | Standard::Invenio => crosswalk_single::<_, invenio::Record>(source, target_mime).map(Conversion::into_value),
+        match target {
+            | Standard::Czml => Err(self.unsupported_crosswalk(target)),
+            | _ => match *self {
+                | Standard::Ckan => ckan::Package::parse(content, mime).and_then(|source| match target {
+                    | Standard::Dcat => {
+                        crosswalk_batch::<ckan::Package, dcat::Dataset>(source, &source_mime, target_mime).map(Conversion::into_value)
+                    }
                     | _ => Err(self.unsupported_crosswalk(target)),
                 }),
-            | Standard::Invenio => OneOrMany::<invenio::Record>::parse(content, mime).and_then(|source| match target {
-                | Standard::Invenio => source.encode(target_mime),
-                | Standard::Datacite => source
-                    .try_map_with_label(datacite::Record::try_from, label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
-                | Standard::Dcat => source
-                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(dcat::Dataset::try_from), label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::Huwise => source
-                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(huwise::Dataset::try_from), label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::Huwise => OneOrMany::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
-                | Standard::Huwise => source.encode(target_mime),
-                | Standard::Datacite => source
-                    .try_map_with_label(datacite::Record::try_from, label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
-                | Standard::Dcat => source
-                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(dcat::Dataset::try_from), label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | Standard::Invenio => source
-                    .try_map_with_label(|value| datacite::Record::try_from(value).and_then(invenio::Record::try_from), label)
-                    .and_then(|batch| batch.encode(target_mime)),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::Raid => OneOrMany::<raid::Metadata>::parse(content, mime).and_then(|source| match target {
-                | Standard::Raid => source.encode(target_mime),
-                | Standard::ResearchActivityData => {
-                    crosswalk_batch::<raid::Metadata, ResearchActivity>(source, &source_mime, target_mime).map(Conversion::into_value)
-                }
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::ResearchActivityData => OneOrMany::<ResearchActivity>::parse(content, mime).and_then(|source| match target {
-                | Standard::Datacite => {
-                    crosswalk_batch::<ResearchActivity, datacite::Record>(source, &source_mime, target_mime).map(Conversion::into_value)
-                }
-                | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
-                | Standard::Raid => {
-                    crosswalk_batch::<ResearchActivity, raid::Metadata>(source, &source_mime, target_mime).map(Conversion::into_value)
-                }
-                | Standard::ResearchActivityData => source.encode(target_mime),
-                | _ => Err(self.unsupported_crosswalk(target)),
-            }),
-            | Standard::ApplicationConfigurationResearchEnablement
-            | Standard::Kitfile
-            | Standard::ModelKit
-            | Standard::Oci
-            | Standard::CitationFileFormat
-            | Standard::Document
-            | Standard::Text => Err(self.unsupported_crosswalk(target)),
+                | Standard::Datacite => OneOrMany::<datacite::Record>::parse(content, mime).and_then(|source| match target {
+                    | Standard::Datacite => source.encode(target_mime),
+                    | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
+                    | Standard::Dcat => source
+                        .try_map_with_label(dcat::Dataset::try_from, label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::Invenio => source
+                        .try_map_with_label(invenio::Record::try_from, label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::Huwise => source
+                        .try_map_with_label(huwise::Dataset::try_from, label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | _ => Err(self.unsupported_crosswalk(target)),
+                }),
+                | Standard::Dcat => OneOrMany::<dcat::Dataset>::parse(content, mime).and_then(|source| match target {
+                    | Standard::Dcat => source.encode(target_mime),
+                    | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
+                    | Standard::Datacite => source
+                        .try_map_with_label(datacite::Record::try_from, label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::Invenio => source
+                        .try_map_with_label(|value| datacite::Record::try_from(value).and_then(invenio::Record::try_from), label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::Huwise => source
+                        .try_map_with_label(|value| datacite::Record::try_from(value).and_then(huwise::Dataset::try_from), label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | _ => Err(self.unsupported_crosswalk(target)),
+                }),
+                | Standard::DublinCore => DublinCoreDocument::decode(content, &mime)
+                    .map_err(CrosswalkError::from)
+                    .and_then(|source| match target {
+                        | Standard::Datacite => crosswalk_single::<_, datacite::Record>(source, target_mime).map(Conversion::into_value),
+                        | Standard::Dcat => crosswalk_single::<_, dcat::Dataset>(source, target_mime).map(Conversion::into_value),
+                        | Standard::DublinCore => source.encode(&target_mime).map_err(CrosswalkError::from),
+                        | Standard::Huwise => crosswalk_single::<_, huwise::Dataset>(source, target_mime).map(Conversion::into_value),
+                        | Standard::Invenio => crosswalk_single::<_, invenio::Record>(source, target_mime).map(Conversion::into_value),
+                        | _ => Err(self.unsupported_crosswalk(target)),
+                    }),
+                | Standard::Invenio => OneOrMany::<invenio::Record>::parse(content, mime).and_then(|source| match target {
+                    | Standard::Invenio => source.encode(target_mime),
+                    | Standard::Datacite => source
+                        .try_map_with_label(datacite::Record::try_from, label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
+                    | Standard::Dcat => source
+                        .try_map_with_label(|value| datacite::Record::try_from(value).and_then(dcat::Dataset::try_from), label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::Huwise => source
+                        .try_map_with_label(|value| datacite::Record::try_from(value).and_then(huwise::Dataset::try_from), label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | _ => Err(self.unsupported_crosswalk(target)),
+                }),
+                | Standard::Huwise => OneOrMany::<huwise::Dataset>::parse(content, mime).and_then(|source| match target {
+                    | Standard::Huwise => source.encode(target_mime),
+                    | Standard::Datacite => source
+                        .try_map_with_label(datacite::Record::try_from, label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
+                    | Standard::Dcat => source
+                        .try_map_with_label(|value| datacite::Record::try_from(value).and_then(dcat::Dataset::try_from), label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | Standard::Invenio => source
+                        .try_map_with_label(|value| datacite::Record::try_from(value).and_then(invenio::Record::try_from), label)
+                        .and_then(|batch| batch.encode(target_mime)),
+                    | _ => Err(self.unsupported_crosswalk(target)),
+                }),
+                | Standard::Raid => OneOrMany::<raid::Metadata>::parse(content, mime).and_then(|source| match target {
+                    | Standard::Raid => source.encode(target_mime),
+                    | Standard::ResearchActivityData => {
+                        crosswalk_batch::<raid::Metadata, ResearchActivity>(source, &source_mime, target_mime).map(Conversion::into_value)
+                    }
+                    | _ => Err(self.unsupported_crosswalk(target)),
+                }),
+                | Standard::ResearchActivityData => OneOrMany::<ResearchActivity>::parse(content, mime).and_then(|source| match target {
+                    | Standard::Datacite => {
+                        crosswalk_batch::<ResearchActivity, datacite::Record>(source, &source_mime, target_mime).map(Conversion::into_value)
+                    }
+                    | Standard::DublinCore => crosswalk_to_dublin_core(source, target_mime).map(Conversion::into_value),
+                    | Standard::Raid => {
+                        crosswalk_batch::<ResearchActivity, raid::Metadata>(source, &source_mime, target_mime).map(Conversion::into_value)
+                    }
+                    | Standard::ResearchActivityData => source.encode(target_mime),
+                    | _ => Err(self.unsupported_crosswalk(target)),
+                }),
+                | Standard::ApplicationConfigurationResearchEnablement
+                | Standard::Czml
+                | Standard::Kitfile
+                | Standard::ModelKit
+                | Standard::Oci
+                | Standard::CitationFileFormat
+                | Standard::Document
+                | Standard::Text => Err(self.unsupported_crosswalk(target)),
+            },
         }
     }
     /// Convert serialized content from one metadata standard to another, returning both the converted content and any field-level warnings.
@@ -1148,6 +1138,22 @@ impl StandardCrosswalk for Standard {
         CrosswalkError::BuildFailed(format!(
             "Unsupported metadata crosswalk pair: {self} -> {target} (supported: ckan, rads, raid, datacite, dcmi, dcat, invenio, huwise)"
         ))
+    }
+}
+impl StandardCheckCapabilities for Standard {
+    fn supports_check(self, category: &CheckCategory) -> bool {
+        match self {
+            | Self::ApplicationConfigurationResearchEnablement | Self::Ckan | Self::Czml => category.is_schema(),
+            | Self::CitationFileFormat | Self::Document => {
+                category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
+            }
+            | Self::Datacite | Self::Dcat | Self::DublinCore | Self::Invenio => !category.is_compute() && !category.is_crosswalk(),
+            | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
+            | Self::Kitfile | Self::ModelKit | Self::Oci => category.is_schema() || category.is_quality(),
+            | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
+            | Self::ResearchActivityData => !category.is_crosswalk(),
+            | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
+        }
     }
 }
 impl From<&CheckCategory> for u8 {

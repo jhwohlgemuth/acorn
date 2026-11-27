@@ -5,6 +5,8 @@
 <p>Run an ACORN bot, local stdio MCP service, or authenticated JSON-RPC or gRPC endpoint with <code>acorn serve</code>.</p>
 </blockquote>
 
+For persistent API listeners and configured check/gather jobs, use [`acornd`](daemon.md).
+
 Start a bot for a GitLab project:
 
 ```sh

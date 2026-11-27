@@ -4,7 +4,10 @@ This is the field-level reference for the [CZML standard data model](index.md#ex
 
 ## Known drift and scope notes
 
-- `Schema/Packet.json` at `61cd1d5a` has 33 properties. The wiki's `Packet.md` lists 32 and omits `agi_groundElevationVolume` (`Schema/Extensions/AGI/GroundElevationVolume.json`).
+- `Schema/Packet.json` at `61cd1d5a` has 34 properties: 28 core keys and six AGI extension keys. The wiki's `Packet.md` lists 32, including no `agi_groundElevationVolume` (`Schema/Extensions/AGI/GroundElevationVolume.json`). The generated inventory and conformance test use the schema's exact field set.
+- `Schema/AlignedAxis.json` uses `unitCartesian`, while `Schema/Examples/Billboard.json` uses `alignedAxis.cartesian`. The model accepts the example's `cartesian` key as a reviewed compatibility field.
+- `Schema/Clock.json` omits `interval`, while `Schema/Examples/Clock.json` includes it. The model accepts `Clock.interval` as a reviewed compatibility field.
+- `Schema/Examples/Uri.json` shows interval objects under a `uri` key. It is decoded through the `Tileset` wrapper, matching the example's shape.
 - The wiki has one page per value type (`*Value.md`). The schema splits each into `Values/<Name>Value.json` and `ValueProperties/<Name>ValueProperty.json`. `ClockRange`, `ClockStep`, `Time`, and `TimeIntervalCollection` become `Values/ClockRangeValue.json`, `Values/ClockStepValue.json`, `Values/TimeValue.json`, and `Values/TimeIntervalCollectionValue.json` (`"type": ["array", "string"]`).
 - Required fields use the custom keyword `czmlRequiredForDisplay`, not JSON Schema `required`. They are marked `*` below.
 - Every property may also be written as an interval list, and string, number, and boolean properties also have a bare shorthand. The property envelope in the [contract decisions](index.md#contract-decisions) covers this, so the tables below list each value form once.

@@ -40,9 +40,10 @@ const FORMAT_CHOICES: [(MimeType, &str, &str); 10] = [
 ];
 const FORMAT_WIDTHS: [usize; 10] = [42, 46, 60, 44, 37, 35, 32, 37, 34, 35];
 const RAD_TITLE: &str = "Research Activity Data";
-const STANDARD_CHOICES: [(Standard, &str, &str); 11] = [
+const STANDARD_CHOICES: [(Standard, &str, &str); 12] = [
     (Standard::CitationFileFormat, "CFF", "Citation File Format"),
     (Standard::Ckan, "CKAN", "Comprehensive Knowledge Archive Network"),
+    (Standard::Czml, "CZML", "Cesium Language"),
     (Standard::Datacite, "DCITE", "DataCite Metadata Schema"),
     (Standard::Document, "DOC", "Document"),
     (Standard::DublinCore, "DC", "Dublin Core"),

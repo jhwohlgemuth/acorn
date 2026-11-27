@@ -184,10 +184,58 @@ fn test_payload() -> [(&'static str, &'static str); 2] {
 
 proptest! {
     #![proptest_config(ProptestConfig {
-        cases: 256,
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(64),
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/io/archive.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_archive_generated_file_trees_round_trip(
+        files in prop::collection::btree_map("[a-z]{1,8}", prop::collection::vec(any::<u8>(), 0..64), 1..4),
+        format in prop::sample::select(vec![MimeType::Gzip, MimeType::SevenZip, MimeType::Tar, MimeType::Zip]),
+    ) {
+        let temporary = tempfile::tempdir().expect("temporary archive directory");
+        let source = temporary.path().join("source");
+        create_dir_all(source.join("nested")).expect("create source tree");
+        for (name, content) in &files {
+            write(source.join("nested").join(name), content).expect("write generated entry");
+        }
+        let archive_path = archive(source, Some(temporary.path().join("bundle")), format.clone()).expect("archive generated tree");
+        let destination = temporary.path().join("extract");
+        extract(archive_path, Some(destination.clone()), Some(format)).expect("extract generated tree");
+        for (name, content) in &files {
+            let actual = std::fs::read(destination.join("nested").join(name)).expect("read extracted entry");
+            prop_assert_eq!(actual.as_slice(), content.as_slice());
+        }
+    }
+}
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(256),
         failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/io/references.txt"))),
         ..ProptestConfig::default()
     })]
+    #[test]
+    fn test_executor_serde_round_trips_generated_values(executor in prop_oneof![
+        prop::sample::select(vec![Executor::Apptainer, Executor::Docker, Executor::Kubernetes, Executor::Podman, Executor::Sandbox, Executor::Shell, Executor::Ssh, Executor::VirtualMachine]),
+        "[a-z]{1,16}".prop_map(|name| Executor::Other(format!("runtime-{name}"))),
+    ]) {
+        let encoded = serde_json::to_string(&executor).expect("serialize generated executor");
+        let decoded: Executor = serde_json::from_str(&encoded).expect("deserialize generated executor");
+        prop_assert_eq!(decoded, executor);
+    }
+    #[test]
+    fn test_fingerprint_entries_ignore_order_and_detect_content_changes(
+        values in prop::collection::btree_map("[a-z]{1,8}", prop::collection::vec(any::<u8>(), 0..64), 1..6),
+    ) {
+        let entries = values.into_iter().collect::<Vec<_>>();
+        let first = Fingerprint::from_entries(entries.iter().map(|(name, content)| (name.as_str(), content.as_slice())));
+        let reversed = Fingerprint::from_entries(entries.iter().rev().map(|(name, content)| (name.as_str(), content.as_slice())));
+        prop_assert_eq!(&first, &reversed);
+        let mut changed = entries.clone();
+        changed[0].1.push(0);
+        let changed = Fingerprint::from_entries(changed.iter().map(|(name, content)| (name.as_str(), content.as_slice())));
+        prop_assert_ne!(first, changed);
+    }
     #[test]
     fn test_oci_reference_parse_display_is_idempotent(source in oci_reference()) {
         let reference = OciReference::parse(&source).expect("generated OCI reference should parse");

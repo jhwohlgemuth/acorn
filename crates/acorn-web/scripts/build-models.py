@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import importlib.util
 import itertools
 import json
 import math
@@ -101,14 +102,16 @@ def roughness_png():
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 64, 64, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(pixels, 9)) + chunk(b"IEND", b"")
 
 
-def texture_coordinates(positions, normals):
+def texture_coordinates(positions, normals, scale=3, upright=False):
     """Stable planar projection per triangle, in meters, with repeatable grain."""
     coordinates = []
     for offset in range(0, len(positions), 3):
         normal = tuple(sum(n[axis] for n in normals[offset:offset + 3]) for axis in range(3))
         dominant = max(range(3), key=lambda axis: abs(normal[axis]))
         axes = [axis for axis in range(3) if axis != dominant]
-        coordinates.extend(tuple(p[axis] * 3 for axis in axes) for p in positions[offset:offset + 3])
+        if upright and dominant == 0:
+            axes = [2, 1]
+        coordinates.extend(tuple(p[axis] * scale for axis in axes) for p in positions[offset:offset + 3])
     return coordinates
 
 
@@ -149,7 +152,7 @@ def build(recipe):
                 positions = tuple(itertools.chain.from_iterable(part[0] for part in parts))
                 normals = tuple(itertools.chain.from_iterable(part[1] for part in parts))
                 primitives.append({"attributes": {"POSITION": accessor(positions, True), "NORMAL": accessor(normals),
-                                                  "TEXCOORD_0": accessor(texture_coordinates(positions, normals))},
+                                                  "TEXCOORD_0": accessor(texture_coordinates(positions, normals, recipe.get("surfaces", {}).get(material, {}).get("uvScale", 3), material in recipe.get("surfaces", {})))},
                                    "material": materials.index(material), "mode": 4})
                 all_vertices.extend(positions)
         document["nodes"].append({"name": group, "mesh": len(document["meshes"])})
@@ -164,6 +167,22 @@ def build(recipe):
     document["textures"] = [{"source": 0, "sampler": 0}]
     for material in document["materials"]:
         material["pbrMetallicRoughness"] = dict(material["pbrMetallicRoughness"], metallicRoughnessTexture={"index": 0})
+    if recipe.get("surfaces"):
+        spec = importlib.util.spec_from_file_location("model_surface", Path(__file__).with_name("model-surface.py"))
+        surface = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(surface)
+        for kind in sorted({value["kind"] for value in recipe["surfaces"].values()}):
+            pixels = surface.surface_png(kind)
+            view = len(document["bufferViews"])
+            document["bufferViews"].append({"buffer": 0, "byteOffset": len(binary), "byteLength": len(pixels)})
+            binary.extend(pixels)
+            binary.extend(b"\0" * (-len(binary) % 4))
+            index = len(document["textures"])
+            document["images"].append({"bufferView": view, "mimeType": "image/png", "name": f"surface-{kind}"})
+            document["textures"].append({"source": index, "sampler": 0})
+            for material in document["materials"]:
+                if recipe["surfaces"].get(material["name"], {}).get("kind") == kind:
+                    material["pbrMetallicRoughness"]["baseColorTexture"] = {"index": index}
     document["buffers"] = [{"byteLength": len(binary)}]
     encoded = json.dumps(document, separators=(",", ":"), sort_keys=True).encode()
     encoded += b" " * (-len(encoded) % 4)
@@ -179,7 +198,7 @@ def build(recipe):
         "primitives": sum(len(mesh["primitives"]) for mesh in document["meshes"]),
         "provenance": recipe["provenance"], "revision": recipe["revision"],
         "sha256": hashlib.sha256(glb).hexdigest(), "triangles": len(all_vertices) // 3,
-        "units": "meters", "up_axis": "+Y", "textures": 1,
+        "units": "meters", "up_axis": "+Y", "textures": len(document["textures"]),
     }
     return glb, metadata
 

@@ -29,6 +29,7 @@ fn fair_fixture(content: &str) -> Vec<Finding> {
 fn messages(checks: &CheckBatch) -> Vec<String> {
     checks.iter().map(|check| check.message.clone()).collect()
 }
+
 #[test]
 fn test_acre_standard_serializes_to_machine_identifier() {
     assert_eq!(
@@ -75,6 +76,9 @@ fn test_check_batch_iterates_and_round_trips_explicitly() {
 #[test]
 fn test_check_capabilities_limit_oci_to_schema_and_quality() {
     assert!(Standard::Oci.supports_check(&CheckCategory::Schema));
+    assert!(Standard::Czml.supports_check(&CheckCategory::Schema));
+    assert!(!Standard::Czml.supports_check(&CheckCategory::Link));
+    assert!(!Standard::Czml.supports_check(&CheckCategory::Fair));
     assert!(Standard::Oci.supports_check(&CheckCategory::Quality));
     assert!(!Standard::Oci.supports_check(&CheckCategory::Link));
     assert!(!Standard::Oci.supports_check(&CheckCategory::Prose));
@@ -209,6 +213,19 @@ fn test_combined_batch_summaries_equal_flattened_summary() {
     ]);
     let combined_summary = CheckSummary::from(&first).combine(CheckSummary::from(&second));
     assert_eq!(combined_summary, CheckSummary::from(first.combine(second)));
+}
+#[test]
+fn test_czml_crosswalk_is_unsupported_in_both_directions() {
+    let source = Standard::Czml.crosswalk("[]", MimeType::Json, Standard::ResearchActivityData, MimeType::Json);
+    let target = Standard::ResearchActivityData.crosswalk("{}", MimeType::Json, Standard::Czml, MimeType::Json);
+    assert!(source
+        .expect_err("CZML source crosswalk")
+        .to_string()
+        .contains("Unsupported metadata crosswalk pair"));
+    assert!(target
+        .expect_err("CZML target crosswalk")
+        .to_string()
+        .contains("Unsupported metadata crosswalk pair"));
 }
 #[test]
 fn test_dublin_core_crosswalk_round_trips_datacite_through_turtle() {

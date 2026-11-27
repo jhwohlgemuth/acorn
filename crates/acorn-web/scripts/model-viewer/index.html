@@ -28,6 +28,10 @@
                 <section class="stage" aria-label="Model preview">
                     <div id="viewport" tabindex="0" role="region" aria-label="Interactive 3D model" aria-describedby="controls-help"></div>
                     <div class="scene-heading"><span class="eyebrow">3D PREVIEW</span><span id="view-name">Perspective</span></div>
+                    <div class="model-navigation skip-check-choices" role="group" aria-label="Browse models">
+                        <button id="previous-model" type="button" aria-label="Previous model" disabled><span aria-hidden="true">←</span> Previous</button>
+                        <button id="next-model" type="button" aria-label="Next model" disabled>Next <span aria-hidden="true">→</span></button>
+                    </div>
                     <div class="toolbar skip-check-choices" role="group" aria-label="Model view controls">
                         <button data-view="perspective" title="Reset view (R)">Reset view</button>
                         <button data-view="front">Front</button><button data-view="back">Back</button><button data-view="top">Top</button>

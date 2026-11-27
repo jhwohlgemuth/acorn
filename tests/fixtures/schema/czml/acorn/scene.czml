@@ -1,0 +1,30 @@
+[
+  {
+    "id": "document",
+    "version": "1.0",
+    "name": "Fictional research site",
+    "clock": {
+      "interval": "2026-01-01T00:00:00Z/2026-01-01T00:02:00Z",
+      "currentTime": "2026-01-01T00:00:00Z",
+      "multiplier": 1
+    }
+  },
+  {
+    "id": "fictional-site",
+    "name": "Example Site",
+    "position": { "cartographicDegrees": [0.0, 0.0, 100.0] },
+    "billboard": { "image": "data:image/png;base64,iVBORw0KGgo=", "show": true },
+    "label": { "text": "Example Site", "show": true }
+  },
+  {
+    "id": "fictional-instrument",
+    "name": "Example Instrument",
+    "position": {
+      "cartesian": [
+        "2026-01-01T00:00:00Z", 1.0, 2.0, 3.0,
+        "2026-01-01T00:01:00Z", 2.0, 3.0, 4.0
+      ]
+    },
+    "point": { "pixelSize": 6, "show": true }
+  }
+]

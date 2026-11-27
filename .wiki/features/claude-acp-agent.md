@@ -9,8 +9,8 @@ tags: [feature, inference, acp, agent, claude]
 status: planned
 execution: phased
 phase_budget_hours: 5
-created: 2026-11-24
-updated: 2026-11-24
+created: "2026-11-24"
+updated: "2026-11-26"
 ---
 
 # Goal

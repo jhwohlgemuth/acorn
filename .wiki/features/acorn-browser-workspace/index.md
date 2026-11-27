@@ -842,7 +842,7 @@ The integration owner may use `src/ui.rs`, `src/main.rs`, `src/lib.rs`, new focu
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-45, accepted local daemon CLI and Linux/macOS registration, and the relevant ACD-13 Windows service-manager contract; no concurrent daemon CLI/service owner
+- Prerequisites: ABW-45, accepted local daemon CLI and Linux/macOS registration, and the relevant ACDW-13 Windows service-manager contract; no concurrent daemon CLI/service owner
 - Exact write set: `crates/acorn-desktop/src/commands.rs`, `crates/acorn-desktop/src/commands/daemon.rs` (new), `crates/acorn-desktop/src/tests.rs`, `crates/acorn-desktop/capabilities/main.json`, `crates/acorn-web/src/host.rs`, `crates/acorn-web/src/host/daemon.rs` (new), `crates/acorn-web/src/ui.rs`, `crates/acorn-desktop/acceptance/capability-matrix.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: daemon control adapter
 - Outcome: Present authenticated local health/status/history and explicit run/pause/resume/reload plus install/start/stop/uninstall only where the acornd plan has implemented that host manager. Use its CLI/client and protected local token; never implement a second scheduler or silently install/start the service.

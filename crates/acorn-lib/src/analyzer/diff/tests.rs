@@ -8,6 +8,7 @@ use acorn_schema::{
 fn input<'a>(content: &'a str, label: &'a str, media_type: MimeType) -> DiffInput<'a> {
     DiffInput { content, label, media_type }
 }
+
 #[test]
 fn test_automatic_comparison_does_not_crosswalk_mismatched_standards() {
     let before = input(r#"{"attributes":{},"id":"10.1/example"}"#, "a/datacite.json", MimeType::Json);
@@ -45,6 +46,21 @@ fn test_cff_yaml_is_compared_semantically() {
     let after = input(&canonical, "b/CITATION.cff", MimeType::Cff);
     let result = SemanticDiff::compare(&before, &after, DiffFormat::JsonPatch, None);
     assert!(matches!(result, Ok(SemanticDiff::JsonPatch(patch)) if patch.is_empty()));
+}
+#[test]
+fn test_czml_documents_are_detected_and_compared_semantically() {
+    let before = input(
+        r#"[{"id":"document","version":"1.0"},{"id":"entity","name":"before"}]"#,
+        "a/scene.czml",
+        MimeType::Json,
+    );
+    let after = input(
+        r#"[{"id":"document","version":"1.0"},{"id":"entity","name":"after"}]"#,
+        "b/scene.czml",
+        MimeType::Json,
+    );
+    let result = SemanticDiff::compare(&before, &after, DiffFormat::JsonPatch, None);
+    assert!(matches!(result, Ok(SemanticDiff::JsonPatch(patch)) if !patch.is_empty()));
 }
 #[test]
 fn test_dublin_core_diff_compares_graphs_across_rdf_syntaxes() {

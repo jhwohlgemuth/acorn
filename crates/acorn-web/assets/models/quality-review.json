@@ -1,0 +1,1003 @@
+{
+  "reviewedOn": "2026-11-26",
+  "timezone": "America/New_York",
+  "scope": {
+    "acorn": 51,
+    "risk": 12,
+    "improved": 22
+  },
+  "criteria": {
+    "realism": "Plausible connections, supports, surface continuity, materials and construction details at miniature scale.",
+    "consistency": "ORNL palette with requested natural browns and supercomputer cyan; shared pedestals and coordinate convention.",
+    "accuracy": "Recognizable broad forms and corrected concrete reference-backed errors; no claim of measured dimensions or exact manufacturer geometry.",
+    "modernness": "Clean housings, contemporary display/instrument details and restrained material contrast.",
+    "coolness": "Subjective assessment of distinctive silhouettes, focal features and readable details; preserve requested futuristic architecture.",
+    "quality": "Four-angle visual inspection plus deterministic regeneration, embedded resources, finite unit normals and Khronos validation."
+  },
+  "limitations": [
+    "Illustrative miniatures, not photogrammetry, manufacturer CAD or surveyed terrain.",
+    "Generic research buildings do not represent actual facilities.",
+    "Aircraft and separate docks are fitted independently to display pedestals; not shared-scale mechanical assemblies.",
+    "Wingtra level-flight and Zipline hover poses retain simplified propulsion/airfoil geometry.",
+    "Geospatial instance-performance and game-rule integration are outside this asset review."
+  ],
+  "sources": [
+    "https://cdn.voliro.com/wp-content/uploads/2025/06/Voliro-T_Spec-sheet.pdf",
+    "https://data.usbr.gov/rise/content-rise-public/rise/catalog-item/binary/Project%20ID%2021105%20Hoover%20Dam%20Cylinder%20Gate%20Bulkhead%20Gate%20Sealant%20Alternatives.pdf",
+    "https://dl.djicdn.com/downloads/DJI_Avata_2/UM/20240424/DJI_Avata_2_User_Manual_v1.0_en.pdf",
+    "https://enterprise.dji.com/mavic-3-enterprise",
+    "https://home.nps.gov/jeff/planyourvisit/gateway-arch-fact-sheet.htm",
+    "https://home.nps.gov/jeff/planyourvisit/materials-and-techniques.htm",
+    "https://wingcopter.com/launch-wingcopter-198",
+    "https://wingtra.com/wingtraone-gen-ii-drone/",
+    "https://wsd.wingcopter.com/wingcopter-198",
+    "https://www.bitcraze.io/support/f-a-q/",
+    "https://www.nasa.gov/learning-resources/for-kids-and-students/what-is-the-space-launch-system/",
+    "https://www.skydio.com/x10",
+    "https://www.zipline.com/about/zipline-fact-sheet"
+  ],
+  "assets": [
+    {
+      "id": "drone/autel-evo-max-4t",
+      "label": "Autel EVO Max 4T",
+      "disposition": "improved",
+      "reviewFinding": "Oversized black nose and floating-looking sensor package; tapered shell and attached gimbal improve realism and distinction.",
+      "change": "Tapered shell, smaller obstacle sensors, visible camera cradle, and dark motor details.",
+      "revision": 5,
+      "sha256": "3837aedfc5ed0783b21bda1ffc4f4c093d58f1abd7ccaf9313e334dd6147d41c",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/bitcraze-crazyflie-2-1",
+      "label": "Bitcraze Crazyflie 2.1",
+      "disposition": "improved",
+      "reviewFinding": "PCB frame and brushed-motor construction are essential to its research identity; replace generic industrial quad geometry.",
+      "change": "Exposed PCB, slender arms, brushed coreless motors and mounts, battery, wiring, solder contacts, USB socket.",
+      "revision": 5,
+      "sha256": "7aaf200961dc57b8ec2cd6eda16a7a67c7005769f3eabcf6ce52d4671f26551d",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/brinc-responder",
+      "label": "BRINC Responder",
+      "disposition": "retained",
+      "reviewFinding": "Emergency payload, tall skids and sensor gimbal form a clear public-safety silhouette. Generic medkit is explicitly an illustrative payload.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "44bca6831941ed50b38fefafdbc512467bfec6e5d8848df5d7cf5ee9d88e73b3",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/brinc-responder-station",
+      "label": "BRINC Responder Station",
+      "disposition": "retained",
+      "reviewFinding": "Open covers, clear landing pad and ventilation read as a modern charging station. Geometry is a simplified display interpretation.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "db44a863c39ced6963f5d1959a73858fe80543efb6a56f42e318f6d33122a2c5",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-agras-t50",
+      "label": "DJI Agras T50",
+      "disposition": "retained",
+      "reviewFinding": "Four coaxial rotor pairs, tank and plumbing make the agricultural role obvious. Retain restrained colors rather than adding more ornament.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "28d819cb3bf6514f2ba45e7642c147778fd15ac415ca2d89ed599f0159cdf862",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-avata-2",
+      "label": "DJI Avata 2",
+      "disposition": "improved",
+      "reviewFinding": "Correct three-blade props. Guarded compact silhouette is otherwise one of the more recognizable small models.",
+      "change": "Corrected each rotor from four to three blades.",
+      "revision": 2,
+      "sha256": "a3d9cf23bb1b41d5837725c681bc405172653a7d2e0f2631615c2fd6c420298b",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-dock-3",
+      "label": "DJI Dock 3",
+      "disposition": "retained",
+      "reviewFinding": "Distinguishable station through white covers, circular pad, vents and weather mast. No claim of measured cover mechanism.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "a48ec15ad1ffaaadc5e81b932247864469d4f45e43b27e734cc91d4f385a08ec",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-flycart-30",
+      "label": "DJI FlyCart 30",
+      "disposition": "retained",
+      "reviewFinding": "Coaxial rotor pairs, suspended cargo container and high skids clearly communicate heavy delivery.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "b26263e9767d228698c437501c73e5562f91ee9ce2ef47ee13ef4d42e5cd58a0",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-inspire-3",
+      "label": "DJI Inspire 3",
+      "disposition": "retained",
+      "reviewFinding": "Long transverse arms and landing geometry distinguish the cinema airframe; gimballed camera remains visible.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "d729d6af47d4c953c05f67cd34c9a31623ad110b79acaa910060293f9f8b7306",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-matrice-350-rtk",
+      "label": "DJI Matrice 350 RTK",
+      "disposition": "improved",
+      "reviewFinding": "Correct broad heavy quad, dual RTK masts and gimbal. Darker motor detailing will improve realism.",
+      "change": "Darker motor bars and lower rings with a restrained steel upper lip.",
+      "revision": 5,
+      "sha256": "07eaab7e88da50267120b59f5d2326cbbebca29a88e1a977b9a8abc0a89d9f73",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-matrice-4d",
+      "label": "DJI Matrice 4D",
+      "disposition": "retained",
+      "reviewFinding": "Fixed legs and compact body, navigation receiver and camera array are readable. It is a stylized variant, not engineering geometry.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "eefba212ac6e34957f829eb6f162112f17c7cc1e908853c47f7dd6dbf9941916",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-mavic-3-enterprise",
+      "label": "DJI Mavic 3 Enterprise",
+      "disposition": "improved",
+      "reviewFinding": "Tapered shell, dark arms, visible hinge joints and attached camera cradle are a stronger compact folding-drone silhouette.",
+      "change": "Shaped compact shell, folding joints, attached camera cradle and dark motor details.",
+      "revision": 5,
+      "sha256": "9dccb7ad898058af41e81c5f56bb2cb0f10b1601060d693335da649ab665878b",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/dji-phantom-4-rtk",
+      "label": "DJI Phantom 4 RTK",
+      "disposition": "improved",
+      "reviewFinding": "Rounded body, white landing gear and raised RTK module read correctly; darken motor cages.",
+      "change": "Darker motor bars and lower rings with a restrained steel upper lip.",
+      "revision": 5,
+      "sha256": "6874d7b1051692f54e1164ab6d58c541e68f8106f9be90c28c0d55c1da29e472",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/ebee-x",
+      "label": "eBee X",
+      "disposition": "retained",
+      "reviewFinding": "Swept flying wing, winglets and rear pusher are readable in front/top views. Flat wing sections remain illustrative.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/elistair-khronos",
+      "label": "Elistair Khronos",
+      "disposition": "retained",
+      "reviewFinding": "Tether connector, skids and gimbal communicate role; no strong visual defect beyond generic quad simplification.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "8edb4af10f092afe24cdba24d0871af8c64bab2562d265dcf3a8c9b439d70e39",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/elistair-khronos-station",
+      "label": "Elistair Khronos Ground Station",
+      "disposition": "improved",
+      "reviewFinding": "Coil the short display tether on the pad so the cable does not stand unsupported like a mast.",
+      "change": "Replaced unsupported upright tether segment with a loose coil on the landing pad.",
+      "revision": 2,
+      "sha256": "ee8168300bb60af0e7640e85aaa0c85c4bdda3b4f5dbaa773e31979e1bb827a0",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/flyability-elios-3",
+      "label": "Flyability Elios 3",
+      "disposition": "retained",
+      "reviewFinding": "Triangulated cage is distinctive and coherent; internal aircraft remains visible. Small-size render prioritizes cage appropriately.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "eef66d370b86152a581d7a6122d449cec052003de70384ce4f5382ad9e2249bf",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/freefly-alta-x",
+      "label": "Freefly Alta X",
+      "disposition": "retained",
+      "reviewFinding": "Large props, dual batteries and underslung payload distinguish heavy lifting; compact panel detail is sufficient.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "b85235a647269e48727739e349a0b5f4e9a3edd29465703651ea159d96161408",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/freefly-astro",
+      "label": "Freefly Astro",
+      "disposition": "improved",
+      "reviewFinding": "Open payload frame, twin batteries and camera cradle work. Darken silver motor cages.",
+      "change": "Darker motor bars and lower rings with a restrained steel upper lip.",
+      "revision": 5,
+      "sha256": "7bc3f180ba80e2247bb014932eefadef3f730be03879802f04b962044eb751ab",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/holybro-x500-v2",
+      "label": "Holybro X500 V2",
+      "disposition": "improved",
+      "reviewFinding": "Stacked plates and GPS mast read as an open development kit; darken motor cages, retain visible standoffs.",
+      "change": "Darker motor bars and lower rings with a restrained steel upper lip.",
+      "revision": 5,
+      "sha256": "6b40758c8c06862d10e0c6650767347a6e1f385c6e8a8701628d5f4df82aee71",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/inspired-flight-if1200a",
+      "label": "Inspired Flight IF1200A",
+      "disposition": "retained",
+      "reviewFinding": "Six-arm geometry and payload clearly distinguish it from quads; broad proportions and dual batteries are consistent.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "a7b7a0f4d7e49d7417f375d892196b55b5be2fcd3b7b1d859e02abd874f4ec68",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/jouav-cw-15",
+      "label": "JOUAV CW-15",
+      "disposition": "retained",
+      "reviewFinding": "Four lift rotors, nose propulsion and V-tail distinguish VTOL form. Wing sections remain flat illustrative geometry.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "9b3f08d5422a48cb99b4b73fbbce2b47dcef37a741671ad8bacc717b337abd91",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/modalai-starling-2",
+      "label": "ModalAI Starling 2",
+      "disposition": "retained",
+      "reviewFinding": "Stacked electronics, cylindrical battery pair and vision hardware make the research character clear.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "7fe6a0476cbaf23442c6ea9befea1aa987e9cf4fb478b785b61d5a1f876be306",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/ornl-strelka",
+      "label": "ORNL Strelka",
+      "disposition": "improved",
+      "reviewFinding": "Instrument payload and heavy quad frame are readable; darken motor cages. Exact custom-airframe fidelity is limited by public source evidence.",
+      "change": "Darker motor bars and lower rings with a restrained steel upper lip.",
+      "revision": 5,
+      "sha256": "886a69f7cc939fa9a5c6d84f690c1517eadb93b6a94dfa4568a54fc10fba65ff",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/parrot-anafi-ai",
+      "label": "Parrot ANAFI Ai",
+      "disposition": "improved",
+      "reviewFinding": "Stereo eyes and narrow body are distinctive; darken motor cages. Preserve eye proportions rather than adding decorative hardware.",
+      "change": "Darker motor bars and lower rings with a restrained steel upper lip.",
+      "revision": 5,
+      "sha256": "691f9c4e57d0f1af502d683f9f80dea5d756044b45f51278e26309a8dc08537e",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/quantum-trinity-pro",
+      "label": "Quantum Systems Trinity Pro",
+      "disposition": "retained",
+      "reviewFinding": "Three-rotor hover arrangement and V-tail distinguish it clearly. Flat airfoil simplification should remain documented.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "9dddc150df3ae8f0f309f40cc4703d97d08061ef3efa520f94339e4d0da51169",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/skydio-x10",
+      "label": "Skydio X10",
+      "disposition": "improved",
+      "reviewFinding": "Shaped dark shell, attached gimbal and smaller sensor pods improve modern compact form; retain raised rear arms.",
+      "change": "Sculpted compact dark shell, attached gimbal, smaller sensor pods and dark motor details.",
+      "revision": 5,
+      "sha256": "9421ed274ae8e6b916d0708ef5256f1a154cc901880cceb836bb092e6b120047",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/swissdrones-sdo-50-v3",
+      "label": "SwissDrones SDO 50 V3",
+      "disposition": "retained",
+      "reviewFinding": "Twin canted masts, intermeshing rotor arrangement, slender tail and no tail rotor provide a strong helicopter silhouette.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "945fc214b8e385e04048d98ef1bf07fa9e5f419556a640b3282f7068fd5a58e4",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/voliro-t",
+      "label": "Voliro T",
+      "disposition": "retained",
+      "reviewFinding": "Distinctive three-rotor layout, tilted side propulsion and forward contact probe read well. Broad layout matches the manufacturer's tri-copter specification.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "e8f4dcac681034e5a60a9a6ce71d68fbcc37c27f6603d7ff271dfd2865bb1737",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/wingcopter-198",
+      "label": "Wingcopter 198",
+      "disposition": "retained",
+      "reviewFinding": "Eight rotors, winglets and payload separate it from other VTOLs. Official source confirms eight motors, four tiltable; hover pose is consistent with the documented intent.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "62ee2c708d868ce6887e9e2397c2fadcae55ad92a0602bc79e9e5497beacebd4",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/wingtraone-gen-ii",
+      "label": "WingtraOne GEN II",
+      "disposition": "retained",
+      "reviewFinding": "Twin forward props and survey body read as a mapping aircraft. Existing level-flight pose obscures its tailsitter identity; broad miniature proportions are acceptable, but not a precise airframe replica.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/zipline-delivery-droid",
+      "label": "Zipline Delivery Droid",
+      "disposition": "retained",
+      "reviewFinding": "Cargo pod, tether eye and directional thrusters make the delivery role clear; stable display is an illustrative pose.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "36676bd4b88ab09580817e758f652640e780afdf8903cefe8856302e62a31bda",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "drone/zipline-platform-2",
+      "label": "Zipline Platform 2",
+      "disposition": "retained",
+      "reviewFinding": "Five-propeller winged delivery form and belly winch are recognizable. Hover interpretation is documented; not a measured reconstruction of propulsion transition mechanics.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 1,
+      "sha256": "89ef948d92c60a6770a568f8e7991420c604b5e878352f34c151976eb1b94b5d",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "landmarks/gateway-arch",
+      "label": "Gateway Arch",
+      "disposition": "improved",
+      "reviewFinding": "Correct proportions/cross-section/silhouette; keep steel neutral.",
+      "change": "Near-square catenary silhouette and tapered triangular sections replace tall flat slab.",
+      "revision": 5,
+      "sha256": "376959930fc71175b7553da5c6587442497c31ebe284da13ec6f1353b0f89070",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "landmarks/golden-gate-bridge",
+      "label": "Golden Gate Bridge",
+      "disposition": "improved",
+      "reviewFinding": "Connect lower truss elements; existing suspension silhouette and paint already strong.",
+      "change": "Connected lower truss chord, diagonal braces and end posts replace dangling spikes.",
+      "revision": 5,
+      "sha256": "ea293dcd0d7433b1e3438cb7df73bfd0fa1cde23e72aeeb17a79aacd0c6e6f9c",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "landmarks/grand-canyon",
+      "label": "Grand Canyon",
+      "disposition": "improved",
+      "reviewFinding": "Remove artificially regular terraces and edge stripes while retaining geological cutaway language.",
+      "change": "Irregular eroded terraces, tributary gullies, river matching valley and horizontally layered cutaway walls.",
+      "revision": 5,
+      "sha256": "4bd38c8bd895044f2e1ec001e354edadc5d12fc45a92dbcae30adc1a2e287a0f",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "landmarks/hoover-dam",
+      "label": "Hoover Dam",
+      "disposition": "improved",
+      "reviewFinding": "Add battered curved wall and four towers; improve water-level and powerhouse composition.",
+      "change": "Battered curved wall, four intake towers, bridges, curved solid reservoir meeting the upstream face and split powerhouse.",
+      "revision": 5,
+      "sha256": "4d5b508b1016c674db3a3b6bd01222b60f1bd9ce0380927bbd740da411b2541e",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "landmarks/kennedy-space-center",
+      "label": "Kennedy Space Center",
+      "disposition": "improved",
+      "reviewFinding": "Replace hybrid rocket with coherent SLS-inspired launch display.",
+      "change": "Recognizable SLS-inspired core, segmented boosters, Orion/escape tower, engine bells and launch structure.",
+      "revision": 5,
+      "sha256": "f4ccb024d83e97dfb46b0528e35154a726fe8b18c6ae9ef91e0a500bbcacacda",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "landmarks/us-capitol",
+      "label": "U.S. Capitol",
+      "disposition": "retained",
+      "reviewFinding": "Recognizable dome, wings, portico, steps and restrained stone materials. It is simplified; more fa\u00e7ade fragments would not improve globe-size readability.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/collaboration",
+      "label": "Collaboration",
+      "disposition": "retained",
+      "reviewFinding": "Exactly three connected spheres as requested. Clean, balanced, obvious at small sizes; abstraction is appropriate to concept.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/dataset",
+      "label": "Dataset",
+      "disposition": "improved",
+      "reviewFinding": "Excessive faceting and empty lid reduce modernness; improve housing continuity and details without losing database silhouette.",
+      "change": "Smooth 64-sided storage housings, ports, vents, restrained illuminated rings and lid grid.",
+      "revision": 5,
+      "sha256": "84e26f725244883d1e34e201db520976afd73a46a203cc4f62217f1e6e17b4d5",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/doe-national-laboratory",
+      "label": "DOE National Laboratory",
+      "disposition": "retained",
+      "reviewFinding": "Three-building campus, central tower, skybridges and scientific atrium distinguish it from the small lab. Good modern silhouette and ORNL material consistency.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 5,
+      "sha256": "c452fcd7b6cf618448d092af1d9efd13e96977c4330c683aef56f0be3d26c320",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/field-site",
+      "label": "Field Site",
+      "disposition": "improved",
+      "reviewFinding": "Old shed and two-ball weather sensor need clearer contemporary research-instrument cues.",
+      "change": "Instrument shelter, supported photovoltaic array, three-cup wind sensor, vane, radiation shield, data logger and wiring.",
+      "revision": 5,
+      "sha256": "4d810af780d4cd94a49e1c2055110cce06b5e694ca9973146c35ad64befd6173",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/funding",
+      "label": "Funding",
+      "disposition": "retained",
+      "reviewFinding": "Certificate, seal and natural brass coins are recognizable. Symbolic rather than literal; clean read at all views and no geometry defect.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "4e92afb41ceb67bb718e6eaedae901059cc146404287268c318697f602e32249",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/laboratory",
+      "label": "Laboratory",
+      "disposition": "retained",
+      "reviewFinding": "Recent compact oval pavilion and transparent instrument atrium satisfy user direction. Keep physically expressive glass/structure balance.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 5,
+      "sha256": "2590b9851df7a32f3a4724abc53c3e9d1eeec813f207e0fd75235d0171e1e639",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/publication",
+      "label": "Publication",
+      "disposition": "retained",
+      "reviewFinding": "Book reads immediately, with visible page stack and spine. Type is stylized bars, suitable for globe use. No need to make geometry text-heavy.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "fc28fa627612803783a7047962ad8d6bdd0f0b7d98640dc5604b11484b6105ef",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/research-project",
+      "label": "Research Project",
+      "disposition": "retained",
+      "reviewFinding": "Latest workstation has credible display, visualizations, keyboard, mouse, tower, book, papers, mug and rear vents. Readable and more detailed than peers without clutter.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 5,
+      "sha256": "e2c31ff5d541b9f576f191523fd5e753ec07d66ad22662c09f9e69346d114c9c",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/research-team",
+      "label": "Research Team",
+      "disposition": "retained",
+      "reviewFinding": "Three people, rounded shoulders and central dodecahedron match latest explicit request. Modern abstract icon should not be turned into miniature realistic humans.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 7,
+      "sha256": "2284cd92cc6b57719fa49fae5485c0219ecfbabc6c259a947ca6d35855046bfd",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/software",
+      "label": "Software",
+      "disposition": "improved",
+      "reviewFinding": "Thick free-standing slab is less cohesive than newer objects; preserve code glyph while adding credible device treatment.",
+      "change": "Thin framed code display with retained code glyph, UI details, rear vents/ports and stable foot.",
+      "revision": 5,
+      "sha256": "4ce70d5e61b53f5adb424343a49e47395ac07287f987f580a59e12092f530218",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/supercomputer",
+      "label": "Supercomputer",
+      "disposition": "retained",
+      "reviewFinding": "Three rack cases, cyan strips, dark fronts, rear fans and clean modular spacing read well. Cyan is explicit user requirement.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 5,
+      "sha256": "ddd4a2bd13fd00ec51b0cc22889ee6b805ff3e9dd3a6596c644900f0ef45af02",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "research/user-facility",
+      "label": "User Facility",
+      "disposition": "retained",
+      "reviewFinding": "Curved wings, dome and visible instrument produce a distinctive futuristic campus. It is a concept facility, so no real-facility identity claim.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 6,
+      "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/artillery",
+      "label": "Artillery",
+      "disposition": "improved",
+      "reviewFinding": "Cannon silhouette reads well, but the muzzle is a flat black disc and the barrel has no visible supporting trunnion structure. Replace with an actual recessed muzzle opening, bracketed trunnions, substantial axle and carriage, braced trails and differentiated wheel rims/hubs.",
+      "change": "Recessed dark-lined bore, supported trunnions, axle, braced carriage, and differentiated wheel hubs/rims.",
+      "revision": 5,
+      "sha256": "7acd27e6dca675a2c8ded41c6dd20118549c8263594a1fb3549546c35515b749",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/base-circle",
+      "label": "ORNL Green / Circle Base",
+      "disposition": "retained",
+      "reviewFinding": "ORNL Green; raised circles readable in top/front views.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "6e421bee2aee738345d62d469dcd35cf1794501bbe9661e276ac0d34af3e6223",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/base-diamond",
+      "label": "Plasma / Diamond Base",
+      "disposition": "retained",
+      "reviewFinding": "Plasma; raised diamond symbols distinguish the base independently of color.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "3b56af4b7f9ad392eea0417e8588fd250810426116534d793fa2faaa9e11ca08",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/base-plus",
+      "label": "Burnt umber / Plus Base",
+      "disposition": "retained",
+      "reviewFinding": "Burnt umber; clear plus symbols, natural brown requested by user.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "612c28984fb15c17a9cce5e0754e12e0b435015cfdbdc0e106c5a670e5a7b640",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/base-square",
+      "label": "Infinity / Square Base",
+      "disposition": "retained",
+      "reviewFinding": "Infinity blue; square symbols remain visible.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "11351bffd17fc0b3a650d7463359e2f3dd2a4f7f0a8688217deb0e11649f23b1",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/base-star",
+      "label": "Pulsar / Star Base",
+      "disposition": "retained",
+      "reviewFinding": "Pulsar purple; stars are recognizable at larger views but should be accompanied by the game UI faction label at small scale, as already documented.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "f58c15a9d7c0a308d4584d3e7148e8e74ef4a2bca85f0b5577c154528e0991c0",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/base-triangle",
+      "label": "Warm ochre / Triangle Base",
+      "disposition": "retained",
+      "reviewFinding": "Warm ochre; clear triangular symbols, consistent earth finish.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "9d298cad496acddf769259a9e0353bff1e76304511cd9692ce23bd1e00645dfc",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/cavalry",
+      "label": "Cavalry",
+      "disposition": "improved",
+      "reviewFinding": "Horse/rider is recognizable but the legs are uniform rods, the rider's cap is a flat disc and the whole assembly faces +X despite the catalog declaring +Z front. Replace with jointed tapered legs, shaped shoulders and haunches, saddle, stirrups, reins and a helmet/visor; rotate to +Z.",
+      "change": "Corrected forward axis to +Z; shaped horse, jointed legs, saddle, reins, stirrups and rider helmet.",
+      "revision": 5,
+      "sha256": "98b08256e7658dcd65503d751485af9ef62a118ff777b2e34e8ef454c1bae3d6",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/infantry",
+      "label": "Infantry",
+      "disposition": "retained",
+      "reviewFinding": "Clear upright figure, helmet, boots, backpack and cross-body equipment. Its toy-soldier proportions suit the game collection; not a realistic human sculpt. Several tiny fasteners disappear at 220px, but the primary silhouette survives.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "c359f7dfeeb9ff8f9f7fcfe33151a98c2edae8fae80571ca6635ca2de6cc0a27",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/legion",
+      "label": "Legion",
+      "disposition": "retained",
+      "reviewFinding": "Broad six-battlement stronghold. Good heavier-unit silhouette; the pale band and steps help distinguish it at small size.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "65916184aa4472268e39e92d43b7cd1aab5ba9cd15b244272ed599ca97a36548",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/scout",
+      "label": "Scout",
+      "disposition": "retained",
+      "reviewFinding": "Clean tapered beacon/obelisk marker with a white tip. It is an abstract role token rather than a literal reconnaissance vehicle; this is already the established game-piece vocabulary.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "c9f16223076be05d4f01fbb9365a75efaf30fddc7dcd81bc59b8281711b705e6",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
+      "id": "risk/squadron",
+      "label": "Squadron",
+      "disposition": "retained",
+      "reviewFinding": "Tall four-battlement tower with a clear thin silhouette and contrast band. Distinguishable from the wide Legion.",
+      "change": "No change needed for the established illustrative style.",
+      "revision": 4,
+      "sha256": "c63deb9f0b59df68667581ffbe4a5018722f7f3aa07a8e0ee96188e386ccb66f",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    }
+  ],
+  "technicalChecks": {
+    "deterministicRegeneration": "passed",
+    "khronosErrors": 0,
+    "khronosWarnings": 0,
+    "embeddedResourcesOnly": true,
+    "finitePositions": true,
+    "unitNormals": true,
+    "maximumNormalLengthError": 4.9e-08,
+    "cesiumViews": [
+      "front",
+      "rear",
+      "top",
+      "small"
+    ],
+    "pageErrors": 0,
+    "externalRequests": 0
+  }
+}

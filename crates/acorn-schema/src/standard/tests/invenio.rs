@@ -6,19 +6,65 @@
     clippy::unwrap_used
 )]
 use crate::standard::invenio::{CodeMeta, Metadata, PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
+use crate::standard::zon;
 use crate::validation::Validate;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
 fn load_fixture_text() -> String {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/schema/invenio.json");
     std::fs::read_to_string(path).expect("failed to read invenio.json fixture")
 }
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(64),
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/standard/invenio.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_metadata_round_trips_in_supported_formats(
+        title in prop_oneof![Just("𝄞 dataset".to_string()), Just("Alpha\r\nBeta".to_string()), "[A-Za-z0-9]{1,40}"],
+        year in 1900_u16..2100,
+        creator in "[A-Za-z ]{1,40}",
+        description in any::<String>(),
+    ) {
+        let source = serde_json::json!({
+            "resource_type": {"id": "dataset"},
+            "title": title,
+            "publication_date": year.to_string(),
+            "creators": [{"person_or_org": {"type": "organizational", "name": creator}}],
+            "description": description,
+        });
+        let metadata: Metadata = serde_json::from_value(source).expect("generated Invenio metadata");
+        prop_assert!(metadata.validate().is_ok());
+        let expected = serde_json::to_value(&metadata).expect("serialize Invenio metadata");
+        let json: Metadata = serde_json::from_str(&serde_json::to_string(&metadata).expect("JSON encoding")).expect("JSON decoding");
+        let yaml: Metadata = serde_norway::from_str(&serde_norway::to_string(&metadata).expect("YAML encoding")).expect("YAML decoding");
+        let zon: Metadata = zon::decode(&zon::encode(&metadata).expect("ZON encoding")).expect("ZON decoding");
+        for decoded in [json, yaml, zon] {
+            let value = serde_json::to_value(&decoded).expect("serialize decoded metadata");
+            prop_assert_eq!(&value, &expected);
+            prop_assert_eq!(decoded.validate().is_ok(), metadata.validate().is_ok());
+        }
+    }
+}
 #[test]
-fn test_invenio_fixture_parsing() {
-    let text = load_fixture_text();
-    let catalog: Vec<Metadata> = serde_json::from_str(&text).expect("failed to parse invenio.json fixture");
-    assert!(!catalog.is_empty(), "catalog should not be empty");
-    assert_eq!(catalog.len(), 234, "should have 234 records");
+fn test_codemeta_programming_language_validation() {
+    let valid = CodeMeta {
+        code_repository: None,
+        programming_language: Some("Rust".to_string()),
+        development_status: None,
+    };
+    assert!(valid.validate().is_ok());
+    assert!(CodeMeta {
+        programming_language: Some(String::new()),
+        ..valid
+    }
+    .validate()
+    .is_err());
 }
 #[test]
 fn test_invenio_first_record() {
@@ -61,6 +107,13 @@ fn test_invenio_first_record() {
     assert!(!contributors.is_empty(), "should have at least 1 contributor");
 }
 #[test]
+fn test_invenio_fixture_parsing() {
+    let text = load_fixture_text();
+    let catalog: Vec<Metadata> = serde_json::from_str(&text).expect("failed to parse invenio.json fixture");
+    assert!(!catalog.is_empty(), "catalog should not be empty");
+    assert_eq!(catalog.len(), 234, "should have 234 records");
+}
+#[test]
 fn test_invenio_metadata_types() {
     let text = load_fixture_text();
     let catalog: Vec<Metadata> = serde_json::from_str(&text).expect("failed to parse invenio.json fixture");
@@ -94,19 +147,4 @@ fn test_person_or_org_identifier_schemes() {
     .validate()
     .is_err());
     assert!(serde_json::from_str::<PersonOrOrgIdentifier>(r#"{"scheme":"custom","identifier":"123"}"#).is_err());
-}
-#[test]
-fn test_codemeta_programming_language_validation() {
-    let valid = CodeMeta {
-        code_repository: None,
-        programming_language: Some("Rust".to_string()),
-        development_status: None,
-    };
-    assert!(valid.validate().is_ok());
-    assert!(CodeMeta {
-        programming_language: Some(String::new()),
-        ..valid
-    }
-    .validate()
-    .is_err());
 }

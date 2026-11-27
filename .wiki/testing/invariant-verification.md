@@ -26,13 +26,15 @@ INV-02's Big-O generator covers comparison reversal, self-equivalence, transitiv
 
 INV-03's generated JSON, JSONC, and YAML value round trips, deterministic encoding, and all unsupported `MimeType` cases passed at 4,096 cases after the owner approved `serde_json/float_roundtrip`. The saved finite-float regression remains in `crates/acorn-schema/tests/proptest-regressions/codec/value.txt`. A release microbenchmark parsing five representative float strings 5 million times took 0.082 seconds per warm run without the feature and 0.157–0.158 seconds with it; this measures only that workload. Package Clippy passed. ZON property coverage remains with ZON-06.
 
-INV-09 added `proptest` as a dev-dependency in the four target crates. `cargo check --workspace` passed and `cargo tree -e normal --invert proptest` found no production dependency path. The unrelated alloc-free `acorn-core` import and impl were gated behind `alloc`; the full `make check-wasm` matrix then passed with Rustup's installed WASM compiler. Native package Clippy and formatting passed. INV-10 and INV-11 are now ready.
+INV-09 added `proptest` as a dev-dependency in the four target crates. `cargo check --workspace` passed and `cargo tree -e normal --invert proptest` found no production dependency path. The unrelated alloc-free `acorn-core` import and impl were gated behind `alloc`; the full `make check-wasm` matrix then passed with Rustup's installed WASM compiler. Native package Clippy and formatting passed.
+
+INV-05–08 added generated CKAN, Invenio, Huwise, and OCP document round trips; ResearchActivity↔RAiD, ResearchOutput↔Dublin Core, ResearchOutput↔DataCite, DataCite↔Dublin Core, and RRID related-identifier supported-field and loss-report checks; and archive, RON, Executor, and Fingerprint laws. Their focused properties passed at 4,096 cases on November 26. INV-10 added generated JobId, command quoting, and web wire-type laws. Its command property exposed a standalone `#` argument being parsed as a comment; INV-10R quotes hash-bearing arguments and retains the saved regression seed. INV-11 added a generated SQLite store state model for registration, activation, enqueue, pause, claim, finish, and bounded history. Default and 4,096-case focused suites passed.
 
 INV-04's generated helper laws exposed two defects. With owner approval, `merge_unique_by` now removes duplicates from both inputs in first-seen order; `escape_ntriples_literal` emits `\uXXXX` for previously raw control characters. The saved merge regression remains under `crates/acorn-core/proptest-regressions/util/alloc/tests.txt`. All 30 focused tests passed at 4,096 generated cases, strict package Clippy passed, and the full `make check-wasm` matrix passed on November 26.
 
 November 26 review at `3eddc62b` plus the current worktree. No tests were run for this review.
 
-- `proptest = "1.9.0"` is a dev-dependency of `acorn-core`, `acorn-lib`, `acorn-schema`, and `acorn-diff` only. It appears in 18 test files, each with one `proptest!` block. Most blocks set 64 or 256 cases and a `FileFailurePersistence::Direct` path under `tests/proptest-regressions/`.
+- `proptest = "1.9.0"` is a dev-dependency of `acorn-core`, `acorn-lib`, `acorn-schema`, `acorn-diff`, `acorn-cmd`, `acorn-service`, `acorn-store`, and `acorn-web` only.
 - **Laws already covered by generated inputs:**
   - similarity: differential edit distance and Jaro, symmetry, and the triangle inequality;
   - `Location` serde and Display round trips, and idempotent normalization;
@@ -46,21 +48,21 @@ November 26 review at `3eddc62b` plus the current worktree. No tests were run fo
   - `Memory`, CFF, DataCite, ZON, and modelkit round trips;
   - DataCite↔DCAT crosswalk and identity-rule round trips.
 - JSON patch already applies every generated `before.diff(&after)` patch through the independent `json_patch` crate and asserts the result equals `after` (`crates/acorn-diff/src/json_patch/tests.rs:67`). This plan adds no apply property there.
-- `acorn-store` has no tests in its own crate. `crates/acorn-daemon/src/tests/mod.rs` exercises it about 80 times with fixed examples, covering claims, concurrent claims, pause, reload, and history bounds. There is no state-machine model.
-- `Rational` (`crates/acorn-core/src/util/math/mod.rs:22`) uses `i128` with checked arithmetic and underpins `big_o::compare`. `crates/acorn-core/src/util/math/tests.rs` has five fixed-example tests and no property tests.
+- `acorn-store` now has a generated state-machine test in its own crate; `crates/acorn-daemon/src/tests/mod.rs` also covers claims, pause, reload, and history with fixed examples.
+- `Rational` (`crates/acorn-core/src/util/math/mod.rs:22`) uses `i128` with checked arithmetic and underpins `big_o::compare`. Generated laws now accompany its fixed examples.
 - Big-O has a parser and LaTeX output but no notation printer, so a parse/print round trip is impossible. `crates/acorn-core/tests/big_o.rs` lists its equivalence and transitivity cases by hand. `Dominance` is documented as a "Proven relationship" and reaches users through the CLI and WASM (`compare_big_o`, `compare_big_o_list`).
 - `codec::{decode_value, encode_value}` (`crates/acorn-schema/src/codec.rs:240`) support JSON, JSONC, YAML, and ZON. Generated tests now call them directly for JSON, JSONC, and YAML; ZON remains owned by ZON-06.
-- In `crates/acorn-core/src/util/alloc/mod.rs`, `split_list`, `merge_unique`, `merge_unique_by`, `redact_sensitive_text`, and `expand_brace_glob` are not named in any test file.
-- CKAN, Invenio, Huwise, and OCP each have two to five fixed-example tests in `crates/acorn-schema/src/standard/tests/`. None has a generated round trip.
+- Generated laws now cover `split_list`, `merge_unique`, `merge_unique_by`, `redact_sensitive_text`, and `expand_brace_glob` in `crates/acorn-core/src/util/alloc/mod.rs`.
+- CKAN, Invenio, Huwise, and OCP each have a generated document round trip beside fixed examples.
 - `fuzz/` (`acorn-fuzz`, its own workspace) has three targets: `location_repository`, `powerpoint`, and `research_activity`. CI job `fuzz-smoke` runs each for 5 seconds.
 - No Lean project, toolchain, or Make target exists. The October 27 portfolio review named Creusot for PID-06; the current PID plan replaced it with Verus.
 
 # Project code boundaries
 
 - **Update:** the test modules named in each phase, `fuzz/Cargo.toml`, `Makefile`, `.gitlab-ci.yml`, and `docs/src/learn/developer.md`.
-- **Create:** `proofs/lean/` (a Lake project outside the Cargo workspace), new fuzz targets, the new test files named by INV-10 and INV-11, and `tests/fixtures/big_o/lean-vectors.json`.
+- **Create:** `proofs/lean/` (a Lake project outside the Cargo workspace), new fuzz targets, and `tests/fixtures/big_o/lean-vectors.json`.
 - **Delete:** nothing. Fixed-example tests stay as readable regression anchors next to their generated counterparts.
-- Production source changes are out of scope except the completed, owner-approved workspace `serde_json/float_roundtrip` dependency feature and INV-04 helper repair, and INV-11's planned single `#[cfg(test)] mod tests;` line in `crates/acorn-store/src/lib.rs`.
+- Production source changes are out of scope except the completed, owner-approved workspace `serde_json/float_roundtrip` dependency feature, INV-04 helper repair, and INV-10R command quoting repair.
 
   A property failure that exposes a product defect becomes a repair phase in the plan that owns that code.
 
@@ -70,21 +72,17 @@ Phases are listed in priority order. Their IDs are stable and do not encode orde
 
 | Tier | Phases | What they touch | Runs alongside other plans |
 |---|---|---|---|
-| 1. Test-only, ready | INV-05–08 | Test files only, in crates that already depend on proptest | Yes. INV-08 shares one test file with low-priority Cosmos and Swift SLM phases and takes precedence over them. |
 | 1. Test-only, blocked | INV-13 | `acorn-diff` unified tests | Only after DIF-05 and DIF-08, which own the same file |
-| 2. Test-only, ready | INV-10 and INV-11 | New test files | Parallel-safe |
-| 3. Tooling and proofs | INV-12, INV-14–18 | Fuzz package, `Makefile`, CI, `proofs/lean/` | Serialize on the CI/build lock or the Lean proof project |
-| 4. Retirement | INV-20 | Docs and wiki | Last |
+| 2. Tooling and proofs | INV-12, INV-14–18 | Fuzz package, `Makefile`, CI, `proofs/lean/` | Serialize on the CI/build lock or the Lean proof project |
+| 3. Retirement | INV-20 | Docs and wiki | Last |
 
-Parallel-safety evidence for tier 1, checked November 26 against every `.wiki` plan's write set:
+Parallel-safety evidence, checked November 26 against every `.wiki` plan's write set:
 
-- Cosmos and Swift SLM phases also list `crates/acorn-lib/src/io/tests/mod.rs`. Both plans are low priority, so INV-08 keeps the file and goes first; their write sets will be reconciled later.
-- `crates/acorn-cmd/tests/execution.rs` belongs to coverage throughput, and browser format parity and browser performance own `crates/acorn-web/src/operations.rs`. INV-10 therefore adds new integration test files for both crates.
-- Sponsor highlights owns `crates/acorn-schema/src/research_activity/tests/mod.rs`. That is a different file from INV-07's `standard/crosswalk/research_activity/tests/mod.rs`.
+- The completed INV-08 and INV-10 tests used separate files from concurrent Cosmos, Swift SLM, coverage throughput, and browser work; later owners can reconcile their write sets.
 - Browser format parity edits `crates/acorn-schema/src/codec.rs`; rerun the completed codec property tests when it lands.
 - PID-17 may now use the completed `Rational` properties in `crates/acorn-core/src/util/math/tests.rs`.
 
-Each tier-1 phase runs only its focused tests. Workspace-wide `make lint` and `make test` stay serialized through one agent, as `AGENTS.md` requires.
+Each phase runs its focused tests. Workspace-wide `make lint` and `make test` stay serialized through one agent, as `AGENTS.md` requires.
 
 # Dependencies
 
@@ -108,10 +106,9 @@ Each tier-1 phase runs only its focused tests. Workspace-wide `make lint` and `m
 
 # Implementation sequence
 
-1. Tier 1: add the remaining property tests in crates that already have proptest (Big-O laws, `util/alloc`, metadata standards, crosswalks, and `acorn-lib` round trips). Add unified-diff apply checks once the diff plan releases its test file.
-2. Tier 2: add proptest to the remaining crates, then add wire round trips and the `acorn-store` state-machine model.
-3. Tier 3: add fuzz targets for the codec and Big-O parsers. Set up Lean, model Big-O, prove its verdicts sound, and link the model to Rust through generated vectors.
-4. Tier 4: publish guidance and retire the plan.
+1. Add unified-diff apply checks once the diff plan releases its test file.
+2. Add fuzz targets for the codec and Big-O parsers. Set up Lean, model Big-O, prove its verdicts sound, and link the model to Rust through generated vectors.
+3. Publish guidance and retire the plan.
 
 # Validation
 
@@ -122,7 +119,7 @@ Each tier-1 phase runs only its focused tests. Workspace-wide `make lint` and `m
 
 # Acceptance criteria
 
-- Every law listed under the remaining INV-05–08, INV-10, INV-11, and INV-13 phases has a generated test that passes at 4096 cases.
+- Every remaining INV-13 diff law has a generated test that passes at 4096 cases.
 - Every generated test keeps a regression-file path.
 - `acorn-cmd`, `acorn-service`, `acorn-store`, and `acorn-web` have proptest as a dev-dependency only. No new production dependency is introduced; the owner-approved `serde_json/float_roundtrip` feature remains enabled for correct finite-float decoding.
 - `fuzz-smoke` runs the new codec and Big-O parse targets alongside the three existing targets.
@@ -131,55 +128,6 @@ Each tier-1 phase runs only its focused tests. Workspace-wide `make lint` and `m
 - `docs/src/learn/developer.md` explains how to run each tool, what each proof covers, and what it does not.
 
 # Execution phases
-
-## INV-05 — Round-trip CKAN and Invenio documents
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-schema/src/standard/tests/ckan.rs`, `crates/acorn-schema/src/standard/tests/invenio.rs`
-- Primary integration lock: Schema roots (tests only; no root edits)
-- Outcome: Generate valid records for each standard. Test that every supported format decodes back to an equal value after encoding, and that validation results are unchanged by the round trip.
-- Focused validation: `cargo nextest run -p acorn-schema standard::tests::ckan standard::tests::invenio`
-- Handoff: Remove INV-05.
-
-## INV-06 — Round-trip Huwise and OCP documents
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-schema/src/standard/tests/huwise.rs`, `crates/acorn-schema/src/standard/tests/ocp.rs`
-- Primary integration lock: Schema roots (tests only; no root edits)
-- Outcome: Same laws as INV-05 for Huwise and OCP.
-- Focused validation: `cargo nextest run -p acorn-schema standard::tests::huwise standard::tests::ocp`
-- Handoff: Remove INV-06.
-
-## INV-07 — Test crosswalk round trips on supported fields
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-schema/src/standard/crosswalk/research_activity/tests/mod.rs`, `crates/acorn-schema/src/standard/crosswalk/tests/dublin_core.rs`
-- Primary integration lock: Schema roots (tests only; no root edits)
-- Outcome: For every crosswalk pair without a generated test, starting from `ResearchActivity` and Dublin Core, test that `A→B→A` preserves the documented supported fields. Every other field must appear in the loss report and must never be dropped without being reported.
-- Focused validation: `cargo nextest run -p acorn-schema crosswalk`
-- Handoff: Remove INV-07 and list the pairs covered.
-
-## INV-08 — Use generated inputs for `acorn-lib` fixed-example round trips
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-lib/src/io/tests/mod.rs`, `crates/acorn-lib/src/io/config/tests/ron.rs`
-- Primary integration lock: none (test leaf)
-- Note: Cosmos (`azure-cosmos-buckets`) and Swift SLM (`swift-slm-profile`) phases also list `crates/acorn-lib/src/io/tests/mod.rs`. INV-08 has priority over them; their plans will be reconciled later, after INV-08 lands.
-- Outcome:
-  - Generated file trees in a temporary directory survive `archive` then `extract` for every supported archive format.
-  - RON serialization is canonical and idempotent over generated configurations.
-  - `Executor` serde round trips over generated values.
-  - `Fingerprint::from_entries` ignores entry order and changes when any entry changes.
-- Focused validation: `cargo nextest run -p acorn-lib io::tests io::config::tests::ron`
-- Handoff: Remove INV-08.
 
 ## INV-13 — Check unified diffs with an apply oracle
 
@@ -196,36 +144,6 @@ Each tier-1 phase runs only its focused tests. Workspace-wide `make lint` and `m
   The oracle is a test helper written in the test file. If an external dependency is needed instead, open an INV-09-style manifest phase rather than editing manifests here.
 - Focused validation: `cargo nextest run -p acorn-diff unified`
 - Handoff: Remove INV-13.
-
-## INV-10 — Round-trip service, command, and web wire types
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-service/src/job/tests.rs`, `crates/acorn-cmd/tests/properties.rs` (new), `crates/acorn-web/tests/operations.rs` (new)
-- Primary integration lock: none (test leaf)
-- Note: `crates/acorn-cmd/tests/execution.rs` and `crates/acorn-web/src/operations.rs` stay untouched because coverage throughput and the browser plans own them. Both new files are integration tests that use only public API.
-- Outcome:
-  - Generated `JobId` values within the boundary rules round trip, and values outside them are rejected.
-  - `command_string` followed by `parse_sh` returns the original program and arguments for generated arguments containing quotes, backslashes, empty strings, and Unicode.
-  - Generated web operation messages and worker replies round trip.
-- Focused validation: `cargo nextest run -p acorn-service job`, `cargo nextest run -p acorn-cmd --test properties`, `cargo nextest run -p acorn-web --test operations`
-- Handoff: Remove INV-10.
-
-## INV-11 — Check `acorn-store` against a state-machine model
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-store/src/tests.rs`, `crates/acorn-store/src/lib.rs` (the `#[cfg(test)] mod tests;` line only)
-- Primary integration lock: none (test leaf)
-- Outcome: Run generated sequences of `register_jobs`, `activate_jobs`, `enqueue`, `set_paused`, `claim_next`, and `finish` against a temporary database and an in-memory model. Check that:
-  - no run is claimed twice;
-  - paused jobs are never claimed;
-  - `history` respects its limit and returns the model's order;
-  - `run` returns what `finish` recorded.
-- Focused validation: `cargo nextest run -p acorn-store`
-- Handoff: Remove INV-11. Any divergence becomes a repair phase in the [acornd plan](../features/acornd-service.md).
 
 ## INV-12 — Add codec and Big-O parse fuzz targets
 

@@ -50,7 +50,7 @@ PID-17 reuses the same Verus workflow and proof skeleton for `acorn-core`'s `Rat
 
 # Dependencies
 
-Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 claim the workspace manifest/lockfile integration lock; PID-06 no longer does, so the proof work itself does not contend with ACD-03 or SPD-24. PID-01, PID-14, and PID-16 are independent of one another and of the manifest lock. PID-14, PID-05, and PID-11 all claim the CI/build lock and run in that order, but none blocks the portability critical path or ordinary stable builds. PID-17 needs PID-06's recorded skeleton, completed INV-01 property tests, and an owner placement decision. It uses the proof-core lock, so it never runs alongside PID-06, PID-07, PID-09, PID-10, or PID-13.
+Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 claim the workspace manifest/lockfile integration lock; PID-06 no longer does, so the proof work itself does not contend with ACD-03 or SPD-24. PID-01 and PID-14 are independent of one another and of the manifest lock. PID-14, PID-05, and PID-11 all claim the CI/build lock and run in that order, but none blocks the portability critical path or ordinary stable builds. PID-17 needs PID-06's recorded skeleton, completed INV-01 property tests, and an owner placement decision. It uses the proof-core lock, so it never runs alongside PID-06, PID-07, PID-09, PID-10, or PID-13.
 
 # Decisions
 
@@ -91,7 +91,7 @@ Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 cla
 - The curated Miri target passes under a pinned toolchain and covers core/schema round trips plus all five checksum-bearing PID public boundaries.
 - A pinned Verus release and nightly are recorded, reproduce a verification on a supported host, and leave ordinary stable builds unchanged.
 - The checksum crate builds and tests on stable with no proof dependency in its default graph, and passes the WASM check.
-- The shared MOD 11-2 executable core is proved first under Verus, and ORCID/ISNI production paths call it after explicit domain checks. Invalid inputs retain their current observable behavior, including the `Some(['1'])` answers frozen by PID-16, and ORCID values whose check character is `X` remain valid.
+- The shared MOD 11-2 executable core is proved first under Verus, and ORCID/ISNI production paths call it after explicit domain checks. Invalid inputs retain their current observable behavior, including the `Some(['1'])` answers frozen by the accepted `pid::tests`, `pid::orcid::tests` and `pid::isni::tests` boundary vectors, and ORCID values whose check character is `X` remain valid.
 - Each verified core uses the narrowest integer width its bound lemma proves, and the checked-arithmetic chain it replaces is removed rather than retained alongside the proof.
 - ISBN-10/13, ROR, and ARK/NOID subsequently call proved executable cores with contracts for overflow freedom, bounds, and their checksum equations; lookup claims cover beta-numeric and Crockford mappings where used.
 - Every native checksum vector remains and has a corresponding proof example or theorem.
@@ -132,17 +132,6 @@ Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 cla
 - Outcome: Prove an executable MOD 11-2 core over exactly 15 decimal digits: the ISO 7064 identity that the fold plus the check value is congruent to one modulo eleven, a result at or below ten, `u8` arithmetic safety derived from the accumulator bound, and loop termination. Include a verified `normalize` whose postcondition supplies the core's preconditions and stops once fifteen digits are held, and restate every `MOD_11_2_CHECK_DIGIT_CASES` vector as a theorem.
 - Focused validation: Pinned `cargo verus verify -p acorn-pid-checksum --features verify`, ordinary `cargo test -p acorn-pid-checksum`, and a stable workspace check; record any unsupported dependency.
 - Handoff: Remove PID-06 after a reproducible assumption-free proof, and record the reusable proof skeleton for PID-07, PID-09, PID-10, and PID-13.
-
-## PID-16 — Characterize the ORCID and ISNI checksum boundary
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: none
-- Exact write set: `crates/acorn-schema/src/pid/orcid/tests.rs`, `crates/acorn-schema/src/pid/isni/tests.rs`, `crates/acorn-schema/src/pid/tests.rs`
-- Primary integration lock: portable PID helpers
-- Outcome: Freeze the current observable checksum behavior before any wiring: malformed, empty, and truncated values answering `Some(['1'])`; bare, spaced, and hyphenated sixteen-digit ISNI; ORCID values whose `X` check character sits inside the normalized payload string; and the nineteen- and sixteen-character `is_valid` length gates.
-- Focused validation: `cargo nextest run -p acorn-schema pid::orcid pid::isni pid::tests`
-- Handoff: Remove PID-16 and keep the frozen vectors as PID-08's differential oracle.
 
 ## PID-01 — Characterize repeated PID parsing
 
@@ -214,11 +203,11 @@ Serialize PID roots with dPID or other schema PID changes. PID-15 and PID-08 cla
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: PID-06, PID-16
+- Prerequisites: PID-06
 - Exact write set: `crates/acorn-schema/Cargo.toml`, `Cargo.lock`, `crates/acorn-schema/src/pid/mod.rs`, `crates/acorn-schema/src/pid/isni/tests.rs`, `crates/acorn-schema/src/pid/orcid/tests.rs`
 - Primary integration lock: schema PID integration
-- Outcome: Call the PID-06 core on explicitly checked 15-digit payloads in both production paths, falling back to the existing unverified fold whenever normalization rejects the input so that every vector frozen by PID-16 still answers identically. Test normalized bare, spaced, hyphenated, invalid, and `X` cases without public API expansion.
-- Focused validation: Run native vectors, the PID-16 boundary vectors, and pinned proof obligations.
+- Outcome: Call the PID-06 core on explicitly checked 15-digit payloads in both production paths, falling back to the existing unverified fold whenever normalization rejects the input so that every accepted boundary vector in `crates/acorn-schema/src/pid/{tests,orcid/tests,isni/tests}.rs` still answers identically. Test normalized bare, spaced, hyphenated, invalid, and `X` cases without public API expansion.
+- Focused validation: Run native vectors, the accepted boundary vectors, and pinned proof obligations.
 - Handoff: Remove PID-08 and preserve wrapper lemmas and the fallback rationale.
 
 ## PID-09 — Verify the ROR checksum core

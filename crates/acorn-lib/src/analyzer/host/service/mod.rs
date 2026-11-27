@@ -28,7 +28,7 @@ use acorn_schema::{
     research_activity::ResearchActivity,
     standard::{
         cff::Cff,
-        ckan, datacite, dcat,
+        ckan, czml, datacite, dcat,
         dublin_core::DublinCoreDocument,
         huwise, invenio,
         text::{Document, Text},
@@ -251,8 +251,12 @@ impl StandardHostExt for Standard {
     fn from_path(path: &Path) -> Self {
         let file_name = path.file_name().and_then(|value| value.to_str());
         let mime = MimeType::from_path(path);
+        let extension = path.extension().and_then(|value| value.to_str());
+        let is_czml = extension.is_some_and(|value| value.eq_ignore_ascii_case("czml"));
         if file_name.is_some_and(|value| matches!(value, ".acorn.json" | ".acorn.jsonc" | ".acorn.yaml" | ".acorn.yml" | ".acorn.ron")) {
             Self::ApplicationConfigurationResearchEnablement
+        } else if is_czml {
+            Self::Czml
         } else if file_name == Some("Kitfile") {
             Self::Kitfile
         } else if file_name.is_some_and(|value| value.eq_ignore_ascii_case("modelkit.json")) {
@@ -265,8 +269,8 @@ impl StandardHostExt for Standard {
                 | MimeType::Json => read_file(path)
                     .ok()
                     .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
-                    .and_then(|value| value.as_object().map(Self::from))
-                    .filter(|standard| standard.is_dublin_core() || standard.is_model_kit())
+                    .and_then(|value| Self::detect_value(&value))
+                    .filter(|standard| standard.is_czml() || standard.is_dublin_core() || standard.is_model_kit())
                     .unwrap_or(Self::ResearchActivityData),
                 | MimeType::Markdown if read_file(path).is_ok_and(ResearchActivity::is_markdown) => Self::ResearchActivityData,
                 | MimeType::Text | MimeType::Markdown => Self::Text,
@@ -360,6 +364,7 @@ pub async fn analyze_paths(paths: &[PathBuf], options: &AnalysisContext) -> Anal
             | Standard::ApplicationConfigurationResearchEnablement => analyze::<AcreStandard>(&paths, options, &categories, &documents).await,
             | Standard::CitationFileFormat => analyze::<Cff>(&paths, options, &categories, &documents).await,
             | Standard::Ckan => analyze::<ckan::Package>(&paths, options, &categories, &documents).await,
+            | Standard::Czml => analyze::<czml::Document>(&paths, options, &categories, &documents).await,
             | Standard::Datacite => analyze::<datacite::Record>(&paths, options, &categories, &documents).await,
             | Standard::Dcat => analyze::<dcat::Dataset>(&paths, options, &categories, &documents).await,
             | Standard::Document => analyze::<Document>(&paths, options, &categories, &documents).await,

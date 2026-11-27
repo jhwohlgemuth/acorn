@@ -17,6 +17,8 @@ fn test_interval_validates_separator_and_partial_end() {
 #[test]
 fn test_reference_accepts_property_paths_and_rejects_missing_parts() {
     assert!(Reference("satellite#position.cartesian".into()).validate().is_ok());
+    assert!(Reference(r"satellite\#part#position\.cartesian".into()).validate().is_ok());
+    assert!(Reference(r"satellite\\part#position".into()).validate().is_ok());
     assert!(VelocityReference(Reference("satellite#position".into())).validate().is_ok());
     for value in [
         "satellite",
@@ -24,6 +26,8 @@ fn test_reference_accepts_property_paths_and_rejects_missing_parts() {
         "satellite#",
         "satellite#position.",
         "satellite#position#cartesian",
+        r"satellite#position\",
+        r"satellite\#part",
     ] {
         assert!(Reference(value.into()).validate().is_err(), "{value}");
     }

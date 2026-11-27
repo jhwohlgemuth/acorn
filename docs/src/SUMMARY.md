@@ -35,6 +35,7 @@
   - [Commands](./cli-reference/commands/README.md)
     - [check](./cli-reference/commands/check.md)
     - [create](./cli-reference/commands/create.md)
+    - [daemon](./cli-reference/commands/daemon.md)
     - [doctor](./cli-reference/commands/doctor.md)
     - [diff](./cli-reference/commands/diff.md)
     - [download](./cli-reference/commands/download.md)

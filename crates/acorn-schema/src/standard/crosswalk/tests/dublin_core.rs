@@ -10,9 +10,65 @@ use crate::standard::dublin_core::{
 use crate::{ContactPoint, OneOrMany};
 use acorn_core::prelude::{format, vec, ToString, Vec};
 use alloc::collections::BTreeMap;
+use proptest::{
+    prelude::*,
+    test_runner::{Config as ProptestConfig, FileFailurePersistence},
+};
 
 use super::*;
 
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(64),
+        failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/standard/dublin-core.txt"))),
+        ..ProptestConfig::default()
+    })]
+    #[test]
+    fn test_datacite_dublin_core_round_trip_preserves_common_fields_and_reports_version_loss(
+        title in "[A-Za-z0-9]{1,40}",
+        identifier in "[a-z0-9]{1,24}",
+    ) {
+        let doi = format!("10.5072/{identifier}");
+        let output = ResearchOutput::init()
+            .doi(doi.clone())
+            .title(title.clone())
+            .publication_year(2026)
+            .publisher(Publisher { name: "Example Publisher".to_string(), publisher_identifier: None, publisher_identifier_scheme: None, scheme_uri: None })
+            .resource_type_general(ResourceTypeGeneral::Dataset)
+            .creators(vec![Contributor::init().name("Example Creator").build()])
+            .version("1.2.3")
+            .build();
+        let (record, _): (datacite::Record, _) = output.crosswalk().expect("export generated output to DataCite");
+        let (document, warnings): (DublinCoreDocument, _) = record.crosswalk().expect("export DataCite to Dublin Core");
+        prop_assert!(warnings.iter().any(|warning| warning.field == "version"));
+        let (decoded, _): (datacite::Record, _) = document.crosswalk().expect("import Dublin Core to DataCite");
+        prop_assert_eq!(decoded.attributes.titles.as_ref().and_then(|values| values.first()).map(|value| value.title.as_str()), Some(title.as_str()));
+        prop_assert_eq!(decoded.id, doi);
+    }
+    #[test]
+    fn test_research_output_round_trip_preserves_supported_fields_and_reports_version_loss(
+        title in "[A-Za-z0-9]{1,40}",
+        identifier in "[a-z0-9]{1,24}",
+        suffix in 0_u16..1000,
+    ) {
+        let uri = format!("https://example.org/output/{identifier}");
+        let doi = format!("10.1234/{identifier}");
+        let output = ResearchOutput::init()
+            .title(title.clone())
+            .identifier(uri.clone())
+            .doi(doi.clone())
+            .resource_type_general(ResourceTypeGeneral::Dataset)
+            .version(format!("1.2.{suffix}"))
+            .build();
+        let (document, warnings) = <ResearchOutput as Crosswalk<DublinCoreDocument>>::crosswalk(&output).expect("export Dublin Core");
+        prop_assert!(warnings.iter().any(|warning| warning.field == "version"));
+        let (decoded, _) = <DublinCoreDocument as Crosswalk<ResearchOutput>>::crosswalk(&document).expect("import Dublin Core");
+        prop_assert_eq!(decoded.title, title);
+        prop_assert_eq!(decoded.identifier.as_deref(), Some(uri.as_str()));
+        prop_assert_eq!(decoded.doi.as_deref(), Some(doi.as_str()));
+        prop_assert_eq!(decoded.resource_type_general, output.resource_type_general);
+    }
+}
 #[test]
 fn test_dublin_core_import_selects_titled_root_and_warns_only_for_extensions() {
     let document = DublinCoreDocument::new(vec![

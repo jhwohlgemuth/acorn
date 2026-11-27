@@ -8,7 +8,6 @@
 use super::*;
 use std::collections::BTreeSet;
 
-const ALL_SUPPORTED_PID_FIXTURE: &str = include_str!("../../../../tests/fixtures/gather/all-supported-pids.txt");
 const ALL_SUPPORTED_PID_CASES: [(PID, &str, &str); 13] = [
     (PID::ARK, "https://n2t.net/ark:/13030/xf93gt2q", "invalid ARK value"),
     (PID::Arxiv, "https://arxiv.org/abs/2106.09685", "arXiv:2100.00000"),
@@ -28,7 +27,7 @@ const ALL_SUPPORTED_PID_CASES: [(PID, &str, &str); 13] = [
     ),
     (PID::URL, "https://example.org/research/artifact", "ftp://example.org/research/artifact"),
 ];
-
+const ALL_SUPPORTED_PID_FIXTURE: &str = include_str!("../../../../tests/fixtures/gather/all-supported-pids.txt");
 const MOD_10_OR_11_CHECK_DIGIT_CASES: [(&str, Option<&[char]>); 6] = [
     ("0-306-40615-2", Some(&['2'])),
     ("0-8044-2957-X", Some(&['X'])),
@@ -95,7 +94,6 @@ fn test_all_supported_pid_fixture_covers_valid_and_invalid_instances() {
         .collect::<BTreeSet<_>>();
     assert_eq!(discovered_kinds, supported_kinds);
 }
-
 #[test]
 fn test_betanumeric() {
     assert!('9'.is_betanumeric());
@@ -104,7 +102,6 @@ fn test_betanumeric() {
     assert_eq!('0'.to_betanumeric_ordinal(), Some(0));
     assert_eq!('z'.to_betanumeric_ordinal(), Some(28));
 }
-
 #[test]
 fn test_identifier_find_all_handles_escaped_slashes_for_supported_kinds() {
     let escaped = ALL_SUPPORTED_PID_FIXTURE.replace('/', r"\/");
@@ -144,7 +141,6 @@ fn test_identifier_normalize_uses_declared_kind() {
     };
     assert!(mismatched.normalized().is_none());
 }
-
 #[test]
 fn test_identifier_unknown_name_identifier_is_ambiguous() {
     assert!(Identifier::new("0000-0002-2057-9115").normalized().is_none());
@@ -152,7 +148,6 @@ fn test_identifier_unknown_name_identifier_is_ambiguous() {
     assert_eq!(Identifier::new("ORCID: 0000-0002-2057-9115").normalized().unwrap().kind, PID::ORCID);
     assert_eq!(Identifier::new("ISNI: 0000 0004 9229 9539").normalized().unwrap().kind, PID::ISNI);
 }
-
 #[test]
 fn test_idutils_url_cases() {
     [
@@ -171,35 +166,40 @@ fn test_idutils_url_cases() {
         assert_eq!(normalized.value, expected, "{value}");
     });
 }
-
 #[test]
 fn test_mod_10_or_11_check_digit() {
     MOD_10_OR_11_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(mod_10_or_11_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
-
 #[test]
 fn test_mod_11_2_check_digit() {
     MOD_11_2_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(mod_11_2_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
-
+#[test]
+fn test_mod_11_2_malformed_input_boundary() {
+    ["", "x", "abc"]
+        .into_iter()
+        .for_each(|value| assert_eq!(mod_11_2_check_digit(value), Some(vec!['1']), "malformed value {value:?}"));
+    assert_eq!(mod_11_2_check_digit("0000-0002"), Some(vec!['8']));
+    assert_eq!(mod_11_2_check_digit("0000-0002-2816-415"), Some(vec!['X']));
+    assert_eq!(mod_11_2_check_digit("0000-0002-2816-415X"), Some(vec!['X']));
+    assert_eq!(mod_11_2_check_digit("000000049229953X"), Some(vec!['9']));
+}
 #[test]
 fn test_mod_97_10_check_digit() {
     MOD_97_10_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(mod_97_10_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
-
 #[test]
 fn test_noid_check_digit() {
     NOID_CHECK_DIGIT_CASES.into_iter().for_each(|(value, expected)| {
         assert_eq!(noid_check_digit(value).as_deref(), expected, "unexpected check digit for {value}");
     });
 }
-
 #[test]
 fn test_normalize_discovery_identifiers() {
     assert_eq!(Identifier::new("https://doi.org/10.1234/ABC").normalized().unwrap().value, "10.1234/ABC");
@@ -218,14 +218,12 @@ fn test_normalize_discovery_identifiers() {
         PID::SWHID
     );
 }
-
 #[test]
 fn test_normalize_discovery_url_preserves_case_sensitive_components() {
     let normalized = Identifier::new("https://Example.org/Data/Artifact?Key=Value").normalized().unwrap();
     assert_eq!(normalized.kind, PID::URL);
     assert_eq!(normalized.value, "https://Example.org/Data/Artifact?Key=Value");
 }
-
 #[test]
 fn test_normalize_pid_values_filters_invalid_values_and_duplicates() {
     assert_eq!(
@@ -244,7 +242,20 @@ fn test_normalize_pid_values_filters_invalid_values_and_duplicates() {
         ["0000-0002-2057-9115"]
     );
 }
-
+#[test]
+fn test_orcid_isni_is_valid_length_gates() {
+    // ORCID requires the 19-character hyphenated identifier; ISNI requires 16 characters.
+    assert!(ORCID::is_valid("0000-0004-9229-9539"));
+    assert!(ORCID::is_valid("0000000492299539"));
+    assert!(!ORCID::is_valid("0000 0004 9229 9539"));
+    assert!(ISNI::is_valid("0000 0004 9229 9539"));
+    assert!(ISNI::is_valid("0000-0004-9229-9539"));
+    assert!(ISNI::is_valid("0000000492299539"));
+    assert!(ORCID::is_valid("0000-0002-2816-415X") && ISNI::is_valid("0000-0002-2816-415X"));
+    ["", "x", "0000-0002", "0000-0002-2816-415"]
+        .into_iter()
+        .for_each(|value| assert!(!ORCID::is_valid(value) && !ISNI::is_valid(value), "truncated {value:?}"));
+}
 #[test]
 fn test_pid_display_and_serialization_use_lowercase_wire_names() {
     assert_eq!(PID::Arxiv.to_string(), "arxiv");
@@ -253,7 +264,6 @@ fn test_pid_display_and_serialization_use_lowercase_wire_names() {
     assert_eq!(serde_json::from_str::<PID>(r#""doi""#).unwrap(), PID::DOI);
     assert_eq!(serde_json::from_str::<PID>(r#""DOI""#).unwrap(), PID::DOI);
 }
-
 #[test]
 fn test_pid_from_str() {
     assert_eq!(PID::from("doi"), PID::DOI);
@@ -263,7 +273,6 @@ fn test_pid_from_str() {
     assert_eq!(PID::from("RRID"), PID::RRID);
     assert_eq!(PID::from("unsupported"), PID::Unknown);
 }
-
 #[test]
 fn test_pid_infer() {
     assert_eq!(PID::infer("doi"), PID::DOI);
@@ -271,7 +280,13 @@ fn test_pid_infer() {
     assert_eq!(PID::infer("https://isni.org/isni/"), PID::ISNI);
     assert_eq!(PID::infer("unsupported"), PID::Unknown);
 }
-
+#[test]
+fn test_rrid_is_discoverable_but_not_project_identifying() {
+    assert!(PID::RRID.is_discoverable());
+    assert!(!PID::RRID.is_project_identifier());
+    let identifiers = Identifier::find_all("RRID:SCR_003512 https://n2t.net/RRID:SCR_003512");
+    assert_eq!(identifiers, [Identifier::from(RRID::from_string("RRID:SCR_003512"))]);
+}
 #[test]
 fn test_supports_discovery_excludes_urls_and_unknown_kinds() {
     let supported = PID::iter().filter(PID::supports_discovery).collect::<Vec<_>>();
@@ -293,14 +308,6 @@ fn test_supports_discovery_excludes_urls_and_unknown_kinds() {
         ]
     );
 }
-#[test]
-fn test_rrid_is_discoverable_but_not_project_identifying() {
-    assert!(PID::RRID.is_discoverable());
-    assert!(!PID::RRID.is_project_identifier());
-    let identifiers = Identifier::find_all("RRID:SCR_003512 https://n2t.net/RRID:SCR_003512");
-    assert_eq!(identifiers, [Identifier::from(RRID::from_string("RRID:SCR_003512"))]);
-}
-
 #[test]
 fn test_swhid_identity_ignores_qualifiers() {
     let core = Identifier::new("swh:1:cnt:ce013625030ba8dba906f756967f9e9ca394464a")

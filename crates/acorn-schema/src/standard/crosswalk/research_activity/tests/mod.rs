@@ -130,12 +130,12 @@ fn rrid_related_resource() -> TypedRelatedResource {
 
 proptest! {
     #![proptest_config(ProptestConfig {
-        cases: 64,
+        cases: std::env::var("PROPTEST_CASES").ok().and_then(|value| value.parse().ok()).unwrap_or(64),
         failure_persistence: Some(Box::new(FileFailurePersistence::Direct("tests/proptest-regressions/standard/crosswalk.txt"))),
         ..ProptestConfig::default()
     })]
     #[test]
-    fn prop_datacite_dcat_roundtrip(title in "\\PC{0,64}", publisher in "\\PC{0,64}") {
+    fn test_prop_datacite_dcat_roundtrip(title in "\\PC{0,64}", publisher in "\\PC{0,64}") {
         let mut source = Fields::new();
         source.insert("doi", FieldValue::String("10.5555/test".to_string()));
         source.insert("title", FieldValue::String(title.clone()));
@@ -148,7 +148,7 @@ proptest! {
         prop_assert_eq!(back.get_string_opt("publisher"), Some(publisher));
     }
     #[test]
-    fn prop_dcat_datacite_roundtrip(title in "\\PC{0,64}", desc in "\\PC{0,128}") {
+    fn test_prop_dcat_datacite_roundtrip(title in "\\PC{0,64}", desc in "\\PC{0,128}") {
         let mut source = Fields::new();
         source.insert("identifier", FieldValue::StringVec(vec!["10.5555/test".to_string()]));
         source.insert("title", FieldValue::StringVec(vec![title.clone()]));
@@ -161,7 +161,7 @@ proptest! {
         prop_assert_eq!(back.get_string_vec_opt("description"), Some(vec![desc.clone()]));
     }
     #[test]
-    fn prop_mappings_never_panic(
+    fn test_prop_mappings_never_panic(
         strings in prop::collection::vec("\\PC{0,32}", 0..10),
         numbers in prop::collection::vec(any::<f64>(), 0..10),
     ) {
@@ -186,7 +186,67 @@ proptest! {
         }
     }
     #[test]
-    fn prop_rule_identity_string_roundtrip(value in "\\PC{0,64}") {
+    fn test_prop_research_activity_raid_preserves_title_and_reports_patent_loss(
+        title in "[A-Za-z0-9]{4,32}",
+        identifier in "[a-z]{1,24}",
+        patent in "US-[0-9]{5,10}",
+    ) {
+        let mut activity = raid_ready_activity();
+        activity.title = title.clone();
+        activity.meta.identifier = format!("raid-{identifier}");
+        activity.meta.patents = Some(OneOrMany::One(patent));
+        let (metadata, warnings) = activity.to_raid(&RaidExportOptions::default()).expect("generated activity exports to RAiD");
+        prop_assert!(warnings.iter().any(|warning| warning.field == "meta.patents"));
+        let (round_trip, _) = metadata.to_research_activity(&RaidImportOptions {
+            contact: Some(activity.contact.clone()),
+            identifier: Some(activity.meta.identifier.clone()),
+            ..RaidImportOptions::default()
+        }).expect("RAiD imports to activity");
+        prop_assert_eq!(round_trip.title, title);
+    }
+    #[test]
+    fn test_prop_research_output_datacite_preserves_supported_fields_and_reports_credit_loss(
+        title in "[A-Za-z0-9]{1,40}",
+        identifier in "[a-z0-9]{1,24}",
+    ) {
+        let doi = format!("10.5072/{identifier}");
+        let output = ResearchOutput::init()
+            .doi(doi.clone())
+            .title(title.clone())
+            .publication_year(2026)
+            .publisher(datacite::Publisher { name: "Example Publisher".to_string(), publisher_identifier: None, publisher_identifier_scheme: None, scheme_uri: None })
+            .resource_type_general(datacite::ResourceTypeGeneral::Dataset)
+            .creators(vec![Contributor::init().name("Example Creator").build()])
+            .contributors(vec![Contributor::init().name("Example Curator").contributor_type(datacite::ContributorType::DataCurator).roles(vec![CreditRole::DataCuration]).build()])
+            .build();
+        let (record, warnings): (datacite::Record, _) = output.crosswalk().expect("export generated output");
+        prop_assert!(warnings.iter().any(|warning| warning.field == "contributors[].roles"));
+        let (decoded, _) : (ResearchOutput, _) = record.crosswalk().expect("import generated record");
+        prop_assert_eq!(decoded.title, title);
+        prop_assert_eq!(decoded.doi.as_deref(), Some(doi.as_str()));
+        prop_assert_eq!(decoded.publication_year, output.publication_year);
+        prop_assert_eq!(decoded.resource_type_general, output.resource_type_general);
+    }
+    #[test]
+    fn test_prop_rrid_crosswalk_preserves_identifier_and_reports_unrepresented_metadata(
+        suffix in 1000_u32..100000,
+    ) {
+        let source = datacite::RelatedIdentifier {
+            related_identifier: format!("RRID:SCR_{suffix}"),
+            related_metadata_scheme: Some("custom".to_string()),
+            scheme_type: Some("custom-type".to_string()),
+            ..<TypedRelatedResource as Crosswalk<datacite::RelatedIdentifier>>::crosswalk(&rrid_related_resource()).expect("valid RRID fixture").0
+        };
+        let (related, warnings): (TypedRelatedResource, _) = source.crosswalk().expect("import generated RRID");
+        prop_assert!(warnings.iter().any(|warning| warning.field == "relatedIdentifiers[].relatedMetadataScheme"));
+        prop_assert!(warnings.iter().any(|warning| warning.field == "relatedIdentifiers[].schemeType"));
+        let (decoded, _) : (datacite::RelatedIdentifier, _) = related.crosswalk().expect("export generated RRID");
+        prop_assert_eq!(decoded.related_identifier, source.related_identifier);
+        prop_assert_eq!(decoded.related_identifier_type, source.related_identifier_type);
+        prop_assert_eq!(decoded.relation_type, source.relation_type);
+    }
+    #[test]
+    fn test_prop_rule_identity_string_roundtrip(value in "\\PC{0,64}") {
         let mut source = Fields::new();
         source.insert("src", FieldValue::String(value.clone()));
         let mut mid = Fields::new();
@@ -196,7 +256,7 @@ proptest! {
         prop_assert_eq!(target.get_string("tgt").ok(), Some(value));
     }
     #[test]
-    fn prop_rule_identity_stringvec_roundtrip(values in prop::collection::vec("\\PC{0,32}", 0..8)) {
+    fn test_prop_rule_identity_stringvec_roundtrip(values in prop::collection::vec("\\PC{0,32}", 0..8)) {
         let mut source = Fields::new();
         source.insert("src", FieldValue::StringVec(values.clone()));
         let mut mid = Fields::new();
@@ -206,7 +266,7 @@ proptest! {
         prop_assert_eq!(target.get_string_vec_opt("tgt"), Some(values));
     }
     #[test]
-    fn prop_year_transform_roundtrip(year in 1000i32..=9999) {
+    fn test_prop_year_transform_roundtrip(year in 1000i32..=9999) {
         let mut source = Fields::new();
         source.insert("y", FieldValue::Number(year as f64));
         let mut mid = Fields::new();
@@ -219,7 +279,7 @@ proptest! {
     }
 }
 #[test]
-fn build_datacite_from_fields() {
+fn test_build_datacite_from_fields() {
     let mut fields = Fields::new();
     fields.insert("doi", FieldValue::String("10.5555/87654321".to_string()));
     fields.insert("title", FieldValue::String("Built Record".to_string()));
@@ -234,7 +294,7 @@ fn build_datacite_from_fields() {
     assert_eq!(record.attributes.publication_year, Some(2025));
 }
 #[test]
-fn build_dcat_from_fields() {
+fn test_build_dcat_from_fields() {
     let mut fields = Fields::new();
     fields.insert("identifier", FieldValue::StringVec(vec!["http://example.org/dataset/1".to_string()]));
     fields.insert("title", FieldValue::String("Built Dataset".to_string()));
@@ -250,7 +310,7 @@ fn build_dcat_from_fields() {
     assert_eq!(dataset.issued, Some("2025-03-20".to_string()));
 }
 #[test]
-fn build_huwise_from_fields() {
+fn test_build_huwise_from_fields() {
     let mut fields = Fields::new();
     fields.insert("identifier", FieldValue::String("huwise-built-001".to_string()));
     fields.insert("title", FieldValue::String("Built HuWise Dataset".to_string()));
@@ -272,7 +332,7 @@ fn build_huwise_from_fields() {
     );
 }
 #[test]
-fn build_invenio_from_fields() {
+fn test_build_invenio_from_fields() {
     let mut fields = Fields::new();
     fields.insert("identifier", FieldValue::String("invenio-built-001".to_string()));
     fields.insert("title", FieldValue::String("Built Invenio Record".to_string()));
@@ -291,7 +351,7 @@ fn build_invenio_from_fields() {
     );
 }
 #[test]
-fn convert_missing_required_field_fails() {
+fn test_convert_missing_required_field_fails() {
     let _record = datacite::Record {
         id: "".to_string(),
         kind: "dois".to_string(),
@@ -371,7 +431,7 @@ fn convert_missing_required_field_fails() {
     assert!(matches!(result, Err(CrosswalkError::MissingRequiredField(_))));
 }
 #[test]
-fn convert_propagates_missing_as_warnings() {
+fn test_convert_propagates_missing_as_warnings() {
     let record = datacite::Record {
         id: "10.5555/warn-test".to_string(),
         kind: "dois".to_string(),
@@ -421,7 +481,16 @@ fn convert_propagates_missing_as_warnings() {
     }
 }
 #[test]
-fn extract_datacite_record_basic() {
+fn test_datacite_contributor_type_infers_research_activity_roles() {
+    assert_eq!(
+        datacite::ContributorType::try_from("Lead Research Organisation").unwrap(),
+        datacite::ContributorType::HostingInstitution
+    );
+    assert_eq!(datacite::ContributorType::try_from("Funder").unwrap(), datacite::ContributorType::Sponsor);
+    assert!(datacite::ContributorType::try_from("Unsupported role").is_err());
+}
+#[test]
+fn test_extract_datacite_record_basic() {
     let record = datacite::Record {
         id: "10.5555/12345678".to_string(),
         kind: "dois".to_string(),
@@ -460,7 +529,7 @@ fn extract_datacite_record_basic() {
     assert_eq!(fields.get_number("publication-year").ok(), Some(2024.0));
 }
 #[test]
-fn extract_dcat_dataset_basic() {
+fn test_extract_dcat_dataset_basic() {
     let dataset = dcat::Dataset {
         id: None,
         jsonld_type: None,
@@ -511,7 +580,7 @@ fn extract_dcat_dataset_basic() {
     assert_eq!(fields.get_string_vec_opt("keywords"), Some(vec!["test".to_string(), "data".to_string()]));
 }
 #[test]
-fn extract_huwise_dataset_with_datacite_block() {
+fn test_extract_huwise_dataset_with_datacite_block() {
     let dataset = huwise::Dataset {
         dataset_id: "huwise-001".to_string(),
         has_attachments: false,
@@ -558,7 +627,7 @@ fn extract_huwise_dataset_with_datacite_block() {
     );
 }
 #[test]
-fn extract_huwise_dataset_with_default_block() {
+fn test_extract_huwise_dataset_with_default_block() {
     let dataset = huwise::Dataset {
         dataset_id: "huwise-default-001".to_string(),
         has_attachments: false,
@@ -616,7 +685,7 @@ fn extract_huwise_dataset_with_default_block() {
     );
 }
 #[test]
-fn extract_invenio_record_basic() {
+fn test_extract_invenio_record_basic() {
     let record = invenio::Record {
         schema: Some("https://inveniordm.docs.cern.ch/reference/metadata/".to_string()),
         id: Some("test-invenio-001".to_string()),
@@ -663,7 +732,7 @@ fn extract_invenio_record_basic() {
     assert_eq!(fields.get_number("publication-year").ok(), Some(2024.0));
 }
 #[test]
-fn from_datacite_to_dcat() {
+fn test_from_datacite_to_dcat() {
     let record = datacite::Record {
         id: "10.5555/12345678".to_string(),
         kind: "dois".to_string(),
@@ -711,7 +780,7 @@ fn from_datacite_to_dcat() {
     ));
 }
 #[test]
-fn from_datacite_to_invenio() {
+fn test_from_datacite_to_invenio() {
     let record = datacite::Record {
         id: "10.5555/datacite-to-inv".to_string(),
         kind: "dois".to_string(),
@@ -761,7 +830,7 @@ fn from_datacite_to_invenio() {
     );
 }
 #[test]
-fn from_dcat_to_datacite() {
+fn test_from_dcat_to_datacite() {
     let dataset = dcat::Dataset {
         id: None,
         jsonld_type: None,
@@ -819,7 +888,7 @@ fn from_dcat_to_datacite() {
     assert_eq!(record.attributes.language, Some("fr".to_string()));
 }
 #[test]
-fn from_huwise_to_datacite() {
+fn test_from_huwise_to_datacite() {
     let dataset = huwise::Dataset {
         dataset_id: "huwise-to-dc-001".to_string(),
         has_attachments: false,
@@ -868,7 +937,7 @@ fn from_huwise_to_datacite() {
     assert_eq!(datacite_record.attributes.language, Some("en".to_string()));
 }
 #[test]
-fn from_invenio_to_datacite() {
+fn test_from_invenio_to_datacite() {
     let record = invenio::Record {
         schema: Some("https://inveniordm.docs.cern.ch/reference/metadata/".to_string()),
         id: Some("invenio-convert-001".to_string()),
@@ -922,7 +991,7 @@ fn from_invenio_to_datacite() {
     assert_eq!(datacite_record.attributes.language, Some("en".to_string()));
 }
 #[test]
-fn mapping_apply_basic() {
+fn test_mapping_apply_basic() {
     let mut source = Fields::new();
     source.insert("title", FieldValue::String("Test Title".to_string()));
     let mut target = Fields::new();
@@ -931,7 +1000,7 @@ fn mapping_apply_basic() {
     assert_eq!(target.get_string_opt("name"), Some("Test Title".to_string()));
 }
 #[test]
-fn mapping_missing_optional_field() {
+fn test_mapping_missing_optional_field() {
     let source = Fields::new();
     let mut target = Fields::new();
     let rule = FieldRule::new("title", "name");
@@ -940,7 +1009,7 @@ fn mapping_missing_optional_field() {
     assert!(target.is_empty());
 }
 #[test]
-fn mapping_required_field_fails() {
+fn test_mapping_required_field_fails() {
     let source = Fields::new();
     let mut target = Fields::new();
     let rule = FieldRule::new("title", "name").required();
@@ -952,15 +1021,6 @@ fn mapping_required_field_fails() {
         }
         | _ => panic!("expected MissingRequiredField error"),
     }
-}
-#[test]
-fn test_datacite_contributor_type_infers_research_activity_roles() {
-    assert_eq!(
-        datacite::ContributorType::try_from("Lead Research Organisation").unwrap(),
-        datacite::ContributorType::HostingInstitution
-    );
-    assert_eq!(datacite::ContributorType::try_from("Funder").unwrap(), datacite::ContributorType::Sponsor);
-    assert!(datacite::ContributorType::try_from("Unsupported role").is_err());
 }
 #[test]
 fn test_raid_research_activity_crosswalk_imports_pinned_mint_fixture() {

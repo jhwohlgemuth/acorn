@@ -98,6 +98,7 @@ async fn run_standard_check(path: &str, standard: Standard) -> Result<()> {
     assert!(result.is_ok(), "Check should succeed for {standard}: {result:?}");
     Ok(())
 }
+
 #[test]
 fn test_check_accepts_piped_text() {
     let output = Command::cargo_bin("acorn")
@@ -119,6 +120,16 @@ fn test_check_accepts_piped_text() {
 #[tokio::test]
 async fn test_check_ckan_standard() -> Result<()> {
     run_standard_check("schema/ckan/0sbdv-gh024.json", Standard::Ckan).await
+}
+#[test]
+fn test_check_czml_standard() -> Result<()> {
+    let scene = fixture_path("schema/czml/acorn/scene.czml").display().to_string();
+    Command::cargo_bin("acorn")?
+        .args(["check", &scene, "--standard", "czml"])
+        .assert()
+        .success();
+    Command::cargo_bin("acorn")?.args(["check", &scene]).assert().success();
+    Ok(())
 }
 #[tokio::test]
 async fn test_check_datacite_standard() -> Result<()> {

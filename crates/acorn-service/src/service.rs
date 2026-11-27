@@ -13,7 +13,7 @@ use acorn_schema::codec::{CodecDiagnostic, DocumentCodec};
 use acorn_schema::pid::raid;
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::modelkit::kitfile::Kitfile;
-use acorn_schema::standard::{cff::Cff, ckan, datacite, dublin_core::DublinCoreDocument, invenio, text, Standard};
+use acorn_schema::standard::{cff::Cff, ckan, czml, datacite, dublin_core::DublinCoreDocument, invenio, text, Standard};
 #[cfg(feature = "std")]
 use acorn_schema::standard::{dcat, huwise};
 use acorn_schema::validation::{Validate, ValidationReport};
@@ -135,6 +135,7 @@ impl AcornService {
         match request.standard {
             | Standard::CitationFileFormat => validate_decoded::<Cff>(&request.content, &request.format, source),
             | Standard::Ckan => validate_decoded::<ckan::Package>(&request.content, &request.format, source),
+            | Standard::Czml => validate_decoded::<czml::Document>(&request.content, &request.format, source),
             | Standard::Datacite => validate_decoded::<datacite::Record>(&request.content, &request.format, source),
             #[cfg(feature = "std")]
             | Standard::Dcat => validate_decoded::<dcat::Dataset>(&request.content, &request.format, source),

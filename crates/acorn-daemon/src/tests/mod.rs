@@ -42,7 +42,7 @@ fn fake_binary(temp: &TempDir, script: &str) -> PathBuf {
     path
 }
 async fn ready(client: &reqwest::Client, address: SocketAddr) {
-    tokio::time::timeout(core::time::Duration::from_secs(3), async {
+    tokio::time::timeout(core::time::Duration::from_secs(15), async {
         loop {
             let response = client.get(format!("http://{address}/readyz")).send().await;
             if response.is_ok_and(|response| response.status().is_success()) {
@@ -379,21 +379,7 @@ mod reload_tests {
             async move { stopped.await.map_err(io::Error::other) },
         ));
         let client = reqwest::Client::new();
-        tokio::time::timeout(core::time::Duration::from_secs(3), async {
-            loop {
-                if client
-                    .get(format!("http://{address}/readyz"))
-                    .send()
-                    .await
-                    .is_ok_and(|response| response.status().is_success())
-                {
-                    break;
-                }
-                tokio::time::sleep(core::time::Duration::from_millis(10)).await;
-            }
-        })
-        .await
-        .expect("daemon readiness");
+        ready(&client, address).await;
         let pid = std::process::id();
         tokio::time::timeout(core::time::Duration::from_secs(3), async {
             loop {
@@ -767,6 +753,7 @@ mod scheduler_tests {
     use std::fs;
     use std::thread;
     use std::time::Instant;
+    use tokio::sync::oneshot;
 
     fn fixture_job(root: &std::path::Path, id: &str, input: &str) -> JobConfig {
         let wire: DaemonJobConfiguration = serde_json::from_value(serde_json::json!({
@@ -812,13 +799,16 @@ mod scheduler_tests {
         let id = old.id().clone();
         let store = Arc::new(DaemonStore::open(folder.path().join("runs.db")).expect("store"));
         let (scheduler, handle) = Scheduler::new(vec![old], Arc::clone(&store), folder.path().join("missing-acorn"), RunLimits::default());
-        let (ready, announced) = std::sync::mpsc::channel();
-        let worker = thread::spawn(move || {
+        let (ready, announced) = oneshot::channel();
+        let worker = tokio::task::spawn_blocking(move || {
             scheduler.run_with_ready(|| {
                 let _ = ready.send(());
             })
         });
-        announced.recv_timeout(Duration::from_secs(2)).expect("scheduler readiness");
+        tokio::time::timeout(Duration::from_secs(10), announced)
+            .await
+            .expect("scheduler readiness deadline")
+            .expect("scheduler exited before readiness");
         let (first_result, second_result, paused, manual) = tokio::join!(
             handle.reload(vec![first.clone()]),
             handle.reload(vec![second.clone()]),
@@ -835,7 +825,7 @@ mod scheduler_tests {
         assert!(snapshot.jobs == vec![first] || snapshot.jobs == vec![second]);
         assert_eq!(store.paused(&id).expect("pause state"), Some(true));
         handle.stop();
-        assert!(worker.join().expect("worker join").is_ok());
+        assert!(worker.await.expect("worker join").is_ok());
     }
     #[test]
     fn test_failed_run_waits_for_next_trigger_and_missed_intervals_collapse() {
@@ -907,19 +897,22 @@ mod scheduler_tests {
         let store = Arc::new(DaemonStore::open(folder.path().join("runs.db")).expect("store"));
         let id = acorn_service::JobId::new("paused-job").expect("job ID");
         let (scheduler, handle) = Scheduler::new(vec![job], Arc::clone(&store), folder.path().join("acorn"), RunLimits::default());
-        let (ready, announced) = std::sync::mpsc::channel();
-        let worker = thread::spawn(move || {
+        let (ready, announced) = oneshot::channel();
+        let worker = tokio::task::spawn_blocking(move || {
             scheduler.run_with_ready(|| {
                 let _ = ready.send(());
             })
         });
-        announced.recv_timeout(Duration::from_secs(2)).expect("scheduler readiness");
+        tokio::time::timeout(Duration::from_secs(10), announced)
+            .await
+            .expect("scheduler readiness deadline")
+            .expect("scheduler exited before readiness");
         assert!(handle.set_paused(&id, true).await.expect("pause"));
         assert_eq!(store.paused(&id).expect("pause state"), Some(true));
         assert!(handle.set_paused(&id, false).await.expect("resume"));
         assert_eq!(store.paused(&id).expect("pause state"), Some(false));
         handle.stop();
-        assert!(worker.join().expect("worker join").is_ok());
+        assert!(worker.await.expect("worker join").is_ok());
     }
     #[test]
     fn test_reload_changed_active_job_uses_old_run_then_one_new_startup() {

@@ -44,6 +44,7 @@ use acorn_schema::{
     standard::{
         cff::Cff,
         crosswalk::ConversionWarning,
+        czml,
         dublin_core::{DublinCoreDescription, DublinCoreDocument, DublinCoreLiteral, DublinCoreResource, DublinCoreValue, DCTERMS_NAMESPACE},
         modelkit::kitfile::Kitfile,
         Standard,
@@ -348,6 +349,34 @@ fn test_conversion_warnings_use_into_checks_trait() {
     assert_eq!(checks.as_slice()[0].issue_count(), 1);
     assert_eq!(checks.as_slice()[0].uri.as_deref(), Some("record.json"));
     assert_eq!(checks.as_slice()[0].locator.as_deref(), Some("attributes.publisher"));
+}
+#[tokio::test]
+async fn test_czml_malformed_fixtures_report_schema_paths() {
+    let directory = tempdir().expect("temporary directory");
+    let malformed: serde_json::Map<String, Value> = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/schema/czml/acorn/malformed.json"
+    )))
+    .expect("malformed fixture map");
+    for (name, value) in malformed {
+        let field = match name.as_str() {
+            | "misplacedClock" => "clock",
+            | "misplacedVersion" => "version",
+            | "rgbaFraction" => "billboard",
+            | _ => "position",
+        };
+        let path = directory.path().join(format!("{name}.czml"));
+        write(&path, serde_json::to_vec(&value).expect("serialize malformed fixture")).expect("write malformed fixture");
+        let checks = czml::Document::check_schema(core::slice::from_ref(&path), None).await;
+        assert!(
+            checks.iter().any(|check| {
+                check.is_failure()
+                    && (check.locator.as_deref().is_some_and(|locator| locator.contains(field))
+                        || check.context.as_deref().is_some_and(|context| context.contains(field)))
+            }),
+            "{name}: {checks:?}"
+        );
+    }
 }
 #[test]
 fn test_dublin_core_quality_reports_advisory_domain_guidance() {
@@ -1013,6 +1042,14 @@ fn test_terse_output_includes_resolved_line_and_column() {
     assert!(check.terse(Some(&document)).contains("path=index.json:2:11"));
 }
 #[test]
+fn test_vale_checksums_accept_variable_length_versions() {
+    let content = "abc123  vale_3.28.1_Linux_64-bit.tar.gz\ndef456  vale_3.28.1_macOS_arm64.tar.gz\nold789  vale_3.9.4_Linux_64-bit.tar.gz\n";
+    let checksums = parse_vale_checksums(content, acorn_core::util::SemanticVersion::from("3.28.1"));
+    assert_eq!(checksums.get("Linux_64-bit.tar.gz").map(String::as_str), Some("abc123"));
+    assert_eq!(checksums.get("macOS_arm64.tar.gz").map(String::as_str), Some("def456"));
+    assert_eq!(checksums.len(), 2);
+}
+#[test]
 fn test_vale_config_normalization_is_ordered_and_idempotent() {
     let config = ValeConfig::init()
         .path(PathBuf::from("custom/.vale.ini"))
@@ -1106,14 +1143,6 @@ fn test_vale_managed_directory_uses_project_cache() {
     assert!(!config.custom_directory());
     let previous = Vale::init().version(acorn_core::util::SemanticVersion::from("3.9.4")).build();
     assert_eq!(previous.managed_directory().unwrap(), expected.parent().unwrap().join("3.9.4"));
-}
-#[test]
-fn test_vale_checksums_accept_variable_length_versions() {
-    let content = "abc123  vale_3.28.1_Linux_64-bit.tar.gz\ndef456  vale_3.28.1_macOS_arm64.tar.gz\nold789  vale_3.9.4_Linux_64-bit.tar.gz\n";
-    let checksums = parse_vale_checksums(content, acorn_core::util::SemanticVersion::from("3.28.1"));
-    assert_eq!(checksums.get("Linux_64-bit.tar.gz").map(String::as_str), Some("abc123"));
-    assert_eq!(checksums.get("macOS_arm64.tar.gz").map(String::as_str), Some("def456"));
-    assert_eq!(checksums.len(), 2);
 }
 #[test]
 fn test_vale_materialization_preserves_ini_order_and_names() {

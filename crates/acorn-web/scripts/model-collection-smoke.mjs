@@ -27,7 +27,7 @@ try {
         else { failures.push(route.request().url()); void route.abort(); }
     });
     await page.goto(origin);
-    await page.addStyleTag({ content: ".model-workspace main{margin:0;padding:0;min-height:0}.model-page{max-width:none}.model-workspace .model-layout{display:block}.stage{height:100vh;border:0;border-radius:0}.page-toolbar,.filterbar,.collection,.scene-footer{display:none!important}.scene-heading,.toolbar{opacity:0}" });
+    await page.addStyleTag({ content: ".model-workspace main{margin:0;padding:0;min-height:0}.model-page{max-width:none}.model-workspace .model-layout{display:block}.stage{height:100vh;border:0;border-radius:0}.page-toolbar,.filterbar,.collection,.scene-footer,.model-navigation{display:none!important}.scene-heading,.toolbar{opacity:0}" });
     const frames = () => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     for (const asset of (contactsOnly ? [] : assets)) {
         await page.locator("#asset").selectOption(asset.id, { force: true });

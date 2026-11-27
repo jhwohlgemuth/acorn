@@ -43,7 +43,8 @@ pub mod __private {
 /// | `pwsh`         | `io::Result<Output>`                    | Run via `pwsh -NoProfile -Command ...`    |
 /// | `try`          | `Result<String, String>`                | Run, return stdout or error message       |
 ///
-/// All forms support an optional `; dir: path` suffix to set the working directory.
+/// Command forms support an optional `; dir: path` suffix to set the working directory.
+/// The argument-list form also accepts `; stdin_file: path` to stream a file into standard input.
 /// Managed forms accept optional `opt`, `dir`, and `env` suffix values.
 ///
 /// # When to use each form
@@ -57,6 +58,7 @@ pub mod __private {
 /// | Need shell features (pipes, globs)  | `cmd!(bash "echo * \| wc -l")`          |
 /// | Need PowerShell                     | `cmd!(pwsh "Get-ChildItem \| Select-Object Name")` |
 /// | Need cancellation or bounded output | `cmd!(exec "git status"; opt: &options)` |
+/// | Stream standard input from a file   | `cmd!("ssh", args; stdin_file: path)`    |
 ///
 /// On the surface `cmd!("...")` and `cmd!(sh "...")` both accept a literal string, but
 /// the bare literal form is the preferred entry point — it's the simplest, avoids the
@@ -745,6 +747,10 @@ macro_rules! cmd {
         $crate::runtime::run_output($binary, [$($arg),*], None)
     }};
     // ── default output with child environment ────────────────
+    // expression args + standard input from a file
+    ($binary:expr, $args:expr; stdin_file: $path:expr) => {{
+        $crate::runtime::run_output_with_stdin_file($binary, $args, $path)
+    }};
     // expression args + dir + environment
     ($binary:expr, $args:expr; dir: $dir:expr, env: $env:expr) => {{
         $crate::runtime::run_output_with_env($binary, $args, Some($dir.as_ref()), $env)

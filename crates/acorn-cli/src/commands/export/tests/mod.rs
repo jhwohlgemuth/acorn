@@ -1312,6 +1312,7 @@ async fn test_export_zon_format_uses_zonf_extension() -> Result<()> {
 #[test]
 fn test_schema_export_covers_every_modeled_standard_in_json_and_yaml() {
     let standards = [
+        Standard::Czml,
         Standard::ApplicationConfigurationResearchEnablement,
         Standard::CitationFileFormat,
         Standard::Ckan,

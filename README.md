@@ -38,6 +38,10 @@ The source-built `acornd run [CONFIG]` serves authenticated requests and runs co
 
 For a signed Linux release, keep `acornd-vVERSION-TARGET.tar.gz` and its `.minisig` file together. Run `acorn daemon verify-bundle /path/to/acornd-vVERSION-TARGET.tar.gz` to check the signature, target, manifest, and binary hashes. Run `acorn daemon install --config /path/to/.acorn.jsonc --bundle /path/to/acornd-vVERSION-TARGET.tar.gz` to stage the paired binaries, create an owner-only control token when needed, and activate the user service. Uninstall an existing source-built service before the first signed installation; later signed releases can upgrade in place. The installer retains earlier release directories for rollback and preserves daemon data on uninstall.
 
+For an SSH-managed Linux host, put the daemon configuration on that host first, then run `acorn daemon --host ssh://user@host install --config /host/path/.acorn.jsonc --bundle /local/path/acornd-vVERSION-TARGET.tar.gz`. Keep the detached `.minisig` beside the local bundle. The CLI detects the host architecture, verifies the signed bundle locally, checks transferred bytes on the host, and uses the paired CLI to activate the service and check readiness. A release CLI can fetch its matching bundle from its embedded package registry; a source build needs `--release-url HTTPS_BASE_URL` when `--bundle` is omitted. Use `acorn daemon --host ssh://user@host list` and the other daemon subcommands for host-side control. The token stays on the host, and `--offline` requires a local `--bundle`.
+
+For an access-controlled package registry, download the archive and its `.minisig` with your registry credentials, then pass the local archive with `--bundle`. Remote installation does not transmit registry credentials or the daemon token to the host.
+
 On macOS, the same paired source-built binaries and private token can be registered with `acorn daemon install --config /absolute/path/to/.acorn.jsonc` from the selected user's account. The command requests administrator access only to install a root-owned system LaunchDaemon and manage launchd; `acornd` runs as that user with its home and an owner-only umask. The config and token must be private regular files owned by that user. `--linger` applies only to Linux. `stop` unloads the LaunchDaemon, `start` loads it, and `uninstall` removes its registration while preserving user data.
 
 Logbooks accept both dated activity entries and project status updates. Status updates record the monthly change, its significance, project health, optional evidence and risk, and the reporting range used by reports. Existing activity entries retain their JSON format.
@@ -50,7 +54,7 @@ The local [browser](crates/acorn-web/README.md) provides nine research tools wit
 
 ## Architecture
 
-The browser's [3D model asset library](crates/acorn-web/assets/models/README.md) contains 40 validated GLBs: research objects, U.S. landmarks, eight wonders and twelve drones, with editable sources and ORNL colors. Run `npm --prefix crates/acorn-web run models` to browse them with orbit controls at [localhost:8085](http://127.0.0.1:8085/). Twelve Risk assets are delivered separately under `/Users/o9w/dev/risk`; the guide includes their viewer command. Models and tooling are excluded from crate releases; live-globe integration remains planned.
+The browser's [3D model asset library](crates/acorn-web/assets/models/README.md) contains 51 validated GLBs: research objects, U.S. landmarks and 33 drone-related assets, with editable sources and ORNL colors. Run `npm --prefix crates/acorn-web run models` to browse them with orbit controls at [localhost:8085](http://127.0.0.1:8085/). Twelve Risk assets are delivered separately under `/Users/o9w/dev/risk`; the guide includes their viewer command. Models and tooling are excluded from crate releases; live-globe integration remains planned.
 
 > See [ARCHITECTURE.md](./ARCHITECTURE.md)
 

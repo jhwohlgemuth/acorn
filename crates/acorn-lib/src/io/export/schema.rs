@@ -5,7 +5,7 @@ use acorn_core::util::MimeType;
 use acorn_schema::{
     pid::raid::Metadata,
     research_activity::ResearchActivity,
-    standard::{cff, ckan, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile, text, Standard},
+    standard::{cff, ckan, czml, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile, text, Standard},
 };
 use color_eyre::eyre::eyre;
 use schemars::{schema_for, JsonSchema};
@@ -29,6 +29,7 @@ impl StandardSchema for Standard {
             | Standard::ApplicationConfigurationResearchEnablement => serialize::<ApplicationConfiguration>(format),
             | Standard::CitationFileFormat => serialize::<cff::Cff>(format),
             | Standard::Ckan => serialize::<ckan::Package>(format),
+            | Standard::Czml => serialize::<czml::Document>(format),
             | Standard::Datacite => serialize::<datacite::Record>(format),
             | Standard::Dcat => serialize::<dcat::Dataset>(format),
             | Standard::Document | Standard::Text => serialize::<text::Text>(format),
