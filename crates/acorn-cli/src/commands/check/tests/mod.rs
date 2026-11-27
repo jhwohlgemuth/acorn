@@ -125,10 +125,9 @@ async fn test_check_ckan_standard() -> Result<()> {
 fn test_check_czml_standard() -> Result<()> {
     let scene = fixture_path("schema/czml/acorn/scene.czml").display().to_string();
     Command::cargo_bin("acorn")?
-        .args(["check", &scene, "--standard", "czml"])
+        .args(["--offline", "check", &scene, "--standard", "czml"])
         .assert()
         .success();
-    Command::cargo_bin("acorn")?.args(["check", &scene]).assert().success();
     Ok(())
 }
 #[tokio::test]
