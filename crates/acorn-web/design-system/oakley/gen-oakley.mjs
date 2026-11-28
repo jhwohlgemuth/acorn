@@ -33,9 +33,9 @@ const arcs = (cls) => {
 const KEYFRAMES = `
   .oakley{color:var(--oakley-ink,#98c379)}
   .ok-led{fill:var(--oakley-led,currentColor)}
-  .ok-blink,.ok-dbl,.ok-wink,.ok-bar{transform-box:fill-box;transform-origin:center}
+  .ok-wink,.ok-bar{transform-box:fill-box;transform-origin:center}
   .ok-blink{animation:ok-blink 5s infinite}
-  @keyframes ok-blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+  @keyframes ok-blink{0%,93%,100%{y:40px;height:8px}96%{y:43.5px;height:1px}}
   .ok-bar{animation:ok-wave .9s infinite ease-in-out}
   @keyframes ok-wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
   .ok-bob{animation:ok-bob .45s infinite ease-in-out alternate}
@@ -44,8 +44,9 @@ const KEYFRAMES = `
   @keyframes ok-pulse{50%{opacity:.25}}
   @keyframes ok-glance{0%,15%{transform:translate(0,0)}25%,75%{transform:translate(-3px,-1.6px)}85%,100%{transform:translate(0,0)}}
   @keyframes ok-arc{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
-  @keyframes ok-dbl{0%,70%,77%,84%,100%{transform:scaleY(1)}73.5%,80.5%{transform:scaleY(.1)}}
+  @keyframes ok-dbl{0%,70%,77%,84%,100%{y:40px;height:8px}73.5%,80.5%{y:43.5px;height:1px}}
   @keyframes ok-hop{0%,45%,100%{transform:translateY(0) scaleY(1)}10%{transform:scaleY(.9)}22%{transform:translateY(-5px) scaleY(1.04)}34%{transform:translateY(0) scaleY(.94)}}
+  @keyframes ok-huh{0%,15%,80%,100%{opacity:0;transform:translateY(2px)}25%,70%{opacity:1;transform:translateY(0)}}
   @keyframes ok-wig{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-7deg)}20%{transform:rotate(7deg)}30%{transform:rotate(-5deg)}40%{transform:rotate(3deg)}}
   @keyframes ok-wink{0%,20%,70%,100%{transform:scaleY(1)}26%,64%{transform:scaleY(0)}}
   @keyframes ok-caret{0%,22%,68%,100%{opacity:0}28%,62%{opacity:1}}
@@ -58,12 +59,13 @@ const ACTION_CSS = (count) => `
   .ok-arc2{animation-delay:.25s}
   .ok-dbl{animation:ok-dbl 2.4s ${count}}
   .ok-hop{animation:ok-hop 1.8s ${count}}
+  .ok-huh{opacity:0;animation:ok-huh 1.8s ${count}}
   .ok-wig{animation:ok-wig 2s ${count}}
   .ok-wink{animation:ok-wink 1.6s ${count}}
   .ok-caret{opacity:0;animation:ok-caret 1.6s ${count}}`;
 
 const REDUCED = `
-  @media (prefers-reduced-motion:reduce){.oakley *{animation:none!important}}`;
+  @media (prefers-reduced-motion:reduce){.oakley *{animation:none!important}.ok-huh{opacity:1}}`;
 
 // Each entry: mask features (black cut-outs), overlay drawn on top, body wrapper class, LED class.
 const POSES = {
@@ -77,6 +79,7 @@ const POSES = {
   'double-blink': { features: () => pills('ok-dbl') },
   broadcast: { features: () => pills(), overlay: () => arcs('ok-arc') },
   hop: { features: () => pills(), body: 'ok-hop' },
+  huh: { features: () => '<rect x="23.2" y="41" width="4.6" height="5" rx="2.3" fill="#000"/>' + pill(36.2), overlay: () => '<g class="ok-huh" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M55 41.5 C55 39.5 60 39.5 60 42 C60 43.4 57.6 44 57.6 45.5"/><circle cx="57.6" cy="48.3" r="1.4" fill="currentColor" stroke="none"/></g>' },
   wiggle: { features: () => happy(), body: 'ok-wig' },
   wink: { features: () => pills('', 'ok-wink') + '<path class="ok-caret" d="M35.2 45.6 L38.5 42.2 L41.8 45.6" fill="none" stroke="#000" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>' },
 };

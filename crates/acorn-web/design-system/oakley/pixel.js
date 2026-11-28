@@ -26,11 +26,12 @@ globalThis.OakleyPixel = (() => {
     'double-blink': { features: () => eyes('okp-dbl') },
     broadcast: { features: () => eyes(), overlay: () => arcs('var(--okp-n,2)') },
     hop: { features: () => eyes(), body: 'okp-hop' },
+    huh: { features: () => rect(6, 13, 2, 2) + rect(12, 13, 2, 3), overlay: () => `<path class="okp-huh" d="${path([[18, 10], [19, 10], [20, 11], [19, 12], [19, 13], [19, 15]])}" fill="currentColor"/>` },
     wiggle: { features: () => happy(), body: 'okp-wig' },
     wink: { features: () => eyes('', 'okp-wink') + caret(11, 'okp-caret') },
   };
   // Every animation steps whole pixels or whole frames; nothing moves smoothly.
-  const CSS = `.okp-blink,.okp-dbl,.okp-wink,.okp-bar{transform-box:fill-box;transform-origin:center}
+  const CSS = `.okp-wink,.okp-bar{transform-box:fill-box;transform-origin:center}
 .okp-body{transform-origin:10px 20px}
 .okp-blink{animation:okp-blink 5s step-end infinite}
 .okp-bar{animation:okp-bar .9s step-end infinite}
@@ -41,21 +42,23 @@ globalThis.OakleyPixel = (() => {
 .okp-arc2{animation-delay:.35s}
 .okp-dbl{animation:okp-dbl 2.4s step-end var(--okp-n,1)}
 .okp-hop{animation:okp-hop 1.8s step-end var(--okp-n,1)}
+.okp-huh{opacity:0;animation:okp-huh 1.8s step-end var(--okp-n,1)}
 .okp-wig{animation:okp-wig 2s step-end var(--okp-n,1)}
 .okp-wink{animation:okp-wink 1.6s step-end var(--okp-n,1)}
 .okp-caret{opacity:0;animation:okp-caret 1.6s step-end var(--okp-n,1)}
-@keyframes okp-blink{0%{transform:scaleY(1)}95%{transform:scaleY(.34)}97%{transform:scaleY(1)}}
+@keyframes okp-blink{0%,97%{y:13px;height:3px}95%{y:14px;height:1px}}
 @keyframes okp-bar{0%{transform:scaleY(.2)}33%{transform:scaleY(.6)}66%{transform:scaleY(1)}}
 @keyframes okp-bob{0%{transform:translateY(0)}50%{transform:translateY(-1px)}}
 @keyframes okp-pulse{50%{opacity:0}}
 @keyframes okp-glance{0%{transform:translate(0,0)}20%{transform:translate(-1px,-1px)}80%{transform:translate(0,0)}}
 @keyframes okp-arc{0%{opacity:1}50%{opacity:0}}
-@keyframes okp-dbl{0%{transform:scaleY(1)}70%{transform:scaleY(.34)}75%{transform:scaleY(1)}80%{transform:scaleY(.34)}85%{transform:scaleY(1)}}
+@keyframes okp-dbl{0%,75%,85%{y:13px;height:3px}70%,80%{y:14px;height:1px}}
 @keyframes okp-hop{0%{transform:translateY(0)}15%{transform:translateY(-2px)}30%{transform:translateY(-1px)}40%{transform:translateY(0)}}
+@keyframes okp-huh{0%,15%,80%,100%{opacity:0}20%,75%{opacity:1}}
 @keyframes okp-wig{0%{transform:translateX(0)}10%{transform:translateX(-1px)}20%{transform:translateX(1px)}30%{transform:translateX(-1px)}40%{transform:translateX(1px)}50%{transform:translateX(0)}}
 @keyframes okp-wink{0%{opacity:1}25%{opacity:0}65%{opacity:1}}
 @keyframes okp-caret{0%{opacity:0}25%{opacity:1}65%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.oakley-pixel *{animation:none!important}}`;
+@media (prefers-reduced-motion:reduce){.oakley-pixel *{animation:none!important}.okp-huh{opacity:1}}`;
   const svg = (pose, { id = `oakley-pixel-${pose}-mask`, size = 64, label = pose, ledStyle = '', extra = '' } = {}) => {
     const p = POSES[pose];
     return `<svg class="oakley oakley-pixel" width="${size}" height="${size}" viewBox="-3 -4 26 26" shape-rendering="crispEdges" overflow="visible" role="img" aria-label="Oakley, ${label}"${extra}><defs><mask id="${id}"><rect x="-3" y="-4" width="26" height="26" fill="#fff"/>${p.features()}</mask></defs><g class="okp-body ${p.body || ''}"><path mask="url(#${id})" fill="currentColor" d="${path(BODY)}"/><rect class="ok-led ${p.led || ''}"${ledStyle} x="6" y="0" width="2" height="2"/>${p.overlay ? p.overlay() : ''}</g></svg>`;

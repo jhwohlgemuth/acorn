@@ -1,11 +1,28 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { chromium } from "playwright";
+import { chromium, firefox } from "playwright";
 
 const root = new URL("../", import.meta.url);
 const preview = new URL("design-system/oakley/index.html", root);
 const catalog = await readFile(new URL("design-system/index.html", root), "utf8");
+const browserType = { chromium, firefox }[process.env.ACORN_WEB_ENGINE ?? "chromium"];
+assert.ok(browserType, "Supported Oakley browser engine");
+
+async function assertCenteredBlink(page, selector, closedTime) {
+    const blink = await page.locator(selector).first().evaluate((eye, time) => {
+        const animation = eye.getAnimations()[0];
+        animation.pause();
+        animation.currentTime = 0;
+        const open = { y: parseFloat(getComputedStyle(eye).y), height: parseFloat(getComputedStyle(eye).height) };
+        animation.currentTime = time;
+        const closed = { y: parseFloat(getComputedStyle(eye).y), height: parseFloat(getComputedStyle(eye).height) };
+        animation.cancel();
+        return { open, closed };
+    }, closedTime);
+    assert.ok(Math.abs(blink.open.y + blink.open.height / 2 - blink.closed.y - blink.closed.height / 2) < 0.5, `${selector} stays centered: ${JSON.stringify(blink)}`);
+    assert.ok(blink.closed.height < blink.open.height / 2, `${selector} closes: ${JSON.stringify(blink)}`);
+}
 
 test("catalog links its Oakley specimen to the preview", () => {
     assert.match(catalog, /<section class="specimen" id="agent-avatar">/);
@@ -14,7 +31,7 @@ test("catalog links its Oakley specimen to the preview", () => {
 });
 
 test("Oakley preview states, actions, themes, and launcher demo work offline", async () => {
-    const browser = await chromium.launch();
+    const browser = await browserType.launch();
     try {
         const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
         const errors = [];
@@ -25,10 +42,13 @@ test("Oakley preview states, actions, themes, and launcher demo work offline", a
             void (local ? route.continue() : (external.push(route.request().url()), route.abort()));
         });
         await page.goto(preview.href);
+        await assertCenteredBlink(page, "#states [data-st='idle'] .ok-blink", 4800);
+        await page.locator("#actions [data-play='double-blink']").click();
+        await assertCenteredBlink(page, "#actions [data-ac='double-blink'] .ok-dbl", 1776);
         assert.equal(await page.locator("[data-catalog-link]").getAttribute("href"), "../index.html#agent-avatar");
         assert.equal(await page.locator("#heroAv svg").count(), 1);
         assert.equal(await page.locator("#states .card").count(), 4);
-        assert.equal(await page.locator("#actions .card").count(), 6);
+        assert.equal(await page.locator("#actions .card").count(), 7);
         assert.equal(await page.locator("#heroAv svg [d^='M22.5 46']").count(), 0, "Idle Oakley has no mouth or happy eyes");
         await page.getByRole("button", { name: "Thinking", exact: true }).click();
         assert.equal(await page.locator("#roState").textContent(), "thinking");
@@ -36,6 +56,9 @@ test("Oakley preview states, actions, themes, and launcher demo work offline", a
         await page.locator("#actionBtns").getByRole("button", { name: "Wink", exact: true }).click();
         assert.equal(await page.locator("#roAction").textContent(), "wink");
         assert.equal(await page.locator("#heroAv .ok-caret").count(), 1);
+        await page.locator("#actionBtns").getByRole("button", { name: "Huh?", exact: true }).click();
+        assert.equal(await page.locator("#roAction").textContent(), "huh?");
+        assert.equal(await page.locator("#heroAv .ok-huh").count(), 1);
         assert.equal(await page.locator("#panel").isHidden(), true);
         await page.getByRole("button", { name: "Run validation with issues" }).click();
         await page.locator("#fabAv .ok-bar").first().waitFor({ state: "attached" });
@@ -61,7 +84,12 @@ test("Oakley preview states, actions, themes, and launcher demo work offline", a
         await page.locator("#themeBtns").getByRole("button", { name: "System", exact: true }).click();
         assert.equal(await page.evaluate(() => document.documentElement.hasAttribute("data-theme")), false);
         await page.locator("#styleBtns").getByRole("button", { name: "Pixel", exact: true }).click();
+        await assertCenteredBlink(page, "#states [data-st='idle'] .okp-blink", 4800);
+        await page.locator("#actions [data-play='double-blink']").click();
+        await assertCenteredBlink(page, "#actions [data-ac='double-blink'] .okp-dbl", 1728);
         assert.equal(await page.locator("#heroAv svg.oakley-pixel").getAttribute("shape-rendering"), "crispEdges");
+        await page.locator("#actionBtns").getByRole("button", { name: "Huh?", exact: true }).click();
+        assert.equal(await page.locator("#heroAv .okp-huh").count(), 1);
         assert.equal(await page.locator("#states svg.oakley-pixel").count(), 4);
         await page.locator("#states [data-st='thinking'] .okp-bar").first().waitFor({ state: "attached" });
         assert.equal(await page.locator("#states [data-st='thinking'] .okp-bar").count(), 5);
@@ -87,7 +115,7 @@ test("Oakley preview states, actions, themes, and launcher demo work offline", a
 });
 
 test("catalog Oakley specimen follows the catalog appearance", async () => {
-    const browser = await chromium.launch();
+    const browser = await browserType.launch();
     try {
         const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
         await page.goto(new URL("design-system/index.html#agent-avatar", root).href);

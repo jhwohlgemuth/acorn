@@ -45,6 +45,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .workspace[data-theme=uswds] button[data-size=small] .nav-icon{width:14px;height:14px}
 .nav-heading{font-size:10px;letter-spacing:1px;color:var(--muted);margin:14px 12px 5px}
 .sidebar-bottom{margin-top:auto;padding:16px 8px 0;display:grid;gap:9px;color:var(--muted);font-size:11px;border-top:1px solid var(--border)}
+.oakley-preview{position:fixed;right:20px;bottom:20px;z-index:9;display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border:1px solid var(--border);border-radius:40px;background:var(--card);box-shadow:0 6px 24px #0004;color:#98c379}
+.oakley-avatar{display:block;flex:none;overflow:visible}
+.oakley-preview-label{display:grid;gap:2px;min-width:0;color:var(--heading);line-height:1.2}
+.oakley-preview-label strong{font-size:12px}
+.oakley-preview-label small{font-size:10px;color:var(--muted);white-space:nowrap}
+.oakley-eye-left{--oakley-eye-x:23.2px}
+.oakley-eye-right{--oakley-eye-x:36.2px}
+.oakley-eyes{x:var(--oakley-eye-x);animation:oakley-preview-blink 5s infinite;transition:x .18s ease}
+.oakley-preview:hover .oakley-eyes{x:calc(var(--oakley-eye-x) - 2.6px)}
+@keyframes oakley-preview-blink{0%,93%,100%{y:40px;height:8px}96%{y:43.5px;height:1px}}
+.workspace:is([data-theme=light],[data-theme=uswds]) .oakley-preview{color:#00662c}
+.workspace[data-theme=uswds] .oakley-preview{color:#005ea2;border-radius:4px}
+.workspace.drawer-open .oakley-preview,.workspace:has(.details-drawer[open]) .oakley-preview{display:none}
+@media(max-width:600px){.oakley-preview{right:12px;bottom:12px}.oakley-avatar{width:42px;height:42px}.oakley-preview-label{display:none}.oakley-preview{padding:3px;border-radius:50%}}
+@media(prefers-reduced-motion:reduce){.oakley-eyes{animation:none;transition:none}}
 #webmcp-status{justify-self:start;display:inline-flex;box-sizing:border-box;max-width:100%;overflow:hidden;border-radius:5px;line-height:1.4;font-weight:600;text-decoration:none}
 #webmcp-status :is(.webmcp-label,.webmcp-state){padding:4px 8px}
 #webmcp-status .webmcp-label{flex:none;background:#4b5363;color:#fff}

@@ -1,0 +1,29 @@
+<svg class="oakley oakley-pixel" width="64" height="64" viewBox="-3 -4 26 26" shape-rendering="crispEdges" overflow="visible" role="img" aria-label="Oakley, huh" xmlns="http://www.w3.org/2000/svg"><title>Oakley</title><style>.oakley{color:var(--oakley-ink,#98c379);--okp-n:infinite}.ok-led{fill:var(--oakley-led,currentColor)}
+.okp-wink,.okp-bar{transform-box:fill-box;transform-origin:center}
+.okp-body{transform-origin:10px 20px}
+.okp-blink{animation:okp-blink 5s step-end infinite}
+.okp-bar{animation:okp-bar .9s step-end infinite}
+.okp-bob{animation:okp-bob .5s step-end infinite}
+.okp-pulse{animation:okp-pulse 1s step-end infinite}
+.okp-glance{animation:okp-glance 3.2s step-end var(--n,var(--okp-n,1))}
+.okp-arc{opacity:0;animation:okp-arc 1.4s step-end var(--an,2)}
+.okp-arc2{animation-delay:.35s}
+.okp-dbl{animation:okp-dbl 2.4s step-end var(--okp-n,1)}
+.okp-hop{animation:okp-hop 1.8s step-end var(--okp-n,1)}
+.okp-huh{opacity:0;animation:okp-huh 1.8s step-end var(--okp-n,1)}
+.okp-wig{animation:okp-wig 2s step-end var(--okp-n,1)}
+.okp-wink{animation:okp-wink 1.6s step-end var(--okp-n,1)}
+.okp-caret{opacity:0;animation:okp-caret 1.6s step-end var(--okp-n,1)}
+@keyframes okp-blink{0%,97%{y:13px;height:3px}95%{y:14px;height:1px}}
+@keyframes okp-bar{0%{transform:scaleY(.2)}33%{transform:scaleY(.6)}66%{transform:scaleY(1)}}
+@keyframes okp-bob{0%{transform:translateY(0)}50%{transform:translateY(-1px)}}
+@keyframes okp-pulse{50%{opacity:0}}
+@keyframes okp-glance{0%{transform:translate(0,0)}20%{transform:translate(-1px,-1px)}80%{transform:translate(0,0)}}
+@keyframes okp-arc{0%{opacity:1}50%{opacity:0}}
+@keyframes okp-dbl{0%,75%,85%{y:13px;height:3px}70%,80%{y:14px;height:1px}}
+@keyframes okp-hop{0%{transform:translateY(0)}15%{transform:translateY(-2px)}30%{transform:translateY(-1px)}40%{transform:translateY(0)}}
+@keyframes okp-huh{0%,15%,80%,100%{opacity:0}20%,75%{opacity:1}}
+@keyframes okp-wig{0%{transform:translateX(0)}10%{transform:translateX(-1px)}20%{transform:translateX(1px)}30%{transform:translateX(-1px)}40%{transform:translateX(1px)}50%{transform:translateX(0)}}
+@keyframes okp-wink{0%{opacity:1}25%{opacity:0}65%{opacity:1}}
+@keyframes okp-caret{0%{opacity:0}25%{opacity:1}65%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.oakley-pixel *{animation:none!important}.okp-huh{opacity:1}}</style><defs><mask id="oakley-pixel-huh-mask"><rect x="-3" y="-4" width="26" height="26" fill="#fff"/><rect class="" x="6" y="13" width="2" height="2" fill="#000"/><rect class="" x="12" y="13" width="2" height="3" fill="#000"/></mask></defs><g class="okp-body "><path mask="url(#oakley-pixel-huh-mask)" fill="currentColor" d="M7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM10 3h1v1h-1zM11 3h1v1h-1zM12 3h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM12 4h1v1h-1zM13 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM16 6h1v1h-1zM17 6h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM15 7h1v1h-1zM1 8h1v1h-1zM2 8h1v1h-1zM3 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM16 8h1v1h-1zM17 8h1v1h-1zM18 8h1v1h-1zM1 9h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM11 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1zM16 9h1v1h-1zM17 9h1v1h-1zM18 9h1v1h-1zM2 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1zM17 11h1v1h-1zM2 12h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM17 12h1v1h-1zM2 13h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM16 13h1v1h-1zM17 13h1v1h-1zM2 14h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM15 14h1v1h-1zM16 14h1v1h-1zM17 14h1v1h-1zM3 15h1v1h-1zM4 15h1v1h-1zM5 15h1v1h-1zM6 15h1v1h-1zM7 15h1v1h-1zM8 15h1v1h-1zM9 15h1v1h-1zM10 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1zM13 15h1v1h-1zM14 15h1v1h-1zM15 15h1v1h-1zM16 15h1v1h-1zM4 16h1v1h-1zM5 16h1v1h-1zM6 16h1v1h-1zM7 16h1v1h-1zM8 16h1v1h-1zM9 16h1v1h-1zM10 16h1v1h-1zM11 16h1v1h-1zM12 16h1v1h-1zM13 16h1v1h-1zM14 16h1v1h-1zM15 16h1v1h-1zM5 17h1v1h-1zM6 17h1v1h-1zM7 17h1v1h-1zM8 17h1v1h-1zM9 17h1v1h-1zM10 17h1v1h-1zM11 17h1v1h-1zM12 17h1v1h-1zM13 17h1v1h-1zM14 17h1v1h-1zM7 18h1v1h-1zM8 18h1v1h-1zM9 18h1v1h-1zM10 18h1v1h-1zM11 18h1v1h-1zM12 18h1v1h-1zM9 19h1v1h-1zM10 19h1v1h-1zM8 1h1v1h-1zM9 2h1v1h-1z"/><rect class="ok-led " x="6" y="0" width="2" height="2"/><path class="okp-huh" d="M18 10h1v1h-1zM19 10h1v1h-1zM20 11h1v1h-1zM19 12h1v1h-1zM19 13h1v1h-1zM19 15h1v1h-1z" fill="currentColor"/></g></svg>

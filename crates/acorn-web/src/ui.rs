@@ -996,6 +996,24 @@ fn Shell() -> Element {
                 span { class: "notification-text" }
                 button { "aria-label": "Dismiss notification", "Dismiss" } }
             main { id: "content-main", inert: drawer().then_some(""), tabindex: "-1", div { class: "page-toolbar", button { id: "theme-toggle", class: "theme-toggle", "aria-label": if initially_dark { "Switch to light theme (current: Dark)" } else if initially_uswds { "Switch to dark theme (current: USWDS)" } else { "Switch to dark theme (current: Light)" }, title: "Switch between dark and light themes", "aria-pressed": if initially_uswds { None } else { Some(initially_dark) }, onclick: move |_| { script::toggle_theme(); }, span { class: "switch-track", span { class: "switch-thumb" } } span { class: "theme-icon", "aria-hidden": "true", span { class: "theme-moon", "☾" } span { class: "theme-sun", "☀" } } span { id: "theme-label", class: "nav-label", if initially_uswds { "USWDS" } else if initially_dark { "Dark" } else { "Light" } } } span { class: "theme-static", span { class: "theme-flag", "aria-hidden": "true", "🇺🇸" } a { href: "https://designsystem.digital.gov/", target: "_blank", rel: "noopener noreferrer", "USWDS" } } } Outlet::<Route> {} }
+            div { class: "oakley-preview", role: "img", "aria-label": "Oakley, ACORN agent chat preview",
+                svg { class: "oakley-avatar", view_box: "0 0 64 64", width: "52", height: "52", "aria-hidden": "true",
+                    defs { mask { id: "oakley-preview-mask",
+                        rect { x: "-8", y: "-8", width: "80", height: "80", fill: "white" }
+                        path { d: "M10 37 H54", stroke: "black", stroke_width: "2.4" }
+                        path { d: "M8 18.8 C12 18.8 16 23.2 20 23.2 S28 18.8 32 18.8 S40 23.2 44 23.2 S52 18.8 56 18.8 M6 25.3 C10.5 25.3 15.5 29.7 20 29.7 S28 25.3 32 25.3 S40 29.7 44 29.7 S53 25.3 58 25.3", fill: "none", stroke: "black", stroke_width: "1.7", stroke_linecap: "round" }
+                        rect { class: "oakley-eyes oakley-eye-left", x: "23.2", y: "40", width: "4.6", height: "8", rx: "2.3", fill: "black" }
+                        rect { class: "oakley-eyes oakley-eye-right", x: "36.2", y: "40", width: "4.6", height: "8", rx: "2.3", fill: "black" }
+                    } }
+                    g { mask: "url(#oakley-preview-mask)", fill: "currentColor",
+                        path { d: "M12 33 C12 50 22 58.5 32 60 C42 58.5 52 50 52 33 Z" }
+                        path { d: "M8 32 C8 19.5 19 13 32 13 C45 13 56 19.5 56 32 C56 34.6 54.2 36 51.5 36 L12.5 36 C9.8 36 8 34.6 8 32 Z" }
+                    }
+                    path { d: "M32 13.5 C32 10 31 8 28.5 6.8", fill: "none", stroke: "currentColor", stroke_width: "3", stroke_linecap: "round" }
+                    circle { cx: "27.2", cy: "6.2", r: "3", fill: "currentColor" }
+                }
+                span { class: "oakley-preview-label", strong { "Oakley" } small { "Chat coming soon" } }
+            }
             crate::details::DetailsDrawer {}
         }
     }

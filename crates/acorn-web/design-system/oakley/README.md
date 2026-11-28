@@ -1,6 +1,6 @@
 # Oakley agent avatar
 
-Oakley is the ACORN agent's avatar: a small acorn head that sits in a corner of the ACORN browser, opens the agent chat, and shows messages from the agent. This folder holds its design reference. Oakley is not part of the live browser yet; [ACK-03B](../../../../.wiki/features/assisted-rad-workspace.md#ack-03b--open-the-copilotkit-chat-from-the-oakley-launcher) plans to make it the launcher and face of the CopilotKit chat island, with its states driven by the agent run.
+Oakley is the ACORN agent's avatar: a small acorn head that sits in a corner of the ACORN browser and will open the agent chat and show its messages. This folder holds its design reference. The live browser now shows an animated, noninteractive idle preview; [ACK-03B](../../../../.wiki/features/assisted-rad-workspace.md#ack-03b--open-the-copilotkit-chat-from-the-oakley-launcher) plans to make it the launcher and face of the CopilotKit chat island, with its states driven by the agent run.
 
 - [`index.html`](index.html) is the interactive preview: anatomy, states, actions, sizes, and a working corner-launcher demo in System, Dark, Light, USWDS, and Retro themes, with a Smooth or Pixel style switch. Run `make oakley-preview` to serve and open it (port 8000; set `DESIGN_SYSTEM_PORT` to change it, and `make web-stop` stops it), or open the file directly. The [component catalog](../index.html#agent-avatar) shows the static states beside the other ACORN components and links here.
 - [`gen-oakley.mjs`](gen-oakley.mjs) is the source of truth for the smooth SVG shapes and timing. It writes [`svg/`](svg/).
@@ -55,6 +55,7 @@ An action is a one-shot animation layered on the current state. In the app each 
 | Double blink | Two quick blinks | 2.4 s | Reply finished | [double blink](svg/oakley-double-blink.svg) |
 | Broadcast | Two radio arcs ripple off the antenna light | 1.4 s per ripple | Message sent | [broadcast](svg/oakley-broadcast.svg) |
 | Hop | Small squash, hop, and land | 1.8 s | Chat opens | [hop](svg/oakley-hop.svg) |
+| Huh? | One eye squints as a question mark pops up | 1.8 s | Needs clarification | [huh](svg/oakley-huh.svg) |
 | Wiggle | Side-to-side rock with happy eyes | 2 s | All checks pass | [wiggle](svg/oakley-wiggle.svg) |
 | Wink | Right eye closes into a thick caret (`^`), then opens | 1.6 s | Chat closes | [wink](svg/oakley-wink.svg) |
 
@@ -62,13 +63,14 @@ The [favicon](svg/oakley-favicon.svg) is static, drops the waves, and switches t
 
 ## Pixel style
 
-A fun, retro rendering of the same character on a 20×20 grid inside a 26-unit frame. It keeps every rule above: the chubby acorn, curled stem and square antenna light, two stepped ridge waves forming a "W", the gap under the cap, two eyes, and no mouth. All ten poses exist. Animations step by whole pixels or frames (`step-end` timing) rather than easing: eyes blink to one row, bars jump between one, three, and five pixels, glance shifts the eyes one pixel up and left, hop rises two pixels, wiggle shifts one pixel side to side, and the broadcast arcs are pixel staircases. Draw it at whole multiples of 26 px (26, 52, 78, 104) so every pixel stays square; `shape-rendering="crispEdges"` keeps other sizes sharp.
+A fun, retro rendering of the same character on a 20×20 grid inside a 26-unit frame. It keeps every rule above: the chubby acorn, curled stem and square antenna light, two stepped ridge waves forming a "W", the gap under the cap, two eyes, and no mouth. All eleven poses exist. Animations step by whole pixels or frames (`step-end` timing) rather than easing: eyes blink to one row, bars jump between one, three, and five pixels, glance shifts the eyes one pixel up and left, hop rises two pixels, wiggle shifts one pixel side to side, and the broadcast arcs are pixel staircases. Draw it at whole multiples of 26 px (26, 52, 78, 104) so every pixel stays square; `shape-rendering="crispEdges"` keeps other sizes sharp.
 
 The preview's **Retro** theme is a pale handheld-LCD palette (`#c7d1a4` ground, `#2c3618` ink), monospace type, square corners, and hard offset shadows; choosing it also switches to the Pixel style. Retro is a preview concept, not an ACORN browser theme.
 
 ## Rules
 
 - Every animation stops under `prefers-reduced-motion: reduce`.
+- Blink and double-blink animate the eye cutouts' `y` and `height` around a fixed center; scaling the masked rectangles moves the eyes in Firefox.
 - Only idle blinking, thinking, and speaking loop; nothing else animates indefinitely.
 - Class names use the `ok-` prefix and mask IDs include the pose name, so the SVGs can be inlined. Two inlined copies of the same pose share a mask ID; give each copy a unique ID when wiring Oakley into the app.
 - Oakley nods to Oak Ridge but must not copy ORNL's logo, wordmark, or official marks. Confirm brand fit with ORNL Communications before shipping under the ORNL name.

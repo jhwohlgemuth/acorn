@@ -95,6 +95,8 @@ The remaining critical portability edges are agent source resolution, embedded t
 
 `acorn-analysis` owns portable findings, summaries, validation-error folding, FAIR evaluation, and readability metrics over supplied values. `acorn-service` owns the canonical validate-RAD, check-readability, and process-repository operations plus the transport-neutral JSON-RPC registry. Neither crate reads paths, starts processes, performs network requests, or renders terminal output.
 
+Within the portable crates, vocabulary matching consumes vocabulary types and FAIR evidence is converted into analyzer checks by `check`. `SemanticVersion` stays in core allocation utilities, while the executable ABI version policy lives in `acorn-lib` application constants. Core detects a Rhai source from the header shape; lib checks whether that version is supported. Core application constants remain independent of utility types, keeping the corresponding sibling modules acyclic.
+
 ### `acorn-server`
 
 `acorn-server` adapts one `acorn-service` instance to authenticated JSON-RPC 2.0 and explicit typed gRPC methods. `acorn.version` is JSON-RPC package metadata only; it is not protocol negotiation and has no gRPC counterpart.

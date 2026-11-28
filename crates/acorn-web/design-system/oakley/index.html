@@ -134,7 +134,7 @@ label{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--
 .sw i{width:18px;height:18px;border-radius:50%;display:block;border:1px solid var(--line)}
 .oakley{color:var(--ink,var(--accent));display:block;overflow:visible}
 .ok-led{fill:var(--led,currentColor)}
-.ok-blink,.ok-dbl,.ok-wink,.ok-bar{transform-box:fill-box;transform-origin:center}
+.ok-wink,.ok-bar{transform-box:fill-box;transform-origin:center}
 .ok-body{transform-origin:32px 60px}
 .ok-blink{animation:ok-blink 5s infinite}
 .ok-bar{animation:ok-wave .9s infinite ease-in-out}
@@ -145,21 +145,23 @@ label{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--
 .ok-arc2{animation-delay:.25s}
 .ok-dbl{animation:ok-dbl 2.4s 1}
 .ok-hop{animation:ok-hop 1.8s 1}
+.ok-huh{opacity:0;animation:ok-huh 1.8s 1}
 .ok-wig{animation:ok-wig 2s 1}
 .ok-wink{animation:ok-wink 1.6s 1}
 .ok-caret{opacity:0;animation:ok-caret 1.6s 1}
-@keyframes ok-blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+@keyframes ok-blink{0%,93%,100%{y:40px;height:8px}96%{y:43.5px;height:1px}}
 @keyframes ok-wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
 @keyframes ok-bob{to{transform:translateY(-1.6px)}}
 @keyframes ok-pulse{50%{opacity:.25}}
 @keyframes ok-glance{0%,15%{transform:translate(0,0)}25%,75%{transform:translate(-3px,-1.6px)}85%,100%{transform:translate(0,0)}}
 @keyframes ok-arc{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
-@keyframes ok-dbl{0%,70%,77%,84%,100%{transform:scaleY(1)}73.5%,80.5%{transform:scaleY(.1)}}
+@keyframes ok-dbl{0%,70%,77%,84%,100%{y:40px;height:8px}73.5%,80.5%{y:43.5px;height:1px}}
 @keyframes ok-hop{0%,45%,100%{transform:translateY(0) scaleY(1)}10%{transform:scaleY(.9)}22%{transform:translateY(-5px) scaleY(1.04)}34%{transform:translateY(0) scaleY(.94)}}
+@keyframes ok-huh{0%,15%,80%,100%{opacity:0;transform:translateY(2px)}25%,70%{opacity:1;transform:translateY(0)}}
 @keyframes ok-wig{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-7deg)}20%{transform:rotate(7deg)}30%{transform:rotate(-5deg)}40%{transform:rotate(3deg)}}
 @keyframes ok-wink{0%,20%,70%,100%{transform:scaleY(1)}26%,64%{transform:scaleY(0)}}
 @keyframes ok-caret{0%,22%,68%,100%{opacity:0}28%,62%{opacity:1}}
-@media (prefers-reduced-motion:reduce){.oakley *{animation:none!important}.ok-arc{opacity:1}}
+@media (prefers-reduced-motion:reduce){.oakley *{animation:none!important}.ok-arc,.ok-huh{opacity:1}}
 @media (max-width:860px){
   .hero{grid-template-columns:minmax(0,1fr)}
   .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -340,6 +342,7 @@ label{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--
     'double-blink': { label: 'Double blink', desc: 'Two quick blinks. A quiet "done".', ms: 2500, when: 'Reply finished', features: () => pills('ok-dbl') },
     broadcast: { label: 'Broadcast', desc: 'Two radio arcs ripple off the antenna light.', ms: 3200, when: 'Message sent', features: () => pills(''), overlay: () => arcs(2) },
     hop: { label: 'Hop', desc: 'A small squash, hop, and land.', ms: 1900, when: 'Chat opens', features: () => pills(''), body: 'ok-hop' },
+    huh: { label: 'Huh?', desc: 'One eye squints as a question mark pops up beside Oakley.', ms: 1900, when: 'Needs clarification', features: () => '<rect x="23.2" y="41" width="4.6" height="5" rx="2.3" fill="#000"/>' + pill(36.2), overlay: () => '<g class="ok-huh" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M55 41.5 C55 39.5 60 39.5 60 42 C60 43.4 57.6 44 57.6 45.5"/><circle cx="57.6" cy="48.3" r="1.4" fill="currentColor" stroke="none"/></g>' },
     wiggle: { label: 'Wiggle', desc: 'An excited side-to-side rock with happy eyes.', ms: 2100, when: 'All checks pass', features: () => happy(''), body: 'ok-wig' },
     wink: { label: 'Wink', desc: 'The right eye closes into a thick caret, then opens.', ms: 1700, when: 'Chat closes', features: () => pills('', 'ok-wink') + '<path class="ok-caret" d="M35.2 45.6 L38.5 42.2 L41.8 45.6" fill="none" stroke="#000" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>' },
   };

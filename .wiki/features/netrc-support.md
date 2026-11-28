@@ -6,7 +6,7 @@ difficulty: medium
 impact: medium
 package: [acorn-host, acorn-lib, acorn-cli]
 tags: [authentication, downloads, netrc, os:linux, os:macos, os:windows]
-status: planned
+status: in-progress
 execution: phased
 phase_budget_hours: 5
 ---
@@ -18,6 +18,8 @@ Users can reuse a netrc file for HTTPS Basic authentication through explicitly c
 The first release covers remote archive acquisition, including content inference and forced archive formats, plus reusable `acorn-host` HTTP/source/download APIs. Repository enumeration, GitLab/Hugging Face provider requests, model/tool installation, authenticated link checking, OAuth sign-in, proxy authentication, FTP, cookie persistence, browser/WASM access and credential-file editing are outside this outcome. Unsupported CLI source/subcommand combinations must reject the flags rather than silently ignore them. Provider-specific credentials retain their current behavior.
 
 # Current evidence
+
+On November 28, NTR-01–03 landed in the working tree: `acorn-host` has an optional parser, explicit loader, and selected-origin HTTPS Basic client; `acorn-lib` forwards the feature without enabling HTTP or OAuth. Nine parser/loader tests and eleven controlled HTTPS tests passed, including source reads, downloads, redirects, probe fallback, origin/port scope, downgrade refusal, explicit-URL precedence, and anonymous requests. `cargo test -p acorn-host --all-features` passed 63 tests and all-target package Clippy passed with warnings denied. Windows fallback and native platform claims remain for NTR-07.
 
 Reviewed November 11, 2026 against `43284095` and the working tree. Unrelated Makefile, browser documentation and intake evidence changes are outside this plan. The November 7 portfolio-wide review remains current; this is a targeted addition. Code inspection establishes structure, not a fresh passing test run.
 
@@ -37,7 +39,7 @@ Reviewed November 11, 2026 against `43284095` and the working tree. Unrelated Ma
 
 - Activation is per operation. `--netrc-file PATH` selects exactly that file; `--netrc` discovers the home `.netrc`, falling back to `_netrc` on Windows only when `.netrc` is absent. The flags conflict. Neither current-directory discovery nor `NETRC` environment discovery is part of this release. Missing, unreadable or malformed selected files fail clearly before network effects. Offline mode prevents both credential loading and requests.
 - Parse whitespace-separated `machine`, `login` and `password` records, comments, quoted values and documented escapes with explicit file/token limits. Match normalized URL hostnames exactly, never by suffix. Reject ambiguous duplicate machine records and incomplete selected credentials. Ignore `default` records for lookup and skip `macdef` bodies without execution; document the restricted dialect. Passwords may be empty only when explicitly present; do not trim secret values.
-- Use a separate optional host `netrc` feature and redacted secret types. Reuse a maintained parser if it satisfies the conformance fixtures; otherwise keep the restricted parser local. NTR-01 must record the dependency choice and freeze its exact supported grammar before consumers land. No credential contents may appear in parse errors or Debug output.
+- Use a separate optional host `netrc` feature and redacted secret types. The accepted restricted parser is local and adds no parser dependency. No credential contents may appear in parse errors or Debug output.
 - Open once, bound the read, and inspect the opened file's metadata. On Unix reject group/other permission bits and non-regular files; never change permissions automatically. Windows has no Unix mode-bit guarantee: document the user's ACL responsibility and validate native discovery/loading independently. Tests use temporary synthetic files, never the user's home credentials.
 - Explicit request authentication, provider token selection and selected OAuth profiles take precedence; an explicit authentication failure must not trigger netrc fallback. Non-authentication headers must not suppress netrc. Credentials from netrc become HTTP Basic only; never infer Bearer or provider-specific token headers from a password.
 - Require HTTPS for sending netrc credentials. Scope credentials to an explicitly authorized origin (scheme, host and port), not just the machine lookup key. Initial source origins are authorized by the caller; a broad network allowlist alone does not authorize sending secrets to redirect targets. On an origin change strip authentication; resolve a destination's own entry only if that destination origin was explicitly authorized for credentials. CLI v1 authorizes initial archive origins only. Never send credentials on HTTPS-to-HTTP downgrade.
@@ -45,9 +47,9 @@ Reviewed November 11, 2026 against `43284095` and the working tree. Unrelated Ma
 
 # Dependencies and ownership
 
-NTR-01 → NTR-02 → NTR-03 → NTR-04 → NTR-05 → NTR-06 → NTR-07. Each phase yields an independently usable library capability, integration or verified handoff. Native Windows acceptance is a prerequisite for that platform's release claim, not for parser work.
+The accepted host parser, loader, and HTTP client precede NTR-04 → NTR-05 → NTR-06 → NTR-07. Each remaining phase yields an independently usable library capability, integration or verified handoff. Native Windows acceptance is a prerequisite for that platform's release claim, not for parser work.
 
-The [shared API contract](../refactors/api/shared-client-contract.md), [SharePoint OAuth](sharepoint-jsonl-download/index.md), [CLI composition](../refactors/core/cli-composition-boundary.md), [model acquisition](model-acquisition-hardening.md) and [Cosmos buckets](azure-cosmos-buckets.md) retain their existing outcomes. No entire adjacent plan blocks netrc. Serialize overlapping HTTP, module-root, manifest, bucket and CLI files with their owners. NTR-01 uses the workspace-graph lock for feature/dependency wiring; NTR-03/04 own the HTTP transport lock; NTR-05 owns transfer/archive; NTR-06 owns CLI contract. Final broad checks and central wiki edits have one integration owner.
+The [shared API contract](../refactors/api/shared-client-contract.md), [SharePoint OAuth](sharepoint-jsonl-download/index.md), [CLI composition](../refactors/core/cli-composition-boundary.md), [model acquisition](model-acquisition-hardening.md) and [Cosmos buckets](azure-cosmos-buckets.md) retain their existing outcomes. No entire adjacent plan blocks netrc. Serialize overlapping HTTP, module-root, manifest, bucket and CLI files with their owners. NTR-04 owns the remaining HTTP transport integration; NTR-05 owns transfer/archive; NTR-06 owns CLI contract. Final broad checks and central wiki edits have one integration owner.
 
 # Acceptance criteria
 
@@ -60,45 +62,12 @@ The [shared API contract](../refactors/api/shared-client-contract.md), [SharePoi
 
 # Execution phases
 
-## NTR-01 — Add the host credential parser and feature
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: workspace-graph and host-root owners have released the exact files.
-- Exact write set: `Cargo.toml`, `Cargo.lock`, `crates/acorn-host/Cargo.toml`, `crates/acorn-lib/Cargo.toml`, `crates/acorn-host/src/lib.rs`, `crates/acorn-host/src/netrc.rs`, `crates/acorn-host/src/netrc/tests.rs`.
-- Primary integration lock: Workspace graph
-- Outcome: An optional pure parser with bounded input, deterministic exact-host lookup, redacted credentials and documented dialect; no filesystem or network effects. Wire native library feature access without changing portable dependencies. Pin a parser dependency only after checking the required fixtures and license.
-- Focused validation: `cargo test -p acorn-host --features netrc netrc`; cover quoting, comments, escapes, duplicate machines, incomplete records, ignored default, skipped macros, empty values and size limits; `cargo check -p acorn-host --no-default-features`.
-- Handoff: Record the parser/dependency contract and passing fixtures; NTR-02 consumes the stable credential type.
-
-## NTR-02 — Load explicitly selected credential files
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: NTR-01.
-- Exact write set: `crates/acorn-host/src/netrc.rs`, `crates/acorn-host/src/netrc/tests.rs`, `crates/acorn-host/src/netrc/load.rs`.
-- Primary integration lock: Host netrc loader
-- Outcome: Explicit path/home selection, bounded open-once reads, Unix permission enforcement, Windows filename fallback and no implicit loading.
-- Focused validation: `cargo test -p acorn-host --features netrc netrc`; use injected home paths and temporary files for absent/invalid files, non-regular files, permission rejection, fallback order and zero credential reads when disabled/offline.
-- Handoff: Stable operation-owned loader result with redacted diagnostics; NTR-03 can attach it to a host client.
-
-## NTR-03 — Apply origin-scoped credentials in the host HTTP client
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: NTR-02; HTTP transport owner available.
-- Exact write set: `crates/acorn-host/src/http.rs`, `crates/acorn-host/src/http/netrc.rs`, `crates/acorn-host/src/tests/http.rs`, `crates/acorn-host/src/tests/source.rs`, `crates/acorn-host/src/tests/download.rs`.
-- Primary integration lock: HTTP transport
-- Outcome: Additive opted-in client construction applies Basic credentials consistently to host reads, downloads and HEAD/GET probes with per-origin redirect authorization; defaults retain existing behavior.
-- Focused validation: `cargo test -p acorn-host --all-features`; synthetic transport/header assertions for initial requests, same-origin and cross-origin redirects, different ports, downgrade, probe fallback and redaction. Never disable TLS verification in production to simplify fixtures.
-- Handoff: Reusable request credential/origin policy for NTR-04; record which host paths and negative cases are covered.
-
 ## NTR-04 — Carry explicit credentials through library HTTP paths
 
-- Status: planned
+- Status: in-progress
 - Budget: 5 active hours maximum
-- Prerequisites: NTR-03.
-- Exact write set: `crates/acorn-lib/src/io/http/mod.rs`, `crates/acorn-lib/src/io/http/tests/mod.rs`, `crates/acorn-lib/src/io/source.rs`.
+- Prerequisites: accepted host HTTP credential/origin policy.
+- Exact write set: `crates/acorn-host/src/http.rs`, `crates/acorn-host/src/http/netrc.rs`, `crates/acorn-lib/src/io/http/mod.rs`, `crates/acorn-lib/src/io/http/tests/mod.rs`, `crates/acorn-lib/src/io/source.rs`.
 - Primary integration lock: HTTP transport
 - Outcome: Add explicit operation-context variants for source reads and streaming downloads that reuse host credential policy, preserve existing APIs, and handle retries/range probes without replacing provider tokens or reattaching credentials to anonymous fallback.
 - Focused validation: `cargo nextest run -p acorn-lib io::http`; focused source tests and feature compilation; assert header precedence and request isolation across concurrent contexts.
