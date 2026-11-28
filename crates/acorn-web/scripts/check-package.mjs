@@ -14,7 +14,7 @@ for (const section of [".debug_info", ".debug_line", ".debug_abbrev", ".debug_st
 const modulePath = files.find((p) => /acorn-web(?:-dxh[^/]+)?\.js$/.test(p));
 assert.ok(modulePath, "Missing application JS module");
 const bindings = await readFile(modulePath, "utf8");
-for (const name of ["assessFairMetadata", "checkReadability", "compareBigO", "crosswalkMetadata", "diffContent", "discoverPersistentIdentifiers", "inspectPersistentIdentifier", "validateMetadataStandard", "validateResearchActivity"]) {
+for (const name of ["assessFairMetadata", "checkReadability", "compareBigO", "crosswalkMetadata", "diffContent", "discoverPersistentIdentifiers", "formatMetadata", "inspectPersistentIdentifier", "validateMetadataStandard", "validateResearchActivity"]) {
     assert.ok(bindings.includes(`export function ${name}(`) || bindings.includes(`as ${name},`) || bindings.includes(`as ${name}}`), `Missing ${name}`);
 }
 const html = await readFile(join(root, "index.html"), "utf8");
@@ -22,4 +22,4 @@ assert.ok(!html.includes("fonts.googleapis.com"), "Runtime fonts must be local")
 const stylesheet = html.match(/<link id="initial-app-stylesheet" rel="stylesheet" href="([^"]+)"/)?.[1];
 assert.ok(stylesheet?.includes("/assets/"), "The application stylesheet must load from the HTML head");
 assert.ok(files.includes(join(root, stylesheet.slice(stylesheet.indexOf("/assets/") + 1))), "The HTML stylesheet must reference a packaged asset");
-console.log(`Single WASM payload verified: ${(await stat(wasm[0])).size} bytes; bindings: ${Buffer.byteLength(bindings)} bytes; nine operation exports.`);
+console.log(`Single WASM payload verified: ${(await stat(wasm[0])).size} bytes; bindings: ${Buffer.byteLength(bindings)} bytes; ten operation exports.`);

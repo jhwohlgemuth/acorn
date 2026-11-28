@@ -175,7 +175,10 @@ def user_facility():
     landscaping = [p for x in [-1.15, 1.15] for p in [
         C((x, 0.13, 1.08), 0.31, 0.15, "ivory"), C((x, 0.21, 1.08), 0.27, 0.04, "teal"),
         *[S((x + dx, 0.27, 1.08 + dz), (0.09, 0.08, 0.09), "teal") for dx, dz in [(-0.13, 0), (0.09, -0.1), (0.06, 0.12)]]]]
-    return wings + atrium + instrument + entry + landscaping
+    supports = [0.85 * PI, 2.15 * PI] + [1.04 * PI + i * 0.20 + 0.18 for i in [1, 4, 7, 10, 13]]
+    storage_ring = [part(G.torus(1.33, 0.045, sides=96), "light", (0, 2.05, -0.10), smooth=True),
+        *[R((1.33 * math.cos(a), 1.58 + 0.13 * math.sin(a + 0.4), 1.33 * math.sin(a) - 0.10), (1.33 * math.cos(a), 2.03, 1.33 * math.sin(a) - 0.10), 0.022, "steel") for a in supports]]
+    return wings + atrium + instrument + entry + landscaping + storage_ring
 
 
 def research_project():
@@ -370,28 +373,36 @@ def recipe(category, name, label, parts, radius=2.2, max_height=3.6, pedestal=Tr
 
 QUALITY_REVISIONS = {
     "artillery": 5,
-    "autel-evo-max-4t": 5,
+    "autel-evo-max-4t": 6,
     "bitcraze-crazyflie-2-1": 5,
     "brinc-responder-station": 2,
     "cavalry": 5,
     "dataset": 5,
     "dji-avata-2": 2,
     "dji-matrice-350-rtk": 5,
-    "dji-mavic-3-enterprise": 5,
+    "dji-mavic-3-enterprise": 6,
     "dji-phantom-4-rtk": 5,
     "elistair-khronos-station": 2,
     "field-site": 5,
     "freefly-astro": 5,
-    "gateway-arch": 5,
+    "gateway-arch": 6,
     "golden-gate-bridge": 5,
     "grand-canyon": 5,
     "holybro-x500-v2": 5,
-    "hoover-dam": 5,
+    "hoover-dam": 6,
     "kennedy-space-center": 5,
     "ornl-strelka": 5,
-    "parrot-anafi-ai": 5,
+    "parrot-anafi-ai": 6,
     "skydio-x10": 5,
-    "software": 5
+    "software": 5,
+    "us-capitol": 5,
+    "user-facility": 7,
+    "zipline-delivery-droid": 2
+}
+
+PROVENANCE = {
+    "brinc-responder-station": "Original simplified illustration of the BRINC Responder Station, revised from manufacturer photographs: horizontally sliding tray shells, tapered dock, telescopic rails and skid supports. ORNL accents; not manufacturer CAD or a measured replica.",
+    "landing-pad": "Original generic flight-operations landing mat with ORNL green, neutral rubber and reflective target markings. Standalone bottom-centered geometry; no helicopter-specific H, display pedestal, imported mesh or vendor branding."
 }
 
 
@@ -421,6 +432,7 @@ def main():
                 value["revision"] = 1
             value["provenance"] = f"Original simplified illustration inspired by {label}; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context."
         value["revision"] = QUALITY_REVISIONS.get(name, value["revision"])
+        value["provenance"] = PROVENANCE.get(name, value["provenance"])
         (folder / f"{name}.model.json").write_text(json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n")
         print(f"Authored {value['id']}")
 
@@ -438,12 +450,16 @@ def golden_gate_bridge():
             R((x, 0.85, z), (x, cable_y(x), z), 0.018, "red") for x in xs[::2] for z in [-0.32, 0.32]]
 
 
+CAPITOL_DOME = (1.86, [(0, 0.51), (0.12, 0.50), (0.28, 0.46), (0.44, 0.38), (0.57, 0.27), (0.66, 0.16), (0.70, 0.10)])
+
+
 def us_capitol():
+    dome_y, dome = CAPITOL_DOME
     return [B((0, 0.15, 0), (4.8, 0.3, 1.8)), B((0, 0.68, 0), (1.4, 1.0, 1.5)),
             *[B((x, 0.60, -0.05), (1.65, 0.90, 1.2)) for x in [-1.5, 1.5]],
             *[B((x, 1.1, -0.05), (1.78, 0.15, 1.35)) for x in [-1.5, 1.5]],
-            L((0, 1.15, 0), [(0, 0.61), (0.22, 0.61), (0.26, 0.66), (0.33, 0.65), (0.48, 0.57), (0.72, 0.44), (0.95, 0.23), (1.02, 0.12)]),
-            C((0, 2.25, 0), 0.13, 0.26), L((0, 2.38, 0), [(0, 0.18), (0.16, 0)]),
+            L((0, 1.15, 0), [(0, 0.53), (0.47, 0.53)]), C((0, 1.65, 0), 0.65, 0.06), C((0, 1.77, 0), 0.55, 0.18),
+            L((0, dome_y, 0), dome), C((0, 2.67, 0), 0.10, 0.22), L((0, 2.78, 0), [(0, 0.13), (0.08, 0)]),
             E([(-0.78, 0), (0, 0.36), (0.78, 0)], 0.38, center=(0, 1.0, 0.84)),
             *[B((0, 0.04 + i * 0.07, 1.2 - i * 0.1), (1.7, 0.08, 0.35)) for i in range(5)]] + [
             C((x, 0.62, 0.97), 0.055, 0.75, "ivory", 12) for x in [-0.55, -0.33, -0.11, 0.11, 0.33, 0.55]] + [
@@ -461,9 +477,8 @@ def gateway_arch():
                 for u, v in [(0.6667, 0), (-0.3333, -0.57735), (-0.3333, 0.57735)]]
     rings = [section(x) for x in xs]
     seams = [R(ring[i], ring[(i + 1) % 3], 0.0018, "dark") for ring in rings[4:-4:6] for i in range(3)]
-    plaza = [B((x, 0.025, 0), (0.38, 0.05, 0.44), "ivory") for x in [-1.40, 1.40]]
-    plaza += [B((x, 0.006, z), (0.32, 0.012, 0.27), "ivory") for x in [-0.72, -0.36, 0, 0.36, 0.72] for z in [-0.56, 0.56]]
-    return [part(G.ring_mesh(rings), "steel")] + seams + plaza
+    foundations = [B((x, 0.025, 0), (0.38, 0.05, 0.44), "ivory") for x in [-1.40, 1.40]]
+    return [part(G.ring_mesh(rings), "steel")] + seams + foundations
 
 
 def grand_canyon():
@@ -531,26 +546,33 @@ def kennedy_space_center():
 
 
 def hoover_dam():
-    angles = [0.24 * PI + 0.52 * PI * i / 64 for i in range(65)]
-    sections = [[(r * math.cos(a), y, r * math.sin(a) - 0.90)
-                 for r, y in [(1.85, 0.16), (1.85, 1.65), (2.02, 1.65), (2.37, 0.16)]] for a in angles]
-    wall = [part(G.ring_mesh(sections), "ivory")]
-    crest = [part(G.arch(2.045, 0.22, 0.06, angles[0], angles[-1], 64), "steel", (0, 1.68, -0.90), rotation=(PI / 2, 0, 0))]
-    crest += [R((radius * math.cos(a), 1.74, radius * math.sin(a) - 0.90),
-                (radius * math.cos(b), 1.74, radius * math.sin(b) - 0.90), 0.013, "ivory")
-              for radius in [1.85, 2.02] for a, b in zip(angles, angles[1:])]
-    seams = [R((2.365 * math.cos(a), 0.18, 2.365 * math.sin(a) - 0.90),
-               (2.021 * math.cos(a), 1.63, 2.021 * math.sin(a) - 0.90), 0.004, "steel") for a in angles[4:-4:8]]
-    towers = [p for x in [-0.71, 0.71] for z in [-0.53, 0.10] for p in [
+    # The arch center lies downstream (+Z), so the wall is convex toward the reservoir like a real arch-gravity dam.
+    center = 2.27
+    def point(radius, y, angle):
+        return (radius * math.cos(angle), y, center - radius * math.sin(angle))
+    def band(profile, start, end, material, steps=64):
+        angles = [start + (end - start) * i / steps for i in range(steps + 1)]
+        return part(G.ring_mesh([[point(r, y, a) for r, y in reversed(profile)] for a in angles]), material)
+    start, end = 0.24 * PI, 0.76 * PI
+    angles = [start + (end - start) * i / 64 for i in range(65)]
+    wall = [band([(1.85, 0.16), (2.20, 1.65), (2.37, 1.65), (2.37, 0.16)], start, end, "ivory")]
+    crest = [band([(2.175, 1.65), (2.175, 1.71), (2.395, 1.71), (2.395, 1.65)], start, end, "steel")]
+    crest += [R(point(radius, 1.74, a), point(radius, 1.74, b), 0.013, "ivory")
+              for radius in [2.20, 2.37] for a, b in zip(angles, angles[1:])]
+    seams = [R(point(1.8547, 0.18, a), point(2.1953, 1.63, a), 0.004, "steel") for a in angles[4:-4:8]]
+    face = center - math.sqrt(2.37 ** 2 - 0.71 ** 2)
+    towers = [p for x in [-0.71, 0.71] for z in [face - 1.05, face - 0.45] for p in [
         C((x, 1.03, z), 0.105, 1.63, "ivory"), C((x, 1.84, z), 0.14, 0.10, "ivory"),
         L((x, 1.89, z), [(0, 0.14), (0.11, 0.12), (0.16, 0.07)], "steel"),
         *[B((x + dx, 1.80, z + 0.104), (0.025, 0.09, 0.012), "dark") for dx in [-0.045, 0.045]],
-        B((x, 1.67, (z + 0.82) / 2), (0.10, 0.045, 0.82 - z), "ivory")]]
+        B((x, 1.67, (z + face + 0.05) / 2), (0.10, 0.045, face + 0.05 - z), "ivory")]]
     rocks = [L((x, 0, -0.15), [(0, 0.66), (0.27, 0.77), (0.61, 0.69), (0.89, 0.63), (1.13, 0.72), (1.45, 0.59), (1.80, 0.46)], "terracotta", 9, (1, 1, 1.65)) for x in [-1.64, 1.64]]
-    shoreline = [(1.85 * math.cos(a), 1.85 * math.sin(a) - 0.90) for a in angles] + [(-1.85 * math.cos(angles[0]), -1.26), (1.85 * math.cos(angles[0]), -1.26)]
-    water = [E(shoreline, 1.13, "water", (0, 0.735, 0), (PI / 2, 0, 0)), B((0, 0.10, 1.52), (0.55, 0.07, 1.14), "water")]
-    powerhouse = [B((x, 0.31, 1.53), (0.91, 0.32, 0.31), "ivory") for x in [-0.64, 0.64]]
-    powerhouse += [B((x, 0.35, 1.69), (0.07, 0.15, 0.015), "dark") for x in [-1.00, -0.82, -0.64, -0.46, -0.28, 0.28, 0.46, 0.64, 0.82, 1.00]]
+    shoreline = [(p[0], p[2]) for p in [point(2.36, 0, a) for a in angles]] + [(-2.36 * math.cos(start), -1.40), (2.36 * math.cos(start), -1.40)]
+    water = [E(shoreline, 1.13, "water", (0, 0.735, 0), (PI / 2, 0, 0)), B((0, 0.10, 1.16), (0.55, 0.07, 1.48), "water")]
+    wings = [(0.30 * PI, 0.445 * PI), (0.555 * PI, 0.70 * PI)]
+    powerhouse = [band([(1.50, 0.15), (1.50, 0.47), (1.83, 0.47), (1.83, 0.15)], a, b, "ivory", 16) for a, b in wings]
+    powerhouse += [band([(1.493, 0.28), (1.493, 0.43), (1.503, 0.43), (1.503, 0.28)], a - 0.012, a + 0.012, "dark", 2)
+                   for a0, a1 in wings for a in [a0 + (a1 - a0) * (i + 0.5) / 5 for i in range(5)]]
     return wall + crest + seams + towers + rocks + water + powerhouse
 
 
@@ -692,6 +714,11 @@ def quad_arms(span=1.1, length=0.8, y=0.75, rotor=0.45, material="ivory", rear_l
              *propeller((x, y + 0.14 + (rear_lift if z < 0 else 0), z), rotor, 0.45 if x * z > 0 else -0.45)]]
 
 
+def landing_feet(points, ground, material="dark"):
+    return [p for x, top, z in points for p in [R((x, top, z), (x, ground + 0.04, z), 0.028, material, 0.02),
+            B((x, ground + 0.02, z), (0.07, 0.04, 0.11), material)]]
+
+
 def skids(width=0.45, depth=0.70, height=0.65, material="dark"):
     return [p for x in [-width, width] for p in [R((x, 0.06, -depth), (x, 0.06, depth), 0.045, material),
             *[R((x * 0.65, height, z * 0.7), (x, 0.06, z), 0.035, material) for z in [-depth * 0.65, depth * 0.65]]]]
@@ -701,13 +728,12 @@ def dji_mavic_3_enterprise():
     return quad_arms(0.85, 0.65, 0.42, 0.36, "dark") + [
         drone_shell((0, 0.48, 0), 0.51, 0.30, 1.0, "ivory"),
         B((0, 0.65, -0.12), (0.34, 0.055, 0.54), "teal"), C((0, 0.76, -0.15), 0.12, 0.13, "ivory"),
-        R((0, 0.39, 0.34), (0, 0.29, 0.39), 0.045, "steel"),
-        *[B((x, 0.28, 0.43), (0.035, 0.16, 0.16), "dark") for x in [-0.19, 0.19]],
-        *camera((0, 0.25, 0.49), 0.19, 2),
+        R((0, 0.40, 0.34), (0, 0.37, 0.39), 0.045, "steel"),
+        *[B((x, 0.36, 0.43), (0.035, 0.16, 0.16), "dark") for x in [-0.19, 0.19]],
+        *camera((0, 0.33, 0.49), 0.19, 2),
         *[S((x, 0.53, 0.45), (0.04, 0.035, 0.025), "water") for x in [-0.17, 0.17]],
         *[C((x, 0.45, z), 0.057, 0.12, "dark") for x in [-0.23, 0.23] for z in [-0.25, 0.28]],
-        *[R((x, 0.42, 0.65), (x, 0.06, 0.65), 0.033, "ivory") for x in [-0.85, 0.85]],
-        *[B((x, 0.06, 0.65), (0.08, 0.06, 0.14), "dark") for x in [-0.85, 0.85]]]
+        *landing_feet([(x, 0.34, z) for x in [-0.85, 0.85] for z in [-0.65, 0.65]], 0.205)]
 
 
 def dji_matrice_350_rtk():
@@ -727,9 +753,10 @@ def dji_phantom_4_rtk():
 def parrot_anafi_ai():
     return quad_arms(0.95, 0.68, 0.48, 0.36, "white") + [
             S((0, 0.48, -0.07), (0.22, 0.16, 0.64), "white"), B((0, 0.60, -0.16), (0.30, 0.09, 0.62), "teal"),
-            *[S((x, 0.49, 0.56), (0.15, 0.16, 0.16), "white") for x in [-0.25, 0.25]],
-            *[R((x, 0.49, 0.68), (x, 0.49, 0.72), 0.08, "dark") for x in [-0.25, 0.25]],
-            *camera((0, 0.27, 0.61), 0.22), *[R((x, 0.44, z), (x, 0.06, z), 0.03) for x in [-0.95, 0.95] for z in [-0.68, 0.68]]]
+            B((0, 0.55, 0.50), (0.24, 0.05, 0.07), "white"),
+            *[S((x, 0.55, 0.50), (0.075, 0.075, 0.075), "white") for x in [-0.12, 0.12]],
+            *[R((x, 0.55, 0.565), (x, 0.55, 0.585), 0.04, "dark") for x in [-0.12, 0.12]],
+            *camera((0, 0.35, 0.61), 0.22), *landing_feet([(x, 0.40, z) for x in [-0.95, 0.95] for z in [-0.68, 0.68]], 0.22, "white")]
 
 
 def autel_evo_max_4t():
@@ -738,13 +765,12 @@ def autel_evo_max_4t():
         B((0, 0.80, -0.13), (0.45, 0.075, 0.63), "teal"),
         B((0, 0.65, 0.50), (0.42, 0.09, 0.045), "dark"),
         *[S((x, 0.65, 0.53), (0.035, 0.035, 0.018), "water") for x in [-0.15, 0.15]],
-        R((0, 0.49, 0.35), (0, 0.37, 0.39), 0.05, "steel"),
-        B((0, 0.35, 0.42), (0.51, 0.045, 0.25), "dark"),
-        *[R((x, 0.36, 0.42), (x, 0.25, 0.48), 0.025, "steel") for x in [-0.23, 0.23]],
-        *camera((0, 0.27, 0.50), 0.25, 3),
+        R((0, 0.49, 0.35), (0, 0.45, 0.39), 0.05, "steel"),
+        B((0, 0.43, 0.42), (0.51, 0.045, 0.25), "dark"),
+        *[R((x, 0.44, 0.42), (x, 0.33, 0.48), 0.025, "steel") for x in [-0.23, 0.23]],
+        *camera((0, 0.35, 0.50), 0.25, 3),
         *[C((x, 0.65, z), 0.065, 0.12, "dark") for x in [-0.30, 0.30] for z in [-0.28, 0.30]],
-        *[R((x, 0.60, 0.72), (x, 0.06, 0.72), 0.035, "ivory") for x in [-0.94, 0.94]],
-        *[B((x, 0.06, 0.72), (0.09, 0.06, 0.17), "dark") for x in [-0.94, 0.94]]]
+        *landing_feet([(x, 0.58 if z < 0 else 0.52, z) for x in [-0.94, 0.94] for z in [-0.72, 0.72]], 0.20)]
 
 
 def skydio_x10():
@@ -1173,17 +1199,22 @@ def swissdrones_sdo_50_v3():
 
 
 def zipline_delivery_droid():
-    body = [L((0, 0.12, 0), [(0, 0.33), (0.08, 0.42), (0.78, 0.45), (0.94, 0.37)], "white", 48, (1, 1, 1.30)),
-        B((0, 0.25, 0.51), (0.61, 0.21, 0.025), "teal"), B((0, 0.13, 0), (0.61, 0.07, 0.88), "dark"),
-        C((0, 1.10, 0), 0.07, 0.15, "steel"), T((0, 1.20, 0), 0.06, 0.014, "steel", (PI / 2, 0, 0)),
+    body = [L((0, 0.12, 0), [(0, 0.20), (0.05, 0.34), (0.18, 0.43), (0.45, 0.46), (0.72, 0.42), (0.92, 0.30), (1.02, 0.14), (1.06, 0)], "white", 48, (1, 1, 1.30)),
+        part(G.torus(0.455, 0.012, sides=48), "teal", (0, 0.52, 0), (1, 1, 1.30), smooth=True),
+        part(G.torus(0.41, 0.010, sides=48), "dark", (0, 0.86, 0), (1, 1, 1.30), smooth=True),
+        B((0, 0.11, 0), (0.50, 0.06, 0.70), "dark"),
+        C((0, 1.20, 0), 0.06, 0.10, "steel"), T((0, 1.30, 0), 0.06, 0.014, "steel", (PI / 2, 0, 0)),
         *camera((0, 0.46, 0.58), 0.13, 2),
-        *[B((x, 0.08, z), (0.12, 0.16, 0.15), "dark") for x in [-0.29, 0.29] for z in [-0.39, 0.39]]]
-    thrusters = [T((0, 0.73, -0.75), 0.28, 0.055, "teal", (PI / 2, 0, 0)),
-        *propeller((0, 0.73, -0.75), 0.24, 0.2, (PI / 2, 0, 0)),
-        R((-0.27, 0.73, -0.75), (0.27, 0.73, -0.75), 0.018, "dark")]
-    thrusters += [p for z in [-0.45, 0.45] for p in [T((0.45, 0.78, z), 0.14, 0.035, "teal", (0, 0, PI / 2)),
-        *propeller((0.45, 0.78, z), 0.115, 0.2, (0, 0, PI / 2)),
-        R((0.45, 0.65, z), (0.45, 0.91, z), 0.012, "dark")]]
+        *[B((x, 0.06, z), (0.12, 0.12, 0.15), "dark") for x in [-0.24, 0.24] for z in [-0.30, 0.30]],
+        *[E([(0, 0), (0.30, 0.08), (0.30, 0.20), (0, 0.34)], 0.025, "teal", (0, 0.50, -0.50), (0, PI / 2 + side * 0.9, 0)) for side in [-1, 1]]]
+    duct = (0, 0.62, -0.84)
+    thrusters = [T(duct, 0.22, 0.05, "teal", (PI / 2, 0, 0)), *propeller(duct, 0.19, 0.2, (PI / 2, 0, 0)),
+        R((-0.22, 0.62, -0.84), (0.22, 0.62, -0.84), 0.016, "dark"),
+        *[R((x * 0.12, 0.62 + y * 0.12, -0.55), (x * 0.22, 0.62 + y * 0.22, -0.84), 0.022, "white") for x, y in [(-1, 0), (1, 0), (0, 1)]]]
+    thrusters += [p for side in [-1, 1] for p in [T((side * 0.62, 0.72, 0), 0.13, 0.032, "teal", (0, 0, PI / 2)),
+        *propeller((side * 0.62, 0.72, 0), 0.11, 0.2, (0, 0, PI / 2)),
+        R((side * 0.62, 0.59, 0), (side * 0.62, 0.85, 0), 0.012, "dark"),
+        *[R((side * 0.38, y, 0), (side * 0.62, y, 0), 0.020, "white") for y in [0.59, 0.85]]]]
     return body + thrusters
 
 

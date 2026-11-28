@@ -12,6 +12,7 @@ const actionLabels = {
     "Convert": "Convert",
     "Discover identifiers": "Discover identifiers",
     "FAIR assessment": "Assess FAIR",
+    "Format metadata": "Format",
     "Inspect identifier": "Inspect identifier",
     "Metadata standard": "Validate",
     "Readability": "Analyze readability",
@@ -20,6 +21,15 @@ const actionLabels = {
 
 const root = resolve(process.argv[2] || "target/dx/acorn-web/release/web/public");
 const validActivity = await readFile(new URL("../assets/examples/publications.json", import.meta.url), "utf8");
+const formatCff = await readFile(new URL("../../../tests/fixtures/CITATION.cff", import.meta.url), "utf8");
+const formatDatacite = JSON.stringify(JSON.parse(await readFile(new URL("../../../tests/fixtures/schema/datacite.json", import.meta.url), "utf8"))[0]);
+const formatDublinCore = await readFile(new URL("../../../tests/fixtures/schema/dublin-core-format.json", import.meta.url), "utf8");
+const formatDublinCoreJsonLd = JSON.stringify({ "@context": { dcterms: "http://purl.org/dc/terms/" }, "@id": "https://example.org/work", "dcterms:title": { "@value": "A title", "@language": "en" } });
+const formatDublinCoreRdfXml = '<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dcterms="http://purl.org/dc/terms/"><rdf:Description rdf:about="https://example.org/work"><dcterms:title xml:lang="en">A title</dcterms:title></rdf:Description></rdf:RDF>';
+const formatDublinCoreTurtle = '@prefix dcterms: <http://purl.org/dc/terms/> . <https://example.org/work> dcterms:title "A title"@en .';
+const formatInvenio = await readFile(new URL("../../../tests/fixtures/schema/invenio-format.json", import.meta.url), "utf8");
+const formatMarkdown = await readFile(new URL("../../../tests/fixtures/data/invalid_project_c/index.md", import.meta.url), "utf8");
+const formatZon = await readFile(new URL("../../../tests/fixtures/data/format/rad.zonf", import.meta.url), "utf8");
 const fairRules = JSON.parse(await readFile(new URL("../../acorn-analysis/assets/fair.json", import.meta.url), "utf8"));
 const output = resolve(process.argv[3] || "target/abw-parity");
 const prefix = (process.argv[4] || "").replace(/\/$/, "");
@@ -547,6 +557,203 @@ try {
         await shot(name.toLowerCase().replaceAll(" ", "-"));
         checks.push(`${name}: example operation, unnumbered sections, code copying and focus`);
     }
+    await nav("Format metadata");
+    assert.equal(new URL(page.url()).pathname, prefix + "/format");
+    await page.locator("#content-editor").fill("{");
+    await page.getByRole("button", { name: "Format", exact: true }).press("Enter");
+    await page.locator(".operation-error").waitFor();
+    assert.equal(await page.locator("#content").inputValue(), "{");
+    const formatInput = JSON.stringify(JSON.parse(validActivity));
+    await page.locator("#content-editor").fill(formatInput);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByText("Formatted", { exact: true }).waitFor();
+    const formattedContent = await page.locator(".results .code-block code").first().textContent();
+    assert.equal(JSON.parse(formattedContent).meta.identifier, JSON.parse(validActivity).meta.identifier);
+    const formattedTitle = page.getByRole("heading", { name: "Formatted JSON", exact: true });
+    const changesTitle = page.getByRole("heading", { name: "Changes", exact: true });
+    await changesTitle.waitFor();
+    assert.equal(await formattedTitle.locator("svg").count(), 1, "Formatted heading has an icon");
+    assert.equal(await changesTitle.locator("svg").count(), 1, "Changes heading has an icon");
+    assert.ok(await page.locator(".format-changes").evaluate((node) => parseFloat(getComputedStyle(node).paddingTop) >= 16), "Changes section has top padding");
+    const formatDiff = await page.locator(".results .code-block code").nth(1).textContent();
+    assert.match(formatDiff, /^--- before\n\+\+\+ after\n/);
+    assert.ok(formatDiff.includes(`-${formatInput}`));
+    assert.equal(await page.locator("#content").inputValue(), formattedContent, "Format applies its output to the editor");
+    await page.getByRole("button", { name: "Copy diff", exact: true }).click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), formatDiff);
+    const formatDiffActions = page.getByRole("group", { name: "Diff actions" });
+    assert.equal(await formatDiffActions.getByRole("button", { name: "Undo" }).locator("svg").count(), 1, "Undo has an icon");
+    assert.equal(await formatDiffActions.getByRole("button", { name: "Undo" }).isDisabled(), true, "pasted text cannot be undone as a loaded file");
+    await formatDiffActions.getByRole("button", { name: "Open in Content diff" }).click();
+    assert.equal(new URL(page.url()).pathname, prefix + "/diff");
+    assert.equal(await page.locator("#content").inputValue(), formatInput, "Content diff receives the original text");
+    assert.equal(await page.locator("#after").inputValue(), formattedContent, "Content diff receives the formatted text");
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    await page.getByText("Changes found", { exact: true }).waitFor();
+    await nav("Format metadata");
+    await page.getByText("Formatted", { exact: true }).waitFor();
+    await page.locator("#content-editor").fill(formatInput);
+    assert.equal(await page.locator("#content").inputValue(), formatInput, "Editing restores the source text");
+    assert.equal(await page.locator(".results .empty").count(), 1);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByText("Formatted", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Copy result", exact: true }).click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), formattedContent);
+    const formatDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    assert.equal((await formatDownload).suggestedFilename(), "acorn-formatted.json");
+    assert.equal(await readFile(await (await formatDownload).path(), "utf8"), formattedContent);
+    await page.locator("#content-editor").fill(formattedContent);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByText("Already formatted", { exact: true }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "Undo", exact: true }).isDisabled(), true);
+    assert.equal(await page.getByText("No changes from the input.", { exact: true }).count(), 1);
+    assert.equal(await page.getByRole("button", { name: "Copy diff", exact: true }).count(), 0);
+    const formatSettings = page.locator(".tool-settings");
+    if (await formatSettings.getAttribute("open") === null) await formatSettings.locator(":scope > summary").click();
+    const formatChoices = formatSettings.getByRole("group", { name: "Format", exact: true });
+    await formatChoices.getByRole("button", { name: "JSONC", exact: true }).click();
+    await page.waitForFunction(() => [...document.querySelectorAll(".tool-settings [role=group] button")].some((button) => button.textContent.trim() === "JSONC" && button.getAttribute("aria-pressed") === "true"));
+    const jsoncSource = `// Browser comment\n${formatInput}`;
+    await page.locator("#content-editor").focus();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.insertText(jsoncSource);
+    await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, jsoncSource).catch(async (error) => {
+        const observed = await page.evaluate(() => ({ editorLength: document.querySelector("#content-editor")?.textContent?.length, editorStart: document.querySelector("#content-editor")?.textContent?.slice(0, 40), inputLength: document.querySelector("#content")?.value.length, inputStart: document.querySelector("#content")?.value.slice(0, 40) }));
+        throw new Error(`JSONC editor input did not synchronize: ${JSON.stringify(observed)}`, { cause: error });
+    });
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector(".results h3")?.textContent === "Formatted JSONC" || Boolean(document.querySelector(".operation-error")));
+    assert.equal(await page.locator(".operation-error").count(), 0, await page.locator(".operation-error").allTextContents().then((messages) => messages.join(" ")));
+    await page.getByRole("heading", { name: "Formatted JSONC", exact: true }).waitFor();
+    assert.ok(!(await page.locator(".results .code-block code").first().textContent()).includes("Browser comment"));
+    await formatChoices.getByRole("button", { name: "YAML", exact: true }).click();
+    await page.waitForFunction(() => [...document.querySelectorAll(".tool-settings [role=group] button")].some((button) => button.textContent.trim() === "YAML" && button.getAttribute("aria-pressed") === "true"));
+    await page.locator("#content-editor").focus();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.insertText(formatInput);
+    await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, formatInput);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("heading", { name: "Formatted YAML", exact: true }).waitFor();
+    assert.match(await page.locator(".results .code-block code").first().textContent(), /^meta:/);
+    const yamlDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    assert.equal((await yamlDownload).suggestedFilename(), "acorn-formatted.yaml");
+    for (const [label, source, heading, filename] of [["MD", formatMarkdown, "Formatted MARKDOWN", "acorn-formatted.md"], ["ZON", formatZon, "Formatted ZON", "acorn-formatted.zonf"]]) {
+        await formatChoices.getByRole("button", { name: label, exact: true }).click();
+        await page.locator("#content-editor").focus();
+        await page.keyboard.press("ControlOrMeta+A");
+        await page.keyboard.insertText(source);
+        await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, source);
+        await page.getByRole("button", { name: "Format", exact: true }).click();
+        await page.getByRole("heading", { name: heading, exact: true }).waitFor();
+        const formatted = await page.locator(".results .code-block code").first().textContent();
+        assert.ok(formatted.length > 0);
+        const download = page.waitForEvent("download");
+        await page.getByRole("button", { name: "Download result", exact: true }).click();
+        assert.equal((await download).suggestedFilename(), filename);
+        assert.equal(await readFile(await (await download).path(), "utf8"), formatted);
+    }
+    const formatStandards = formatSettings.getByRole("group", { name: "Standard", exact: true });
+    await formatStandards.getByRole("button", { name: "CFF", exact: true }).click();
+    assert.equal(await formatChoices.getByRole("button", { name: "MD", exact: true }).count(), 0);
+    assert.equal(await formatChoices.getByRole("button", { name: "CFF", exact: true }).getAttribute("aria-pressed"), "true");
+    await page.locator("#content-editor").focus();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.insertText(formatCff);
+    await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, formatCff);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("heading", { name: "Formatted CFF", exact: true }).waitFor();
+    const cffResult = await page.locator(".results .code-block code").first().textContent();
+    assert.match(cffResult, /cff-version: 1\.2\.0/);
+    const cffDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    assert.equal((await cffDownload).suggestedFilename(), "acorn-formatted.cff");
+    assert.equal(await readFile(await (await cffDownload).path(), "utf8"), cffResult);
+    await formatChoices.getByRole("button", { name: "YAML", exact: true }).click();
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("heading", { name: "Formatted YAML", exact: true }).waitFor();
+    await formatStandards.getByRole("button", { name: "DCITE", exact: true }).click();
+    assert.equal(await formatChoices.getByRole("button", { name: "CFF", exact: true }).count(), 0);
+    assert.equal(await formatChoices.getByRole("button", { name: "MD", exact: true }).count(), 0);
+    await formatChoices.getByRole("button", { name: "JSON", exact: true }).click();
+    await page.locator("#content-editor").focus();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.insertText(formatDatacite);
+    await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, formatDatacite);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("heading", { name: "Formatted JSON", exact: true }).waitFor();
+    const dataciteResult = await page.locator(".results .code-block code").first().textContent();
+    assert.equal(JSON.parse(dataciteResult).attributes.doi, JSON.parse(formatDatacite).attributes.doi);
+    const dataciteDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    assert.equal((await dataciteDownload).suggestedFilename(), "acorn-formatted.json");
+    assert.equal(await readFile(await (await dataciteDownload).path(), "utf8"), dataciteResult);
+    await page.locator("#content-editor").fill(dataciteResult);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByText("Already formatted", { exact: true }).waitFor();
+    await formatStandards.getByRole("button", { name: "INV", exact: true }).click();
+    assert.equal(await formatChoices.getByRole("button", { name: "MD", exact: true }).count(), 0);
+    await page.locator("#content-editor").focus();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.insertText(formatInvenio);
+    await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, formatInvenio);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("heading", { name: "Formatted JSON", exact: true }).waitFor();
+    const invenioResult = await page.locator(".results .code-block code").first().textContent();
+    assert.equal(JSON.parse(invenioResult).id, JSON.parse(formatInvenio).id);
+    const invenioDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    assert.equal((await invenioDownload).suggestedFilename(), "acorn-formatted.json");
+    assert.equal(await readFile(await (await invenioDownload).path(), "utf8"), invenioResult);
+    await formatStandards.getByRole("button", { name: "DCMI", exact: true }).click();
+    assert.equal(await formatChoices.getByRole("button", { name: "JSON-LD", exact: true }).count(), 1);
+    assert.equal(await formatChoices.getByRole("button", { name: "RDF", exact: true }).count(), 1);
+    assert.equal(await formatChoices.getByRole("button", { name: "TTL", exact: true }).count(), 1);
+    assert.equal(await formatChoices.getByRole("button", { name: "MD", exact: true }).count(), 0);
+    await page.locator("#content-editor").focus();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.insertText(formatDublinCore);
+    await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, formatDublinCore);
+    await page.getByRole("button", { name: "Format", exact: true }).click();
+    await page.getByRole("heading", { name: "Formatted JSON", exact: true }).waitFor();
+    const dublinCoreResult = await page.locator(".results .code-block code").first().textContent();
+    assert.equal(JSON.parse(dublinCoreResult).descriptions[0].subject.value, "https://example.org/work");
+    const dublinCoreDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download result", exact: true }).click();
+    assert.equal((await dublinCoreDownload).suggestedFilename(), "acorn-formatted.json");
+    assert.equal(await readFile(await (await dublinCoreDownload).path(), "utf8"), dublinCoreResult);
+    let lastFormatOutput;
+    for (const [label, source, heading, filename] of [
+        ["JSON-LD", formatDublinCoreJsonLd, "Formatted JSON-LD", "acorn-formatted.jsonld"],
+        ["RDF", formatDublinCoreRdfXml, "Formatted RDF-XML", "acorn-formatted.rdf"],
+        ["TTL", formatDublinCoreTurtle, "Formatted TURTLE", "acorn-formatted.ttl"],
+    ]) {
+        await formatChoices.getByRole("button", { name: label, exact: true }).click();
+        await page.locator("#content-editor").focus();
+        await page.keyboard.press("ControlOrMeta+A");
+        await page.keyboard.insertText(source);
+        await page.waitForFunction((expected) => document.querySelector("#content")?.value === expected, source);
+        await page.getByRole("button", { name: "Format", exact: true }).click();
+        await page.getByRole("heading", { name: heading, exact: true }).waitFor();
+        const formatted = await page.locator(".results .code-block code").first().textContent();
+        lastFormatOutput = formatted;
+        const download = page.waitForEvent("download");
+        await page.getByRole("button", { name: "Download result", exact: true }).click();
+        assert.equal((await download).suggestedFilename(), filename);
+        assert.equal(await readFile(await (await download).path(), "utf8"), formatted);
+    }
+    await nav("Readability");
+    await nav("Format metadata");
+    assert.equal(await page.locator("#content").inputValue(), lastFormatOutput);
+    assert.equal(await formatStandards.getByRole("button", { name: "DCMI", exact: true }).getAttribute("aria-pressed"), "true");
+    assert.equal(await formatChoices.getByRole("button", { name: "TTL", exact: true }).getAttribute("aria-pressed"), "true");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await noOverflow("Format metadata 390px");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(origin + prefix + "/format");
+    await page.getByRole("heading", { name: "Format metadata", exact: true }).waitFor();
+    checks.push("Format metadata handles CFF, DataCite, Dublin Core, Invenio and RAD standard selection, JSON/JSONC/JSON-LD/Markdown/RDF/XML/Turtle/YAML/ZON formatting, exact copy/download, idempotence, draft navigation, mobile layout and direct-route reload");
     await nav("Research Activity");
     await page.locator("#content-editor").fill('{"title":1}');
     await page.getByRole("button", { name: "Validate", exact: true }).click();
@@ -922,7 +1129,7 @@ try {
     await page.locator(".home-source-tray").waitFor({ state: "hidden" });
     await page.waitForFunction(() => document.activeElement === document.getElementById("home-source-trigger"));
     assert.match(await page.locator(".loaded-tree > summary").textContent(), /1 loaded files/);
-    checks.push("Home loads GitHub file URLs into the workspace; all nine tools load direct file URLs");
+    checks.push("Home loads GitHub file URLs into the workspace; the original nine tools load direct file URLs");
     await page.getByRole("button", { name: "Open file or folder", exact: false }).click();
     const pickerEvent = page.waitForEvent("filechooser");
     await page.getByRole("button", { name: "Files", exact: true }).click();
@@ -1210,7 +1417,32 @@ try {
         assert.equal(await complexityBoundary.locator("#content").inputValue(), left);
         assert.equal(await complexityBoundary.locator("#after").inputValue(), right);
         assert.match(await verdict.innerText(), /symbolic comparison/i);
+        assert.equal(await verdict.evaluate(element => getComputedStyle(element, "::after").content), "none", `${dominance} has no winner pointer`);
     }
+    for (const [left, right, dominance] of [
+        ["O(n^2)", "O(n)", "left"],
+        ["O(n)", "O(n^2)", "right"],
+    ]) {
+        await complexityBoundary.locator("#content-editor").fill(left);
+        await complexityBoundary.locator("#after-editor").fill(right);
+        await complexityBoundary.getByRole("button", { name: "Compare", exact: true }).click();
+        const verdict = complexityBoundary.locator(`.complexity-verdict[data-dominance="${dominance}"]`);
+        await verdict.waitFor();
+        const pointerX = await verdict.evaluate(element => element.getBoundingClientRect().left + parseFloat(getComputedStyle(element, "::after").left));
+        const winner = complexityBoundary.locator(`.complexity-expression[data-side="${dominance}"]`);
+        const winnerBox = await winner.boundingBox();
+        assert.ok(Math.abs(pointerX - (winnerBox.x + winnerBox.width / 2)) < 10, `${dominance} pointer targets its value box`);
+        for (const side of ["left", "right"]) {
+            const box = complexityBoundary.locator(`.complexity-expression[data-side="${side}"]`);
+            const copy = box.getByRole("button", { name: `Copy ${side} expression` });
+            const boxBounds = await box.boundingBox();
+            const copyBounds = await copy.boundingBox();
+            assert.equal((await copy.innerText()).trim(), "", `${side} copy button shows only an icon`);
+            assert.ok(copyBounds.x > boxBounds.x + boxBounds.width / 2 && copyBounds.y < boxBounds.y + 12, `${side} copy button sits in the top right`);
+        }
+    }
+    assert.equal(await complexityBoundary.locator(".tool-settings .big-o-input-mode").count(), 1, "input mode belongs to Settings");
+    assert.equal(await complexityBoundary.getByRole("group", { name: "Input mode" }).isVisible(), false, "input mode is hidden with Settings closed");
     await complexityBoundary.locator(".tool-settings > summary").click();
     await complexityBoundary.locator("#assumptions-editor").fill('{"n":"invalid"}');
     await complexityBoundary.getByRole("button", { name: "Compare", exact: true }).click();
@@ -1226,8 +1458,22 @@ try {
     await complexityBoundary.getByRole("button", { name: "Compare", exact: true }).click();
     await complexityBoundary.locator(".operation-error-message").getByText(/256 UTF-8 bytes/).waitFor();
     assert.equal(await complexityBoundary.locator("#content").inputValue(), maximumExpression + " ");
+    await complexityBoundary.getByRole("group", { name: "Input mode" }).getByRole("button", { name: "Discover pairs" }).click();
+    assert.equal(await complexityBoundary.locator("#after-editor").count(), 0, "discovery mode uses one text editor");
+    await complexityBoundary.locator("#content-editor").fill("First: O(n) vs O(n^2). Second: O(n^2) vs O(n).");
+    await complexityBoundary.getByRole("button", { name: "Compare pairs" }).click();
+    await complexityBoundary.locator(".complexity-pair").first().waitFor();
+    assert.equal(await complexityBoundary.locator(".complexity-pair").count(), 2);
+    assert.equal(await complexityBoundary.locator(".complexity-pair").first().locator(".complexity-verdict").getAttribute("data-dominance"), "right");
+    assert.equal(await complexityBoundary.locator(".complexity-pair").nth(1).locator(".complexity-verdict").getAttribute("data-dominance"), "left");
+    await complexityBoundary.locator(".complexity-pair").nth(1).locator("summary").first().click();
+    assert.equal(await complexityBoundary.locator(".complexity-pair").nth(1).evaluate(element => element.open), true);
+    await complexityBoundary.screenshot({ path: resolve(output, "big-o-discovery.png"), fullPage: true });
+    await complexityBoundary.locator("#content-editor").fill("O(n) O(n^2) O(log n)");
+    await complexityBoundary.getByRole("button", { name: "Compare pairs" }).click();
+    await complexityBoundary.locator(".operation-error-message").getByText(/Add one more/).waitFor();
     await complexityBoundary.close();
-    checks.push("Big-O manual results preserve symbolic verdicts, invalid assumptions, and the 256-byte boundary");
+    checks.push("Big-O manual and discovered pairs preserve symbolic verdicts, ordered results, input bounds, and unmatched-pair errors");
     const fairMatrix = await context.newPage();
     await fairMatrix.goto(origin + prefix + "/review");
     await fairMatrix.getByRole("group", { name: "Review type" }).getByRole("button", { name: "FAIR assessment", exact: true }).click();
@@ -1333,6 +1579,94 @@ try {
     }
     checks.push("First valid validation celebrates once per visit, cleans up, and respects reduced motion");
     }
+    const formatDraftInput = JSON.stringify(JSON.parse(validActivity));
+    const formatSelection = await context.newPage();
+    await formatSelection.goto(origin + prefix + "/");
+    await formatSelection.getByRole("button", { name: "Open file or folder", exact: false }).click();
+    const formatPickerEvent = formatSelection.waitForEvent("filechooser");
+    await formatSelection.getByRole("button", { name: "Files", exact: true }).click();
+    await (await formatPickerEvent).setFiles([
+        { name: "CITATION.cff", mimeType: "text/yaml", buffer: Buffer.from(formatCff) },
+        { name: "format-draft.json", mimeType: "application/json", buffer: Buffer.from(formatDraftInput) },
+        { name: "record.jsonld", mimeType: "application/ld+json", buffer: Buffer.from(formatDublinCoreJsonLd) },
+        { name: "record.rdf", mimeType: "application/rdf+xml", buffer: Buffer.from(formatDublinCoreRdfXml) },
+        { name: "record.ttl", mimeType: "text/turtle", buffer: Buffer.from(formatDublinCoreTurtle) },
+    ]);
+    await formatSelection.getByText(/5 files loaded/).waitFor();
+    await formatSelection.locator('nav a[title="Format metadata"]').click();
+    const selectionSettings = formatSelection.locator(".tool-settings");
+    await selectionSettings.locator(":scope > summary").click();
+    const selectionStandards = selectionSettings.getByRole("group", { name: "Standard", exact: true });
+    const selectionFormats = selectionSettings.getByRole("group", { name: "Format", exact: true });
+    await formatSelection.locator(".loaded-tree > summary").click();
+    for (const [file, standard, syntax, heading] of [
+        ["CITATION.cff", "CFF", "CFF", "Formatted CFF"],
+        ["record.jsonld", "DCMI", "JSON-LD", "Formatted JSON-LD"],
+        ["record.rdf", "DCMI", "RDF", "Formatted RDF-XML"],
+        ["record.ttl", "DCMI", "TTL", "Formatted TURTLE"],
+    ]) {
+        await formatSelection.locator(".loaded-tree .file-leaf").filter({ hasText: file }).click();
+        assert.equal(await selectionStandards.getByRole("button", { name: standard, exact: true }).getAttribute("aria-pressed"), "true");
+        assert.equal(await selectionFormats.getByRole("button", { name: syntax, exact: true }).getAttribute("aria-pressed"), "true");
+        await formatSelection.getByRole("button", { name: "Format", exact: true }).click();
+        await formatSelection.getByRole("heading", { name: heading, exact: true }).waitFor();
+        assert.equal(await formatSelection.locator(".operation-error").count(), 0);
+    }
+    await formatSelection.locator(".loaded-tree .file-leaf").filter({ hasText: "format-draft.json" }).click();
+    await selectionStandards.getByRole("button", { name: "RAD", exact: true }).click();
+    await formatSelection.getByRole("button", { name: "Format", exact: true }).click();
+    await formatSelection.getByRole("heading", { name: "Formatted JSON", exact: true }).waitFor();
+    assert.equal(await formatSelection.getByRole("button", { name: "Undo", exact: true }).isEnabled(), true, "loaded file can be undone");
+    await formatSelection.getByRole("button", { name: "Undo", exact: true }).click();
+    assert.equal(await formatSelection.locator("#content").inputValue(), formatDraftInput, "Undo restores the loaded file text");
+    await formatSelection.getByRole("button", { name: "Clear", exact: true }).click();
+    await formatSelection.getByRole("button", { name: "Use example", exact: true }).click();
+    await formatSelection.getByRole("button", { name: "Format", exact: true }).click();
+    await formatSelection.getByRole("heading", { name: "Changes", exact: true }).waitFor();
+    assert.equal(await formatSelection.getByRole("button", { name: "Undo", exact: true }).isDisabled(), true, "example content cannot be undone as a loaded file");
+    const vocabulary = selectionSettings.getByRole("group", { name: "Vocabulary matching" });
+    assert.equal(await vocabulary.getByRole("button", { name: "Strict", exact: true }).getAttribute("aria-pressed"), "true");
+    await formatSelection.close();
+    checks.push("Format workspace file selection pairs CFF and Dublin Core syntaxes with their standards and keeps the strict reset policy");
+    const reviewSave = await context.newPage();
+    await reviewSave.goto(origin + prefix + "/");
+    await reviewSave.getByRole("button", { name: "Open file or folder", exact: false }).click();
+    const reviewPickerEvent = reviewSave.waitForEvent("filechooser");
+    await reviewSave.getByRole("button", { name: "Files", exact: true }).click();
+    await (await reviewPickerEvent).setFiles([{ name: "review.json", mimeType: "application/json", buffer: Buffer.from(validActivity) }]);
+    await reviewSave.getByText(/1 files loaded/).waitFor();
+    await reviewSave.locator('nav a[title="Review"]').click();
+    await reviewSave.locator("#content-editor").waitFor();
+    const reviewSaveButton = reviewSave.locator("#tool-save");
+    assert.equal(await reviewSaveButton.isDisabled(), true, "unchanged Review content cannot be saved");
+    await reviewSave.locator("#content-editor").fill("");
+    assert.equal(await reviewSaveButton.isDisabled(), true, "empty Review content cannot be saved");
+    const firstSaved = `${validActivity} `;
+    await reviewSave.locator("#content-editor").fill(firstSaved);
+    await reviewSave.locator("#tool-save:not([disabled])").waitFor();
+    await reviewSave.locator(".code-editor:has(#content)").getByRole("button", { name: "Full screen" }).click();
+    const fullscreenSave = reviewSave.locator(".code-editor.is-fullscreen .editor-save-action");
+    assert.equal(await fullscreenSave.isVisible(), true);
+    assert.ok((await fullscreenSave.boundingBox()).x > (await reviewSave.locator(".code-editor.is-fullscreen .editor-run-action").boundingBox()).x, "fullscreen Save follows Run");
+    await reviewSave.locator("#content-editor").press("ControlOrMeta+s");
+    await reviewSave.waitForFunction(() => document.getElementById("tool-save")?.disabled === true);
+    await reviewSave.waitForFunction(async expected => (await window.acornWorkspaceStorage.restore())?.files?.some(file => file.path === "review.json" && file.content === expected), firstSaved);
+    const reviewPopupEvent = context.waitForEvent("page");
+    await reviewSave.locator(".code-editor:has(#content)").getByRole("button", { name: "Open code editor in new tab" }).click();
+    const reviewPopup = await reviewPopupEvent;
+    await reviewPopup.locator("#content-editor").waitFor();
+    const popupSave = reviewPopup.locator(".editor-save-action");
+    assert.equal(await popupSave.isDisabled(), true, "popout Save starts disabled for unchanged content");
+    const secondSaved = `${firstSaved} `;
+    await reviewPopup.locator("#content-editor").fill(secondSaved);
+    await reviewPopup.waitForFunction(() => document.getElementById("tool-save")?.disabled === false);
+    assert.ok((await popupSave.boundingBox()).x > (await reviewPopup.locator(".editor-run-action").boundingBox()).x, "popout Save follows Run");
+    await reviewPopup.locator("#content-editor").press("ControlOrMeta+s");
+    await reviewPopup.waitForFunction(() => document.getElementById("tool-save")?.disabled === true);
+    await reviewPopup.waitForFunction(async expected => (await window.acornWorkspaceStorage.restore())?.files?.some(file => file.path === "review.json" && file.content === expected), secondSaved);
+    await reviewPopup.close();
+    await reviewSave.close();
+    checks.push("Review Save overwrites loaded workspace content with Ctrl+S in fullscreen and a popped-out editor, and stays disabled for empty or unchanged content");
     assert.deepEqual(failures, []);
     await writeFile(resolve(output, "checks.json"), JSON.stringify({ browser: browser.version(), checks, failures }, null, 2) + "\n");
     console.log(`Browser parity smoke passed: ${checks.length} checks. Screenshots: ${output}`);

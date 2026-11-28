@@ -578,65 +578,6 @@ pub struct SemanticVersion {
     #[builder(default = 0)]
     pub patch: u32,
 }
-#[cfg(feature = "std")]
-impl StringConversion for &Path {
-    fn file_name_with_parent(&self) -> String {
-        <Path as StringConversion>::file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        <Path as StringConversion>::normalized(self)
-    }
-    fn percent_encode(&self) -> String {
-        <Path as StringConversion>::percent_encode(self)
-    }
-    fn sluggify(&self) -> String {
-        <Path as StringConversion>::sluggify(self)
-    }
-    fn to_absolute_path(&self) -> String {
-        <Path as StringConversion>::to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <Path as StringConversion>::to_ascii_alphanumeric(self)
-    }
-    fn to_cross_platform_path(&self) -> String {
-        <Path as StringConversion>::to_cross_platform_path(self)
-    }
-    fn truncate_utf8(&self, max_bytes: usize) -> String {
-        <Path as StringConversion>::truncate_utf8(self, max_bytes)
-    }
-}
-impl StringConversion for &str {
-    #[cfg(feature = "std")]
-    fn file_name_with_parent(&self) -> String {
-        <str as StringConversion>::file_name_with_parent(self)
-    }
-    fn normalized(&self) -> String {
-        <str as StringConversion>::normalized(self)
-    }
-    fn percent_encode(&self) -> String {
-        <str as StringConversion>::percent_encode(self)
-    }
-    fn sluggify(&self) -> String {
-        <str as StringConversion>::sluggify(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_absolute_path(&self) -> String {
-        <str as StringConversion>::to_absolute_path(self)
-    }
-    fn to_ascii_alphanumeric(&self) -> String {
-        <str as StringConversion>::to_ascii_alphanumeric(self)
-    }
-    fn to_complete_date(&self) -> Option<&str> {
-        <str as StringConversion>::to_complete_date(self)
-    }
-    #[cfg(feature = "std")]
-    fn to_cross_platform_path(&self) -> String {
-        <str as StringConversion>::to_cross_platform_path(self)
-    }
-    fn truncate_utf8(&self, max_bytes: usize) -> String {
-        <str as StringConversion>::truncate_utf8(self, max_bytes)
-    }
-}
 impl fmt::Display for Checksum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.checksum_value)
@@ -787,7 +728,7 @@ impl From<&str> for MimeType {
             | "powerpoint" if extension.is_none() => MimeType::Powerpoint,
             | "pptx" | "pptm" | "ppsx" | "ppsm" => MimeType::Powerpoint,
             | "prompt" => MimeType::Prompt,
-            | "rdf" | "rdfxml" => MimeType::RdfXml,
+            | "rdf" | "rdfxml" | "rdf-xml" => MimeType::RdfXml,
             | "rhai" => MimeType::Rhai,
             | "ron" => MimeType::Ron,
             | "rtf" => MimeType::Rtf,
@@ -799,7 +740,7 @@ impl From<&str> for MimeType {
             | "webp" => MimeType::Webp,
             | "tar" => MimeType::Tar,
             | "toml" => MimeType::Toml,
-            | "ttl" => MimeType::Turtle,
+            | "ttl" | "turtle" => MimeType::Turtle,
             | "txt" => MimeType::Text,
             | "xls" | "xlsb" | "xlsm" | "xlsx" => MimeType::Excel,
             | "yml" | "yaml" => MimeType::Yaml,
@@ -1064,6 +1005,33 @@ impl ParseOptionsExt for ParseOptions {
     }
 }
 #[cfg(feature = "std")]
+impl StringConversion for &Path {
+    fn file_name_with_parent(&self) -> String {
+        <Path as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <Path as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <Path as StringConversion>::percent_encode(self)
+    }
+    fn sluggify(&self) -> String {
+        <Path as StringConversion>::sluggify(self)
+    }
+    fn to_absolute_path(&self) -> String {
+        <Path as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <Path as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_cross_platform_path(&self) -> String {
+        <Path as StringConversion>::to_cross_platform_path(self)
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <Path as StringConversion>::truncate_utf8(self, max_bytes)
+    }
+}
+#[cfg(feature = "std")]
 impl StringConversion for Path {
     fn file_name_with_parent(&self) -> String {
         file_name_with_parent(self)
@@ -1219,6 +1187,38 @@ impl SemanticVersion {
 impl MarkdownSupport for str {
     fn to_markdown(&self) -> String {
         self.to_string()
+    }
+}
+impl StringConversion for &str {
+    #[cfg(feature = "std")]
+    fn file_name_with_parent(&self) -> String {
+        <str as StringConversion>::file_name_with_parent(self)
+    }
+    fn normalized(&self) -> String {
+        <str as StringConversion>::normalized(self)
+    }
+    fn percent_encode(&self) -> String {
+        <str as StringConversion>::percent_encode(self)
+    }
+    fn sluggify(&self) -> String {
+        <str as StringConversion>::sluggify(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_absolute_path(&self) -> String {
+        <str as StringConversion>::to_absolute_path(self)
+    }
+    fn to_ascii_alphanumeric(&self) -> String {
+        <str as StringConversion>::to_ascii_alphanumeric(self)
+    }
+    fn to_complete_date(&self) -> Option<&str> {
+        <str as StringConversion>::to_complete_date(self)
+    }
+    #[cfg(feature = "std")]
+    fn to_cross_platform_path(&self) -> String {
+        <str as StringConversion>::to_cross_platform_path(self)
+    }
+    fn truncate_utf8(&self, max_bytes: usize) -> String {
+        <str as StringConversion>::truncate_utf8(self, max_bytes)
     }
 }
 impl StringConversion for str {

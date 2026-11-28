@@ -20,6 +20,7 @@ pub(crate) struct ToolSignals {
     pub(crate) drafts: Signal<BTreeMap<String, (String, String)>>,
     pub(crate) editor_source: Signal<Option<SuppliedFile>>,
     pub(crate) example_loaded: Signal<bool>,
+    pub(crate) format_source: Signal<Option<String>>,
     pub(crate) last_request: Signal<Request>,
     pub(crate) request: Signal<Request>,
     pub(crate) result: Signal<Option<Result<Value, String>>>,
@@ -32,6 +33,8 @@ struct ToolSnapshot {
     editor_source: Option<SuppliedFile>,
     #[serde(default)]
     example_loaded: bool,
+    #[serde(default)]
+    format_source: Option<String>,
     request: Request,
     result: Option<Result<Value, String>>,
 }
@@ -48,6 +51,7 @@ impl ToolSignals {
             drafts,
             editor_source,
             example_loaded,
+            format_source: Signal::new(None),
             last_request,
             request,
             result: Signal::new(None),
@@ -56,9 +60,12 @@ impl ToolSignals {
         }
     }
     pub(crate) fn isolated() -> Self {
+        Self::isolated_with_request(Request::default())
+    }
+    pub(crate) fn isolated_with_request(initial: Request) -> Self {
         Self::new(
-            Signal::new(Request::default()),
-            Signal::new(Request::default()),
+            Signal::new(initial.clone()),
+            Signal::new(initial),
             Signal::new(String::new()),
             Signal::new(BTreeMap::new()),
             Signal::new(None),
@@ -70,6 +77,7 @@ impl ToolSignals {
             drafts: self.drafts.peek().clone(),
             editor_source: self.editor_source.peek().clone(),
             example_loaded: *self.example_loaded.peek(),
+            format_source: self.format_source.peek().clone(),
             request: self.request.peek().clone(),
             result: self.result.peek().clone(),
         }
@@ -81,6 +89,7 @@ impl ToolSnapshot {
             && self.result.is_none()
             && self.editor_source.as_ref().is_none_or(|source| source.content == session)
             && !self.example_loaded
+            && self.format_source.is_none()
             && self.request
                 == Request {
                     input: session.to_owned(),
@@ -195,6 +204,7 @@ pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signa
                 signals.drafts.set(snapshot.drafts);
                 signals.editor_source.set(snapshot.editor_source);
                 signals.example_loaded.set(snapshot.example_loaded);
+                signals.format_source.set(snapshot.format_source);
                 signals.request.set(snapshot.request);
                 signals.result.set(snapshot.result);
                 signals.seen_session.set(session.peek().clone());
@@ -210,6 +220,7 @@ pub(crate) fn use_tool_sync(tool: Tool, mut signals: ToolSignals, session: Signa
                 drafts: (signals.drafts)(),
                 editor_source: (signals.editor_source)(),
                 example_loaded: (signals.example_loaded)(),
+                format_source: (signals.format_source)(),
                 request: (signals.request)(),
                 result: (signals.result)(),
             };

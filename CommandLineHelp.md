@@ -73,20 +73,17 @@ This document contains the help content for the `acorn-cli` command-line program
 
 "Plant an ACORN and grow your science"
 
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣄⣀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⣀⠀⢴⣶⠀⢶⣦⠀⢄⣀⠀⠠⢾⣿⠿⠿⠿⠿⢦⠀
-⠀⠀⠀⠀⠀⠀⠺⠿⠇⢸⣿⣇⠘⣿⣆⠘⣿⡆⠠⣄⡀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⢀⣴⣶⣶⣤⣄⡉⠛⠀⢹⣿⡄⢹⣿⡀⢻⣧⠀⡀⠀⠀⠀⠀
-⠀⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣶⣤⡈⠓⠀⣿⣧⠈⢿⡆⠸⡄⠀⠀⠀   █████████     █████████     ███████    ███████████   ██████   █████
-⠀⠀⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⣈⠙⢆⠘⣿⡀⢻⠀⠀   ███▒▒▒▒▒███   ███▒▒▒▒▒███  ███▒▒▒▒▒███ ▒▒███▒▒▒▒▒███ ▒▒██████ ▒▒███
-⠀⢀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠹⣧⠈⠀⠀  ▒███    ▒███  ███     ▒▒▒  ███     ▒▒███ ▒███    ▒███  ▒███▒███ ▒███
-⠀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠈⠃⠀⠀⠀ ▒███████████ ▒███         ▒███      ▒███ ▒██████████   ▒███▒▒███▒███
-⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀ ▒███▒▒▒▒▒███ ▒███         ▒███      ▒███ ▒███▒▒▒▒▒███  ▒███ ▒▒██████⠀
-⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀ ▒███    ▒███ ▒▒███     ███▒▒███     ███  ▒███    ▒███  ▒███  ▒▒█████
-⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀ █████   █████ ▒▒█████████  ▒▒▒███████▒   █████   █████ █████  ▒▒█████⠀
-⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀▒▒▒▒▒   ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒     ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒
-⠀⠈⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠉⠀⠀⠀⠀⠀⠀⠀
-⠀ ⣿⣿⠿⠿⠿⠿⠿⠿⠟⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀~ Accessible Content Optimization for Research Needs ~⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+     ██▄
+      ▄▄█▄▄▄            █████████     █████████     ███████    ███████████   ██████   █████
+  ▄▄▄▀▀▄▄▄▄▀▀▄▄▄       ███▒▒▒▒▒███   ███▒▒▒▒▒███  ███▒▒▒▒▒███ ▒▒███▒▒▒▒▒███ ▒▒██████ ▒▒███
+ ▀▀████▀▀▀▀████▀▀     ▒███    ▒███  ███     ▒▒▒  ███     ▒▒███ ▒███    ▒███  ▒███▒███ ▒███
+███▄▄▄▄████▄▄▄▄███    ▒███████████ ▒███         ▒███      ▒███ ▒██████████   ▒███▒▒███▒███
+ ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄     ▒███▒▒▒▒▒███ ▒███         ▒███      ▒███ ▒███▒▒▒▒▒███  ▒███ ▒▒██████
+ ████▀▀████▀▀████     ▒███    ▒███ ▒▒███     ███▒▒███     ███  ▒███    ▒███  ▒███  ▒▒█████
+ ▀███  ████  ███▀     █████   █████ ▒▒█████████  ▒▒▒███████▒   █████   █████ █████  ▒▒█████
+   ▀██████████▀      ▒▒▒▒▒   ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒     ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒
+      ▀▀██▀▀
+                              ~ Accessible Content Optimization for Research Needs ~
 
 **Usage:** `acorn-cli [OPTIONS] [COMMAND]`
 
@@ -251,7 +248,7 @@ Perform static analysis on research activity data and apply standardized best pr
 * `--skip-verify-checksum` — Skip checksum verification when downloading files (e.g., downloading Vale to perform static analysis of prose) > CAUTION: Use at your own risk
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 
-   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, oci, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, oci, raid, text (`docx` and `pdf` alias `document`)
 * `-r`, `--readability-test <METRIC>` — Readability test to use
 
   Default value: `fkgl`
@@ -286,6 +283,8 @@ Perform static analysis on research activity data and apply standardized best pr
 * `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
 
   Possible values:
+  - `claude`:
+    Run the Claude Agent ACP adapter with tools disabled
   - `opencode`:
     Run OpenCode's native ACP server
   - `codex`:
@@ -1037,7 +1036,7 @@ Export research activity data to a specific target
    Can be relative or absolute. Relative paths will be resolved against the directory of the target file.
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 
-   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 
   Default value: `rads`
 * `--strict` — Fail if conversion loses data (only for crosswalk exports)
@@ -1058,12 +1057,12 @@ Export research activity data to a specific target
 * `--since <TIMESTAMP>` — Inclusive RFC 3339 timestamp for updates exports
 * `--from <STANDARD>` — Metadata standard to use for source data inference (default: auto-detect)
 
-   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 * `--crosswalk-contact <PATH>` — JSON or YAML contact required for Dublin Core or RAiD import; overrides options.crosswalk.contact
 * `--local-identifier <IDENTIFIER>` — Local RAD import identifier; overrides options.crosswalk.localIdentifier
 * `--to <STANDARD>` — Target metadata standard for crosswalk conversion
 
-   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
 
@@ -1094,7 +1093,8 @@ Run bounded inference through Needle or a configured prompt backend
     Run through OpenCode ACP (the default backend)
     $> acorn infer run summarize activity.json
 
-    Run through the Codex ACP adapter
+    Run through an installed ACP adapter
+    $> acorn infer run summarize activity.json --agent claude
     $> acorn infer run summarize activity.json --agent codex
 
     Run through an OpenAI-compatible endpoint
@@ -1130,6 +1130,8 @@ Run bounded inference through Needle or a configured prompt backend
 * `-a`, `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
 
   Possible values:
+  - `claude`:
+    Run the Claude Agent ACP adapter with tools disabled
   - `opencode`:
     Run OpenCode's native ACP server
   - `codex`:
@@ -1217,6 +1219,8 @@ Hydrate and run an embedded prompt or local Rhai script
 * `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
 
   Possible values:
+  - `claude`:
+    Run the Claude Agent ACP adapter with tools disabled
   - `opencode`:
     Run OpenCode's native ACP server
   - `codex`:
@@ -1301,7 +1305,7 @@ Formats supported metadata standards in place (inherently includes some elements
 * `-m`, `--merge-request` — Format files that were changed in a given merge request (Gitlab) or pull request (GitHub)
 * `-s`, `--standard <STANDARD>` — Metadata standard to validate against
 
-   Supported standards: acre, rads, cff, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
+   Supported standards: acre, rads, cff, czml, datacite, dcat, dcmi, document, invenio, huwise, kitfile, modelkit, raid, text (`docx` and `pdf` alias `document`)
 
   Default value: `rads`
 * `-v`, `--verbose` — Increase logging verbosity

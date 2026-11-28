@@ -28,7 +28,7 @@ if __name__ == "__main__":
         parser.error(f"Missing preview entry: {entry}" if preview_path else "Build the browser first with make web-build")
     url_path = f"/{preview_path}/" if preview_path else "/"
     url = f"http://127.0.0.1:{args.port}{url_path}"
-    kind = "design-preview" if preview_path == "design-system" else "web-preview"
+    kind = "design-preview" if preview_path.split("/")[0] == "design-system" else "web-preview"
     with ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(args.directory))) as server, registration(kind) as stop_request:
         server.timeout = 0.2
         print(f"ACORN Research Intelligence preview: {url}", flush=True)

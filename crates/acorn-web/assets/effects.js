@@ -50,29 +50,70 @@ window.acornCelebrate = (() => {
         setTimeout(() => burst.remove(), 1700);
     };
 })();
+let webMcpInstallationStarted = false;
+let webMcpStatus;
+function renderWebMcpStatus(status) {
+    let label = status.querySelector(".webmcp-label");
+    let state = status.querySelector(".webmcp-state");
+    let icon = status.querySelector(".webmcp-icon");
+    let reason = status.querySelector(".webmcp-reason");
+    if ((!label || !state || !icon || !reason) && webMcpStatus) {
+        label = document.createElement("span");
+        label.className = "webmcp-label";
+        label.textContent = "WebMCP";
+        state = document.createElement("span");
+        state.className = "webmcp-state";
+        icon = document.createElement("span");
+        icon.className = "webmcp-icon";
+        icon.setAttribute("aria-hidden", "true");
+        reason = document.createElement("span");
+        reason.className = "webmcp-reason";
+        state.append(icon, reason);
+        status.replaceChildren(label, " ", state);
+    }
+    if (icon && reason && webMcpStatus) {
+        if (status.dataset.state !== webMcpStatus.state) status.dataset.state = webMcpStatus.state;
+        if (icon.textContent !== webMcpStatus.icon) icon.textContent = webMcpStatus.icon;
+        if (reason.textContent !== webMcpStatus.reason) reason.textContent = webMcpStatus.reason;
+    }
+}
+function showWebMcpStatus(state) {
+    webMcpStatus = {
+        state,
+        icon: state === "installed" ? "✔ " : "❌ ",
+        reason: state === "failed" ? "failed (manual tools available)" : state,
+    };
+    const status = document.getElementById("webmcp-status");
+    if (status) renderWebMcpStatus(status);
+}
 async function installWebMcp() {
     const status = document.getElementById("webmcp-status");
     const moduleScript = document.querySelector('script[type="module"][src*="acorn-web"]');
-    if (!status || !moduleScript) return;
-    try {
-        const [adapterModule, bindings] = await Promise.all([
-            import(status.dataset.adapter), import(moduleScript.src),
-        ]);
-        const adapter = adapterModule.createAcornWebMcpAdapter(bindings);
-        const installation = adapter.install();
-        status.textContent = `WebMCP: ${await installation.ready}`;
-        window.addEventListener("pagehide", (event) => {
-            if (!event.persisted) installation.dispose();
-        });
-    } catch (error) {
-        status.textContent = "WebMCP: failed (manual tools available)";
-        console.error(`WebMCP installation failed: ${error?.stack ?? error}`);
+    if (status && moduleScript && !webMcpInstallationStarted) {
+        webMcpInstallationStarted = true;
+        try {
+            const [adapterModule, bindings] = await Promise.all([
+                import(status.dataset.adapter), import(moduleScript.src),
+            ]);
+            const adapter = adapterModule.createAcornWebMcpAdapter(bindings);
+            const installation = adapter.install();
+            showWebMcpStatus(await installation.ready);
+            window.addEventListener("pagehide", (event) => {
+                if (!event.persisted) installation.dispose();
+            });
+        } catch (error) {
+            showWebMcpStatus("failed");
+            console.error(`WebMCP installation failed: ${error?.stack ?? error}`);
+        }
     }
 }
-if (document.getElementById("webmcp-status")) installWebMcp();
-else if (typeof MutationObserver === "function" && document.documentElement) {
+if (document.getElementById("webmcp-status")) void installWebMcp();
+if (typeof MutationObserver === "function" && document.documentElement) {
     const observer = new MutationObserver(() => {
-        if (document.getElementById("webmcp-status")) { observer.disconnect(); installWebMcp(); }
+        const status = document.getElementById("webmcp-status");
+        if (status && webMcpStatus) {
+            renderWebMcpStatus(status);
+        } else if (status && !webMcpInstallationStarted) void installWebMcp();
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
 }
@@ -276,7 +317,7 @@ function validWorkspacePath(path) {
     const parts = path.split("/");
     // oxlint-disable-next-line no-control-regex -- Reject control characters in workspace paths.
     return !/[\\:\x00-\x1f\x7f]/.test(path) && parts.length <= workspaceLimits.depth
-        && parts.every((part) => part && part !== "." && part !== "..") && /\.(json|ya?ml|md|txt|svg|png|jpe?g|webp)$/i.test(path);
+        && parts.every((part) => part && part !== "." && part !== "..") && /\.(cff|json|jsonld|rdf|ttl|ya?ml|md|txt|svg|png|jpe?g|webp)$/i.test(path);
 }
 function workspaceImageMime(path) {
     if (/\.png$/i.test(path)) return "image/png";

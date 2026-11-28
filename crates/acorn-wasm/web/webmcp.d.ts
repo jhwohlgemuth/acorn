@@ -34,6 +34,7 @@ export type ToolName =
     | "acorn_crosswalk_metadata"
     | "acorn_diff_content"
     | "acorn_discover_persistent_identifiers"
+    | "acorn_format_metadata"
     | "acorn_inspect_persistent_identifier"
     | "acorn_validate_metadata_standard"
     | "acorn_validate_research_activity";
@@ -110,6 +111,20 @@ export interface FairAssessmentResult {
     findings: Array<Record<string, unknown>>;
     profile: Record<string, unknown>;
 }
+export interface FormatMetadataInput {
+    content: string;
+    format: "cff" | "json" | "json-ld" | "jsonc" | "markdown" | "rdf-xml" | "turtle" | "yaml" | "zon";
+    fuzzy?: "off" | "relaxed" | "strict";
+    standard: "citation-file-format" | "datacite" | "dublin-core" | "invenio" | "research-activity-data";
+}
+
+export interface FormatMetadataResult {
+    changed: boolean;
+    content: string;
+    format: "cff" | "json" | "json-ld" | "jsonc" | "markdown" | "rdf-xml" | "turtle" | "yaml" | "zon";
+    standard: "citation-file-format" | "datacite" | "dublin-core" | "invenio" | "research-activity-data";
+    vocabularyFuzzy: "off" | "relaxed" | "strict";
+}
 
 export interface IdentifierDiscoveryResult {
     count: number;
@@ -158,6 +173,7 @@ export interface InvocationEvent {
         | ContentDiffResult
         | CrosswalkResult
         | FairAssessmentResult
+        | FormatMetadataResult
         | IdentifierDiscoveryResult
         | IdentifierInspectionResult
         | ReadabilityResult
@@ -181,6 +197,7 @@ export interface AcornBindings {
     ): unknown;
     diffContent(before: string, after: string, mode: string): unknown;
     discoverPersistentIdentifiers(text: string): unknown;
+    formatMetadata(content: string, standard: string, format: string, fuzzy?: "off" | "relaxed" | "strict"): unknown;
     inspectPersistentIdentifier(value: string, kind?: string): unknown;
     validateMetadataStandard(content: string, standard: string, format: string): unknown;
     validateResearchActivity(json: string, fuzzy?: "off" | "relaxed" | "strict"): unknown;
@@ -230,6 +247,7 @@ export interface AcornWebMcpAdapter {
         input: { text: string },
         options?: ExecutionOptions,
     ): Promise<ToolResult<IdentifierDiscoveryResult>>;
+    formatMetadata(input: FormatMetadataInput, options?: ExecutionOptions): Promise<ToolResult<FormatMetadataResult>>;
     inspectPersistentIdentifier(
         input: { kind?: IdentifierKind; value: string },
         options?: ExecutionOptions,

@@ -1,0 +1,121 @@
+{
+  "assets": [
+    {
+      "id": "research/ames-marker",
+      "revision": 3,
+      "sha256": "418dc7a97c7e5c52bc9cbbd739d7feca8c4a67db7d3d96c45a1b0ff99552c3b9"
+    },
+    {
+      "id": "research/argonne-marker",
+      "revision": 3,
+      "sha256": "2c351aa19403f5b88060e2c17dc0eeca921126830eb830aad2b359b53c04639d"
+    },
+    {
+      "id": "research/berkeley-marker",
+      "revision": 3,
+      "sha256": "b81aa2d2ce7c32c827048e7ee435ff552dbbe95de1e2e1a33cda09210f749518"
+    },
+    {
+      "id": "research/brookhaven-marker",
+      "revision": 3,
+      "sha256": "30f06b140c4d6aaafe49e13ed86390e13a231180675abb3837b83c3bd71eb352"
+    },
+    {
+      "id": "research/fermilab-marker",
+      "revision": 3,
+      "sha256": "a8de534673c353d27a60ef7a092e55b8f58b5e23ebba750022b3347453cb7191"
+    },
+    {
+      "id": "research/idaho-marker",
+      "revision": 3,
+      "sha256": "6f078350416eff5a650ea32cbe4b599d368af203613a91cfe04b20cef799f7b4"
+    },
+    {
+      "id": "research/jefferson-marker",
+      "revision": 3,
+      "sha256": "b4e8417b5e31654bdbeca43c416cd81e7dcf6e3cf0943b34d7097ac121d3e3f9"
+    },
+    {
+      "id": "research/livermore-marker",
+      "revision": 3,
+      "sha256": "95eb8207daaa35b3c800994f2b9e99b24dec92aa8de34f812ae5131d59e482ed"
+    },
+    {
+      "id": "research/los-alamos-marker",
+      "revision": 3,
+      "sha256": "3912b0ff017c486ca85b0a4f20b3f1736631c4aa9ae16909891ab8147ab8507a"
+    },
+    {
+      "id": "research/netl-marker",
+      "revision": 3,
+      "sha256": "46018e8a2e0c6d6d6bea0baa0c463e039adb0252c972ee3610b3df5951b37bd3"
+    },
+    {
+      "id": "research/ornl-marker",
+      "revision": 3,
+      "sha256": "6cdda9d331e3c5603c7b8e4891108ca7ff018bded60fcace416bd384cd58de38"
+    },
+    {
+      "id": "research/pnnl-marker",
+      "revision": 3,
+      "sha256": "fac27dc295d40c252465ab84df8453525141d9f762f0ce78a292c7db7c6e3852"
+    },
+    {
+      "id": "research/pppl-marker",
+      "revision": 3,
+      "sha256": "cdd97b589988aed79b7afcc6bd4107dde39f598ab4b3420502f8a9058f183823"
+    },
+    {
+      "id": "research/rockies-marker",
+      "revision": 3,
+      "sha256": "2b7c468b7830bf5f225b7d66fa1e41013a08e8634331e18c1f007dac4572915a"
+    },
+    {
+      "id": "research/sandia-marker",
+      "revision": 3,
+      "sha256": "2f21c3c936608631efe97d4028cb368123fd3fdbee38d83cfc5bc8f46f2dd39a"
+    },
+    {
+      "id": "research/savannah-river-marker",
+      "revision": 3,
+      "sha256": "504287d429028764bb763c70517c08e365543757cf1d28b47ad5742419578bb0"
+    },
+    {
+      "id": "research/slac-marker",
+      "revision": 3,
+      "sha256": "b6d3cc0e02953053b19427b96cb1ebe1d6ca9fb1b8d7b2f586eeec4a1fa5cafa"
+    }
+  ],
+  "checks": {
+    "allMarkerGeometryUnchanged": 17,
+    "bodyColorsRevised": 16,
+    "brandColoredMarkers": 17,
+    "closedEmblemMeshes": 17,
+    "deterministicNamedMarkers": 17,
+    "embeddedLogoTextures": 0,
+    "khronosErrors": 0,
+    "khronosWarnings": 0,
+    "otherGlbHashesUnchanged": 61,
+    "plainVariantsUnchanged": 6,
+    "validatedCatalogAssets": 77
+  },
+  "colorSources": "../designs/laboratory-logos/colors.json",
+  "date": "2026-11-27",
+  "emblemSources": "../designs/laboratory-logos/emblems/catalog.json",
+  "externalRequests": 0,
+  "fullLibraryRebuildCheck": {
+    "firstFailure": "drones/autel-evo-max-4t.glb",
+    "observedBeforeMarkerChanges": true,
+    "status": "pre-existing mismatch"
+  },
+  "overview": "laboratory-markers-overview.png",
+  "pageErrors": 0,
+  "renderer": "Cesium 1.147.0 / Chromium",
+  "views": [
+    "front",
+    "rear",
+    "top",
+    "small"
+  ],
+  "visualReview": "Passed: all17 laboratory pins use sourced brand colors with white text-free emblems; body geometry, cutouts, reverse faces and six plain variants preserved."
+}

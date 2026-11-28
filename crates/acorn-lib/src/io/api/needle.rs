@@ -2,6 +2,7 @@
 use super::localhost;
 use crate::io::ApiResult;
 use acorn_core::prelude::{String, Vec};
+use acorn_core::Noul;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -51,8 +52,9 @@ pub struct CompleteResponse {
     pub reason: Option<String>,
     /// Short unconstrained derivation emitted by Needle.
     pub reasoning: Option<String>,
-    /// Calibrated confidence for base-model responses.
-    pub confidence: Option<f64>,
+    /// Calibrated confidence for base-model responses; absent when missing or outside the unit interval.
+    #[serde(default, deserialize_with = "Noul::deserialize_lenient_option")]
+    pub confidence: Option<Noul>,
     /// Calls withheld by Needle's confidence or grounding policy.
     #[serde(default)]
     pub suppressed_calls: Vec<FunctionCall>,

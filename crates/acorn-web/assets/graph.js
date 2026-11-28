@@ -126,6 +126,8 @@
         let frame = 0;
         let alpha = restored ? 0 : 1;
         let pointer = null;
+        const touches = new Map();
+        let gesture = null;
         let suppressClick = false;
         let initialFit = !restored;
         let camera = restored ? { ...restored.camera } : { x: 0, y: 0, size: 800 };
@@ -301,44 +303,85 @@
             zoom(Math.exp(Math.max(-240, Math.min(240, delta)) * 0.00045), event);
             scheduleSave();
         };
+        const touchPair = () => {
+            const [first, second] = [...touches.values()];
+            return {
+                x: (first.clientX + second.clientX) / 2,
+                y: (first.clientY + second.clientY) / 2,
+                distance: Math.max(1, Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY)),
+            };
+        };
         const onPointerDown = event => {
             if (event.button !== 0) return;
             initialFit = false;
-            suppressClick = false;
             const element = event.target.closest?.('.graph-node');
             const node = element && byId.get(element.dataset.nodeId);
-            const point = svgPoint(event);
-            pointer = { id: event.pointerId, node, x: point.x, y: point.y, clientX: event.clientX, clientY: event.clientY, startX: event.clientX, startY: event.clientY, moved: false };
             (element || svg).setPointerCapture(event.pointerId);
-            if (node) {
-                node.vx = 0;
-                node.vy = 0;
-                reheat();
+            if (event.pointerType === 'touch') touches.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
+            if (touches.size >= 2) {
+                pointer = null;
+                gesture = touchPair();
+                suppressClick = true;
+                setHover(null, null);
+            } else {
+                suppressClick = false;
+                const point = svgPoint(event);
+                pointer = { id: event.pointerId, node, x: point.x, y: point.y, clientX: event.clientX, clientY: event.clientY, startX: event.clientX, startY: event.clientY, moved: false };
+                if (node) {
+                    node.vx = 0;
+                    node.vy = 0;
+                    reheat();
+                }
             }
         };
         const onPointerMove = event => {
-            if (pointer?.id !== event.pointerId) return;
-            pointer.moved ||= Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 4;
-            const point = svgPoint(event);
-            const dx = point.x - pointer.x;
-            const dy = point.y - pointer.y;
-            if (pointer.node) {
-                pointer.node.x += dx;
-                pointer.node.y += dy;
-                draw();
-            } else {
-                const pixelsPerUnit = Math.min(svg.clientWidth, svg.clientHeight) / camera.size;
-                camera.x -= (event.clientX - pointer.clientX) / pixelsPerUnit;
-                camera.y -= (event.clientY - pointer.clientY) / pixelsPerUnit;
-                renderCamera();
+            if (event.pointerType === 'touch' && touches.has(event.pointerId)) {
+                touches.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
             }
-            pointer.x = point.x;
-            pointer.y = point.y;
-            pointer.clientX = event.clientX;
-            pointer.clientY = event.clientY;
+            if (event.pointerType === 'touch' && touches.size >= 2 && gesture) {
+                const next = touchPair();
+                const before = svgPoint({ clientX: gesture.x, clientY: gesture.y });
+                const after = svgPoint({ clientX: next.x, clientY: next.y });
+                const size = Math.max(160, Math.min(1600, camera.size * gesture.distance / next.distance));
+                const ratio = size / camera.size;
+                camera = { x: before.x - (after.x - camera.x) * ratio, y: before.y - (after.y - camera.y) * ratio, size };
+                gesture = next;
+                suppressClick = true;
+                renderCamera();
+                scheduleSave();
+            } else if (pointer?.id === event.pointerId) {
+                pointer.moved ||= Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 4;
+                const point = svgPoint(event);
+                const dx = point.x - pointer.x;
+                const dy = point.y - pointer.y;
+                if (pointer.node) {
+                    pointer.node.x += dx;
+                    pointer.node.y += dy;
+                    draw();
+                } else {
+                    const pixelsPerUnit = Math.min(svg.clientWidth, svg.clientHeight) / camera.size;
+                    camera.x -= (event.clientX - pointer.clientX) / pixelsPerUnit;
+                    camera.y -= (event.clientY - pointer.clientY) / pixelsPerUnit;
+                    renderCamera();
+                }
+                pointer.x = point.x;
+                pointer.y = point.y;
+                pointer.clientX = event.clientX;
+                pointer.clientY = event.clientY;
+            }
         };
         const onPointerUp = event => {
-            if (pointer?.id === event.pointerId) {
+            if (event.pointerType === 'touch') touches.delete(event.pointerId);
+            if (gesture && event.pointerType === 'touch') {
+                gesture = touches.size >= 2 ? touchPair() : null;
+                if (touches.size === 1) {
+                    const [id, touch] = touches.entries().next().value;
+                    const point = svgPoint(touch);
+                    pointer = { id, node: null, x: point.x, y: point.y, clientX: touch.clientX, clientY: touch.clientY, startX: touch.clientX, startY: touch.clientY, moved: true };
+                }
+                suppressClick = true;
+                scheduleSave();
+            } else if (pointer?.id === event.pointerId) {
                 const wasNode = pointer.node;
                 suppressClick = pointer.moved;
                 pointer = null;
@@ -351,7 +394,6 @@
                 event.preventDefault();
                 event.stopPropagation();
             }
-            suppressClick = false;
         };
         const controls = svg.closest('.graph-visual');
         const fullscreenButton = controls.querySelector('[data-graph-action="fullscreen"]');

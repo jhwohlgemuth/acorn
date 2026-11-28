@@ -5,6 +5,7 @@ use super::{Check, CheckBatch, CheckCategory, CheckSeverity, CheckSummary, Findi
 use crate::StandardCrosswalk;
 use acorn_core::util::MimeType;
 use acorn_core::validation::ValidationError;
+use acorn_core::Noul;
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::standard::{dublin_core::DublinCoreDocument, Standard};
 use acorn_schema::validation::{Validate, ValidationReport};
@@ -263,8 +264,8 @@ fn test_fair_counts_report_support_and_coverage() {
         supported: 3,
         unsupported: 1,
     };
-    assert_eq!(counts.support(), Some(0.75));
-    assert_eq!(counts.coverage(), Some(4.0 / 6.0));
+    assert_eq!(counts.support(), Noul::new(0.75).ok());
+    assert_eq!(counts.coverage(), Noul::new(4.0 / 6.0).ok());
     assert_eq!(FairCounts::default().support(), None);
     assert_eq!(FairCounts::default().coverage(), None);
 }

@@ -22,7 +22,7 @@ use acorn::{
         host::service::AnalysisReport,
     },
     io::{
-        acp::{self, AgentProfile, Codex, OpenCode},
+        acp::{self, AgentProfile, Claude, Codex, OpenCode},
         api::{
             openai::{Client as OpenAiClient, EndpointMode, Options},
             operation::InvocationContext,
@@ -128,6 +128,7 @@ impl ConfiguredInference {
             .map_err(color_eyre::Report::new);
         working_directory.map(|working_directory| {
             let process_config = match arguments.agent.unwrap_or_default() {
+                | AcpAgentKind::Claude => Claude::process_config(arguments.agent_executable.clone(), working_directory),
                 | AcpAgentKind::Codex => Codex::process_config(arguments.agent_executable.clone(), working_directory),
                 | AcpAgentKind::OpenCode => OpenCode::process_config(arguments.agent_executable.clone(), working_directory),
             };

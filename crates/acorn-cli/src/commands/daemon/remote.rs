@@ -170,10 +170,8 @@ fn download(url: &str, path: &Path, max_bytes: u64) -> Result<()> {
         "--show-error",
         "--proto",
         "=https",
-        "--max-filesize",
-        size,
-        "--output",
-        path.as_os_str(),
+        ("--max-filesize", size),
+        ("--output", path.as_os_str()),
         url,
     ];
     cmd!(status "curl", arguments)

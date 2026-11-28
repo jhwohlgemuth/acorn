@@ -200,3 +200,37 @@ async fn test_acp_binding_uses_opencode_profile() {
         Some("opencode")
     );
 }
+#[tokio::test]
+async fn test_claude_binding_hydrates_prompt_and_preserves_selection() {
+    let fake = backend(InferenceFinishReason::Stop, "Final summary");
+    let requests = fake.requests.clone();
+    let registry = ToolRegistry::default()
+        .register_acp_bindings_with(&configuration("claude"), |_| Ok(Arc::new(fake.clone())))
+        .expect("register ACP binding");
+    assert!(requests.lock().expect("request log").is_empty());
+    let selected = registry
+        .select_capability_binding("acorn.summary", None, None, CapabilitySelectionContext::default())
+        .expect("select ACP binding");
+    let outcome = registry
+        .execute_selected(
+            &selected,
+            input(),
+            ExecutionContext {
+                grounded: true,
+                ..ExecutionContext::default()
+            },
+        )
+        .await;
+    assert_eq!(outcome.outcome, ExecutionOutcome::Completed);
+    assert_eq!(
+        outcome.content.as_ref().and_then(|value| value.get("text")),
+        Some(&json!("Final summary"))
+    );
+    assert_eq!(outcome.provenance.binding_id, "acp:summary");
+    let requests = requests.lock().expect("request log");
+    assert_eq!(requests.len(), 1);
+    let request = requests.first().expect("one request");
+    assert_eq!(request.agent.as_deref(), Some("claude"));
+    assert_eq!(request.model.as_deref(), Some("selected-model"));
+    assert!(request.prompt.body.contains("A short source"));
+}

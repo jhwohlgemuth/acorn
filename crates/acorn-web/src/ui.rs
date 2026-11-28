@@ -13,7 +13,7 @@ use crate::workspace::{file_format, LoadedFiles, Loader, Portfolio};
 use acorn_analysis::readability::ReadabilityType;
 use acorn_core::util::MimeType;
 use acorn_schema::{pid::PID, standard::Standard};
-use acorn_web::operations::{self, Request, Tool};
+use acorn_web::operations::{self, Mode, Request, Tool};
 use acorn_web::presentation;
 use acorn_web::search::SearchPattern;
 use acorn_web::session::{Selection, SuppliedFile, Workspace, FILE_LIMIT, TOTAL_LIMIT};
@@ -85,6 +85,7 @@ pub(crate) struct ToolSessions {
     diff: ToolSignals,
     discover: ToolSignals,
     fair: ToolSignals,
+    format: ToolSignals,
     inspect: ToolSignals,
     readability: ToolSignals,
     standard: ToolSignals,
@@ -111,6 +112,7 @@ impl ToolSessions {
                 review_editor_source,
                 review_example_loaded,
             ),
+            format: ToolSignals::isolated_with_request(default_request_for(Tool::Format)),
             inspect: ToolSignals::isolated(),
             readability: ToolSignals::new(
                 review_request,
@@ -138,6 +140,7 @@ impl ToolSessions {
             | Tool::Diff => self.diff,
             | Tool::Discover => self.discover,
             | Tool::Fair => self.fair,
+            | Tool::Format => self.format,
             | Tool::Inspect => self.inspect,
             | Tool::Readability => self.readability,
             | Tool::Standard => self.standard,
@@ -156,6 +159,7 @@ impl ToolSessions {
             self.diff,
             self.discover,
             self.fair,
+            self.format,
             self.inspect,
             self.readability,
             self.standard,
@@ -178,6 +182,24 @@ impl WindowType {
 #[component]
 fn AppName() -> Element {
     rsx! { "{APP_NAME}" }
+}
+#[component]
+fn BigOInputMode(discovered: bool, onchange: EventHandler<String>) -> Element {
+    let value = if discovered { "discover".to_owned() } else { "pair".to_owned() };
+    let choices = vec![
+        ("pair".into(), "Pair".into(), "Compare two expressions"),
+        (
+            "discover".into(),
+            "Discover pairs".into(),
+            "Find and compare consecutive Big-O expressions in pasted text",
+        ),
+    ];
+    rsx! {
+        div { class: "big-o-input-mode",
+            ChoiceField { label: "Input mode", value, choices, width: 110, widths: Vec::new(), onchange }
+            p { class: "small muted", hidden: !discovered, "Paste prose containing O(...) expressions. Consecutive expressions form pairs in reading order, up to 64 pairs; each expression may contain up to 256 bytes." }
+        }
+    }
 }
 #[component]
 fn ChoiceField(
@@ -209,6 +231,20 @@ fn ChoiceField(
         }
     }
 }
+/// Default form state for one browser tool.
+pub(crate) fn default_request_for(tool: Tool) -> Request {
+    let default = Request::default();
+    if tool == Tool::Format {
+        Request {
+            fuzzy: "strict".into(),
+            ..default
+        }
+    } else if tool == Tool::BigO {
+        Request { mode: Mode::Pair, ..default }
+    } else {
+        default
+    }
+}
 fn editor_popout() -> bool {
     let initial = js_sys::Reflect::get(&js_sys::global(), &"acornInitialEditorId".into())
         .ok()
@@ -232,7 +268,8 @@ fn editor_popout() -> bool {
 fn editor_save_allowed(workspace: &Workspace, file: &SuppliedFile, input: &str, limit: usize) -> bool {
     input.len() <= limit.min(FILE_LIMIT) && workspace.bytes().saturating_sub(file.content.len()).saturating_add(input.len()) <= TOTAL_LIMIT
 }
-fn editor_source_file(workspace: &Workspace, source: Option<&SuppliedFile>) -> Option<SuppliedFile> {
+/// Find the unchanged workspace file represented by the editor source.
+pub(crate) fn editor_source_file(workspace: &Workspace, source: Option<&SuppliedFile>) -> Option<SuppliedFile> {
     source.and_then(|source| {
         workspace
             .files
@@ -840,6 +877,33 @@ fn sample_activity_path(workspace: &Workspace) -> Option<String> {
         .find(|(file, _)| file.path.ends_with("/index.json"))
         .map(|(file, _)| file.path.clone())
 }
+/// Replace a still-loaded source after rechecking content and workspace limits.
+pub(crate) fn saved_editor_workspace(
+    workspace: &Workspace,
+    source: Option<&SuppliedFile>,
+    content: &str,
+    limit: usize,
+) -> Option<(Workspace, SuppliedFile)> {
+    editor_source_file(workspace, source)
+        .filter(|file| !content.trim().is_empty() && file.content != content && editor_save_allowed(workspace, file, content, limit))
+        .and_then(|file| {
+            let mut next = workspace.clone();
+            next.files
+                .iter_mut()
+                .find(|stored| stored.path == file.path)
+                .map(|stored| stored.content = content.to_owned())
+                .map(|()| {
+                    next.validations.remove(&file.path);
+                    (
+                        next,
+                        SuppliedFile {
+                            path: file.path,
+                            content: content.to_owned(),
+                        },
+                    )
+                })
+        })
+}
 #[component]
 fn Shell() -> Element {
     let mut collapsed = use_context::<Signal<bool>>();
@@ -903,7 +967,7 @@ fn Shell() -> Element {
                     Link { to: Route::Home {}, class: if current == "home" { "nav-item active" } else { "nav-item" }, title: "Home", "aria-label": "Home", "aria-current": if current == "home" { "page" } else { "false" }, Icon { name: "home" } span { class: "nav-label", "Home" } }
                     Link { to: Route::Page { page: "portfolio".into() }, class: if current == "portfolio" { "nav-item active" } else { "nav-item" }, title: "Portfolio", "aria-label": "Portfolio", "aria-current": if current == "portfolio" { "page" } else { "false" }, Icon { name: "portfolio" } span { class: "nav-label", "Portfolio" } }
                     Link { to: Route::Page { page: "review".into() }, class: if review_active { "nav-item active" } else { "nav-item" }, title: "Review", "aria-label": "Review", "aria-current": if review_active { "page" } else { "false" }, Icon { name: "filecheck" } span { class: "nav-label", "Review" } }
-                    for (tool, label) in [(Tool::Discover, "Discover"), (Tool::Inspect, "Inspect"), (Tool::Crosswalk, "Convert")] {
+                    for (tool, label) in [(Tool::Format, "Format"), (Tool::Discover, "Discover"), (Tool::Inspect, "Inspect"), (Tool::Crosswalk, "Convert")] {
                         Link { to: Route::Page { page: tool.slug().into() }, class: if current == tool.slug() { "nav-item active" } else { "nav-item" }, title: tool.to_string(), "aria-label": tool.to_string(), "aria-current": if current == tool.slug() { "page" } else { "false" }, Icon { name: tool.icon() } span { class: "nav-label", "{label}" } }
                     }
                     p { class: "nav-heading", "ANALYZE" }
@@ -921,7 +985,7 @@ fn Shell() -> Element {
                 div { class: "sidebar-bottom",
 
                     small { title: RAD_TITLE, "{APP_NAME} · v{VERSION}" }
-                    small { id: "webmcp-status", "data-adapter": asset!("/assets/generated/webmcp.js"), "WebMCP: initializing" }
+                    a { id: "webmcp-status", href: "https://mcpservers.org/learn/what-is-webmcp", target: "_blank", rel: "noopener noreferrer", "data-adapter": asset!("/assets/generated/webmcp.js"), span { class: "webmcp-label", "WebMCP" } " " span { class: "webmcp-state", span { class: "webmcp-icon", "aria-hidden": "true" } span { class: "webmcp-reason", "initializing" } } }
                 }
             }
             div { id: "notifications", class: "notifications", "aria-live": "polite", "aria-relevant": "additions" }
@@ -951,6 +1015,14 @@ fn SidebarSession(onopen: EventHandler<()>) -> Element {
             span { class: "session-stats session-detail", "{validated} {activity_label} · {files} {file_label}" }
             span { class: "session-count", "{validated} · {files}" }
         }
+    }
+}
+/// Keep the selected standard aligned with unambiguous Format source types.
+pub(crate) fn standard_for_format_file(tool: Tool, mime: Option<MimeType>, previous: &str) -> String {
+    match (tool, mime) {
+        | (Tool::Format, Some(MimeType::Cff)) => "citation-file-format".into(),
+        | (Tool::Format, Some(MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle)) => "dublin-core".into(),
+        | _ => previous.to_owned(),
     }
 }
 #[component]
@@ -1132,6 +1204,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
         ("reusable", "Reusable", "shuffle", "R"),
     ];
     let mut session = use_context::<Signal<String>>();
+    let nav = use_navigator();
     let mut workspace = use_context::<Signal<Workspace>>();
     let url_entry = use_context::<Signal<Option<UrlEntry>>>();
     let sync_review_url = review && initial_tool == Tool::Standard;
@@ -1163,6 +1236,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let mut drafts = signals.drafts;
     let mut editor_source = signals.editor_source;
     let mut example_loaded = signals.example_loaded;
+    let mut format_source = signals.format_source;
     let mut last_url_intent = use_signal(|| None::<Intent>);
     let mut pending_code = use_signal(|| None::<String>);
     let mut url_draft = use_signal(|| false);
@@ -1192,7 +1266,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             url_draft.set(true);
                             request.set(Request {
                                 input: content,
-                                ..Request::default()
+                                ..default_request_for(tool)
                             });
                             result.set(None);
                         }
@@ -1217,6 +1291,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 sessions.clear_review_results();
             } else {
                 result.set(None);
+                format_source.set(None);
             }
             script::cancel_remote_file_load();
         }
@@ -1240,7 +1315,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                 .find(|file| Some(&file.path) == snapshot.selected.as_ref() && file.content == content)
                 .cloned();
             let previous = request.peek().clone();
-            let format = if matches!(tool, Tool::Standard | Tool::Crosswalk) {
+            let format = if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Format) {
                 source
                     .as_ref()
                     .and_then(|file| file_format(&file.path))
@@ -1249,17 +1324,28 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
             } else {
                 previous.format.clone()
             };
+            let standard = standard_for_format_file(tool, source.as_ref().map(|file| MimeType::from(file.path.as_str())), &previous.standard);
             editor_source.set(source);
             example_loaded.set(false);
             request.set(Request {
                 input: content,
                 format,
+                standard,
                 ..previous
             });
         }
     });
+    use_effect(move || {
+        let content = request().input;
+        if editor_source().as_ref().is_some_and(|source| source.content != content) {
+            script::schedule_draft_banner();
+        }
+    });
+    let current = request.read();
+    let discovered = tool == Tool::BigO && current.mode == Mode::Discover;
     let title = if review { "Review".to_owned() } else { tool.to_string() };
     let field_label = match tool {
+        | Tool::BigO if discovered => "Text with Big-O pairs",
         | Tool::BigO => "Left expression",
         | Tool::Diff => "Before",
         | _ => "Content",
@@ -1280,8 +1366,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     } else {
         tool.description()
     };
-    let limit = tool.limit();
-    let current = request.read();
+    let limit = if tool == Tool::BigO && !discovered { 256 } else { tool.limit() };
     let skip_choices: &[(&str, &str, &str, &str)] = match tool {
         | Tool::Activity => &ACTIVITY_CHECKS,
         | Tool::Standard if current.standard == "research-activity-data" => &ACTIVITY_CHECKS,
@@ -1299,11 +1384,11 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
     let edited_file = selected_file.as_ref().filter(|file| file.content != input).cloned();
     let save_allowed = edited_file
         .as_ref()
-        .is_some_and(|file| editor_save_allowed(&snapshot, file, &input, limit));
+        .is_some_and(|file| !input.trim().is_empty() && editor_save_allowed(&snapshot, file, &input, limit));
     let discard_file = edited_file.clone();
-    let needs_content = input.trim().is_empty() && !(tool == Tool::Diff && current.mode == "unified");
+    let needs_content = input.trim().is_empty() && !(tool == Tool::Diff && current.mode == Mode::Unified);
     let language = match tool {
-        | Tool::BigO => "expression".to_owned(),
+        | Tool::BigO => if discovered { "text" } else { "expression" }.to_owned(),
         | Tool::Inspect => "identifier".to_owned(),
         | Tool::Standard | Tool::Crosswalk => current.format.clone(),
         | Tool::Activity | Tool::Fair => "json".to_owned(),
@@ -1335,8 +1420,49 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
             }
         })
         .unwrap_or_default();
+    let format_save = (tool == Tool::Format)
+        .then(|| result().and_then(Result::ok))
+        .flatten()
+        .filter(|value| value.get("format").and_then(Value::as_str) == Some(current.format.as_str()))
+        .and_then(|value| value.get("content").and_then(Value::as_str).map(str::to_owned))
+        .and_then(|formatted| {
+            selected_file
+                .as_ref()
+                .filter(|file| {
+                    file_format(&file.path) == Some(current.format.as_str())
+                        && file.content != formatted
+                        && editor_save_allowed(&snapshot, file, &formatted, limit)
+                })
+                .map(|file| (file.clone(), formatted, input.clone()))
+        });
+    let undo_available = tool == Tool::Format && selected_file.is_some() && format_source().is_some();
     rsx! {
         document::Title { "{title} · {APP_NAME}" }
+        if let Some(file) = edited_file.filter(|_| tool != Tool::Format || result().is_none()) { div { class: "editor-draft", role: "status",
+            span { "Edited copy of {file.path}. Changes are kept here until you save or discard them." }
+            button { id: "tool-save", r#type: "button", disabled: !save_allowed, "aria-keyshortcuts": "Control+S Meta+S", onclick: move |_| {
+                let content = request().input;
+                if let Some((next, file)) = saved_editor_workspace(&workspace(), editor_source().as_ref(), &content, limit) {
+                    let selected = next.selected.as_deref() == Some(file.path.as_str());
+                    workspace.set(next);
+                    if selected { session.set(content); }
+                    editor_source.set(Some(file.clone()));
+                    drafts.write().remove(&file.path);
+                    script::notify_dashboard("Saved changes to workspace.", "success");
+                }
+            }, "Save to workspace" }
+            if input.trim().is_empty() { small { "Add content before saving." } }
+            else if !save_allowed { small { "Reduce this input to fit the editor or workspace limit before saving." } }
+            button { r#type: "button", onclick: move |_| {
+                if let Some(file) = &discard_file {
+                    drafts.write().remove(&file.path);
+                    request.set(Request { input: file.content.clone(), ..request() });
+                    result.set(None);
+                    script::notify_dashboard("Discarded editor changes.", "info");
+                }
+            }, "Discard edits" }
+            div { class: "editor-draft-progress", "aria-hidden": "true" }
+        } }
         section { class: if review { "page tool-page review-page" } else { "page tool-page" }, "data-tool": tool.slug(),
             if !url_error().is_empty() { p { class: "source-feedback", role: "alert", "{url_error()}" } }
             if let Some(content) = pending_code() { div { class: "source-feedback", role: "group", "aria-label": "Replace editor draft",
@@ -1345,7 +1471,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     editor_source.set(None);
                     example_loaded.set(false);
                     url_draft.set(true);
-                    request.set(Request { input: content.clone(), ..Request::default() });
+                    request.set(Request { input: content.clone(), ..default_request_for(tool) });
                     result.set(None);
                     pending_code.set(None);
                 }, "Replace draft" }
@@ -1401,7 +1527,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     button { r#type: "button", "aria-pressed": tool == mode, onclick: move |_| {
                         selected_tool.set(mode);
                         if sync_review_url {
-                            let fragment = match mode { Tool::Fair => "fair", Tool::Readability => "readability", Tool::Activity | Tool::Standard | Tool::Crosswalk | Tool::Diff | Tool::Discover | Tool::Inspect | Tool::BigO => "" };
+                            let fragment = match mode { Tool::Fair => "fair", Tool::Readability => "readability", Tool::Activity | Tool::Standard | Tool::Crosswalk | Tool::Diff | Tool::Discover | Tool::Format | Tool::Inspect | Tool::BigO => "" };
                             script::set_review_fragment(fragment);
                         }
                     }, Icon { name: mode.icon() } "{mode}" }
@@ -1418,14 +1544,15 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                     onselect: move |file: SuppliedFile| {
                         let previous = request();
                         let content = drafts.read().get(&file.path).filter(|(source, _)| source == &file.content).map(|(_, draft)| draft.clone()).unwrap_or_else(|| file.content.clone());
-                        let format = if matches!(tool, Tool::Standard | Tool::Crosswalk) {
+                        let format = if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Format) {
                             file_format(&file.path).unwrap_or(&previous.format).to_owned()
                         } else {
                             previous.format.clone()
                         };
+                        let standard = standard_for_format_file(tool, Some(MimeType::from(file.path.as_str())), &previous.standard);
                         editor_source.set(Some(file));
                         example_loaded.set(false);
-                        request.set(Request { input: content, format, ..previous });
+                        request.set(Request { input: content, format, standard, ..previous });
                         result.set(None);
                     },
                 } }
@@ -1434,8 +1561,8 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         h2 { class: "section-heading", "Input" }
                         button { class: if !example_loaded() || input.trim().is_empty() { "sample-action" } else { "sample-action example-hidden" },
                             disabled: example_loaded() && !input.trim().is_empty(),
-                            title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Inspect | Tool::Readability => "Load a detailed example" },
-                            onclick: move |_| { workspace.write().selected = None; editor_source.set(None); let example = operations::example_request(tool); if tool == Tool::Discover { script::sync_popout_input("content", &example.input); } example_loaded.set(true); request.set(example); result.set(None); },
+                            title: match tool { Tool::Activity | Tool::Standard => "Load intentionally flawed RAD with multiple validation issues", Tool::Diff => "Load a nested JSON example for semantic diff", Tool::BigO | Tool::Crosswalk | Tool::Discover | Tool::Fair | Tool::Format | Tool::Inspect | Tool::Readability => "Load a detailed example" },
+                            onclick: move |_| { workspace.write().selected = None; editor_source.set(None); let example = operations::example_request(tool); let example = if tool == Tool::BigO && request.peek().mode == Mode::Discover { Request { input: "Algorithm A: O(n log n) vs O(n^2). Algorithm B: O(log(n^2)) vs O(n).".into(), after: String::new(), mode: Mode::Discover, ..example } } else { example }; if tool == Tool::Discover { script::sync_popout_input("content", &example.input); } example_loaded.set(true); request.set(example); result.set(None); },
                             span { "aria-hidden": "true", "✨" } "Use example"
                         }
                     }
@@ -1444,9 +1571,30 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             if skipped_checks > 0 { span { class: "tool-settings-count", "{skipped_checks} skipped" } }
                         }
                         div { class: "options",
+                        if tool == Tool::BigO {
+                            BigOInputMode { discovered, onchange: move |mode: String| { if let Ok(mode) = mode.parse::<Mode>() { example_loaded.set(false); request.set(Request { mode, ..request() }); } } }
+                        }
                         if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Fair) { StandardField { label: "Standard", value: current.standard.clone(), crosswalk: tool == Tool::Crosswalk, onchange: move |v| request.set(Request { standard: v, ..request() }) } }
-                        if matches!(tool, Tool::Standard | Tool::Crosswalk) {
-                            ChoiceField { label: "Format", value: current.format.clone(), choices: FORMAT_CHOICES.into_iter().map(|(format, abbreviation, title)| (format.metadata_format_key().into(), abbreviation.to_owned(), title)).collect(), width: 42, widths: FORMAT_WIDTHS.to_vec(), onchange: move |v| request.set(Request { format: v, ..request() }) }
+                        if tool == Tool::Format {
+                            ChoiceField { label: "Standard", value: current.standard.clone(), choices: vec![("citation-file-format".into(), "CFF".into(), "Citation File Format"), ("datacite".into(), "DCITE".into(), "DataCite Metadata Schema"), ("dublin-core".into(), "DCMI".into(), "Dublin Core"), ("invenio".into(), "INV".into(), "InvenioRDM"), ("research-activity-data".into(), "RAD".into(), "Research Activity Data")], width: 42, widths: Vec::new(), onchange: move |v: String| {
+                                let previous = request();
+                                let format = if v == "citation-file-format" {
+                                    if matches!(previous.format.as_str(), "cff" | "json" | "yaml") { previous.format.clone() } else { "cff".into() }
+                                } else if v == "datacite" || v == "invenio" {
+                                    if matches!(previous.format.as_str(), "json" | "yaml") { previous.format.clone() } else { "json".into() }
+                                } else if v == "dublin-core" {
+                                    if matches!(previous.format.as_str(), "json" | "json-ld" | "rdf-xml" | "turtle" | "yaml") { previous.format.clone() } else { "json".into() }
+                                } else if matches!(previous.format.as_str(), "json" | "jsonc" | "markdown" | "yaml" | "zon") {
+                                    previous.format.clone()
+                                } else {
+                                    "json".into()
+                                };
+                                request.set(Request { standard: v, format, ..previous });
+                            } }
+                        }
+                        if matches!(tool, Tool::Standard | Tool::Crosswalk | Tool::Format) {
+                            ChoiceField { label: "Format", value: current.format.clone(), choices: FORMAT_CHOICES.into_iter().filter(|(format, _, _)| tool != Tool::Format || match current.standard.as_str() { "citation-file-format" => matches!(format, MimeType::Cff | MimeType::Json | MimeType::Yaml), "datacite" | "invenio" => matches!(format, MimeType::Json | MimeType::Yaml), "dublin-core" => matches!(format, MimeType::Json | MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle | MimeType::Yaml), _ => matches!(format, MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml | MimeType::Zon) }).map(|(format, abbreviation, title)| (format.metadata_format_key().into(), abbreviation.to_owned(), title)).collect(), width: 42, widths: FORMAT_WIDTHS.to_vec(), onchange: move |v| request.set(Request { format: v, ..request() }) }
+                            if tool == Tool::Format && current.format == "jsonc" { p { class: "muted small", "JSONC comments are removed when formatting." } }
                         }
                         if !skip_choices.is_empty() {
                             div { class: "check-settings-row",
@@ -1477,7 +1625,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             }
                         }
                         }
-                        if tool == Tool::Activity || (tool == Tool::Standard && current.standard == "research-activity-data") {
+                        if tool == Tool::Activity || (tool == Tool::Format && current.standard == "research-activity-data") || (tool == Tool::Standard && current.standard == "research-activity-data") {
                             fieldset { class: "field vocabulary-field", legend { "Vocabulary matching" }
                                 div { class: "vocabulary-choices", "data-selected": current.fuzzy.as_str(),
                                     for (value, label) in [("off", "Off"), ("relaxed", "Relaxed"), ("strict", "Strict")] {
@@ -1493,7 +1641,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                                 onthreshold: move |v| request.set(Request { threshold: v, ..request() }) }
                         }
                         if tool == Tool::Diff {
-                            ChoiceField { label: "Diff format", value: current.mode.clone(), choices: vec![("unified".into(), "Unified".into(), "Unified diff"), ("json-patch".into(), "JSON Patch".into(), "JSON Patch")], width: 76, widths: Vec::new(), onchange: move |v| request.set(Request { mode: v, ..request() }) }
+                            ChoiceField { label: "Diff format", value: current.mode.to_string(), choices: vec![("unified".into(), "Unified".into(), "Unified diff"), ("json-patch".into(), "JSON Patch".into(), "JSON Patch")], width: 76, widths: Vec::new(), onchange: move |v: String| { if let Ok(mode) = v.parse::<Mode>() { request.set(Request { mode, ..request() }); } } }
                         }
                         if tool == Tool::Inspect {
                             ChoiceField { label: "Identifier", value: current.kind.clone(), choices: identifier_choices().into_iter().map(|(kind, abbreviation, title)| (kind, abbreviation.to_owned(), title)).collect(), width: 40, widths: Vec::new(), onchange: move |v| request.set(Request { kind: v, ..request() }) }
@@ -1512,38 +1660,12 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         }
                     }
                     }
-                    if let Some(file) = edited_file { div { class: "editor-draft", role: "status",
-                        span { "Edited copy of {file.path}. Changes are kept here until you save or discard them." }
-                        button { r#type: "button", disabled: !save_allowed, onclick: move |_| {
-                            let mut next = workspace();
-                            let content = request().input;
-                            if let Some(file) = editor_source_file(&next, editor_source().as_ref())
-                                .filter(|file| file.content != content && editor_save_allowed(&next, file, &content, limit))
-                            {
-                                if let Some(source) = next.files.iter_mut().find(|source| source.path == file.path) {
-                                    source.content = content.clone();
-                                    next.validations.remove(&file.path);
-                                    workspace.set(next);
-                                    editor_source.set(Some(SuppliedFile { path: file.path.clone(), content }));
-                                    drafts.write().remove(&file.path);
-                                }
-                            }
-                        }, "Save to workspace" }
-                        if !save_allowed { small { "Reduce this input to fit the editor or workspace limit before saving." } }
-                        button { r#type: "button", onclick: move |_| {
-                            if let Some(file) = &discard_file {
-                                drafts.write().remove(&file.path);
-                                request.set(Request { input: file.content.clone(), ..request() });
-                                result.set(None);
-                            }
-                        }, "Discard edits" }
-                    } }
-                    div { class: if matches!(tool, Tool::Diff | Tool::BigO) { "editor-pair" } else { "" },
+                    div { class: if tool == Tool::Diff || (tool == Tool::BigO && !discovered) { "editor-pair" } else { "" },
                         div { class: "field",
                             if !is_editor_popout || matches!(tool, Tool::Diff | Tool::BigO) {
                                 span { "{field_label}" }
                             }
-                            CodeEditor { id: "content", label: editor_label, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, popout_state: window_sync::handoff(tool, signals), title_icon: if is_editor_popout { Some(tool.icon()) } else { None }, oninput: move |value: String| {
+                            CodeEditor { id: "content", label: editor_label, language: if tool == Tool::Format { current.format.clone() } else { language.clone() }, rows: if tool == Tool::BigO && !discovered { 3 } else { 7 }, value: input.clone(), diagnostics, fullscreen: true, run_action: true, run_disabled: running(), run_error: if running() { None } else { result().and_then(Result::err) }, save_action: review, save_disabled: !save_allowed, popout_state: window_sync::handoff(tool, signals), title_icon: if is_editor_popout { Some(tool.icon()) } else { None }, oninput: move |value: String| {
                                 if value.trim().is_empty() { example_loaded.set(false); }
                                 if let Some(file) = &selected_file {
                                     if value == file.content { drafts.write().remove(&file.path); }
@@ -1553,7 +1675,7 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                             } }
                             small { class: if input.len() > limit { "error" } else { "muted" }, "{input.len()} / {limit} UTF-8 bytes" }
                         }
-                        if matches!(tool, Tool::Diff | Tool::BigO) {
+                        if tool == Tool::Diff || (tool == Tool::BigO && !discovered) {
                             div { class: "field", span { if tool == Tool::BigO { "Right expression" } else { "After" } }
                                 CodeEditor { id: "after", label: if tool == Tool::BigO { "Right expression" } else { "After" }, language: language.clone(), rows: if tool == Tool::BigO { 3 } else { 7 }, value: current.after.clone(), oninput: move |value| { request.set(Request { after: value, ..request() }); result.set(None); } }
                                 small { class: if current.after.len() > limit { "error" } else { "muted" }, "{current.after.len()} / {limit} UTF-8 bytes" }
@@ -1579,9 +1701,26 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                         let celebrate = matches!(tool, Tool::Activity | Tool::Standard) && output.as_ref().is_ok_and(|value| value["valid"] == true);
                         // Edits made while the operation ran supersede its result.
                         if *request.peek() == submitted {
+                            if tool == Tool::Format {
+                                let formatted = output.as_ref().ok().and_then(|value| value.get("content")).and_then(Value::as_str);
+                                if let Some(formatted) = formatted.filter(|formatted| *formatted != submitted.input) {
+                                    format_source.set(Some(submitted.input.clone()));
+                                    if let Some(file) = editor_source_file(&workspace(), editor_source().as_ref()) {
+                                        drafts.write().insert(file.path, (file.content, formatted.to_owned()));
+                                    }
+                                    let applied = Request { input: formatted.to_owned(), ..submitted.clone() };
+                                    last_request.set(applied.clone());
+                                    request.set(applied);
+                                } else {
+                                    format_source.set(None);
+                                }
+                            }
                             result.set(Some(output)); window_sync::publish_snapshot(tool, signals); script::show_tool_result(tool.slug(), celebrate);
                         }
-                    }, Icon { name: tool.icon() } if running() { "Running…" } else { "{tool.action_label()}" } } button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); example_loaded.set(false); if tool == Tool::Discover { script::sync_popout_input("content", ""); } request.set(Request::default()); result.set(None); }, "Clear" } }
+                    }, Icon { name: tool.icon() } if running() { "Running…" } else if discovered { "Compare pairs" } else { "{tool.action_label()}" } }
+                    if review { button { r#type: "button", class: "save-action", disabled: !save_allowed, "aria-keyshortcuts": "Control+S Meta+S", title: "Save to workspace (Ctrl+S)", onclick: move |_| script::save_editor_tool(), Icon { name: "save" } "Save" } }
+                    button { onclick: move |_| { workspace.write().selected = None; editor_source.set(None); example_loaded.set(false); if tool == Tool::Discover { script::sync_popout_input("content", ""); } let cleared = default_request_for(tool); request.set(if discovered { Request { mode: Mode::Discover, ..cleared } } else { cleared }); result.set(None); }, "Clear" }
+                    }
                     p { class: "muted small", "Runs locally. No identifiers are resolved and no content is uploaded." }
                 }
                 }
@@ -1612,8 +1751,47 @@ fn ToolWorkspace(initial_tool: Tool, review: bool) -> Element {
                                 }
                             }
                         },
-                        Some(Ok(value)) => rsx! { ResultView { tool, value, source: input.clone() } },
+                        Some(Ok(value)) => rsx! { ResultView { tool, value, source: if tool == Tool::Format { format_source().unwrap_or_else(|| input.clone()) } else { input.clone() }, undo_available, ondiff: move |(before, after): (String, String)| {
+                            let mut diff = sessions.diff;
+                            diff.seen_session.set(session.peek().clone());
+                            diff.editor_source.set(None);
+                            diff.example_loaded.set(false);
+                            diff.drafts.set(BTreeMap::new());
+                            let previous = diff.request.peek().clone();
+                            diff.request.set(Request { input: before, after, mode: Mode::Unified, ..previous });
+                            diff.result.set(None);
+                            nav.push(Route::Page { page: Tool::Diff.slug().into() });
+                        }, onundo: move |_| {
+                            if let (Some(original), Some(file)) = (format_source(), editor_source_file(&workspace(), editor_source().as_ref())) {
+                                if file.content == original { drafts.write().remove(&file.path); }
+                                else { drafts.write().insert(file.path, (file.content, original.clone())); }
+                                request.set(Request { input: original, ..request() });
+                                result.set(None);
+                                format_source.set(None);
+                            }
+                        } } },
                     }
+                    if let Some((file, formatted, submitted)) = format_save { button { r#type: "button", onclick: move |_| {
+                        let mut next = workspace();
+                        let current_file = editor_source_file(&next, editor_source().as_ref())
+                            .filter(|source| source.path == file.path && source.content == file.content && request.peek().input == submitted)
+                            .filter(|source| editor_save_allowed(&next, source, &formatted, limit));
+                        if let Some(current_file) = current_file {
+                            if let Some(source) = next.files.iter_mut().find(|source| source.path == current_file.path) {
+                                source.content = formatted.clone();
+                                next.validations.remove(&file.path);
+                                let selected = next.selected.as_deref() == Some(file.path.as_str());
+                                workspace.set(next);
+                                editor_source.set(Some(SuppliedFile { path: file.path.clone(), content: formatted.clone() }));
+                                drafts.write().remove(&file.path);
+                                if selected { session.set(formatted.clone()); }
+                                request.set(Request { input: formatted.clone(), ..request() });
+                                result.set(None);
+                                format_source.set(None);
+                                script::notify_dashboard("Saved formatted content to workspace.", "success");
+                            }
+                        }
+                    }, {format!("Save formatted {} to workspace", current.format.to_uppercase())} } }
                     }
                 }
             }
@@ -1696,32 +1874,4 @@ pub(crate) async fn validate_files(files: Vec<SuppliedFile>) -> Vec<(String, Res
         results.push((file.path, result));
     }
     results
-}
-
-#[cfg(test)]
-mod editor_source_tests {
-    use super::*;
-
-    #[test]
-    fn test_save_source_follows_editor_input_across_workspace_selection_changes() {
-        let source = SuppliedFile {
-            path: "a.json".into(),
-            content: "original A".into(),
-        };
-        let other = SuppliedFile {
-            path: "b.json".into(),
-            content: "original B".into(),
-        };
-        let mut workspace = Workspace {
-            files: vec![source.clone(), other],
-            selected: Some("b.json".into()),
-            ..Workspace::default()
-        };
-        assert_eq!(
-            editor_source_file(&workspace, Some(&source)).as_ref().map(|file| file.path.as_str()),
-            Some("a.json")
-        );
-        workspace.files.get_mut(0).expect("source file in fixture").content = "newer A".into();
-        assert!(editor_source_file(&workspace, Some(&source)).is_none());
-    }
 }

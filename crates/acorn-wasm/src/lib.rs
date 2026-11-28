@@ -125,7 +125,7 @@ use acorn_schema::codec::DocumentCodec;
 use acorn_schema::pid::{raid, Identifier, PersistentIdentifierParse, ISNI, ORCID, PID};
 use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::crosswalk::{ConversionWarning, Crosswalk, DublinCoreImportOptions, RaidImportOptions};
-use acorn_schema::standard::{datacite, dublin_core::DublinCoreDocument, Standard};
+use acorn_schema::standard::{cff::Cff, datacite, dublin_core::DublinCoreDocument, invenio, Standard};
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use acorn_schema::ContactPoint;
 use acorn_service::{AcornService, CheckReadabilityRequest, ValidateResearchActivityRequest, ValidateStandardRequest};
@@ -135,6 +135,7 @@ use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
 
 const BIG_O_LIST_LIMIT: usize = 64;
+const FORMAT_CONTENT_LIMIT: usize = 256 * 1024;
 #[wasm_bindgen(typescript_custom_section)]
 const TYPESCRIPT_DEFINITIONS: &str = r#"
 export type DiagnosticKind = "parse" | "validation";
@@ -185,6 +186,13 @@ export interface Diagnostic {
 export interface FairAssessmentResult {
   findings: Array<Record<string, unknown>>;
   profile: Record<string, unknown>;
+}
+export interface FormatMetadataResult {
+  changed: boolean;
+  content: string;
+  format: "cff" | "json" | "json-ld" | "jsonc" | "markdown" | "rdf-xml" | "turtle" | "yaml" | "zon";
+  standard: "citation-file-format" | "datacite" | "dublin-core" | "invenio" | "research-activity-data";
+  vocabularyFuzzy: "off" | "relaxed" | "strict";
 }
 export interface IdentifierDiscoveryResult {
   count: number;
@@ -257,6 +265,9 @@ extern "C" {
     /// JavaScript metadata crosswalk returned by [`crosswalk_metadata`].
     #[wasm_bindgen(typescript_type = "CrosswalkResult")]
     pub type JsCrosswalkResult;
+    /// JavaScript formatted metadata returned by [`format_metadata`].
+    #[wasm_bindgen(typescript_type = "FormatMetadataResult")]
+    pub type JsFormatMetadataResult;
     /// JavaScript content diff returned by [`diff_content`].
     #[wasm_bindgen(typescript_type = "ContentDiffResult")]
     pub type JsContentDiffResult;
@@ -340,6 +351,15 @@ struct DiscoveredIdentifier {
 struct FairAssessmentResult {
     findings: Vec<FairDetails>,
     profile: FairProfile,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FormatMetadataResult {
+    changed: bool,
+    content: String,
+    format: String,
+    standard: String,
+    vocabulary_fuzzy: VocabularyFuzzyMode,
 }
 #[derive(Serialize)]
 struct IdentifierDiscoveryResult {
@@ -801,6 +821,91 @@ fn ensure_big_o_list_limit(length: usize) -> Result<(), JsValue> {
         .then_some(())
         .ok_or_else(|| JsValue::from_str(&format!("Big-O lists may contain at most {BIG_O_LIST_LIMIT} items")))
 }
+/// Normalize bounded in-memory CFF, DataCite, Dublin Core, Invenio, or RAD metadata using the selected syntax and vocabulary policy.
+#[wasm_bindgen(js_name = formatMetadata)]
+pub fn format_metadata(content: &str, standard: &str, format: &str, fuzzy: Option<String>) -> Result<JsFormatMetadataResult, JsValue> {
+    format_metadata_input(content, standard, format, fuzzy.as_deref())
+        .map_err(|error| JsValue::from_str(&error))
+        .and_then(|result| serialize(&result))
+        .map(JsFormatMetadataResult::from)
+}
+fn format_metadata_input(content: &str, standard: &str, format: &str, fuzzy: Option<&str>) -> Result<FormatMetadataResult, String> {
+    let mime = MimeType::from(format);
+    let syntax = (mime.metadata_format_key() == format).then_some(mime);
+    let parsed_standard = parse_standard(standard).ok().filter(|parsed| parsed.to_string() == standard);
+    match (parsed_standard, syntax) {
+        | (Some(Standard::CitationFileFormat), Some(mime @ (MimeType::Cff | MimeType::Json | MimeType::Yaml))) => {
+            format_portable_record::<Cff>(content, mime, format, standard, fuzzy)
+        }
+        | (Some(Standard::Datacite), Some(mime @ (MimeType::Json | MimeType::Yaml))) => {
+            format_portable_record::<datacite::Record>(content, mime, format, standard, fuzzy)
+        }
+        | (Some(Standard::Invenio), Some(mime @ (MimeType::Json | MimeType::Yaml))) => {
+            format_portable_record::<invenio::Record>(content, mime, format, standard, fuzzy)
+        }
+        | (Some(Standard::DublinCore), Some(mime @ (MimeType::Json | MimeType::LdJson | MimeType::RdfXml | MimeType::Turtle | MimeType::Yaml))) => {
+            format_portable_record::<DublinCoreDocument>(content, mime, format, standard, fuzzy)
+        }
+        | (
+            Some(Standard::ResearchActivityData),
+            Some(mime @ (MimeType::Json | MimeType::Jsonc | MimeType::Markdown | MimeType::Yaml | MimeType::Zon)),
+        ) => (content.len() <= FORMAT_CONTENT_LIMIT)
+            .then_some(())
+            .ok_or_else(|| "Format input exceeds 256 KiB".to_string())
+            .and_then(|()| parse_vocabulary_fuzzy(Some(fuzzy.unwrap_or("strict"))))
+            .and_then(|vocabulary_fuzzy| {
+                ResearchActivity::decode(content, &mime)
+                    .map_err(|errors| errors.into_iter().map(|error| error.to_string()).collect::<Vec<_>>().join("; "))
+                    .and_then(|activity| {
+                        activity
+                            .format_with_vocabulary_report(vocabulary_fuzzy)
+                            .map_err(|error| error.to_string())
+                            .and_then(|formatted| {
+                                formatted.value.encode(&mime).map_err(|error| error.to_string()).and_then(|output| {
+                                    (output.len() <= FORMAT_CONTENT_LIMIT)
+                                        .then_some(FormatMetadataResult {
+                                            changed: output != content,
+                                            content: output,
+                                            format: format.to_string(),
+                                            standard: standard.to_string(),
+                                            vocabulary_fuzzy,
+                                        })
+                                        .ok_or_else(|| "Format output exceeds 256 KiB".to_string())
+                                })
+                            })
+                    })
+            }),
+        | _ => Err(format!("Unsupported format pair '{standard}/{format}'")),
+    }
+}
+fn format_portable_record<T: DocumentCodec>(
+    content: &str,
+    mime: MimeType,
+    format: &str,
+    standard: &str,
+    fuzzy: Option<&str>,
+) -> Result<FormatMetadataResult, String> {
+    (content.len() <= FORMAT_CONTENT_LIMIT)
+        .then_some(())
+        .ok_or_else(|| "Format input exceeds 256 KiB".to_string())
+        .and_then(|()| parse_vocabulary_fuzzy(Some(fuzzy.unwrap_or("strict"))))
+        .and_then(|vocabulary_fuzzy| {
+            T::decode(content, &mime)
+                .map_err(|errors| errors.into_iter().map(|error| error.to_string()).collect::<Vec<_>>().join("; "))
+                .and_then(|record| record.encode(&mime).map_err(|error| error.to_string()))
+                .and_then(|output| {
+                    (output.len() <= FORMAT_CONTENT_LIMIT)
+                        .then_some(FormatMetadataResult {
+                            changed: output != content,
+                            content: output,
+                            format: format.to_string(),
+                            standard: standard.to_string(),
+                            vocabulary_fuzzy,
+                        })
+                        .ok_or_else(|| "Format output exceeds 256 KiB".to_string())
+                })
+        })
+}
 fn inspect_identifier(value: &str, kind: Option<&str>) -> Result<IdentifierInspectionResult, String> {
     match kind.map(parse_identifier_kind).transpose() {
         | Err(why) => Err(why),
@@ -1122,12 +1227,6 @@ pub fn validate_research_activity_with_skip(json: &str, fuzzy: Option<String>, s
         .map_err(|why| JsValue::from_str(&why))
         .and_then(|mode| serialize(&validate_json_with_fuzzy_and_skip(json, mode, skip)))
         .map(JsValue::unchecked_into)
-}
-
-#[cfg(test)]
-#[test]
-fn test_parse_czml_standard() {
-    assert_eq!(parse_standard("czml"), Ok(Standard::Czml));
 }
 
 #[cfg(test)]

@@ -1,0 +1,22 @@
+{
+  "descriptions": [
+    {
+      "properties": {
+        "http://purl.org/dc/terms/title": [
+          {
+            "kind": "literal",
+            "value": {
+              "language": "en",
+              "value": "A title"
+            }
+          }
+        ]
+      },
+      "subject": {
+        "kind": "iri",
+        "value": "https://example.org/work"
+      },
+      "types": ["http://purl.org/dc/dcmitype/Text"]
+    }
+  ]
+}

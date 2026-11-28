@@ -782,6 +782,17 @@ mod session_tests {
         assert_eq!(next.skipped, 3);
     }
     #[test]
+    fn test_format_workspace_extensions_survive_restore() {
+        let files = ["CITATION.cff", "record.jsonld", "record.rdf", "record.ttl"]
+            .into_iter()
+            .map(|path| file(path, "metadata"))
+            .collect();
+        let workspace = Workspace::default().replace(Selection { files, skipped: 0 });
+        assert_eq!(workspace.files.len(), 4);
+        assert_eq!(workspace.skipped, 0);
+        assert_eq!(workspace.clone().restored(), Some(workspace));
+    }
+    #[test]
     fn test_identifier_labels_deduplicate_values_across_fields_and_activities() {
         let files = [file("a.json", "{}"), file("b.json", "{}")];
         let values = [
@@ -974,6 +985,97 @@ mod template_tests {
         }
     }
 }
+mod ui_tests {
+    use crate::ui::{default_request_for, editor_source_file, saved_editor_workspace, standard_for_format_file};
+    use acorn_core::util::MimeType;
+    use acorn_web::operations::Tool;
+    use acorn_web::session::{SuppliedFile, Workspace};
+
+    #[test]
+    fn test_format_file_selection_chooses_standard_for_specific_syntaxes() {
+        for (path, expected) in [
+            ("CITATION.cff", "citation-file-format"),
+            ("record.jsonld", "dublin-core"),
+            ("record.rdf", "dublin-core"),
+            ("record.ttl", "dublin-core"),
+        ] {
+            assert_eq!(
+                standard_for_format_file(Tool::Format, Some(MimeType::from(path)), "research-activity-data"),
+                expected
+            );
+        }
+        assert_eq!(
+            standard_for_format_file(Tool::Format, Some(MimeType::Json), "research-activity-data"),
+            "research-activity-data"
+        );
+        assert_eq!(
+            standard_for_format_file(Tool::Format, None, "research-activity-data"),
+            "research-activity-data"
+        );
+        assert_eq!(
+            standard_for_format_file(Tool::Standard, Some(MimeType::Turtle), "research-activity-data"),
+            "research-activity-data"
+        );
+    }
+    #[test]
+    fn test_format_request_reset_keeps_strict_vocabulary_policy() {
+        assert_eq!(default_request_for(Tool::Format).fuzzy, "strict");
+        assert_eq!(default_request_for(Tool::Standard).fuzzy, "off");
+    }
+    #[test]
+    fn test_review_save_replaces_loaded_source_and_invalidates_its_validation() {
+        let source = SuppliedFile {
+            path: "a.json".into(),
+            content: "original A".into(),
+        };
+        let other = SuppliedFile {
+            path: "b.json".into(),
+            content: "original B".into(),
+        };
+        let workspace = Workspace {
+            files: vec![source.clone(), other.clone()],
+            validations: [(source.path.clone(), serde_json::json!({"valid": true}))].into(),
+            selected: Some(other.path.clone()),
+            ..Workspace::default()
+        };
+        assert!(saved_editor_workspace(&workspace, Some(&source), "", 100).is_none());
+        assert!(saved_editor_workspace(&workspace, Some(&source), "   ", 100).is_none());
+        assert!(saved_editor_workspace(&workspace, None, "edited A", 100).is_none());
+        assert!(saved_editor_workspace(&workspace, Some(&source), "original A", 100).is_none());
+        assert!(saved_editor_workspace(&workspace, Some(&source), "edited A", 3).is_none());
+        let (saved, active) = saved_editor_workspace(&workspace, Some(&source), "edited A", 100).expect("edited loaded source can be saved");
+        assert_eq!(active.path, source.path);
+        assert_eq!(active.content, "edited A");
+        assert_eq!(saved.files.first().map(|file| file.content.as_str()), Some("edited A"));
+        assert_eq!(saved.files.get(1), Some(&other));
+        assert_eq!(saved.selected.as_deref(), Some("b.json"));
+        assert!(!saved.validations.contains_key("a.json"));
+        assert_eq!(workspace.files.first(), Some(&source));
+        assert!(saved_editor_workspace(&saved, Some(&source), "another edit", 100).is_none());
+    }
+    #[test]
+    fn test_save_source_follows_editor_input_across_workspace_selection_changes() {
+        let source = SuppliedFile {
+            path: "a.json".into(),
+            content: "original A".into(),
+        };
+        let other = SuppliedFile {
+            path: "b.json".into(),
+            content: "original B".into(),
+        };
+        let mut workspace = Workspace {
+            files: vec![source.clone(), other],
+            selected: Some("b.json".into()),
+            ..Workspace::default()
+        };
+        assert_eq!(
+            editor_source_file(&workspace, Some(&source)).as_ref().map(|file| file.path.as_str()),
+            Some("a.json")
+        );
+        workspace.files.get_mut(0).expect("source file in fixture").content = "newer A".into();
+        assert!(editor_source_file(&workspace, Some(&source)).is_none());
+    }
+}
 mod url_intent_tests {
     use crate::url_intent::*;
 
@@ -1015,3 +1117,4 @@ mod url_intent_tests {
         assert!(matches!(too_long.intent(), Intent::Invalid(_)));
     }
 }
+mod workspace;

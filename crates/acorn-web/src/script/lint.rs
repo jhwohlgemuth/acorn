@@ -35,10 +35,10 @@ fn test_catalog_owns_every_script_and_host_api() {
     let available = std::fs::read_dir(root.join("assets/scripts"))
         .expect("script asset directory exists")
         .map(|entry| entry.expect("read script asset").file_name().to_string_lossy().into_owned())
-        .filter(|name| name.ends_with(".js"))
+        .filter(|name| name.ends_with(".js") && name != "ror-index-worker.js")
         .collect::<BTreeSet<_>>();
     assert_eq!(referenced, available, "authored scripts and macro references differ");
-    assert_eq!(scripts.len(), 95, "browser script catalog changed without inventory review");
+    assert_eq!(scripts.len(), 100, "browser script catalog changed without inventory review");
 
     let used = scripts
         .iter()

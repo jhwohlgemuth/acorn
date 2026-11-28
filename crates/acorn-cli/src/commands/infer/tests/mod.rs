@@ -33,6 +33,21 @@ fn test_acp_is_the_default_backend_shape() {
     assert_eq!(configured.timeout, Milliseconds::new(30_000));
 }
 #[test]
+fn test_acp_selects_claude_profile_and_executable_override() {
+    let arguments = InferenceArgs::init()
+        .backend(InferenceBackendKind::Acp)
+        .agent(AcpAgentKind::Claude)
+        .agent_executable(PathBuf::from("custom/claude-acp"))
+        .working_directory(PathBuf::from("."))
+        .build();
+    let configured = ConfiguredInference::from_args(&arguments, false).expect("configure Claude ACP");
+    assert_eq!(configured.agent.as_deref(), Some(Software::Claude.command()));
+    assert!(matches!(
+        configured.backend,
+        Backend::Acp(ref client) if client.config().executable() == std::path::Path::new("custom/claude-acp")
+    ));
+}
+#[test]
 fn test_acp_selects_codex_profile_and_executable_override() {
     let arguments = InferenceArgs::init()
         .backend(InferenceBackendKind::Acp)
@@ -46,6 +61,11 @@ fn test_acp_selects_codex_profile_and_executable_override() {
         configured.backend,
         Backend::Acp(ref client) if client.config().executable() == std::path::Path::new("custom/codex-acp")
     ));
+}
+#[test]
+fn test_cli_accepts_claude_agent() {
+    let parsed = crate::cli::Arguments::try_parse_from(["acorn", "infer", "run", "summarize", "input.json", "--agent", "claude"]);
+    assert!(parsed.is_ok(), "{parsed:?}");
 }
 #[test]
 fn test_configured_fix_options_conversion_preserves_backend_defaults() {

@@ -6,6 +6,7 @@ use crate::syntax::{Code, CodeBlock, CopyButton};
 use crate::ui::{Icon, ResultTree, Route};
 use acorn_analysis::{CheckCategory, CheckSeverity};
 use acorn_core::big_o::{Exponent, Expression, Term};
+use acorn_diff::unified_diff;
 use acorn_web::{
     operations::Tool,
     presentation::{self, items, text, DiagnosticList, DiagnosticSort},
@@ -60,9 +61,9 @@ fn Complexity(value: Value) -> Element {
             p { class: "small muted", "A symbolic comparison under the applied assumptions." }
         }
         div { class: "complexity-expressions",
-            article { class: "complexity-expression", "data-side": "left", span { class: "complexity-expression-label", "Left" } Code { text: left.clone(), language: "expression", copyable: true } }
+            article { class: "complexity-expression", "data-side": "left", span { class: "complexity-expression-label", "Left" } CopyButton { text: left.clone(), label: "Copy left expression", icon_only: true } Code { text: left.clone(), language: "expression" } }
             span { class: "complexity-versus", "aria-hidden": "true", "vs" }
-            article { class: "complexity-expression", "data-side": "right", span { class: "complexity-expression-label", "Right" } Code { text: right.clone(), language: "expression", copyable: true } }
+            article { class: "complexity-expression", "data-side": "right", span { class: "complexity-expression-label", "Right" } CopyButton { text: right.clone(), label: "Copy right expression", icon_only: true } Code { text: right.clone(), language: "expression" } }
         }
         if let Some(samples) = samples {
             {let maximum = samples.iter().flat_map(|sample| [sample.left, sample.right]).map(f64::ln_1p).fold(0.0_f64, f64::max);
@@ -116,6 +117,32 @@ fn complexity_samples(left: &str, right: &str, assumptions: &Value) -> Option<Ve
             .collect::<Vec<_>>();
         (samples.len() >= 2).then_some(samples)
     })
+}
+#[component]
+fn ComplexityPair(index: usize, value: Value) -> Element {
+    let number = index.saturating_add(1);
+    let left = text(&value, "left").to_owned();
+    let right = text(&value, "right").to_owned();
+    rsx! {
+        details { class: "complexity-pair", open: index == 0,
+            summary { strong { "Pair {number}" } " · {left} vs {right}" }
+            div { class: "complexity-pair-content", Complexity { value } }
+        }
+    }
+}
+#[component]
+fn ComplexityResults(value: Value) -> Element {
+    let comparisons = items(&value, "comparisons");
+    rsx! {
+        if value.get("comparisons").and_then(Value::as_array).is_some() {
+            p { class: "small muted", "Compared {comparisons.len()} pairs in reading order." }
+            div { class: "complexity-batch",
+                for (index, comparison) in comparisons.iter().enumerate() {
+                    ComplexityPair { index, value: comparison.clone() }
+                }
+            }
+        } else { Complexity { value: value.clone() } }
+    }
 }
 #[component]
 fn DiagnosticSortControls(mut sort: Signal<DiagnosticSort>, mut descending: Signal<bool>, list: DiagnosticList) -> Element {
@@ -438,6 +465,40 @@ fn format_sample(value: f64) -> String {
         format!("{value:.2}")
     }
 }
+#[component]
+fn FormatResult(
+    value: Value,
+    source: Option<Rc<String>>,
+    undo_available: bool,
+    onundo: Option<EventHandler<()>>,
+    ondiff: Option<EventHandler<(String, String)>>,
+) -> Element {
+    let formatted = text(&value, "content").to_owned();
+    let diff = source.as_ref().map(|source| unified_diff(source, &formatted, "before", "after"));
+    let comparison = source.as_ref().map(|source| ((**source).clone(), formatted.clone()));
+    rsx! {
+        p { class: "status diagnostic-status", Icon { name: "check" } if value.get("changed").and_then(Value::as_bool) == Some(true) { "Formatted" } else { "Already formatted" } }
+        details { class: "diagnostic-group format-section", open: true,
+            summary { class: "diagnostic-group-summary", h3 { class: "diagnostic-group-title format-result-title", Icon { name: "code" } "Formatted " {text(&value, "format").to_uppercase()} } }
+            CodeBlock { text: formatted, language: text(&value, "format").to_owned() }
+        }
+        details { class: "diagnostic-group format-section format-changes", open: true,
+            summary { class: "diagnostic-group-summary", h3 { class: "diagnostic-group-title format-result-title", Icon { name: "diff" } "Changes" } }
+            div { class: "actions", role: "group", "aria-label": "Diff actions",
+                button { r#type: "button", disabled: !undo_available || onundo.is_none() || value.get("changed").and_then(Value::as_bool) != Some(true), onclick: move |_| {
+                    if let Some(onundo) = onundo { onundo.call(()); }
+                }, Icon { name: "reset" } "Undo" }
+                button { r#type: "button", disabled: comparison.is_none() || ondiff.is_none(), onclick: move |_| {
+                    if let (Some(comparison), Some(ondiff)) = (comparison.clone(), ondiff) { ondiff.call(comparison); }
+                }, Icon { name: "diff" } "Open in Content diff" }
+            }
+            if let Some(diff) = diff {
+                if diff.is_empty() { p { class: "muted", "No changes from the input." } }
+                else { CodeBlock { text: diff, language: "diff", label: "Copy diff" } }
+            }
+        }
+    }
+}
 fn has_source_location(diagnostic: &Value) -> bool {
     diagnostic["line"]
         .as_u64()
@@ -520,7 +581,14 @@ fn ResultSearch(query: Signal<String>, regex: Signal<bool>, case_sensitive: Sign
     rsx! { SearchField { label, visible_label: Some("Filter"), placeholder: "Search results", query, regex, case_sensitive, error, compact: true } }
 }
 #[component]
-pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Option<String>) -> Element {
+pub(crate) fn ResultView(
+    tool: Tool,
+    value: Value,
+    #[props(default)] source: Option<String>,
+    #[props(default)] undo_available: bool,
+    #[props(default)] onundo: Option<EventHandler<()>>,
+    #[props(default)] ondiff: Option<EventHandler<(String, String)>>,
+) -> Element {
     let sort = use_signal(|| DiagnosticSort::Original);
     let descending = use_signal(|| false);
     let query = use_signal(String::new);
@@ -574,8 +642,9 @@ pub(crate) fn ResultView(tool: Tool, value: Value, #[props(default)] source: Opt
             Tool::Readability => rsx! { Readability { value: value.clone() } },
             Tool::Diff => rsx! { Difference { value: value.clone() } },
             Tool::Discover => rsx! { Discovery { value: value.clone(), source: source.clone() } },
+            Tool::Format => rsx! { FormatResult { value: value.clone(), source: source.clone(), undo_available, onundo, ondiff } },
             Tool::Inspect => rsx! { Inspection { value: value.clone() } },
-            Tool::BigO => rsx! { Complexity { value: value.clone() } },
+            Tool::BigO => rsx! { ComplexityResults { value: value.clone() } },
         }
         div { class: "actions result-actions",
             button { onclick: move |_| {

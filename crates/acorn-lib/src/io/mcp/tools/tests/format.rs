@@ -1,5 +1,8 @@
 use super::*;
 use crate::io::mcp::{CapabilitySelectionContext, ExecutionContext, ExecutionOutcome, MutationAuthority};
+use acorn_core::util::MimeType;
+use acorn_schema::codec::DocumentCodec;
+use acorn_schema::standard::cff::Cff;
 use acorn_schema::standard::crosswalk::CrosswalkStandard;
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use serde_json::json;
@@ -15,6 +18,58 @@ fn cff_input() -> FormatPreviewInput {
         providers: Vec::new(),
         fuzzy: VocabularyFuzzyMode::Strict,
     }
+}
+#[test]
+fn test_acre_native_format_differs_from_typed_codec_for_supported_syntaxes() {
+    use crate::io::config::application::ApplicationConfiguration;
+
+    let root = tempdir().expect("temporary root");
+    for (name, source, mime) in [
+        (".acorn.json", "{\"models\":[\"acme/example\"]}", MimeType::Json),
+        (".acorn.jsonc", "// keep comment\n{\"models\":[\"acme/example\",]}", MimeType::Jsonc),
+        (".acorn.yaml", "models:\n  - acme/example\n", MimeType::Yaml),
+        (".acorn.ron", "// remove comment\n{\"models\":[\"acme/example\"]}", MimeType::Ron),
+    ] {
+        let path = root.path().join(name);
+        fs::write(&path, source).expect("fixture");
+        let native = format_acre(&path, source).expect("native ACRE format");
+        let codec = ApplicationConfiguration::decode(source, &mime)
+            .expect("typed ACRE decode")
+            .encode(&mime)
+            .expect("typed ACRE encode");
+        assert_ne!(native, codec, "{name} unexpectedly matches the typed codec");
+        let native_model = ApplicationConfiguration::decode(&native, &mime).expect("native result parses");
+        let codec_model = ApplicationConfiguration::decode(&codec, &mime).expect("codec result parses");
+        assert_eq!(
+            serde_json::to_value(native_model).expect("native model"),
+            serde_json::to_value(codec_model).expect("codec model")
+        );
+        fs::write(&path, &native).expect("formatted fixture");
+        assert_eq!(format_acre(&path, &native).expect("idempotent native format"), native);
+        if mime == MimeType::Jsonc {
+            assert!(native.contains("keep comment"));
+            assert!(!codec.contains("keep comment"));
+        }
+        if mime == MimeType::Ron {
+            assert!(!native.contains("remove comment"));
+        }
+    }
+    let invalid = root.path().join("invalid.json");
+    fs::write(&invalid, "{\"unknown\":true}").expect("invalid fixture");
+    assert!(format_acre(&invalid, "{\"unknown\":true}").is_err());
+}
+#[tokio::test]
+async fn test_acre_native_preview_rejects_oversized_input() {
+    let root = tempdir().expect("temporary root");
+    let source = format!("{{}}{}", " ".repeat(32 * 1024 * 1024));
+    fs::write(root.path().join(".acorn.json"), &source).expect("oversized fixture");
+    let input = FormatPreviewInput {
+        input: InputReference::File(PathBuf::from(".acorn.json")),
+        standard: FormatStandard::ApplicationConfigurationResearchEnablement,
+        ..cff_input()
+    };
+    assert!(input.preview(root.path(), true).await.is_err());
+    assert_eq!(fs::read_to_string(root.path().join(".acorn.json")).expect("unchanged source"), source);
 }
 #[test]
 fn test_crosswalk_preview_surfaces_loss_warnings_and_invalid_input_does_not_write() {
@@ -42,6 +97,109 @@ fn test_crosswalk_preview_surfaces_loss_warnings_and_invalid_input_does_not_writ
     };
     assert!(invalid.apply(root.path()).is_err());
     assert!(!root.path().join("converted.json").exists());
+}
+#[tokio::test]
+async fn test_datacite_preview_matches_portable_json_and_yaml() {
+    let root = tempdir().expect("temporary root");
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../../../../tests/fixtures/schema/datacite.json")).expect("DataCite fixture");
+    let first = fixture.as_array().and_then(|records| records.first()).expect("first DataCite record");
+    let source = serde_json::to_string(first).expect("DataCite JSON");
+    let record = acorn_schema::standard::datacite::Record::decode(&source, &MimeType::Json).expect("typed DataCite JSON");
+    for (name, content, mime) in [
+        ("datacite.json", source, MimeType::Json),
+        ("datacite.yaml", record.encode(&MimeType::Yaml).expect("DataCite YAML"), MimeType::Yaml),
+    ] {
+        let path = root.path().join(name);
+        fs::write(&path, &content).expect("fixture");
+        let shared = normalize_metadata_file::<acorn_schema::standard::datacite::Record>(&path, VocabularyFuzzyMode::Strict)
+            .expect("shared CLI normalization");
+        let expected = acorn_schema::standard::datacite::Record::decode(&content, &mime)
+            .expect("portable DataCite decode")
+            .encode(&mime)
+            .expect("portable DataCite encode");
+        assert_eq!(shared.content, expected, "{name} differs from portable codec");
+        let preview = FormatPreviewInput {
+            input: InputReference::File(PathBuf::from(name)),
+            standard: FormatStandard::Datacite,
+            ..cff_input()
+        }
+        .preview(root.path(), true)
+        .await
+        .expect("native preview");
+        assert_eq!(preview.changes.len(), 1);
+        assert_eq!(preview.changes.first().map(|change| change.content.as_str()), Some(expected.as_str()));
+        assert_eq!(fs::read_to_string(path).expect("unchanged source"), content);
+    }
+}
+#[tokio::test]
+async fn test_dublin_core_preview_matches_portable_rdf_formats() {
+    let root = tempdir().expect("temporary root");
+    let source = include_str!("../../../../../../../tests/fixtures/schema/dublin-core-format.json");
+    let document = acorn_schema::standard::dublin_core::DublinCoreDocument::decode(source, &MimeType::Json).expect("typed Dublin Core JSON");
+    for (name, mime) in [("dublin-core.rdf", MimeType::RdfXml), ("dublin-core.ttl", MimeType::Turtle)] {
+        let path = root.path().join(name);
+        let content = document.encode(&mime).expect("RDF fixture");
+        fs::write(&path, &content).expect("fixture");
+        let shared = normalize_metadata_file::<acorn_schema::standard::dublin_core::DublinCoreDocument>(&path, VocabularyFuzzyMode::Strict)
+            .expect("shared CLI normalization");
+        let expected = acorn_schema::standard::dublin_core::DublinCoreDocument::decode(&content, &mime)
+            .expect("portable Dublin Core decode")
+            .encode(&mime)
+            .expect("portable Dublin Core encode");
+        assert_eq!(shared.content, expected, "{name} differs from portable codec");
+        let preview = FormatPreviewInput {
+            input: InputReference::File(PathBuf::from(name)),
+            standard: FormatStandard::DublinCore,
+            ..cff_input()
+        }
+        .preview(root.path(), true)
+        .await
+        .expect("native preview");
+        assert_eq!(preview.changes.len(), 1);
+        assert_eq!(preview.changes.first().map(|change| change.content.as_str()), Some(expected.as_str()));
+        assert_eq!(fs::read_to_string(path).expect("unchanged source"), content);
+    }
+}
+#[tokio::test]
+async fn test_dublin_core_preview_matches_portable_structured_formats() {
+    let root = tempdir().expect("temporary root");
+    let source = include_str!("../../../../../../../tests/fixtures/schema/dublin-core-format.json");
+    let document = acorn_schema::standard::dublin_core::DublinCoreDocument::decode(source, &MimeType::Json).expect("typed Dublin Core JSON");
+    for (name, content, mime) in [
+        ("dublin-core.json", source.to_string(), MimeType::Json),
+        (
+            "dublin-core.jsonld",
+            document.encode(&MimeType::LdJson).expect("Dublin Core JSON-LD"),
+            MimeType::LdJson,
+        ),
+        (
+            "dublin-core.yaml",
+            document.encode(&MimeType::Yaml).expect("Dublin Core YAML"),
+            MimeType::Yaml,
+        ),
+    ] {
+        let path = root.path().join(name);
+        fs::write(&path, &content).expect("fixture");
+        let shared = normalize_metadata_file::<acorn_schema::standard::dublin_core::DublinCoreDocument>(&path, VocabularyFuzzyMode::Strict)
+            .expect("shared CLI normalization");
+        let expected = acorn_schema::standard::dublin_core::DublinCoreDocument::decode(&content, &mime)
+            .expect("portable Dublin Core decode")
+            .encode(&mime)
+            .expect("portable Dublin Core encode");
+        assert_eq!(shared.content, expected, "{name} differs from portable codec");
+        let preview = FormatPreviewInput {
+            input: InputReference::File(PathBuf::from(name)),
+            standard: FormatStandard::DublinCore,
+            ..cff_input()
+        }
+        .preview(root.path(), true)
+        .await
+        .expect("native preview");
+        assert_eq!(preview.changes.len(), 1);
+        assert_eq!(preview.changes.first().map(|change| change.content.as_str()), Some(expected.as_str()));
+        assert_eq!(fs::read_to_string(path).expect("unchanged source"), content);
+    }
 }
 #[tokio::test]
 async fn test_format_directory_matches_cli_selection() {
@@ -132,20 +290,33 @@ async fn test_format_invalid_input_never_writes() {
 #[tokio::test]
 async fn test_format_preview_matches_shared_cli_normalization() {
     let root = tempdir().expect("temporary root");
-    fs::write(
-        root.path().join("CITATION.cff"),
-        include_str!("../../../../../../../tests/fixtures/CITATION.cff"),
-    )
-    .expect("fixture");
-    let shared = normalize_metadata_file::<acorn_schema::standard::cff::Cff>(&root.path().join("CITATION.cff"), VocabularyFuzzyMode::Strict)
-        .expect("shared CLI normalization");
-    let preview = cff_input().preview(root.path(), true).await.expect("native preview");
-    assert_eq!(preview.changes.len(), 1);
-    assert_eq!(
-        preview.changes.first().map(|change| change.content.as_str()),
-        Some(shared.content.as_str())
-    );
-    assert!(root.path().join("CITATION.cff").exists());
+    let cff = include_str!("../../../../../../../tests/fixtures/CITATION.cff");
+    let record = Cff::decode(cff, &MimeType::Cff).expect("CFF fixture");
+    let cases = [
+        ("CITATION.cff", cff.to_string(), MimeType::Cff),
+        ("citation.json", record.encode(&MimeType::Json).expect("JSON fixture"), MimeType::Json),
+        ("citation.yaml", cff.to_string(), MimeType::Yaml),
+    ];
+    for (name, source, mime) in cases {
+        let path = root.path().join(name);
+        fs::write(&path, &source).expect("fixture");
+        let shared = normalize_metadata_file::<Cff>(&path, VocabularyFuzzyMode::Strict).expect("shared CLI normalization");
+        let expected = Cff::decode(&source, &mime)
+            .expect("portable CFF decode")
+            .encode(&mime)
+            .expect("portable CFF encode");
+        assert_eq!(shared.content, expected, "{name} differs from portable codec");
+        let preview = FormatPreviewInput {
+            input: InputReference::File(PathBuf::from(name)),
+            ..cff_input()
+        }
+        .preview(root.path(), true)
+        .await
+        .expect("native preview");
+        assert_eq!(preview.changes.len(), 1);
+        assert_eq!(preview.changes.first().map(|change| change.content.as_str()), Some(expected.as_str()));
+        assert_eq!(fs::read_to_string(path).expect("unchanged source"), source);
+    }
 }
 #[tokio::test]
 async fn test_format_supported_standard_matrix() {
@@ -177,6 +348,37 @@ async fn test_format_supported_standard_matrix() {
         .preview(root.path(), true)
         .await;
         assert!(output.is_ok(), "{name}: {output:?}");
+    }
+}
+#[tokio::test]
+async fn test_invenio_preview_matches_portable_json_and_yaml() {
+    let root = tempdir().expect("temporary root");
+    let source = include_str!("../../../../../../../tests/fixtures/schema/invenio-format.json");
+    let record = acorn_schema::standard::invenio::Record::decode(source, &MimeType::Json).expect("typed Invenio JSON");
+    for (name, content, mime) in [
+        ("invenio.json", source.to_string(), MimeType::Json),
+        ("invenio.yaml", record.encode(&MimeType::Yaml).expect("Invenio YAML"), MimeType::Yaml),
+    ] {
+        let path = root.path().join(name);
+        fs::write(&path, &content).expect("fixture");
+        let shared =
+            normalize_metadata_file::<acorn_schema::standard::invenio::Record>(&path, VocabularyFuzzyMode::Strict).expect("shared CLI normalization");
+        let expected = acorn_schema::standard::invenio::Record::decode(&content, &mime)
+            .expect("portable Invenio decode")
+            .encode(&mime)
+            .expect("portable Invenio encode");
+        assert_eq!(shared.content, expected, "{name} differs from portable codec");
+        let preview = FormatPreviewInput {
+            input: InputReference::File(PathBuf::from(name)),
+            standard: FormatStandard::Invenio,
+            ..cff_input()
+        }
+        .preview(root.path(), true)
+        .await
+        .expect("native preview");
+        assert_eq!(preview.changes.len(), 1);
+        assert_eq!(preview.changes.first().map(|change| change.content.as_str()), Some(expected.as_str()));
+        assert_eq!(fs::read_to_string(path).expect("unchanged source"), content);
     }
 }
 #[tokio::test]

@@ -11,7 +11,7 @@ use crate::util::constants::env::{OPENALEX_API_HOST, OPENALEX_API_KEY};
 use acorn_core::options::{ApiExtension, ApiOptions};
 use acorn_core::prelude::{format, String, ToString, Vec};
 use acorn_core::util::merge_unique_by;
-use acorn_core::Location;
+use acorn_core::{Location, Noul};
 use acorn_schema::pid::{PersistentIdentifierParse, DOI};
 use acorn_schema::research_activity::output::{Access, Affiliation, Award, Contributor, Funding};
 use acorn_schema::research_activity::ResearchOutput;
@@ -76,7 +76,7 @@ pub struct Keyword {
     /// Keyword display value.
     pub display_name: String,
     /// Relevance score from zero to one.
-    pub score: f64,
+    pub score: Noul,
 }
 /// Open-access metadata associated with a work.
 #[derive(Clone, Debug, Deserialize, Serialize)]

@@ -584,7 +584,7 @@ pub(crate) fn ResearchGraphPage() -> Element {
                     }
                 } else if !diagram_nodes.is_empty() {
                 div { class: "graph-visual card",
-                    svg { class: "graph-svg", view_box: "0 0 800 800", role: "img", "data-focused": focused(), "data-focus-radius": "{focus_radius().min(radius_limit)}", "data-graph-signature": "{graph_signature}", "aria-label": "Research activity connection diagram. Drag entities to move them, drag empty space to pan, or scroll to zoom. Click empty space to clear the selection. Use the entity list for keyboard navigation.", onclick: {
+                    svg { class: "graph-svg", view_box: "0 0 800 800", role: "img", "data-focused": focused(), "data-focus-radius": "{focus_radius().min(radius_limit)}", "data-graph-signature": "{graph_signature}", "aria-label": "Research activity connection diagram. Drag entities to move them, drag empty space with one finger to pan, or use two fingers to pan and pinch to zoom. Tap an entity to select it, or empty space to clear the selection. Scroll to zoom with a mouse. Use the entity list for keyboard navigation.", onclick: {
                         let graph_signature = graph_signature.clone();
                         move |_| { selected.set(String::new()); script::set_graph_url(&node_kind(), &edge_kind(), "", &graph_signature); }
                     },
@@ -671,16 +671,14 @@ pub(crate) fn ResearchGraphPage() -> Element {
             }
             section { class: "card graph-side-panel", "aria-label": "Graph details",
                 div { class: "graph-panel-header",
-                    if panel_expanded() {
-                        div { class: "graph-tabs", role: "tablist", "aria-label": "Graph details",
-                            for (name, label) in [("selected", "Selected"), ("entities", "Entities"), ("relationships", "Relationships")] {
-                                button { id: "graph-tab-{name}", r#type: "button", role: "tab", "aria-selected": tab() == name, "aria-controls": "graph-tab-panel", onclick: move |_| tab.set(name.to_owned()), "{label}" }
-                            }
+                    div { class: "graph-tabs", role: "tablist", "aria-label": "Graph details",
+                        for (name, label) in [("selected", "Selected"), ("entities", "Entities"), ("relationships", "Relationships")] {
+                            button { id: "graph-tab-{name}", r#type: "button", role: "tab", "aria-selected": tab() == name, "aria-controls": "graph-tab-panel", onclick: move |_| tab.set(name.to_owned()), "{label}" }
                         }
                     }
                     button { class: "collapse graph-panel-toggle", r#type: "button", "aria-label": "Toggle graph details", "aria-controls": "graph-tab-panel", "aria-expanded": panel_expanded(), onclick: move |_| panel_expanded.toggle(), Icon { name: match panel_expanded() { true => "panel-open", false => "panel" } } }
                 }
-                div { id: "graph-tab-panel", class: "graph-panel-body", role: "tabpanel", "aria-labelledby": match tab().as_str() { "entities" => "graph-tab-entities", "relationships" => "graph-tab-relationships", _ => "graph-tab-selected" }, hidden: !panel_expanded(),
+                div { id: "graph-tab-panel", class: "graph-panel-body", role: "tabpanel", "aria-labelledby": match tab().as_str() { "entities" => "graph-tab-entities", "relationships" => "graph-tab-relationships", _ => "graph-tab-selected" },
                 if tab() == "selected" {
                 section { key: "{selected_id.unwrap_or_default()}", class: "graph-inspector", "aria-label": "Selected entity",
                     div { class: "graph-panel-intro", p { class: "graph-eyebrow", "INSPECT" } h2 { "Selected entity" } p { "Source details and direct connections" } }

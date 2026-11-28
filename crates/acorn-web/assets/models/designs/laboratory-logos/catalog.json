@@ -1,0 +1,211 @@
+{
+  "checkedDate": "2026-11-27",
+  "laboratories": [
+    {
+      "abbreviation": "AMES",
+      "homepage": "https://www.ameslab.gov/",
+      "logoUrl": "https://www.ameslab.gov/themes/unobtainium/images/logo-narrow.svg",
+      "name": "Ames National Laboratory",
+      "notes": "Official current homepage logo, including National Laboratory name adopted in 2022. Transparent self-contained SVG with outlined wordmark, internal styles/gradients and an embedded PNG for the shaded sphere; no external fonts or files. Wide viewBox has extra transparent space to the right; trim transparent bounds when making texture without cropping artwork.",
+      "sha256": "d08677010d239a137de4d7cc2e60bd8a693728bcfda7c65c89eef9ae38fd530e",
+      "slug": "ames",
+      "source": "designs/laboratory-logos/ames.svg",
+      "sourcePage": "https://www.ameslab.gov/"
+    },
+    {
+      "abbreviation": "ANL",
+      "homepage": "https://www.anl.gov/",
+      "logoUrl": "https://www.alcf.anl.gov/sites/default/files/2020-01/Argonne_cmyk_black.png",
+      "name": "Argonne National Laboratory",
+      "notes": "Official ALCF media-kit logo: black wordmark and full-color triangular symbol, transparent PNG. Despite CMYK Black in the filename, the symbol is colored. Downloaded original full-size file.",
+      "sha256": "7d9f255874a041287820feb1c912d7740479108d3b2824390eeb66de2c8a66cf",
+      "slug": "argonne",
+      "source": "designs/laboratory-logos/argonne.png",
+      "sourcePage": "https://www.alcf.anl.gov/promotional-materials/argonne-logo-cmyk-black"
+    },
+    {
+      "abbreviation": "LBNL",
+      "homepage": "https://www.lbl.gov/",
+      "logoUrl": "https://drive.google.com/uc?export=download&id=1a2YEtQoegKLYDGJiHFZuZ9r5PHWtB1Jj",
+      "name": "Lawrence Berkeley National Laboratory",
+      "notes": "Unmodified archive member LBL_logos_bitmap/1_BL_Horiz_Tagline_Pos-rgb.png, linked by official Berkeley Lab site. Transparent positive horizontal logo with tagline; public-facing version recommended by https://creative.lbl.gov/visual-identity/. Preserve proportions, color, clear space and complete tagline.",
+      "sha256": "71e4c32ef5555616d13268209fc384636bd12377391cbcd3a3778baa04c7d951",
+      "slug": "berkeley",
+      "source": "designs/laboratory-logos/berkeley.png",
+      "sourcePage": "https://dreambeam.lbl.gov/about/acknowledgements/logos"
+    },
+    {
+      "abbreviation": "BNL",
+      "homepage": "https://www.bnl.gov/",
+      "logoUrl": "https://www.bnl.gov/brandcenter/logo/bnl_logo_horizontal_rgb.svg",
+      "name": "Brookhaven National Laboratory",
+      "notes": "Official horizontal RGB color logo from Brookhaven Brand Center. Transparent self-contained vector SVG; internal CSS only, outlined text, no external fonts/files. Keep mark and wordmark together, colors unchanged, with clear space.",
+      "sha256": "792e5e8e099d77b6901290f80f5ffaab642df3ecbcf9ab647d334e9cfe07f8d3",
+      "slug": "brookhaven",
+      "source": "designs/laboratory-logos/brookhaven.svg",
+      "sourcePage": "https://www.bnl.gov/brandcenter/logo.php"
+    },
+    {
+      "abbreviation": "FNAL",
+      "homepage": "https://www.fnal.gov/",
+      "logoUrl": "https://www.fnal.gov/faw/designstandards/filesfordownload/FNAL-Logo-NAL-Blue.png",
+      "name": "Fermi National Accelerator Laboratory",
+      "notes": "Official NAL Blue transparent PNG, complete historic symbol plus Fermilab logotype. Brand guidance specifies retaining the entire logo without recoloring or altering it; keep FNAL abbreviation separate beneath the plaque.",
+      "sha256": "fd5f90f44ec25251674ff90eb19b759acee290a722e8a5b1a491baae15224306",
+      "slug": "fermilab",
+      "source": "designs/laboratory-logos/fermilab.png",
+      "sourcePage": "https://www.fnal.gov/faw/designstandards/logo.html"
+    },
+    {
+      "abbreviation": "INL",
+      "homepage": "https://inl.gov/",
+      "logoUrl": "https://inl.gov/content/uploads/2025/02/logo-inl-two-tone-blue.png",
+      "name": "Idaho National Laboratory",
+      "notes": "Official current homepage header logo, transparent horizontal PNG in two-tone blue, including full Idaho National Laboratory name. Original downloaded file, colors unchanged.",
+      "sha256": "013c7bd5604db09eb6c2945b1d28cd63767a4e62375b934d043a4dedfac03d6c",
+      "slug": "idaho",
+      "source": "designs/laboratory-logos/idaho.png",
+      "sourcePage": "https://inl.gov/"
+    },
+    {
+      "abbreviation": "JLAB",
+      "homepage": "https://www.jlab.org/",
+      "logoUrl": "https://www.jlab.org/sites/default/files/images/logos/JLab_Logo_RGB_Red_Black_Horizontal.png",
+      "name": "Thomas Jefferson National Accelerator Facility",
+      "notes": "Official horizontal red-and-black Jefferson Lab logo with transparent background, downloaded unchanged from Communications logo resources. Official full institutional name is Thomas Jefferson National Accelerator Facility; common names are Jefferson Lab and JLab (uppercase JLAB used for marker abbreviation). Logo-use page provides third-party usage guidance. No external dependencies.",
+      "sha256": "99e6f79419e4daaab33649d0fd2d9d4861222aee9203e07ab8d8e297ce46df3b",
+      "slug": "jefferson",
+      "source": "designs/laboratory-logos/jefferson.png",
+      "sourcePage": "https://www.jlab.org/about/comms/resources/jlab-and-partners"
+    },
+    {
+      "abbreviation": "LLNL",
+      "homepage": "https://www.llnl.gov/",
+      "logoUrl": "https://software.llnl.gov/assets/images/logomark-llnl.svg",
+      "name": "Lawrence Livermore National Laboratory",
+      "notes": "Unmodified current blue vector logomark from official LLNL Software Portal. This is the symbol-only variant; the marker separately supplies LLNL. Main llnl.gov header PNGs are tiny reversed-white assets, unsuitable on a white plaque. No open logo license is asserted.",
+      "sha256": "e04787a3c306a9fcc7331a66b4e46a7d4a44d2e45969cdf51471a4f3a380b322",
+      "slug": "livermore",
+      "source": "designs/laboratory-logos/livermore.svg",
+      "sourcePage": "https://software.llnl.gov/"
+    },
+    {
+      "abbreviation": "LANL",
+      "homepage": "https://www.lanl.gov/",
+      "logoUrl": "https://www.lanl.gov/",
+      "name": "Los Alamos National Laboratory",
+      "notes": "Exact unmodified inline SVG from official homepage header. IMPORTANT: original fill is white but official header CSS overrides >g fill to --bg-brand=#000f7e; apply this official CSS color when rasterizing for white plaque. Exact color stylesheet retained as los-alamos.css. Current atom/wordmark replaces the pre-2021 mark. No open logo license is asserted.",
+      "renderFill": "#000f7e",
+      "sha256": "64b9091b03db2d81f3553fcac59cfac47c18b65d70750f07c610bf76b0a37dc9",
+      "slug": "los-alamos",
+      "source": "designs/laboratory-logos/los-alamos.svg",
+      "sourceCss": "https://www.lanl.gov/_next/static/chunks/2kp596o3y559k.css",
+      "sourcePage": "https://www.lanl.gov/"
+    },
+    {
+      "abbreviation": "NETL",
+      "homepage": "https://netl.doe.gov/",
+      "logoUrl": "https://netl.doe.gov/sites/default/files/2023-05/NETL%20Stacked%20Color.png",
+      "name": "National Energy Technology Laboratory",
+      "notes": "Unmodified official stacked color PNG, transparent green/gray mark. Official-use identifier and DOE registered trademark; use must not imply endorsement. Preserve clear space; official page specifies 1-inch minimum physical width. Questions: NETL-Communications@netl.doe.gov.",
+      "sha256": "94dda1ee4a72c36e8ac9d6214f50641c09b10ca005d419c2b063a8bed828c9e1",
+      "slug": "netl",
+      "source": "designs/laboratory-logos/netl.png",
+      "sourcePage": "https://netl.doe.gov/about/netl-logo"
+    },
+    {
+      "abbreviation": "PNNL",
+      "homepage": "https://www.pnnl.gov/",
+      "logoUrl": "https://www.pnnl.gov/themes/gesso/images/pnnl-logo.svg",
+      "name": "Pacific Northwest National Laboratory",
+      "notes": "Official full-color website logo, referenced by the current homepage stylesheet. Original SVG bytes; all lettering is paths, with no fonts or external resources. Preserve original colors and clear space. PNNL important-notices page identifies PNNL and provides logo-use guidance.",
+      "sha256": "104d42bb45dc63cbb65913f010dfccae7b1189b4e3722c086f482c4feb2040cb",
+      "slug": "pnnl",
+      "source": "designs/laboratory-logos/pnnl.svg",
+      "sourcePage": "https://www.pnnl.gov/"
+    },
+    {
+      "abbreviation": "PPPL",
+      "derivation": {
+        "coordinateSystem": "PDF bottom-left origin; [left,bottom,right,top]",
+        "cropBoxPoints": [
+          20,
+          30,
+          158,
+          64
+        ],
+        "dpi": 1000,
+        "page": 1,
+        "pdfPageSizePoints": [
+          612,
+          792
+        ],
+        "pixelSize": [
+          1917,
+          473
+        ],
+        "renderTool": "Poppler pdftoppm -cropbox -r 1000 -png",
+        "sourceArtwork": "Vector paths and text, not a raster image"
+      },
+      "homepage": "https://www.pppl.gov/",
+      "logoUrl": "https://www.pppl.gov/sites/g/files/toruqf286/files/documents/research_accomplishments_fy25_final.pdf",
+      "name": "Princeton Plasma Physics Laboratory",
+      "notes": "High-resolution rendering of original vector PPPL horizontal logo in the footer of official FY2025 Research Accomplishments publication, dated January 30, 2026. Logo colors and geometry are unchanged; no bitmap upscaling or redraw. Unmodified source PDF retained as pppl.source.pdf. The full mark and laboratory name are sharp and complete on white.",
+      "sha256": "ccd19a7d1c96f21dc09621a43dad501718d59b52815429a40d9c265fd9e56c2c",
+      "slug": "pppl",
+      "source": "designs/laboratory-logos/pppl.png",
+      "sourcePage": "https://www.pppl.gov/sites/g/files/toruqf286/files/documents/research_accomplishments_fy25_final.pdf#page=1",
+      "sourcePdf": "designs/laboratory-logos/pppl.source.pdf",
+      "sourcePdfSha256": "de966f20325e67f70791e105b2b77a185cd9ecc7eeeb565d3ccd48ff9cde6f92"
+    },
+    {
+      "abbreviation": "NLR",
+      "homepage": "https://www.nlr.gov/",
+      "logoUrl": "https://www.nlr.gov/images/libraries/global/nlr-logo-horizontal.svg?sfvrsn=3f07526e_2",
+      "name": "National Laboratory of the Rockies",
+      "notes": "Unmodified current full-color horizontal official SVG. DOE renamed NREL to NLR December 1, 2025: https://www.energy.gov/cmei/articles/energy-department-renames-nrel-national-lab-rockies. Brand page requires intact proportions/lockup and no implied endorsement; users outside NLR-sponsored programs or partnerships should contact BrandSupport@nlr.gov.",
+      "sha256": "2cb220bba89ffb50a1337913d3f044437ef741d3cbc58cbecbc49d74c033a4c6",
+      "slug": "rockies",
+      "source": "designs/laboratory-logos/rockies.svg",
+      "sourcePage": "https://www.nlr.gov/comm-standards/brand/logo"
+    },
+    {
+      "abbreviation": "SNL",
+      "homepage": "https://www.sandia.gov/",
+      "logoUrl": "https://www.sandia.gov/app/uploads/sites/248/2023/12/placeholder.jpg",
+      "name": "Sandia National Laboratories",
+      "notes": "Official Sandia Combustion Research Facility website logo image, blue Thunderbird and black wordmark on white; original JPEG bytes. Current Sandia 2024 Thunderbird history article confirms the established identity is unchanged. SNL abbreviation appears on the current official locations page. No external dependencies.",
+      "sha256": "6fd0fc9bfdfb2494ff2d697c74d409a7228c601e58f639eb02bb8d66dbf86ddd",
+      "slug": "sandia",
+      "source": "designs/laboratory-logos/sandia.jpg",
+      "sourcePage": "https://crf.sandia.gov/2017/11/29/new-engine-optics-to-fuel-future-research/"
+    },
+    {
+      "abbreviation": "SRNL",
+      "homepage": "https://www.srnl.gov/",
+      "logoUrl": "https://www.srnl.gov/wp-content/uploads/srnl-logo.svg",
+      "name": "Savannah River National Laboratory",
+      "notes": "Official current homepage header logo, original SVG bytes. Horizontal color logo with path-outlined lettering; no font or external resource dependencies. Preserve original colors and whitespace.",
+      "sha256": "123e1229872eda1fecb07540665fbc75ee999725890c4cb7a0f60c1b9c46ff05",
+      "slug": "savannah-river",
+      "source": "designs/laboratory-logos/savannah-river.svg",
+      "sourcePage": "https://www.srnl.gov/"
+    },
+    {
+      "abbreviation": "SLAC",
+      "homepage": "https://www6.slac.stanford.edu/",
+      "logoUrl": "https://www6.slac.stanford.edu/sites/default/files/styles/centered/public/2022-10/slac-logo-card2.gif?itok=Km-gKQfY",
+      "name": "SLAC National Accelerator Laboratory",
+      "notes": "Official logo-resources page primary horizontal red logo on white; original GIF bytes. Brand guidance prefers red on white and requires intact proportions and clear space. SLAC is the current proper name, no longer an acronym to expand. No external dependencies.",
+      "sha256": "7d4a3888d090f564536a8f3ac62cce0b80404d1d97e9544ddf7787ef1042044e",
+      "slug": "slac",
+      "source": "designs/laboratory-logos/slac.gif",
+      "sourcePage": "https://www6.slac.stanford.edu/about/resources/logos"
+    }
+  ],
+  "rosterSources": [
+    "https://www.energy.gov/national-laboratories",
+    "https://science.osti.gov/lp/Laboratory-Directed-Research-and-Development/Frequently-Asked-Questions"
+  ],
+  "version": 1
+}

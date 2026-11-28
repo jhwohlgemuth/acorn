@@ -1,6 +1,6 @@
 //! ACP SDK-backed one-shot inference client.
 
-use super::{AcpSessionEvent, AgentInstallation, AgentProcessConfig, AuthenticationMethod, Error, ProtocolReadiness, SessionObserver};
+use super::{AcpSessionEvent, AgentInstallation, AgentProcessConfig, AuthenticationMethod, Error, ProtocolReadiness, SessionObserver, SessionPolicy};
 use crate::{
     agent::{
         InferenceBackend, InferenceCapabilities, InferenceFinishReason, InferenceFuture, InferencePermissionPolicy, InferenceProvenance,
@@ -17,7 +17,7 @@ use agent_client_protocol::{
             AuthMethod, ContentBlock, ContentChunk, Implementation, InitializeRequest, NewSessionRequest, PermissionOption, PermissionOptionKind,
             PromptRequest, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse, SelectedPermissionOutcome,
             SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOptions, SessionId, SessionNotification,
-            SessionUpdate, SetSessionConfigOptionRequest, StopReason, TextContent,
+            SessionUpdate, SetSessionConfigOptionRequest, SetSessionModeRequest, StopReason, TextContent,
         },
         ProtocolVersion,
     },
@@ -176,58 +176,80 @@ impl Client {
                                 .data(format!("unsupported negotiated protocol version {}", response.protocol_version))),
                             | Ok(_) => {
                                 connection_stage.store(ConnectionStage::Session as u8, Ordering::Release);
-                                let session = connection.send_request(NewSessionRequest::new(&working_directory)).block_task().await;
+                                let session = connection
+                                    .send_request(session_request(&self.config, &working_directory))
+                                    .block_task()
+                                    .await;
                                 match session {
                                     | Err(why) => Err(why),
                                     | Ok(session) => {
-                                        let selection = model
-                                            .as_ref()
-                                            .map(|model| {
-                                                ModelSelector::new(model.clone())
-                                                    .ok_or_else(|| Error::ModelUnavailable {
-                                                        agent_id: self.config.agent_id.clone(),
-                                                        model: model.clone(),
-                                                    })
-                                                    .and_then(|model| {
-                                                        model_selection(
-                                                            &self.config.agent_id,
-                                                            &session.session_id,
-                                                            &model,
-                                                            session.config_options.as_deref(),
-                                                        )
-                                                    })
-                                            })
-                                            .transpose();
-                                        match selection {
-                                            | Err(why) => {
-                                                *lock(&connection_error) = Some(why);
-                                                Err(agent_client_protocol::Error::internal_error().data("requested model is unavailable"))
-                                            }
-                                            | Ok(selection) => {
-                                                let selected = match selection {
-                                                    | Some(selection) => connection.send_request(selection).block_task().await.map(|_| ()),
-                                                    | None => Ok(()),
-                                                };
-                                                match selected {
-                                                    | Err(why) => Err(why),
-                                                    | Ok(()) => {
-                                                        connection_stage.store(ConnectionStage::Protocol as u8, Ordering::Release);
-                                                        connection
-                                                            .send_request(PromptRequest::new(
-                                                                session.session_id.clone(),
-                                                                vec![ContentBlock::Text(TextContent::new(prompt))],
-                                                            ))
-                                                            .block_task()
-                                                            .await
-                                                            .map(|response| {
-                                                                let state = lock(&stream);
-                                                                PromptCompletion {
-                                                                    permission_denied: state.permission_denied,
-                                                                    session_id: session.session_id.to_string(),
-                                                                    stop_reason: response.stop_reason,
-                                                                    text: state.text.clone(),
-                                                                }
+                                        let restricted = match self.config.session_policy {
+                                            | SessionPolicy::ClientPermissions => Ok(()),
+                                            | SessionPolicy::ClaudeContentOnly => match session.modes.as_ref() {
+                                                | Some(modes) if modes.available_modes.iter().any(|mode| mode.id.0.as_ref() == "plan") => connection
+                                                    .send_request(SetSessionModeRequest::new(session.session_id.clone(), "plan"))
+                                                    .block_task()
+                                                    .await
+                                                    .map(|_| ()),
+                                                | _ => {
+                                                    Err(agent_client_protocol::Error::internal_error()
+                                                        .data("required Claude Plan mode is unavailable"))
+                                                }
+                                            },
+                                        };
+                                        match restricted {
+                                            | Err(why) => Err(why),
+                                            | Ok(()) => {
+                                                let selection = model
+                                                    .as_ref()
+                                                    .map(|model| {
+                                                        ModelSelector::new(model.clone())
+                                                            .ok_or_else(|| Error::ModelUnavailable {
+                                                                agent_id: self.config.agent_id.clone(),
+                                                                model: model.clone(),
                                                             })
+                                                            .and_then(|model| {
+                                                                model_selection(
+                                                                    &self.config.agent_id,
+                                                                    &session.session_id,
+                                                                    &model,
+                                                                    session.config_options.as_deref(),
+                                                                )
+                                                            })
+                                                    })
+                                                    .transpose();
+                                                match selection {
+                                                    | Err(why) => {
+                                                        *lock(&connection_error) = Some(why);
+                                                        Err(agent_client_protocol::Error::internal_error().data("requested model is unavailable"))
+                                                    }
+                                                    | Ok(selection) => {
+                                                        let selected = match selection {
+                                                            | Some(selection) => connection.send_request(selection).block_task().await.map(|_| ()),
+                                                            | None => Ok(()),
+                                                        };
+                                                        match selected {
+                                                            | Err(why) => Err(why),
+                                                            | Ok(()) => {
+                                                                connection_stage.store(ConnectionStage::Protocol as u8, Ordering::Release);
+                                                                connection
+                                                                    .send_request(PromptRequest::new(
+                                                                        session.session_id.clone(),
+                                                                        vec![ContentBlock::Text(TextContent::new(prompt))],
+                                                                    ))
+                                                                    .block_task()
+                                                                    .await
+                                                                    .map(|response| {
+                                                                        let state = lock(&stream);
+                                                                        PromptCompletion {
+                                                                            permission_denied: state.permission_denied,
+                                                                            session_id: session.session_id.to_string(),
+                                                                            stop_reason: response.stop_reason,
+                                                                            text: state.text.clone(),
+                                                                        }
+                                                                    })
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
@@ -303,7 +325,7 @@ impl Client {
                                 mutating_tools: false,
                                 streaming: true,
                                 structured_output: false,
-                                tools: mcp.http || mcp.sse,
+                                tools: self.config.session_policy == SessionPolicy::ClientPermissions && (mcp.http || mcp.sse),
                             },
                             installation,
                             protocol_version: response.protocol_version.as_u16(),
@@ -485,4 +507,14 @@ fn model_selection(
         agent_id: agent_id.to_string(),
         model: model.to_string(),
     })
+}
+fn session_request(config: &AgentProcessConfig, working_directory: &std::path::Path) -> NewSessionRequest {
+    let request = NewSessionRequest::new(working_directory);
+    match config.session_policy {
+        | SessionPolicy::ClientPermissions => request,
+        | SessionPolicy::ClaudeContentOnly => request.meta(serde_json::Map::from_iter([(
+            "claudeCode".to_string(),
+            serde_json::json!({"options": {"allowDangerouslySkipPermissions": false, "settingSources": [], "tools": []}}),
+        )])),
+    }
 }

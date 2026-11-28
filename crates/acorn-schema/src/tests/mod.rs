@@ -29,6 +29,14 @@ fn test_classification() {
     assert!(ClassificationLevel::Secret < ClassificationLevel::TopSecret);
 }
 #[test]
+fn test_claude_software_identities_round_trip_and_are_discoverable() {
+    for (software, command) in [(Software::Claude, "claude"), (Software::ClaudeAgentAcp, "claude-agent-acp")] {
+        assert_eq!(Software::from(software.to_string().as_str()), software);
+        assert_eq!(software.command(), command);
+        assert!(SOFTWARE.contains(&software));
+    }
+}
+#[test]
 fn test_codex_identities_round_trip() {
     assert_eq!(Software::from("Codex"), Software::Codex);
     assert_eq!(Software::Codex.to_string(), "Codex");

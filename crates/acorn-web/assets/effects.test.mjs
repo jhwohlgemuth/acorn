@@ -43,6 +43,11 @@ test("a pending drop cannot replace the session after leaving Home", async () =>
     await setTimeout(0);
     assert.equal(deliveries.length, 0);
 });
+test("workspace accepts Format metadata source extensions", async () => {
+    const context = await effectContext();
+    for (const path of ["CITATION.cff", "record.jsonld", "record.rdf", "record.ttl"]) assert.equal(context.window.acornWorkspace.validPath(path), true, path);
+    assert.equal(context.window.acornWorkspace.validPath("record.exe"), false);
+});
 test("a tour import finishing after navigation cannot reopen the tour", async () => {
     const { readFile } = await import("node:fs/promises");
     const { runInNewContext } = await import("node:vm");
@@ -354,7 +359,7 @@ test("URL theme overrides a saved choice without changing storage", async () => 
     assert.equal(values.get("acorn.theme.v1"), "dark");
 });
 test("WebMCP survives cached navigation and disposes on final unload", async (t) => {
-    const globals = ["document", "window"].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]);
+    const globals = ["document", "MutationObserver", "window"].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]);
     t.after(() => globals.forEach(([name, descriptor]) => {
         if (descriptor) Object.defineProperty(globalThis, name, descriptor);
         else delete globalThis[name];
@@ -366,27 +371,48 @@ test("WebMCP survives cached navigation and disposes on final unload", async (t)
             signal.addEventListener("abort", () => tools.delete(tool.name), { once: true });
         },
     };
-    const status = { dataset: { adapter: new URL("../../acorn-wasm/web/webmcp.js", import.meta.url).href }, textContent: "initializing" };
-    const names = ["assessFairMetadata", "checkReadability", "compareBigO", "crosswalkMetadata", "diffContent", "discoverPersistentIdentifiers", "inspectPersistentIdentifier", "validateMetadataStandard", "validateResearchActivity"];
+    const makeStatus = () => {
+        const icon = { textContent: "" };
+        const reason = { textContent: "initializing" };
+        return {
+            dataset: { adapter: new URL("../../acorn-wasm/web/webmcp.js", import.meta.url).href },
+            querySelector: (selector) => ({ ".webmcp-label": {}, ".webmcp-state": {}, ".webmcp-icon": icon, ".webmcp-reason": reason })[selector],
+            get textContent() { return `WebMCP ${icon.textContent}${reason.textContent}`; },
+        };
+    };
+    let status = makeStatus();
+    let notifyMutation;
+    const names = ["assessFairMetadata", "checkReadability", "compareBigO", "crosswalkMetadata", "diffContent", "discoverPersistentIdentifiers", "formatMetadata", "inspectPersistentIdentifier", "validateMetadataStandard", "validateResearchActivity"];
     const bindings = names.map((name) => `export function ${name}() { return { valid: true, diagnostics: [] }; }`).join("\n");
     const window = new EventTarget();
     Object.defineProperties(globalThis, {
         document: { configurable: true, value: {
+            documentElement: {},
             getElementById: () => status,
             modelContext,
             querySelector: () => ({ src: `data:text/javascript,${encodeURIComponent(bindings)}` }),
         } },
+        MutationObserver: { configurable: true, value: class {
+            constructor(callback) { notifyMutation = callback; }
+            observe() {}
+        } },
         window: { configurable: true, value: window },
     });
     await import("./effects.js");
-    for (let attempt = 0; attempt < 100 && status.textContent === "initializing"; attempt += 1) await setTimeout(5);
-    assert.equal(status.textContent, "WebMCP: installed");
-    assert.equal(tools.size, 9);
+    for (let attempt = 0; attempt < 100 && status.textContent === "WebMCP initializing"; attempt += 1) await setTimeout(5);
+    assert.equal(status.textContent, "WebMCP ✔ installed");
+    assert.equal(status.dataset.state, "installed");
+    assert.equal(tools.size, 10);
+    status = makeStatus();
+    notifyMutation();
+    assert.equal(status.textContent, "WebMCP ✔ installed", "sidebar remount restores the completed status");
+    assert.equal(status.dataset.state, "installed", "sidebar remount restores the checkmark state");
+    assert.equal(tools.size, 10, "sidebar remount does not register duplicate tools");
     for (let visit = 0; visit < 2; visit += 1) {
         window.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: true }));
         window.dispatchEvent(Object.assign(new Event("pageshow"), { persisted: true }));
-        assert.equal(tools.size, 9);
-        assert.equal(status.textContent, "WebMCP: installed");
+        assert.equal(tools.size, 10);
+        assert.equal(status.textContent, "WebMCP ✔ installed");
         const validation = tools.get("acorn_validate_research_activity");
         assert.ok(validation, "validation remains registered after restoration");
         assert.equal((await validation.execute({ json: "{}" })).ok, true);

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="oakley" width="64" height="64" viewBox="0 0 64 64" overflow="visible" role="img" aria-label="Oakley">
+  <title>Oakley</title>
+  <style>
+  .oakley{color:var(--oakley-ink,#98c379)}
+  .ok-led{fill:var(--oakley-led,currentColor)}
+  .ok-blink,.ok-dbl,.ok-wink,.ok-bar{transform-box:fill-box;transform-origin:center}
+  .ok-blink{animation:ok-blink 5s infinite}
+  @keyframes ok-blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+  .ok-bar{animation:ok-wave .9s infinite ease-in-out}
+  @keyframes ok-wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+  .ok-bob{animation:ok-bob .45s infinite ease-in-out alternate}
+  @keyframes ok-bob{to{transform:translateY(-1.6px)}}
+  .ok-pulse{animation:ok-pulse 1.1s infinite}
+  @keyframes ok-pulse{50%{opacity:.25}}
+  @keyframes ok-glance{0%,15%{transform:translate(0,0)}25%,75%{transform:translate(-3px,-1.6px)}85%,100%{transform:translate(0,0)}}
+  @keyframes ok-arc{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+  @keyframes ok-dbl{0%,70%,77%,84%,100%{transform:scaleY(1)}73.5%,80.5%{transform:scaleY(.1)}}
+  @keyframes ok-hop{0%,45%,100%{transform:translateY(0) scaleY(1)}10%{transform:scaleY(.9)}22%{transform:translateY(-5px) scaleY(1.04)}34%{transform:translateY(0) scaleY(.94)}}
+  @keyframes ok-wig{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-7deg)}20%{transform:rotate(7deg)}30%{transform:rotate(-5deg)}40%{transform:rotate(3deg)}}
+  @keyframes ok-wink{0%,20%,70%,100%{transform:scaleY(1)}26%,64%{transform:scaleY(0)}}
+  @keyframes ok-caret{0%,22%,68%,100%{opacity:0}28%,62%{opacity:1}}
+  .ok-body{transform-origin:32px 60px}
+  .ok-glance{animation:ok-glance 3.2s infinite ease-in-out}
+  .ok-arc{animation:ok-arc 1.4s infinite}
+  .ok-arc2{animation-delay:.25s}
+  .ok-dbl{animation:ok-dbl 2.4s infinite}
+  .ok-hop{animation:ok-hop 1.8s infinite}
+  .ok-wig{animation:ok-wig 2s infinite}
+  .ok-wink{animation:ok-wink 1.6s infinite}
+  .ok-caret{opacity:0;animation:ok-caret 1.6s infinite}
+  @media (prefers-reduced-motion:reduce){.oakley *{animation:none!important}}
+  </style>
+  <defs>
+    <mask id="oakley-speaking-mask">
+      <rect x="-8" y="-8" width="80" height="80" fill="#fff"/>
+      <path d="M10 37 H54" stroke="#000" stroke-width="2.4"/>
+      <path d="M8 18.8 C12 18.8 16 23.2 20 23.2 S28 18.8 32 18.8 S40 23.2 44 23.2 S52 18.8 56 18.8 M6 25.3 C10.5 25.3 15.5 29.7 20 29.7 S28 25.3 32 25.3 S40 29.7 44 29.7 S53 25.3 58 25.3" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>
+      <g class="ok-bob"><path d="M22.5 46 L25.5 43 L28.5 46 M35.5 46 L38.5 43 L41.5 46" fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+    </mask>
+  </defs>
+  <g class="ok-body ">
+    <g mask="url(#oakley-speaking-mask)" fill="currentColor"><path d="M12 33 C12 50 22 58.5 32 60 C42 58.5 52 50 52 33 Z"/><path d="M8 32 C8 19.5 19 13 32 13 C45 13 56 19.5 56 32 C56 34.6 54.2 36 51.5 36 L12.5 36 C9.8 36 8 34.6 8 32 Z"/></g>
+    <path d="M32 13.5 C32 10 31 8 28.5 6.8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    <circle class="ok-led " cx="27.2" cy="6.2" r="3"/>
+    
+  </g>
+</svg>

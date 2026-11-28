@@ -17,6 +17,7 @@ ignored = ["getrandom"]
 [dependencies]
 acorn-analysis = { workspace = true, default-features = false, features = ["alloc"] }
 acorn-core = { workspace = true, features = ["alloc"] }
+acorn-diff.workspace = true
 acorn-macros = { workspace = true, default-features = false }
 acorn-schema.workspace = true
 acorn-wasm = { path = "../acorn-wasm" }
@@ -33,6 +34,7 @@ serde-wasm-bindgen = "0.6.5"
 serde_json.workspace = true
 serde_norway.workspace = true
 strum.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 wasm-bindgen = "0.2.128"
 

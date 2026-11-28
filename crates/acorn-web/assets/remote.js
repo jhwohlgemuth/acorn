@@ -33,7 +33,7 @@ function createRemoteFileLoader(fetcher = fetch) {
             try {
                 const file = await loadRemoteFile(input, maximum, controller.signal, fetcher, workspaceFile);
                 controller.signal.throwIfAborted();
-                if (workspaceFile && !window.acornWorkspace.validPath(file.path)) throw new Error("Choose a JSON, YAML, Markdown, text or supported image file for this workspace.");
+                if (workspaceFile && !window.acornWorkspace.validPath(file.path)) throw new Error("Choose a CFF, JSON, JSON-LD, RDF/XML, Turtle, YAML, Markdown, text or supported image file for this workspace.");
                 return file;
             } catch (error) {
                 const message = controller.signal.aborted ? "File download cancelled or timed out." : error instanceof TypeError ? "Could not fetch this file. Check the URL and network connection; the server must allow browser access (CORS). You can download the file and choose it locally instead." : error.message;

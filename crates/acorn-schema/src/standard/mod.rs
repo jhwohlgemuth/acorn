@@ -80,8 +80,9 @@ pub enum ContributionKind {
     WhitePaper,
 }
 /// Metadata standard used to gate parsing, validation, conversion, and schema export.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize, strum::EnumIs)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Display, Eq, JsonSchema, PartialEq, Serialize, strum::EnumIs, strum::EnumString)]
 #[serde(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
 pub enum Standard {
     /// Application Configuration for Research Enablement (ACRE).
     #[display("application-configuration-research-enablement")]

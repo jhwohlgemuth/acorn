@@ -2,56 +2,128 @@
   "renderer": "Cesium 1.147.0 / Chromium",
   "assets": [
     {
+      "id": "research/acorn-logo",
+      "sha256": "859720ace69b89c3db659eff8ebbb50de5bc4da6ad8e06cc765a8a8925d2f812"
+    },
+    {
+      "id": "research/ames-marker",
+      "sha256": "418dc7a97c7e5c52bc9cbbd739d7feca8c4a67db7d3d96c45a1b0ff99552c3b9"
+    },
+    {
+      "id": "research/argonne-marker",
+      "sha256": "2c351aa19403f5b88060e2c17dc0eeca921126830eb830aad2b359b53c04639d"
+    },
+    {
+      "id": "research/berkeley-marker",
+      "sha256": "b81aa2d2ce7c32c827048e7ee435ff552dbbe95de1e2e1a33cda09210f749518"
+    },
+    {
+      "id": "research/brookhaven-marker",
+      "sha256": "30f06b140c4d6aaafe49e13ed86390e13a231180675abb3837b83c3bd71eb352"
+    },
+    {
       "id": "research/collaboration",
-      "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad"
+      "sha256": "d28b4a0bf6dc28951a0cf1ab262c5092daf80b089f39129fc6e4222c30742392"
     },
     {
       "id": "research/dataset",
-      "sha256": "84e26f725244883d1e34e201db520976afd73a46a203cc4f62217f1e6e17b4d5"
+      "sha256": "5dfdf27c9e6ae9c0ac2eedb8d8573672945939e4d796603ccab242b6961da3bc"
     },
     {
       "id": "research/doe-national-laboratory",
-      "sha256": "c452fcd7b6cf618448d092af1d9efd13e96977c4330c683aef56f0be3d26c320"
+      "sha256": "a787a982028b36bc707ba5781b9658732f21d90088669c2ed54524700394760f"
+    },
+    {
+      "id": "research/fermilab-marker",
+      "sha256": "a8de534673c353d27a60ef7a092e55b8f58b5e23ebba750022b3347453cb7191"
     },
     {
       "id": "research/field-site",
-      "sha256": "4d810af780d4cd94a49e1c2055110cce06b5e694ca9973146c35ad64befd6173"
+      "sha256": "6b3437cc5c15c66c4f8922eeebca14433b729616dd69f2c8923aac72693bdb9e"
     },
     {
       "id": "research/funding",
-      "sha256": "4e92afb41ceb67bb718e6eaedae901059cc146404287268c318697f602e32249"
+      "sha256": "eb4c4fb282fdc1a183fa13bb4135a17b25028005de20bf2e424117bd4a3c7f77"
+    },
+    {
+      "id": "research/idaho-marker",
+      "sha256": "6f078350416eff5a650ea32cbe4b599d368af203613a91cfe04b20cef799f7b4"
+    },
+    {
+      "id": "research/jefferson-marker",
+      "sha256": "b4e8417b5e31654bdbeca43c416cd81e7dcf6e3cf0943b34d7097ac121d3e3f9"
     },
     {
       "id": "research/laboratory",
-      "sha256": "2590b9851df7a32f3a4724abc53c3e9d1eeec813f207e0fd75235d0171e1e639"
+      "sha256": "ca4c057e1e220b4dfaea1aa2e510ce9b8ea7594c4437ef4ba3adc10f7c536e90"
+    },
+    {
+      "id": "research/livermore-marker",
+      "sha256": "95eb8207daaa35b3c800994f2b9e99b24dec92aa8de34f812ae5131d59e482ed"
+    },
+    {
+      "id": "research/los-alamos-marker",
+      "sha256": "3912b0ff017c486ca85b0a4f20b3f1736631c4aa9ae16909891ab8147ab8507a"
+    },
+    {
+      "id": "research/netl-marker",
+      "sha256": "46018e8a2e0c6d6d6bea0baa0c463e039adb0252c972ee3610b3df5951b37bd3"
     },
     {
       "id": "research/ornl-campus",
-      "sha256": "49bde708a05c4b05a84a16102c3d7927ee98127a966c2144048071a324c56578"
+      "sha256": "fe7a8b311471c8a1cad7b89755164565f26f181620a4b7831b282f48207eb088"
+    },
+    {
+      "id": "research/ornl-marker",
+      "sha256": "6cdda9d331e3c5603c7b8e4891108ca7ff018bded60fcace416bd384cd58de38"
+    },
+    {
+      "id": "research/pnnl-marker",
+      "sha256": "fac27dc295d40c252465ab84df8453525141d9f762f0ce78a292c7db7c6e3852"
+    },
+    {
+      "id": "research/pppl-marker",
+      "sha256": "cdd97b589988aed79b7afcc6bd4107dde39f598ab4b3420502f8a9058f183823"
     },
     {
       "id": "research/publication",
-      "sha256": "fc28fa627612803783a7047962ad8d6bdd0f0b7d98640dc5604b11484b6105ef"
+      "sha256": "93ae58882d5ee5758a5b4e9ffffb29d49654ce2e2f9a255a388a8137c9b1dfa6"
     },
     {
       "id": "research/research-project",
-      "sha256": "e2c31ff5d541b9f576f191523fd5e753ec07d66ad22662c09f9e69346d114c9c"
+      "sha256": "9d422507520f17b33d06a1786b193855696b4310e3db2684cd70382fcfabf7ac"
     },
     {
       "id": "research/research-team",
-      "sha256": "2284cd92cc6b57719fa49fae5485c0219ecfbabc6c259a947ca6d35855046bfd"
+      "sha256": "177c21b501200089d8885be8b2223adadc1c7fc7d9b4a5691e17f073f98e6a78"
+    },
+    {
+      "id": "research/rockies-marker",
+      "sha256": "2b7c468b7830bf5f225b7d66fa1e41013a08e8634331e18c1f007dac4572915a"
+    },
+    {
+      "id": "research/sandia-marker",
+      "sha256": "2f21c3c936608631efe97d4028cb368123fd3fdbee38d83cfc5bc8f46f2dd39a"
+    },
+    {
+      "id": "research/savannah-river-marker",
+      "sha256": "504287d429028764bb763c70517c08e365543757cf1d28b47ad5742419578bb0"
+    },
+    {
+      "id": "research/slac-marker",
+      "sha256": "b6d3cc0e02953053b19427b96cb1ebe1d6ca9fb1b8d7b2f586eeec4a1fa5cafa"
     },
     {
       "id": "research/software",
-      "sha256": "4ce70d5e61b53f5adb424343a49e47395ac07287f987f580a59e12092f530218"
+      "sha256": "04ac1972cbba2d34237ec4173e2102de10fe881e68acaaf3853c367d3b4aa142"
     },
     {
       "id": "research/supercomputer",
-      "sha256": "ddd4a2bd13fd00ec51b0cc22889ee6b805ff3e9dd3a6596c644900f0ef45af02"
+      "sha256": "0ae15ffe756fc5226d6d4bd93041c0e2fbba1d0ec45ac67103f2ee8fd9dfcdd4"
     },
     {
       "id": "research/user-facility",
-      "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f"
+      "sha256": "c419ae7367481ed94cc6bac11406953875792b9ac247caa75d8f5524fd15572b"
     }
   ],
   "externalRequests": 0,

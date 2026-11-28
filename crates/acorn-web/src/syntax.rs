@@ -43,6 +43,8 @@ pub(crate) fn CodeEditor(
     #[props(default)] run_action: bool,
     #[props(default)] run_disabled: bool,
     #[props(default)] run_error: Option<String>,
+    #[props(default)] save_action: bool,
+    #[props(default)] save_disabled: bool,
     #[props(default)] popout_state: Option<String>,
     #[props(default)] title_icon: Option<&'static str>,
     oninput: EventHandler<String>,
@@ -89,6 +91,7 @@ pub(crate) fn CodeEditor(
                 if run_action && run_disabled { span { class: "editor-run-status", role: "status", "aria-live": "polite", "Running…" } }
                 if run_action { span { class: "editor-run-group",
                     button { r#type: "button", class: "primary editor-run-action", disabled: run_disabled, "aria-keyshortcuts": "Control+R", title: "Run (Ctrl+R)", onclick: move |_| { script::run_editor_tool(); }, Icon { name: "play" } "Run" }
+                    if save_action { button { r#type: "button", class: "editor-save-action", disabled: save_disabled, "aria-keyshortcuts": "Control+S Meta+S", title: "Save to workspace (Ctrl+S)", onclick: move |_| { script::save_editor_tool(); }, Icon { name: "save" } "Save" } }
                 } }
                 if fullscreen { span { class: "editor-fullscreen-group",
                     button { r#type: "button", class: "copy-code editor-fullscreen-toggle editor-icon-action", "aria-label": "Full screen", title: "Full screen (Esc to exit)", onclick: move |_| { script::toggle_editor_fullscreen(id); }, span { class: "enter-fullscreen-icon", Icon { name: "maximize" } } span { class: "exit-fullscreen-icon", Icon { name: "minimize" } } span { class: "enter-fullscreen-label", "Full screen" } span { class: "exit-fullscreen-label", "Exit full screen" } }

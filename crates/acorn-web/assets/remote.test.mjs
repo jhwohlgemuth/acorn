@@ -10,7 +10,7 @@ const imageContent = (path, bytes) => {
     if (!mime || !bytes.length || (mime === "image/png" && bytes[0] !== 137)) throw new Error("Image bytes do not match the file extension.");
     return `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
 };
-const context = { window: { isSecureContext: true, sessionStorage, acornWorkspace: { validPath: (path) => !path.split("/").some((part) => [".", "..", ""].includes(part)) && /\.(json|md|ya?ml|txt|svg|png|jpe?g|webp)$/i.test(path), imageMime, imageContent } }, URL, TextDecoder, Uint8Array, AbortController, setTimeout, clearTimeout, atob, Event, fetch };
+const context = { window: { isSecureContext: true, sessionStorage, acornWorkspace: { validPath: (path) => !path.split("/").some((part) => [".", "..", ""].includes(part)) && /\.(cff|json|jsonld|rdf|ttl|md|ya?ml|txt|svg|png|jpe?g|webp)$/i.test(path), imageMime, imageContent } }, URL, TextDecoder, Uint8Array, AbortController, setTimeout, clearTimeout, atob, Event, fetch };
 runInNewContext(await readFile(new URL("remote.js", import.meta.url), "utf8"), context);
 const sha = "a".repeat(40);
 const response = (data, status = 200) => new Response(typeof data === "string" ? data : JSON.stringify(data), { status });

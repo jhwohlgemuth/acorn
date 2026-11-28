@@ -179,6 +179,8 @@ fn test_mime_type_metadata_format_key_matches_web_parser() {
 #[test]
 fn test_mime_type_parse_rejects_unsupported_file_types() {
     assert_eq!("json".parse::<MimeType>(), Ok(MimeType::Json));
+    assert_eq!(MimeType::from("rdf-xml"), MimeType::RdfXml);
+    assert_eq!(MimeType::from("turtle"), MimeType::Turtle);
     assert_eq!(
         "activity.unknown"
             .parse::<MimeType>()

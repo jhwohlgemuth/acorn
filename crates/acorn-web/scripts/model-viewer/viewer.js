@@ -35,6 +35,9 @@ function describe(asset) {
     download.href = `/models/${asset.file}`;
     download.hidden = false;
 }
+function modelFolder(asset) {
+    return asset.category === "marker" ? "markers" : asset.file.split("/")[0];
+}
 function report(message, error = false) {
     status.textContent = message;
     status.dataset.error = String(error);
@@ -47,7 +50,9 @@ async function start() {
         [asset.id, asset.label, asset.category].every((value) => typeof value === "string" && value.length > 0)
         && /^[a-z0-9-]+\/[a-z0-9-]+\.glb$/.test(asset.file));
     if (!valid) throw new Error("The model catalog is invalid.");
-    const assets = [...catalog.assets].sort((left, right) => left.category.localeCompare(right.category) || left.label.localeCompare(right.label));
+    const assets = catalog.assets.map((asset) => asset.category === "research" && asset.id.endsWith("-marker")
+        ? { ...asset, category: "marker" } : asset)
+        .sort((left, right) => left.category.localeCompare(right.category) || left.label.localeCompare(right.label));
     if (assets.length === 0) throw new Error("No models yet. Add an asset to the catalog and refresh.");
     const initial = assets.find((asset) => asset.id === "research/supercomputer") ?? assets[0];
     describe(initial);
@@ -142,7 +147,7 @@ async function start() {
     const clear = document.getElementById("clear-filters");
     const nextModel = document.getElementById("next-model");
     const previousModel = document.getElementById("previous-model");
-    const labels = { drone: "Drones", landmarks: "USA landmarks", other: "Other", research: "Research & ACORN", risk: "Risk pieces" };
+    const labels = { drone: "Drones", landmarks: "USA landmarks", marker: "Markers", other: "Other", research: "Research & ACORN", risk: "Risk pieces" };
 
     function adjacentOption(direction) {
         const index = assetPicker.selectedIndex;
@@ -164,11 +169,11 @@ async function start() {
         const query = search.value.trim().toLocaleLowerCase();
         const matches = assets.filter((asset) => (!categories.value || asset.category === categories.value) && `${asset.label} ${asset.category}`.toLocaleLowerCase().includes(query));
         const selected = assets.some((asset) => asset.id === assetPicker.value) ? assetPicker.value : (active?.asset.id ?? initial.id);
-        const folders = [...new Set(matches.map((asset) => asset.file.split("/")[0]))].sort();
+        const folders = [...new Set(matches.map(modelFolder))].sort();
         assetPicker.replaceChildren(...folders.map((folder) => {
             const group = document.createElement("optgroup");
             group.label = folder.charAt(0).toUpperCase() + folder.slice(1);
-            group.replaceChildren(...matches.filter((asset) => asset.file.startsWith(`${folder}/`))
+            group.replaceChildren(...matches.filter((asset) => modelFolder(asset) === folder)
                 .sort((left, right) => left.label.localeCompare(right.label))
                 .map((asset) => new Option(asset.label, asset.id)));
             return group;

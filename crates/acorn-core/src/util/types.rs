@@ -89,14 +89,6 @@ impl Default for Noul {
         Self::ZERO
     }
 }
-impl<'de> Deserialize<'de> for Noul {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        f64::deserialize(deserializer).and_then(|value| Self::new(value).map_err(serde::de::Error::custom))
-    }
-}
 impl Display for Noul {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         self.0.fmt(formatter)
@@ -127,6 +119,13 @@ impl Noul {
     pub const ZERO: Self = Self(0.0);
     /// Upper bound of the unit interval.
     pub const ONE: Self = Self(1.0);
+    /// Deserialize an optional unit value, treating values outside the unit interval as absent.
+    pub fn deserialize_lenient_option<'de, D>(deserializer: D) -> Result<Option<Self>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Option::<f64>::deserialize(deserializer).map(|value| value.and_then(|value| Self::try_from(value).ok()))
+    }
     /// Construct a finite value on the inclusive interval from zero to one.
     #[allow(clippy::manual_range_contains)]
     pub const fn new(value: f64) -> Result<Self, NoulError> {
@@ -194,10 +193,27 @@ impl TryFrom<f64> for Noul {
         Self::new(value)
     }
 }
+impl<'de> Deserialize<'de> for Noul {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        f64::deserialize(deserializer).and_then(|value| Self::new(value).map_err(serde::de::Error::custom))
+    }
+}
 impl core::error::Error for NoulError {}
 impl Display for NoulError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("value must be finite and between zero and one")
+    }
+}
+#[cfg(feature = "alloc")]
+impl<'a, T> IntoIterator for &'a OneOrMany<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 #[cfg(feature = "alloc")]
@@ -239,15 +255,6 @@ impl<T> From<Vec<T>> for OneOrMany<T> {
 impl<T> FromIterator<T> for OneOrMany<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         Self::Many(iter.into_iter().collect())
-    }
-}
-#[cfg(feature = "alloc")]
-impl<'a, T> IntoIterator for &'a OneOrMany<T> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
     }
 }
 #[cfg(feature = "alloc")]

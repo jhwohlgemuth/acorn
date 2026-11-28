@@ -36,13 +36,17 @@ def landmarks(name, m):
             R((x, y, -0.32), (x, y + 0.65, 0.32), 0.026, "red") for x in [-1.7, 1.7] for y in [1.23, 2.23]] + [
             B((x, 0.92, z), (0.13, 0.07, 0.075), "ivory") for x, z in [(-2, -0.12), (-0.7, 0.12), (0.4, -0.12), (2.4, 0.12)]]
     elif name == "us-capitol":
-        result = [p for a in [i * math.pi / 12 for i in range(24)] for p in [
-            R((0.60 * math.cos(a), 1.44, 0.60 * math.sin(a)), (0.22 * math.cos(a), 2.09, 0.22 * math.sin(a)), 0.017, "white"),
-            R((0.612 * math.cos(a), 1.18, 0.612 * math.sin(a)), (0.612 * math.cos(a), 1.38, 0.612 * math.sin(a)), 0.022, "white")]] + [
+        dome_y, dome = m.CAPITOL_DOME
+        result = [R((0.612 * math.cos(a), 1.18, 0.612 * math.sin(a)), (0.612 * math.cos(a), 1.62, 0.612 * math.sin(a)), 0.022, "white")
+                  for a in [i * math.pi / 12 for i in range(24)]] + [
+            R(((r1 + 0.006) * math.cos(a), dome_y + y1, (r1 + 0.006) * math.sin(a)), ((r2 + 0.006) * math.cos(a), dome_y + y2, (r2 + 0.006) * math.sin(a)), 0.014, "white")
+            for a in [i * math.pi / 8 for i in range(16)] for (y1, r1), (y2, r2) in zip(dome, dome[1:])] + [
+            R((0.553 * math.cos(a), 1.72, 0.553 * math.sin(a)), (0.553 * math.cos(a), 1.82, 0.553 * math.sin(a)), 0.016, "dark")
+            for a in [(i + 0.5) * math.pi / 8 for i in range(16)]] + [
             B((x, 0.65, z), (0.045, 0.80, 0.045), "white") for x in [-2.25, -2.0, -1.7, -1.4, -1.1, 1.1, 1.4, 1.7, 2.0, 2.25] for z in [-0.65, 0.62]] + [
             B((x, 0.85, -0.67), (0.12, 0.26, 0.025), "dark") for x in [-2.1, -1.8, -1.5, -1.2, 1.2, 1.5, 1.8, 2.1]] + [
-            T((0, 1.40, 0), 0.63, 0.025, "white"), T((0, 1.16, 0), 0.62, 0.035, "white"),
-            L((0, 2.50, 0), [(0, 0.055), (0.14, 0.025)], "dark", 12), S((0, 2.67, 0), (0.035, 0.04, 0.035), "dark")]
+            T((0, 1.70, 0), 0.655, 0.02, "white"), T((0, 1.16, 0), 0.62, 0.035, "white"),
+            L((0, 2.86, 0), [(0, 0.055), (0.14, 0.025)], "dark", 12), S((0, 3.03, 0), (0.035, 0.04, 0.035), "dark")]
 
     else:
         result = []

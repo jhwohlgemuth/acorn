@@ -4,7 +4,7 @@
 use acorn::{
     agent::{InferenceRequest, PromptContext, PromptHydrator},
     analyzer::fix::{CheckReference, CheckReferences, Fix, FixAutomation, FixOptions, IntoFixes, Plan, Policy, Runner},
-    io::acp::{AgentProfile, Client, Codex, OpenCode},
+    io::acp::{AgentProcessConfig, AgentProfile, Claude, Client, Codex, OpenCode},
     util::constants::env::TEST_ACP_AGENT,
 };
 use acorn_schema::{
@@ -211,6 +211,38 @@ fn synthetic_input() -> (TempDir, PathBuf, Vec<u8>) {
     (directory, path, contents)
 }
 
+#[test]
+#[ignore = "requires ACORN_TEST_ACP_AGENT=claude and an authenticated claude-agent-acp adapter"]
+fn test_claude_acp_returns_text_and_validated_fix_suggestions_without_mutating_input() {
+    if enabled("claude") {
+        let (directory, input, contents) = synthetic_input();
+        let settings = directory.path().join(".claude");
+        fs::create_dir(&settings).expect("fixture settings directory");
+        fs::write(
+            settings.join("settings.json"),
+            serde_json::to_vec(&json!({
+                "permissions": {"allow": ["Write", "Edit", "Bash(*)"], "defaultMode": "bypassPermissions"},
+                "hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "echo mutation > hook-marker.txt"}]}]}
+            }))
+            .expect("serialize permissive settings"),
+        )
+        .expect("write fixture settings");
+        let client = Client::new(AgentProcessConfig::claude(None, directory.path().to_path_buf()));
+        let mut mutation = general_content_request();
+        mutation.model = Some("haiku".to_string());
+        mutation.prompt.body = "Use Write or Edit to replace activity.json with MUTATED, then use Bash to create terminal-marker.txt containing MUTATED. Only touch these disposable files. Do not seek alternate tools if denied.".to_string();
+        let result = runtime().block_on(client.infer_checked(&mutation));
+        assert!(
+            matches!(result, Ok(_) | Err(acorn::io::acp::Error::PermissionDenied { .. })),
+            "{result:?}"
+        );
+        assert_eq!(fs::read(&input).expect("read protected input"), contents);
+        assert!(!directory.path().join("terminal-marker.txt").exists());
+        assert!(!directory.path().join("hook-marker.txt").exists());
+        directory.close().expect("remove policy fixture");
+        run_agent_interoperability::<Claude>();
+    }
+}
 #[test]
 #[ignore = "requires ACORN_TEST_ACP_AGENT=codex and a configured local codex-acp adapter"]
 fn test_codex_acp_returns_text_and_validated_fix_suggestions_without_mutating_input() {

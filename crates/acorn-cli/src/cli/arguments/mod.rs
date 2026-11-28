@@ -147,6 +147,8 @@ pub(crate) enum AcpAgentKind {
     #[default]
     #[value(name = "opencode")]
     OpenCode,
+    /// Run the Claude Agent ACP adapter with tools disabled.
+    Claude,
     /// Run the Codex ACP adapter.
     Codex,
 }
@@ -1836,6 +1838,16 @@ impl CheckOutputFormat {
         self.is_diff() || self.is_json_patch()
     }
 }
+impl From<&GatherOutputFormat> for context::OutputFormat {
+    fn from(format: &GatherOutputFormat) -> Self {
+        match format {
+            | GatherOutputFormat::Console => Self::Text,
+            | GatherOutputFormat::Json => Self::Json,
+            | GatherOutputFormat::Markdown => Self::Markdown,
+            | GatherOutputFormat::Yaml => Self::Yaml,
+        }
+    }
+}
 impl Download {
     /// Bucket-only flag that the selected subcommand does not support, if any.
     ///
@@ -1984,16 +1996,6 @@ impl From<&FileFormat> for OutputFormat {
             | FileFormat::Json => Self::Json,
             | FileFormat::Yaml => Self::Yaml,
             | _ => Self::default(),
-        }
-    }
-}
-impl From<&GatherOutputFormat> for context::OutputFormat {
-    fn from(format: &GatherOutputFormat) -> Self {
-        match format {
-            | GatherOutputFormat::Console => Self::Text,
-            | GatherOutputFormat::Json => Self::Json,
-            | GatherOutputFormat::Markdown => Self::Markdown,
-            | GatherOutputFormat::Yaml => Self::Yaml,
         }
     }
 }

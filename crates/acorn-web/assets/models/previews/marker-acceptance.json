@@ -1,0 +1,38 @@
+{
+  "renderer": "Cesium 1.147.0 / Chromium",
+  "assets": [
+    {
+      "id": "marker/plain-blue",
+      "sha256": "ee447f592ff293ab9f4cd83ef10b9e4a457838d7d566113fa60e967b590250df"
+    },
+    {
+      "id": "marker/plain-brown",
+      "sha256": "3e0e85a498a08f37303bc201decc319eb82379b2065db4b3aea4bae5b02eaf03"
+    },
+    {
+      "id": "marker/plain-green",
+      "sha256": "ede48fe519aaccdd255c14754436217be3f8133175ccf08033af01b8062b241c"
+    },
+    {
+      "id": "marker/plain-magenta",
+      "sha256": "4d165af4c3d57020fbc030a317c780b6efc0166dec52cdfd61f15d67ff76d92c"
+    },
+    {
+      "id": "marker/plain-purple",
+      "sha256": "ed0a409470e700edc3337539d2248726187e5a1126d85b2e576c42deff3cc721"
+    },
+    {
+      "id": "marker/plain-teal",
+      "sha256": "68cf9b485ecf7a8f4140e75f65a584db3c7db8ee9c66d195ce4bc49eb28078a0"
+    }
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "views": [
+    "front",
+    "rear",
+    "top",
+    "small"
+  ],
+  "visualReview": "Inspect saved images before acceptance"
+}

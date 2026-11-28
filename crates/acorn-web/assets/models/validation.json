@@ -1,12 +1,12 @@
 [
   {
     "id": "drone/autel-evo-max-4t",
-    "sha256": "3837aedfc5ed0783b21bda1ffc4f4c093d58f1abd7ccaf9313e334dd6147d41c",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "dacd1d88317f9b4c0ce64c17d61675640bbf6fb37a32aeb546ef6124d4bb0856",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/autel-evo-max-4t.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.155Z",
+    "validatedAt": "2026-11-27T15:08:37.945Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -23,7 +23,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1808732
+          "byteLength": 820180
         },
         {
           "pointer": "/images/0",
@@ -46,8 +46,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 56412,
-      "totalTriangleCount": 18804,
+      "totalVertexCount": 21955,
+      "totalTriangleCount": 19012,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -55,12 +55,12 @@
   },
   {
     "id": "drone/bitcraze-crazyflie-2-1",
-    "sha256": "7aaf200961dc57b8ec2cd6eda16a7a67c7005769f3eabcf6ce52d4671f26551d",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "4f735f12b506d079d23c98a55e4e2b24f1c2d17fddff3ded6dbe126b8fa088a5",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/bitcraze-crazyflie-2-1.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.174Z",
+    "validatedAt": "2026-11-27T15:08:37.952Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -77,7 +77,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1043420
+          "byteLength": 446524
         },
         {
           "pointer": "/images/0",
@@ -100,7 +100,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 32496,
+      "totalVertexCount": 11812,
       "totalTriangleCount": 10832,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -109,12 +109,12 @@
   },
   {
     "id": "drone/brinc-responder",
-    "sha256": "44bca6831941ed50b38fefafdbc512467bfec6e5d8848df5d7cf5ee9d88e73b3",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "577e45deac41273c6407b1235eec0ac710ed1f0196f26a8077c99865b30fe6df",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/brinc-responder.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.189Z",
+    "validatedAt": "2026-11-27T15:08:37.959Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -131,7 +131,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 702812
+          "byteLength": 375188
         },
         {
           "pointer": "/images/0",
@@ -154,7 +154,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 8,
-      "totalVertexCount": 21852,
+      "totalVertexCount": 10248,
       "totalTriangleCount": 7284,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -163,12 +163,12 @@
   },
   {
     "id": "drone/brinc-responder-station",
-    "sha256": "7b96d92beee29d199d1fdd2fe192998bf4d49380e1fa44a70592f38a7a9c53c2",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "f4faf0d4bb11890f762726d84da15465a7c6b755123519ed037b1cb2a77ba7ad",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/brinc-responder-station.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.201Z",
+    "validatedAt": "2026-11-27T15:08:37.968Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -185,7 +185,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 668636
+          "byteLength": 574748
         },
         {
           "pointer": "/images/0",
@@ -208,7 +208,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 22,
-      "totalVertexCount": 20784,
+      "totalVertexCount": 16551,
       "totalTriangleCount": 6928,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -217,12 +217,12 @@
   },
   {
     "id": "drone/dji-agras-t50",
-    "sha256": "28d819cb3bf6514f2ba45e7642c147778fd15ac415ca2d89ed599f0159cdf862",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "dd23a2b4ebe6ff27f9abbd253f6b47a555d3b0f5df796c61fff2b62b2bcac999",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-agras-t50.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.217Z",
+    "validatedAt": "2026-11-27T15:08:37.974Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -239,7 +239,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1078364
+          "byteLength": 500932
         },
         {
           "pointer": "/images/0",
@@ -262,7 +262,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 33588,
+      "totalVertexCount": 13444,
       "totalTriangleCount": 11196,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -271,12 +271,12 @@
   },
   {
     "id": "drone/dji-avata-2",
-    "sha256": "a3d9cf23bb1b41d5837725c681bc405172653a7d2e0f2631615c2fd6c420298b",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "c90458d5beea643dcb268e3a05135543be6ad515ed0e04256d7977b625475d7c",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-avata-2.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.231Z",
+    "validatedAt": "2026-11-27T15:08:37.981Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -293,7 +293,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1388252
+          "byteLength": 570892
         },
         {
           "pointer": "/images/0",
@@ -316,7 +316,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 43272,
+      "totalVertexCount": 15025,
       "totalTriangleCount": 14424,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -325,12 +325,12 @@
   },
   {
     "id": "drone/dji-dock-3",
-    "sha256": "a48ec15ad1ffaaadc5e81b932247864469d4f45e43b27e734cc91d4f385a08ec",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "59ecb807378eb0c04b3bfd93b7ad34dad1212c9a62e3ec969ab938e3cc1cbfca",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-dock-3.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.237Z",
+    "validatedAt": "2026-11-27T15:08:37.985Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -347,7 +347,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 510044
+          "byteLength": 304836
         },
         {
           "pointer": "/images/0",
@@ -370,7 +370,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 15828,
+      "totalVertexCount": 8426,
       "totalTriangleCount": 5276,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -379,12 +379,12 @@
   },
   {
     "id": "drone/dji-flycart-30",
-    "sha256": "b26263e9767d228698c437501c73e5562f91ee9ce2ef47ee13ef4d42e5cd58a0",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "af4cd6ac54763cc2ae9f27365a76e9acef31df7cfe15f426b609aa487be4314e",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-flycart-30.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.248Z",
+    "validatedAt": "2026-11-27T15:08:37.990Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -401,7 +401,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1067996
+          "byteLength": 488892
         },
         {
           "pointer": "/images/0",
@@ -424,7 +424,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 33264,
+      "totalVertexCount": 13088,
       "totalTriangleCount": 11088,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -433,12 +433,12 @@
   },
   {
     "id": "drone/dji-inspire-3",
-    "sha256": "d729d6af47d4c953c05f67cd34c9a31623ad110b79acaa910060293f9f8b7306",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "17de7b411dc697c1ebbe426853fa50a57c1e4556f22d22b9350447853d3d8a78",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-inspire-3.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.257Z",
+    "validatedAt": "2026-11-27T15:08:37.995Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -455,7 +455,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 894812
+          "byteLength": 450356
         },
         {
           "pointer": "/images/0",
@@ -478,7 +478,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 5,
-      "totalVertexCount": 27852,
+      "totalVertexCount": 12222,
       "totalTriangleCount": 9284,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -487,12 +487,12 @@
   },
   {
     "id": "drone/dji-matrice-350-rtk",
-    "sha256": "07eaab7e88da50267120b59f5d2326cbbebca29a88e1a977b9a8abc0a89d9f73",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "600adac942b3fd120192a6390b1a3d3755f44ea26c8cde65fcca78ded44d984e",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-matrice-350-rtk.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.273Z",
+    "validatedAt": "2026-11-27T15:08:38.003Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -509,7 +509,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1742300
+          "byteLength": 749052
         },
         {
           "pointer": "/images/0",
@@ -532,7 +532,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 54336,
+      "totalVertexCount": 19901,
       "totalTriangleCount": 18112,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -541,12 +541,12 @@
   },
   {
     "id": "drone/dji-matrice-4d",
-    "sha256": "eefba212ac6e34957f829eb6f162112f17c7cc1e908853c47f7dd6dbf9941916",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "87aa19ce22dee930e1a9d79b8fbd9158741fcf1c9cc0a5a95e121d2868ef2651",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-matrice-4d.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.284Z",
+    "validatedAt": "2026-11-27T15:08:38.011Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -563,7 +563,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1153244
+          "byteLength": 512780
         },
         {
           "pointer": "/images/0",
@@ -586,7 +586,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 35928,
+      "totalVertexCount": 13668,
       "totalTriangleCount": 11976,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -595,12 +595,12 @@
   },
   {
     "id": "drone/dji-mavic-3-enterprise",
-    "sha256": "9dccb7ad898058af41e81c5f56bb2cb0f10b1601060d693335da649ab665878b",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "eb70b1d3bf12967558c5ec60bdae8322daa9beb363db1688dbec27c74014c7d2",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-mavic-3-enterprise.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.310Z",
+    "validatedAt": "2026-11-27T15:08:38.020Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -617,7 +617,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1728092
+          "byteLength": 816260
         },
         {
           "pointer": "/images/0",
@@ -640,8 +640,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 53892,
-      "totalTriangleCount": 17964,
+      "totalVertexCount": 21990,
+      "totalTriangleCount": 18172,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -649,12 +649,12 @@
   },
   {
     "id": "drone/dji-phantom-4-rtk",
-    "sha256": "6874d7b1051692f54e1164ab6d58c541e68f8106f9be90c28c0d55c1da29e472",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "2c031bc25ae2b39cfe157bdb0ec6e13669800ed64d14d69438ea8f79098f66a5",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/dji-phantom-4-rtk.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.325Z",
+    "validatedAt": "2026-11-27T15:08:38.028Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -671,7 +671,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1625948
+          "byteLength": 710164
         },
         {
           "pointer": "/images/0",
@@ -694,7 +694,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 50700,
+      "totalVertexCount": 18913,
       "totalTriangleCount": 16900,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -703,12 +703,12 @@
   },
   {
     "id": "drone/ebee-x",
-    "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "98b42b22a7a1d1894ab2473ef8b2f5c9354df2e0d303e6b3fbc15d66237fbe41",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/ebee-x.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.329Z",
+    "validatedAt": "2026-11-27T15:08:38.030Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -725,7 +725,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 337628
+          "byteLength": 154124
         },
         {
           "pointer": "/images/0",
@@ -748,7 +748,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 10440,
+      "totalVertexCount": 4053,
       "totalTriangleCount": 3480,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -757,12 +757,12 @@
   },
   {
     "id": "drone/elistair-khronos",
-    "sha256": "8edb4af10f092afe24cdba24d0871af8c64bab2562d265dcf3a8c9b439d70e39",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "901ddbe084f635a0809ff23f8a3b4543069c69e1a798a2ad77189c1a30d85eb1",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/elistair-khronos.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.337Z",
+    "validatedAt": "2026-11-27T15:08:38.035Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -779,7 +779,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 759644
+          "byteLength": 389332
         },
         {
           "pointer": "/images/0",
@@ -802,7 +802,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 23628,
+      "totalVertexCount": 10579,
       "totalTriangleCount": 7876,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -811,12 +811,12 @@
   },
   {
     "id": "drone/elistair-khronos-station",
-    "sha256": "ee8168300bb60af0e7640e85aaa0c85c4bdda3b4f5dbaa773e31979e1bb827a0",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "e3f2f9b6e81138dbb08eb6941b20f59dbf71c8b3035a3b7342490d0c5e49ae97",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/elistair-khronos-station.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.350Z",
+    "validatedAt": "2026-11-27T15:08:38.039Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -833,7 +833,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 838748
+          "byteLength": 384228
         },
         {
           "pointer": "/images/0",
@@ -856,7 +856,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 26100,
+      "totalVertexCount": 10265,
       "totalTriangleCount": 8700,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -865,12 +865,12 @@
   },
   {
     "id": "drone/flyability-elios-3",
-    "sha256": "eef66d370b86152a581d7a6122d449cec052003de70384ce4f5382ad9e2249bf",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "0e1b087fe8b240ef033ffffafa52719c87fdbdcd05388c99f490c0e7dcb735cd",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/flyability-elios-3.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.364Z",
+    "validatedAt": "2026-11-27T15:08:38.045Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -887,7 +887,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1436636
+          "byteLength": 600828
         },
         {
           "pointer": "/images/0",
@@ -910,7 +910,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 44784,
+      "totalVertexCount": 15866,
       "totalTriangleCount": 14928,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -919,12 +919,12 @@
   },
   {
     "id": "drone/freefly-alta-x",
-    "sha256": "b85235a647269e48727739e349a0b5f4e9a3edd29465703651ea159d96161408",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "1d3f03ef01efcd087ba9319924b38667e1a4f0cf684e33447b4c96af378e6809",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/freefly-alta-x.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.372Z",
+    "validatedAt": "2026-11-27T15:08:38.050Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -941,7 +941,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 760796
+          "byteLength": 358524
         },
         {
           "pointer": "/images/0",
@@ -964,7 +964,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 23664,
+      "totalVertexCount": 9614,
       "totalTriangleCount": 7888,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -973,12 +973,12 @@
   },
   {
     "id": "drone/freefly-astro",
-    "sha256": "7bc3f180ba80e2247bb014932eefadef3f730be03879802f04b962044eb751ab",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "19644733f0b5d8adbf4a3bebf2e7ed2ab49b5706bc104d2d6694eca5bd9ff0f8",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/freefly-astro.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.385Z",
+    "validatedAt": "2026-11-27T15:08:38.057Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -995,7 +995,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1495772
+          "byteLength": 673644
         },
         {
           "pointer": "/images/0",
@@ -1018,7 +1018,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 46632,
+      "totalVertexCount": 18026,
       "totalTriangleCount": 15544,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1027,12 +1027,12 @@
   },
   {
     "id": "drone/holybro-x500-v2",
-    "sha256": "6b40758c8c06862d10e0c6650767347a6e1f385c6e8a8701628d5f4df82aee71",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "7792f7e540f55a440d450ed2827d244714d04db13218d834d1497453ae457c65",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/holybro-x500-v2.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.398Z",
+    "validatedAt": "2026-11-27T15:08:38.063Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1049,7 +1049,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1415132
+          "byteLength": 654140
         },
         {
           "pointer": "/images/0",
@@ -1072,7 +1072,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 44112,
+      "totalVertexCount": 17574,
       "totalTriangleCount": 14704,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1081,12 +1081,12 @@
   },
   {
     "id": "drone/inspired-flight-if1200a",
-    "sha256": "a7b7a0f4d7e49d7417f375d892196b55b5be2fcd3b7b1d859e02abd874f4ec68",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "0b055f6c64fc9787daf76f363d8b675d8b8f98e12efc4cedba395c05b0bdb6b8",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/inspired-flight-if1200a.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.410Z",
+    "validatedAt": "2026-11-27T15:08:38.069Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1103,7 +1103,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1290332
+          "byteLength": 573508
         },
         {
           "pointer": "/images/0",
@@ -1126,7 +1126,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 40212,
+      "totalVertexCount": 15298,
       "totalTriangleCount": 13404,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1135,12 +1135,12 @@
   },
   {
     "id": "drone/jouav-cw-15",
-    "sha256": "9b3f08d5422a48cb99b4b73fbbce2b47dcef37a741671ad8bacc717b337abd91",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "2628497de0d911020291f392dfac09561359592833a0d6e934a91f0929d7a95e",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/jouav-cw-15.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.418Z",
+    "validatedAt": "2026-11-27T15:08:38.074Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1157,7 +1157,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 720092
+          "byteLength": 343308
         },
         {
           "pointer": "/images/0",
@@ -1180,7 +1180,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 22392,
+      "totalVertexCount": 9218,
       "totalTriangleCount": 7464,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1189,12 +1189,12 @@
   },
   {
     "id": "drone/landing-pad",
-    "sha256": "7ef8e072d6f5a37b48cb123f5cfa5414d39f496322ad0b0f6a6dcc983847a6b5",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "5331821d7fe5f668e6650cfa02e05e0caf1b8e314b7423c2a623710afcdb1259",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/landing-pad.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.426Z",
+    "validatedAt": "2026-11-27T15:08:38.079Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1211,7 +1211,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 884060
+          "byteLength": 510100
         },
         {
           "pointer": "/images/0",
@@ -1234,7 +1234,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 5,
-      "totalVertexCount": 27516,
+      "totalVertexCount": 14110,
       "totalTriangleCount": 9172,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1243,12 +1243,12 @@
   },
   {
     "id": "drone/modalai-starling-2",
-    "sha256": "7fe6a0476cbaf23442c6ea9befea1aa987e9cf4fb478b785b61d5a1f876be306",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "76ea06aaef6db41c5103ab5e49bae9b61537977fb41ed87d19d3bfea4f32f54e",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/modalai-starling-2.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.432Z",
+    "validatedAt": "2026-11-27T15:08:38.082Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1265,7 +1265,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 577244
+          "byteLength": 303692
         },
         {
           "pointer": "/images/0",
@@ -1288,7 +1288,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 17928,
+      "totalVertexCount": 8259,
       "totalTriangleCount": 5976,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1297,12 +1297,12 @@
   },
   {
     "id": "drone/ornl-strelka",
-    "sha256": "886a69f7cc939fa9a5c6d84f690c1517eadb93b6a94dfa4568a54fc10fba65ff",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "46c37096d4baa1d40aa8e8c8f4314c09af2115c10f1362e9000836f218e5d9bb",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/ornl-strelka.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.444Z",
+    "validatedAt": "2026-11-27T15:08:38.089Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1319,7 +1319,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1399388
+          "byteLength": 642212
         },
         {
           "pointer": "/images/0",
@@ -1342,7 +1342,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 43620,
+      "totalVertexCount": 17232,
       "totalTriangleCount": 14540,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1351,12 +1351,12 @@
   },
   {
     "id": "drone/parrot-anafi-ai",
-    "sha256": "691f9c4e57d0f1af502d683f9f80dea5d756044b45f51278e26309a8dc08537e",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "469d97a878b373a0ebc40b1f1af13c80b7de70e9c399b1c85b975d06890eaee4",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/parrot-anafi-ai.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.459Z",
+    "validatedAt": "2026-11-27T15:08:38.097Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1373,61 +1373,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1812572
-        },
-        {
-          "pointer": "/images/0",
-          "mimeType": "image/png",
-          "storage": "buffer-view",
-          "image": {
-            "width": 64,
-            "height": 64,
-            "format": "rgb",
-            "primaries": "srgb",
-            "transfer": "srgb",
-            "bits": 8
-          }
-        }
-      ],
-      "animationCount": 0,
-      "materialCount": 7,
-      "hasMorphTargets": false,
-      "hasSkins": false,
-      "hasTextures": true,
-      "hasDefaultScene": true,
-      "drawCallCount": 7,
-      "totalVertexCount": 56532,
-      "totalTriangleCount": 18844,
-      "maxUVs": 1,
-      "maxInfluences": 0,
-      "maxAttributes": 3
-    }
-  },
-  {
-    "id": "drone/quantum-trinity-pro",
-    "sha256": "9dddc150df3ae8f0f309f40cc4703d97d08061ef3efa520f94339e4d0da51169",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "drones/quantum-trinity-pro.glb",
-    "mimeType": "model/gltf-binary",
-    "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.466Z",
-    "issues": {
-      "numErrors": 0,
-      "numWarnings": 0,
-      "numInfos": 0,
-      "numHints": 0,
-      "messages": [],
-      "truncated": false
-    },
-    "info": {
-      "version": "2.0",
-      "generator": "ACORN build-models.py",
-      "resources": [
-        {
-          "pointer": "/buffers/0",
-          "mimeType": "application/gltf-buffer",
-          "storage": "glb",
-          "byteLength": 670940
+          "byteLength": 706316
         },
         {
           "pointer": "/images/0",
@@ -1450,7 +1396,61 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 20856,
+      "totalVertexCount": 18765,
+      "totalTriangleCount": 17048,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "drone/quantum-trinity-pro",
+    "sha256": "4262b9f11c4e9d75003a2bf72c8893d41f1006868393283edfdd224473e06cc7",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "drones/quantum-trinity-pro.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.101Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 294636
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 6,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 6,
+      "totalVertexCount": 7793,
       "totalTriangleCount": 6952,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1459,12 +1459,12 @@
   },
   {
     "id": "drone/skydio-x10",
-    "sha256": "9421ed274ae8e6b916d0708ef5256f1a154cc901880cceb836bb092e6b120047",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "749866949603370a4ee24f041f84ce02e97bf4563fac0ba06bb5b3ea1c2b583e",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/skydio-x10.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.481Z",
+    "validatedAt": "2026-11-27T15:08:38.110Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1481,7 +1481,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1829468
+          "byteLength": 818116
         },
         {
           "pointer": "/images/0",
@@ -1504,7 +1504,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 57060,
+      "totalVertexCount": 21889,
       "totalTriangleCount": 19020,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1513,12 +1513,12 @@
   },
   {
     "id": "drone/swissdrones-sdo-50-v3",
-    "sha256": "945fc214b8e385e04048d98ef1bf07fa9e5f419556a640b3282f7068fd5a58e4",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "8ed557a60df912c2fa1bddcb755beccc13b1d62852fa2f583e1bf08bbe13c155",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/swissdrones-sdo-50-v3.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.490Z",
+    "validatedAt": "2026-11-27T15:08:38.115Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1535,7 +1535,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1009628
+          "byteLength": 397308
         },
         {
           "pointer": "/images/0",
@@ -1558,7 +1558,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 31440,
+      "totalVertexCount": 10340,
       "totalTriangleCount": 10480,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1567,12 +1567,12 @@
   },
   {
     "id": "drone/voliro-t",
-    "sha256": "e8f4dcac681034e5a60a9a6ce71d68fbcc37c27f6603d7ff271dfd2865bb1737",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "11778f3d7f88cb104bae5646c362c4741e9e40431d33dc00ce3a92a329bcbcce",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/voliro-t.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.496Z",
+    "validatedAt": "2026-11-27T15:08:38.118Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1589,7 +1589,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 592220
+          "byteLength": 253364
         },
         {
           "pointer": "/images/0",
@@ -1612,7 +1612,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 18396,
+      "totalVertexCount": 6657,
       "totalTriangleCount": 6132,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1621,12 +1621,12 @@
   },
   {
     "id": "drone/wingcopter-198",
-    "sha256": "62ee2c708d868ce6887e9e2397c2fadcae55ad92a0602bc79e9e5497beacebd4",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "04fbe807061e3d52a5d1a39d862a5618a268b7dc0e3f8e7cba722a17d5902a77",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/wingcopter-198.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.503Z",
+    "validatedAt": "2026-11-27T15:08:38.122Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1643,7 +1643,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 655964
+          "byteLength": 408964
         },
         {
           "pointer": "/images/0",
@@ -1666,7 +1666,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 20388,
+      "totalVertexCount": 11395,
       "totalTriangleCount": 6796,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1675,12 +1675,12 @@
   },
   {
     "id": "drone/wingtraone-gen-ii",
-    "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "1da3518535f4772bc3a8daa6f181f4d1a449bfeca0d31957a1b6fe0e1aa40246",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/wingtraone-gen-ii.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.507Z",
+    "validatedAt": "2026-11-27T15:08:38.124Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1697,7 +1697,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 353372
+          "byteLength": 165732
         },
         {
           "pointer": "/images/0",
@@ -1720,7 +1720,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 10932,
+      "totalVertexCount": 4385,
       "totalTriangleCount": 3644,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1729,12 +1729,12 @@
   },
   {
     "id": "drone/zipline-delivery-droid",
-    "sha256": "36676bd4b88ab09580817e758f652640e780afdf8903cefe8856302e62a31bda",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "cf98a841e4014c7daff7dcffccfe42534123d759fe0804325a9c9e228dda3eca",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/zipline-delivery-droid.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.515Z",
+    "validatedAt": "2026-11-27T15:08:38.128Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1751,7 +1751,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 748124
+          "byteLength": 374288
         },
         {
           "pointer": "/images/0",
@@ -1774,8 +1774,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 23268,
-      "totalTriangleCount": 7756,
+      "totalVertexCount": 9666,
+      "totalTriangleCount": 10238,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1783,12 +1783,12 @@
   },
   {
     "id": "drone/zipline-platform-2",
-    "sha256": "89ef948d92c60a6770a568f8e7991420c604b5e878352f34c151976eb1b94b5d",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "e2c9ee375f107b19563ac59573a2af91e7f831921140adb0f952e46f0c9ae823",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "drones/zipline-platform-2.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.521Z",
+    "validatedAt": "2026-11-27T15:08:38.132Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1805,7 +1805,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 545756
+          "byteLength": 323676
         },
         {
           "pointer": "/images/0",
@@ -1828,7 +1828,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 16944,
+      "totalVertexCount": 8945,
       "totalTriangleCount": 5648,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1837,12 +1837,12 @@
   },
   {
     "id": "landmarks/gateway-arch",
-    "sha256": "376959930fc71175b7553da5c6587442497c31ebe284da13ec6f1353b0f89070",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "49478e31891d0170c7b22876ea82b8bedde326622da2ef5c593c4457ac802610",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "landmarks/gateway-arch.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.525Z",
+    "validatedAt": "2026-11-27T15:08:38.135Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1859,7 +1859,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 367004
+          "byteLength": 178024
         },
         {
           "pointer": "/images/0",
@@ -1882,8 +1882,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 4,
-      "totalVertexCount": 11358,
-      "totalTriangleCount": 3786,
+      "totalVertexCount": 4855,
+      "totalTriangleCount": 3186,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -1891,12 +1891,12 @@
   },
   {
     "id": "landmarks/golden-gate-bridge",
-    "sha256": "ea293dcd0d7433b1e3438cb7df73bfd0fa1cde23e72aeeb17a79aacd0c6e6f9c",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "38ac7c2d8793865fde08a14ed6f461261836e4f4963d1122891b3ae98d2fdd8a",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "landmarks/golden-gate-bridge.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.537Z",
+    "validatedAt": "2026-11-27T15:08:38.141Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1913,7 +1913,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1431644
+          "byteLength": 666084
         },
         {
           "pointer": "/images/0",
@@ -1936,7 +1936,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 44628,
+      "totalVertexCount": 17915,
       "totalTriangleCount": 14876,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1945,12 +1945,12 @@
   },
   {
     "id": "landmarks/grand-canyon",
-    "sha256": "4bd38c8bd895044f2e1ec001e354edadc5d12fc45a92dbcae30adc1a2e287a0f",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "aa6b9790a217c57a134dd70d4d6c1d335a939c92dd4c79de8aad52b7c1a86fc7",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "landmarks/grand-canyon.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.545Z",
+    "validatedAt": "2026-11-27T15:08:38.150Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -1967,7 +1967,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1042844
+          "byteLength": 980700
         },
         {
           "pointer": "/images/0",
@@ -1990,7 +1990,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 5,
-      "totalVertexCount": 32478,
+      "totalVertexCount": 28506,
       "totalTriangleCount": 10826,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -1999,12 +1999,12 @@
   },
   {
     "id": "landmarks/hoover-dam",
-    "sha256": "4d5b508b1016c674db3a3b6bd01222b60f1bd9ce0380927bbd740da411b2541e",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "610d61411a04e3f82ff4addd8b46ef309bfe7f12ced153e933054cfadb5733e1",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "landmarks/hoover-dam.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.556Z",
+    "validatedAt": "2026-11-27T15:08:38.157Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2021,7 +2021,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1184348
+          "byteLength": 669092
         },
         {
           "pointer": "/images/0",
@@ -2044,8 +2044,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 36900,
-      "totalTriangleCount": 12300,
+      "totalVertexCount": 18540,
+      "totalTriangleCount": 12044,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
@@ -2053,12 +2053,12 @@
   },
   {
     "id": "landmarks/kennedy-space-center",
-    "sha256": "f4ccb024d83e97dfb46b0528e35154a726fe8b18c6ae9ef91e0a500bbcacacda",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "a5128277d4af156159185c5de3b415c6c92078fd5a65709e5f0e9d966068ea08",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "landmarks/kennedy-space-center.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.569Z",
+    "validatedAt": "2026-11-27T15:08:38.163Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2075,7 +2075,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 941276
+          "byteLength": 589900
         },
         {
           "pointer": "/images/0",
@@ -2098,7 +2098,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 29304,
+      "totalVertexCount": 16492,
       "totalTriangleCount": 9768,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2107,12 +2107,12 @@
   },
   {
     "id": "landmarks/us-capitol",
-    "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "faa87f5ebdb3d8fefe3ca041bbdd0200fb83976aa55b2a0a1e91d92f3f981139",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "landmarks/us-capitol.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.580Z",
+    "validatedAt": "2026-11-27T15:08:38.171Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2129,7 +2129,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 932252
+          "byteLength": 720880
         },
         {
           "pointer": "/images/0",
@@ -2152,21 +2152,21 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 4,
-      "totalVertexCount": 29022,
-      "totalTriangleCount": 9674,
+      "totalVertexCount": 19771,
+      "totalTriangleCount": 14110,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3
     }
   },
   {
-    "id": "research/collaboration",
-    "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "research/collaboration.glb",
+    "id": "marker/plain-blue",
+    "sha256": "ee447f592ff293ab9f4cd83ef10b9e4a457838d7d566113fa60e967b590250df",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "markers/plain-blue.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.584Z",
+    "validatedAt": "2026-11-27T15:08:38.173Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2183,7 +2183,601 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 415196
+          "byteLength": 130796
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 2,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 2,
+      "totalVertexCount": 3684,
+      "totalTriangleCount": 1560,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "marker/plain-brown",
+    "sha256": "3e0e85a498a08f37303bc201decc319eb82379b2065db4b3aea4bae5b02eaf03",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "markers/plain-brown.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.175Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 130796
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 2,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 2,
+      "totalVertexCount": 3684,
+      "totalTriangleCount": 1560,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "marker/plain-green",
+    "sha256": "ede48fe519aaccdd255c14754436217be3f8133175ccf08033af01b8062b241c",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "markers/plain-green.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.177Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 130796
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 2,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 2,
+      "totalVertexCount": 3684,
+      "totalTriangleCount": 1560,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "marker/plain-magenta",
+    "sha256": "4d165af4c3d57020fbc030a317c780b6efc0166dec52cdfd61f15d67ff76d92c",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "markers/plain-magenta.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.178Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 130796
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 2,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 2,
+      "totalVertexCount": 3684,
+      "totalTriangleCount": 1560,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "marker/plain-purple",
+    "sha256": "ed0a409470e700edc3337539d2248726187e5a1126d85b2e576c42deff3cc721",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "markers/plain-purple.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.180Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 130796
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 2,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 2,
+      "totalVertexCount": 3684,
+      "totalTriangleCount": 1560,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "marker/plain-teal",
+    "sha256": "68cf9b485ecf7a8f4140e75f65a584db3c7db8ee9c66d195ce4bc49eb28078a0",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "markers/plain-teal.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.182Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 130796
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 2,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 2,
+      "totalVertexCount": 3684,
+      "totalTriangleCount": 1560,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/acorn-logo",
+    "sha256": "859720ace69b89c3db659eff8ebbb50de5bc4da6ad8e06cc765a8a8925d2f812",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/acorn-logo.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.184Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 86748
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 1,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 2,
+      "totalVertexCount": 2135,
+      "totalTriangleCount": 2480,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/ames-marker",
+    "sha256": "418dc7a97c7e5c52bc9cbbd739d7feca8c4a67db7d3d96c45a1b0ff99552c3b9",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/ames-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.226Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 170956
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 4816,
+      "totalTriangleCount": 2216,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/argonne-marker",
+    "sha256": "2c351aa19403f5b88060e2c17dc0eeca921126830eb830aad2b359b53c04639d",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/argonne-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.229Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 283644
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 7976,
+      "totalTriangleCount": 4144,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/berkeley-marker",
+    "sha256": "b81aa2d2ce7c32c827048e7ee435ff552dbbe95de1e2e1a33cda09210f749518",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/berkeley-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.232Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 355516
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 10060,
+      "totalTriangleCount": 5008,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/brookhaven-marker",
+    "sha256": "30f06b140c4d6aaafe49e13ed86390e13a231180675abb3837b83c3bd71eb352",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/brookhaven-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.235Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 216380
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 6096,
+      "totalTriangleCount": 2960,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/collaboration",
+    "sha256": "d28b4a0bf6dc28951a0cf1ab262c5092daf80b089f39129fc6e4222c30742392",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/collaboration.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.237Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 146300
         },
         {
           "pointer": "/images/0",
@@ -2206,7 +2800,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 3,
-      "totalVertexCount": 12864,
+      "totalVertexCount": 3657,
       "totalTriangleCount": 4288,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2215,12 +2809,12 @@
   },
   {
     "id": "research/dataset",
-    "sha256": "84e26f725244883d1e34e201db520976afd73a46a203cc4f62217f1e6e17b4d5",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "5dfdf27c9e6ae9c0ac2eedb8d8573672945939e4d796603ccab242b6961da3bc",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "research/dataset.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.599Z",
+    "validatedAt": "2026-11-27T15:08:38.245Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2237,7 +2831,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1742300
+          "byteLength": 822492
         },
         {
           "pointer": "/images/0",
@@ -2260,7 +2854,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 54336,
+      "totalVertexCount": 22196,
       "totalTriangleCount": 18112,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2269,12 +2863,12 @@
   },
   {
     "id": "research/doe-national-laboratory",
-    "sha256": "c452fcd7b6cf618448d092af1d9efd13e96977c4330c683aef56f0be3d26c320",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "a787a982028b36bc707ba5781b9658732f21d90088669c2ed54524700394760f",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "research/doe-national-laboratory.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.635Z",
+    "validatedAt": "2026-11-27T15:08:38.261Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2291,7 +2885,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 4292444
+          "byteLength": 1697204
         },
         {
           "pointer": "/images/0",
@@ -2314,7 +2908,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 8,
-      "totalVertexCount": 134028,
+      "totalVertexCount": 44550,
       "totalTriangleCount": 44676,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2322,13 +2916,13 @@
     }
   },
   {
-    "id": "research/field-site",
-    "sha256": "4d810af780d4cd94a49e1c2055110cce06b5e694ca9973146c35ad64befd6173",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "research/field-site.glb",
+    "id": "research/fermilab-marker",
+    "sha256": "a8de534673c353d27a60ef7a092e55b8f58b5e23ebba750022b3347453cb7191",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/fermilab-marker.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.642Z",
+    "validatedAt": "2026-11-27T15:08:38.264Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2345,7 +2939,61 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 518876
+          "byteLength": 250108
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 7051,
+      "totalTriangleCount": 3488,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/field-site",
+    "sha256": "6b3437cc5c15c66c4f8922eeebca14433b729616dd69f2c8923aac72693bdb9e",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/field-site.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.268Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 394412
         },
         {
           "pointer": "/images/0",
@@ -2368,7 +3016,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 7,
-      "totalVertexCount": 16104,
+      "totalVertexCount": 11208,
       "totalTriangleCount": 5368,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2377,12 +3025,12 @@
   },
   {
     "id": "research/funding",
-    "sha256": "4e92afb41ceb67bb718e6eaedae901059cc146404287268c318697f602e32249",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "eb4c4fb282fdc1a183fa13bb4135a17b25028005de20bf2e424117bd4a3c7f77",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "research/funding.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.655Z",
+    "validatedAt": "2026-11-27T15:08:38.273Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2399,7 +3047,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1245404
+          "byteLength": 521996
         },
         {
           "pointer": "/images/0",
@@ -2422,7 +3070,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 6,
-      "totalVertexCount": 38808,
+      "totalVertexCount": 13776,
       "totalTriangleCount": 12936,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2430,13 +3078,13 @@
     }
   },
   {
-    "id": "research/laboratory",
-    "sha256": "2590b9851df7a32f3a4724abc53c3e9d1eeec813f207e0fd75235d0171e1e639",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "research/laboratory.glb",
+    "id": "research/idaho-marker",
+    "sha256": "6f078350416eff5a650ea32cbe4b599d368af203613a91cfe04b20cef799f7b4",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/idaho-marker.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:18.669Z",
+    "validatedAt": "2026-11-27T15:08:38.277Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2453,7 +3101,115 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1644188
+          "byteLength": 313436
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 8826,
+      "totalTriangleCount": 4576,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/jefferson-marker",
+    "sha256": "b4e8417b5e31654bdbeca43c416cd81e7dcf6e3cf0943b34d7097ac121d3e3f9",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/jefferson-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.279Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 211132
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 5950,
+      "totalTriangleCount": 2864,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/laboratory",
+    "sha256": "ca4c057e1e220b4dfaea1aa2e510ce9b8ea7594c4437ef4ba3adc10f7c536e90",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/laboratory.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.286Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 674984
         },
         {
           "pointer": "/images/0",
@@ -2476,7 +3232,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 9,
-      "totalVertexCount": 51270,
+      "totalVertexCount": 17778,
       "totalTriangleCount": 17090,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2484,13 +3240,13 @@
     }
   },
   {
-    "id": "research/ornl-campus",
-    "sha256": "49bde708a05c4b05a84a16102c3d7927ee98127a966c2144048071a324c56578",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "research/ornl-campus.glb",
+    "id": "research/livermore-marker",
+    "sha256": "95eb8207daaa35b3c800994f2b9e99b24dec92aa8de34f812ae5131d59e482ed",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/livermore-marker.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:19.030Z",
+    "validatedAt": "2026-11-27T15:08:38.288Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2507,7 +3263,169 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 46011040
+          "byteLength": 179676
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 5066,
+      "totalTriangleCount": 2336,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/los-alamos-marker",
+    "sha256": "3912b0ff017c486ca85b0a4f20b3f1736631c4aa9ae16909891ab8147ab8507a",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/los-alamos-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.291Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 286716
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 8087,
+      "totalTriangleCount": 4064,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/netl-marker",
+    "sha256": "46018e8a2e0c6d6d6bea0baa0c463e039adb0252c972ee3610b3df5951b37bd3",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/netl-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.293Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 177340
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 5008,
+      "totalTriangleCount": 2256,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/ornl-campus",
+    "sha256": "fe7a8b311471c8a1cad7b89755164565f26f181620a4b7831b282f48207eb088",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/ornl-campus.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.493Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 26514532
         },
         {
           "pointer": "/images/0",
@@ -2595,7 +3513,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 81,
-      "totalVertexCount": 1308786,
+      "totalVertexCount": 586734,
       "totalTriangleCount": 436262,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2603,13 +3521,13 @@
     }
   },
   {
-    "id": "research/publication",
-    "sha256": "fc28fa627612803783a7047962ad8d6bdd0f0b7d98640dc5604b11484b6105ef",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "research/publication.glb",
+    "id": "research/ornl-marker",
+    "sha256": "6cdda9d331e3c5603c7b8e4891108ca7ff018bded60fcace416bd384cd58de38",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/ornl-marker.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:19.034Z",
+    "validatedAt": "2026-11-27T15:08:38.497Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2626,7 +3544,169 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 292700
+          "byteLength": 277708
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 7819,
+      "totalTriangleCount": 3992,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/pnnl-marker",
+    "sha256": "fac27dc295d40c252465ab84df8453525141d9f762f0ce78a292c7db7c6e3852",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/pnnl-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.501Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 280572
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 7907,
+      "totalTriangleCount": 4000,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/pppl-marker",
+    "sha256": "cdd97b589988aed79b7afcc6bd4107dde39f598ab4b3420502f8a9058f183823",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/pppl-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.505Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 426604
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 12019,
+      "totalTriangleCount": 6408,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/publication",
+    "sha256": "93ae58882d5ee5758a5b4e9ffffb29d49654ce2e2f9a255a388a8137c9b1dfa6",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/publication.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.508Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 272244
         },
         {
           "pointer": "/images/0",
@@ -2649,7 +3729,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 5,
-      "totalVertexCount": 9036,
+      "totalVertexCount": 7832,
       "totalTriangleCount": 3012,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2658,12 +3738,12 @@
   },
   {
     "id": "research/research-project",
-    "sha256": "e2c31ff5d541b9f576f191523fd5e753ec07d66ad22662c09f9e69346d114c9c",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "9d422507520f17b33d06a1786b193855696b4310e3db2684cd70382fcfabf7ac",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "research/research-project.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:19.051Z",
+    "validatedAt": "2026-11-27T15:08:38.516Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2680,7 +3760,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1503836
+          "byteLength": 847908
         },
         {
           "pointer": "/images/0",
@@ -2703,7 +3783,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 8,
-      "totalVertexCount": 46884,
+      "totalVertexCount": 23456,
       "totalTriangleCount": 15628,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2712,12 +3792,12 @@
   },
   {
     "id": "research/research-team",
-    "sha256": "2284cd92cc6b57719fa49fae5485c0219ecfbabc6c259a947ca6d35855046bfd",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "177c21b501200089d8885be8b2223adadc1c7fc7d9b4a5691e17f073f98e6a78",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "research/research-team.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:19.065Z",
+    "validatedAt": "2026-11-27T15:08:38.519Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2734,7 +3814,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 953756
+          "byteLength": 304280
         },
         {
           "pointer": "/images/0",
@@ -2757,7 +3837,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 5,
-      "totalVertexCount": 29694,
+      "totalVertexCount": 7542,
       "totalTriangleCount": 9898,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2765,13 +3845,13 @@
     }
   },
   {
-    "id": "research/software",
-    "sha256": "4ce70d5e61b53f5adb424343a49e47395ac07287f987f580a59e12092f530218",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
-    "uri": "research/software.glb",
+    "id": "research/rockies-marker",
+    "sha256": "2b7c468b7830bf5f225b7d66fa1e41013a08e8634331e18c1f007dac4572915a",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/rockies-marker.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:19.071Z",
+    "validatedAt": "2026-11-27T15:08:38.522Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2788,7 +3868,223 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 307676
+          "byteLength": 217676
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 6138,
+      "totalTriangleCount": 2952,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/sandia-marker",
+    "sha256": "2f21c3c936608631efe97d4028cb368123fd3fdbee38d83cfc5bc8f46f2dd39a",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/sandia-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.526Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 457756
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 12934,
+      "totalTriangleCount": 6720,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/savannah-river-marker",
+    "sha256": "504287d429028764bb763c70517c08e365543757cf1d28b47ad5742419578bb0",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/savannah-river-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.531Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 431852
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 12186,
+      "totalTriangleCount": 6392,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/slac-marker",
+    "sha256": "b6d3cc0e02953053b19427b96cb1ebe1d6ca9fb1b8d7b2f586eeec4a1fa5cafa",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/slac-marker.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.534Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 250732
+        },
+        {
+          "pointer": "/images/0",
+          "mimeType": "image/png",
+          "storage": "buffer-view",
+          "image": {
+            "width": 64,
+            "height": 64,
+            "format": "rgb",
+            "primaries": "srgb",
+            "transfer": "srgb",
+            "bits": 8
+          }
+        }
+      ],
+      "animationCount": 0,
+      "materialCount": 3,
+      "hasMorphTargets": false,
+      "hasSkins": false,
+      "hasTextures": true,
+      "hasDefaultScene": true,
+      "drawCallCount": 4,
+      "totalVertexCount": 7069,
+      "totalTriangleCount": 3496,
+      "maxUVs": 1,
+      "maxInfluences": 0,
+      "maxAttributes": 3
+    }
+  },
+  {
+    "id": "research/software",
+    "sha256": "04ac1972cbba2d34237ec4173e2102de10fe881e68acaaf3853c367d3b4aa142",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
+    "uri": "research/software.glb",
+    "mimeType": "model/gltf-binary",
+    "validatorVersion": "2.0.0-dev.3.10",
+    "validatedAt": "2026-11-27T15:08:38.537Z",
+    "issues": {
+      "numErrors": 0,
+      "numWarnings": 0,
+      "numInfos": 0,
+      "numHints": 0,
+      "messages": [],
+      "truncated": false
+    },
+    "info": {
+      "version": "2.0",
+      "generator": "ACORN build-models.py",
+      "resources": [
+        {
+          "pointer": "/buffers/0",
+          "mimeType": "application/gltf-buffer",
+          "storage": "glb",
+          "byteLength": 216316
         },
         {
           "pointer": "/images/0",
@@ -2811,7 +4107,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 9,
-      "totalVertexCount": 9504,
+      "totalVertexCount": 6055,
       "totalTriangleCount": 3168,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2820,12 +4116,12 @@
   },
   {
     "id": "research/supercomputer",
-    "sha256": "ddd4a2bd13fd00ec51b0cc22889ee6b805ff3e9dd3a6596c644900f0ef45af02",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "0ae15ffe756fc5226d6d4bd93041c0e2fbba1d0ec45ac67103f2ee8fd9dfcdd4",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "research/supercomputer.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:19.089Z",
+    "validatedAt": "2026-11-27T15:08:38.545Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2842,7 +4138,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 1933916
+          "byteLength": 840484
         },
         {
           "pointer": "/images/0",
@@ -2865,7 +4161,7 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 19,
-      "totalVertexCount": 60324,
+      "totalVertexCount": 22384,
       "totalTriangleCount": 20108,
       "maxUVs": 1,
       "maxInfluences": 0,
@@ -2874,12 +4170,12 @@
   },
   {
     "id": "research/user-facility",
-    "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f",
-    "palette": "ORNL with recorded natural finishes and requested custom accents",
+    "sha256": "c419ae7367481ed94cc6bac11406953875792b9ac247caa75d8f5524fd15572b",
+    "palette": "ORNL with recorded laboratory brands, natural finishes and requested custom accents",
     "uri": "research/user-facility.glb",
     "mimeType": "model/gltf-binary",
     "validatorVersion": "2.0.0-dev.3.10",
-    "validatedAt": "2026-11-27T03:03:19.107Z",
+    "validatedAt": "2026-11-27T15:08:38.555Z",
     "issues": {
       "numErrors": 0,
       "numWarnings": 0,
@@ -2896,7 +4192,7 @@
           "pointer": "/buffers/0",
           "mimeType": "application/gltf-buffer",
           "storage": "glb",
-          "byteLength": 2024732
+          "byteLength": 923784
         },
         {
           "pointer": "/images/0",
@@ -2919,8 +4215,8 @@
       "hasTextures": true,
       "hasDefaultScene": true,
       "drawCallCount": 9,
-      "totalVertexCount": 63162,
-      "totalTriangleCount": 21054,
+      "totalVertexCount": 24392,
+      "totalTriangleCount": 23282,
       "maxUVs": 1,
       "maxInfluences": 0,
       "maxAttributes": 3

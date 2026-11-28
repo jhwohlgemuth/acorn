@@ -2,7 +2,7 @@
 use super::{Check, CheckCategory, CheckSeverity, Finding};
 use crate::constants::fair;
 use acorn_core::prelude::{format, Box, String, ToString, Vec};
-use acorn_core::{Location, Scheme};
+use acorn_core::{Location, Noul, Scheme};
 use acorn_schema::pid::{Identifier, PID};
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -321,27 +321,29 @@ impl FairCounts {
         }
     }
     /// Fraction of applicable indicators for which evidence was determinate.
-    pub fn coverage(self) -> Option<f64> {
+    pub fn coverage(self) -> Option<Noul> {
         let determinate = self.supported.saturating_add(self.unsupported);
         let applicable = determinate.saturating_add(self.indeterminate);
-        (applicable > 0).then(|| determinate as f64 / applicable as f64)
+        (applicable > 0).then(|| Noul::new(determinate as f64 / applicable as f64).ok()).flatten()
     }
     /// Format support and coverage as a compact summary.
     pub fn format(self) -> String {
         let support = self
             .support()
-            .map(|value| format!("{:.0}%", value * 100.0))
+            .map(|value| format!("{:.0}%", value.get() * 100.0))
             .unwrap_or_else(|| "n/a".to_string());
         let coverage = self
             .coverage()
-            .map(|value| format!("{:.0}%", value * 100.0))
+            .map(|value| format!("{:.0}%", value.get() * 100.0))
             .unwrap_or_else(|| "n/a".to_string());
         format!("{support} support; {coverage} coverage")
     }
     /// Fraction of determinate indicators supported by evidence.
-    pub fn support(self) -> Option<f64> {
+    pub fn support(self) -> Option<Noul> {
         let determinate = self.supported.saturating_add(self.unsupported);
-        (determinate > 0).then(|| self.supported as f64 / determinate as f64)
+        (determinate > 0)
+            .then(|| Noul::new(self.supported as f64 / determinate as f64).ok())
+            .flatten()
     }
     fn with_state(self, state: FairState) -> Self {
         match state {

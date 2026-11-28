@@ -41,7 +41,7 @@ try {
     page.on("pageerror", (error) => failures.push(error.message));
     page.on("request", (request) => { if (/^https?:/.test(request.url()) && !request.url().startsWith(`${origin}/`)) failures.push(`External request: ${request.url()}`); });
     await page.goto(`${origin}/settings`);
-    await page.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP: installed" && window.__acornTools?.size === 9);
+    await page.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP ✔ installed" && window.__acornTools?.size === 9);
     const names = await page.evaluate(() => [...window.__acornTools.keys()]);
     assert.deepEqual(names, [
         "acorn_assess_fair_metadata", "acorn_check_readability", "acorn_compare_big_o", "acorn_crosswalk_metadata",
@@ -52,7 +52,7 @@ try {
     await page.locator('nav a[title="Home"]').click();
     await page.getByRole("heading", { name: "Research Intelligence", exact: true }).waitFor();
     await page.locator('nav a[title="Settings"]').click();
-    await page.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP: installed");
+    await page.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP ✔ installed");
     assert.equal(await page.evaluate(() => window.__acornTools.size), 9);
     const specs = [
         [names[0], { json: activity, standard: "research-activity-data" }, "fair", { input: activity }, ["findings", "profile"]],
@@ -105,7 +105,7 @@ try {
     const unsupported = await browser.newPage();
     unsupported.on("pageerror", (error) => failures.push(error.message));
     await unsupported.goto(`${origin}/settings`);
-    await unsupported.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP: unsupported");
+    await unsupported.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP ❌ unsupported");
     await unsupported.goto(`${origin}/review`);
     await unsupported.getByRole("button", { name: "Use example", exact: true }).click();
     await unsupported.getByRole("button", { name: "Validate", exact: true }).click();
@@ -126,7 +126,7 @@ try {
     const rejectedPage = await rejected.newPage();
     rejectedPage.on("pageerror", (error) => failures.push(error.message));
     await rejectedPage.goto(`${origin}/settings`);
-    await rejectedPage.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP: failed (manual tools available)");
+    await rejectedPage.waitForFunction(() => document.getElementById("webmcp-status")?.textContent === "WebMCP ❌ failed (manual tools available)");
     assert.equal(await rejectedPage.evaluate(() => window.__acornTools.size), 0);
     await rejectedPage.goto(`${origin}/review`);
     await rejectedPage.getByRole("button", { name: "Use example", exact: true }).click();

@@ -3,27 +3,27 @@
   "assets": [
     {
       "id": "landmarks/gateway-arch",
-      "sha256": "376959930fc71175b7553da5c6587442497c31ebe284da13ec6f1353b0f89070"
+      "sha256": "49478e31891d0170c7b22876ea82b8bedde326622da2ef5c593c4457ac802610"
     },
     {
       "id": "landmarks/golden-gate-bridge",
-      "sha256": "ea293dcd0d7433b1e3438cb7df73bfd0fa1cde23e72aeeb17a79aacd0c6e6f9c"
+      "sha256": "38ac7c2d8793865fde08a14ed6f461261836e4f4963d1122891b3ae98d2fdd8a"
     },
     {
       "id": "landmarks/grand-canyon",
-      "sha256": "4bd38c8bd895044f2e1ec001e354edadc5d12fc45a92dbcae30adc1a2e287a0f"
+      "sha256": "aa6b9790a217c57a134dd70d4d6c1d335a939c92dd4c79de8aad52b7c1a86fc7"
     },
     {
       "id": "landmarks/hoover-dam",
-      "sha256": "4d5b508b1016c674db3a3b6bd01222b60f1bd9ce0380927bbd740da411b2541e"
+      "sha256": "610d61411a04e3f82ff4addd8b46ef309bfe7f12ced153e933054cfadb5733e1"
     },
     {
       "id": "landmarks/kennedy-space-center",
-      "sha256": "f4ccb024d83e97dfb46b0528e35154a726fe8b18c6ae9ef91e0a500bbcacacda"
+      "sha256": "a5128277d4af156159185c5de3b415c6c92078fd5a65709e5f0e9d966068ea08"
     },
     {
       "id": "landmarks/us-capitol",
-      "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934"
+      "sha256": "faa87f5ebdb3d8fefe3ca041bbdd0200fb83976aa55b2a0a1e91d92f3f981139"
     }
   ],
   "externalRequests": 0,

@@ -35,7 +35,7 @@ async function waitForServices(page) {
         await page.waitForFunction(() => {
             const status = document.getElementById("webmcp-status")?.textContent;
             const editors = !document.querySelector(".code-editor") || document.querySelector(".cm-content");
-            return window.acornSyntax && editors && status && status !== "WebMCP: initializing";
+            return window.acornSyntax && editors && status && status !== "WebMCP initializing";
         });
     } catch (error) {
         const state = await page.evaluate(() => ({
@@ -47,7 +47,9 @@ async function waitForServices(page) {
         }));
         throw new Error(`Browser services did not initialize: ${JSON.stringify({ state, failures })}`, { cause: error });
     }
-    assert.match(await page.locator("#webmcp-status").textContent(), /^WebMCP: (installed|unsupported)$/);
+    assert.match(await page.locator("#webmcp-status").textContent(), /^WebMCP (✔ installed|❌ unsupported)$/);
+    assert.equal(await page.locator("a#webmcp-status").getAttribute("href"), "https://mcpservers.org/learn/what-is-webmcp");
+    assert.equal(await page.locator("a#webmcp-status").evaluate(link => getComputedStyle(link).textDecorationLine), "none");
 }
 const engine = process.env.ACORN_WEB_ENGINE ?? "chromium";
 const browserType = { chromium, firefox, webkit }[engine];

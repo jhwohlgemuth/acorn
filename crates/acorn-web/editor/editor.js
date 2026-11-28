@@ -414,6 +414,14 @@ function installEditors() {
         if (records.some(({ target }) => !target.closest?.(".cm-editor"))) discover();
     }).observe(document.documentElement, { childList: true, subtree: true });
     document.addEventListener("keydown", event => {
+        if (event.key.toLowerCase() === "s" && (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey) {
+            const save = event.target.closest?.(".code-editor")?.querySelector(".editor-save-action");
+            if (save) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!event.repeat && !save.disabled) save.click();
+            }
+        }
         if (event.key.toLowerCase() === "r" && event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
             const run = document.querySelector(".code-editor.is-fullscreen .editor-run-action");
             if (run) {

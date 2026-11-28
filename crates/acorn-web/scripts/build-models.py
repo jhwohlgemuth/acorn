@@ -115,13 +115,24 @@ def texture_coordinates(positions, normals, scale=3, upright=False):
     return coordinates
 
 
+def weld(positions, normals, coordinates):
+    """Share bit-identical float32 corners; return unique attributes and triangle indices."""
+    keys = [struct.pack("<8f", *p, *n, *c) for p, n, c in zip(positions, normals, coordinates)]
+    first = {}
+    for offset, key in enumerate(keys):
+        first.setdefault(key, (len(first), offset))
+    order = [offset for _, offset in first.values()]
+    return ([positions[i] for i in order], [normals[i] for i in order], [coordinates[i] for i in order],
+            [first[key][0] for key in keys])
+
+
 def build(recipe):
     """Return deterministic GLB bytes and catalog metadata, without file I/O."""
     materials = sorted(recipe["materials"])
     groups = sorted({part["group"] for part in recipe["parts"]})
     document = {
         "asset": {"version": "2.0", "generator": "ACORN build-models.py",
-                  "copyright": "ACORN contributors; MIT",
+                  "copyright": recipe.get("copyright", "ACORN contributors; MIT"),
                   "extras": {"id": recipe["id"], "revision": recipe["revision"]}},
         "scene": 0, "scenes": [{"nodes": list(range(len(groups)))}],
         "nodes": [], "meshes": [], "materials": [dict(name=name, **recipe["materials"][name]) for name in materials],
@@ -143,17 +154,28 @@ def build(recipe):
         document["accessors"].append(value)
         return index
 
+    def index_accessor(indices):
+        index = len(document["accessors"])
+        wide = max(indices) > 65535
+        packed = struct.pack("<" + ("I" if wide else "H") * len(indices), *indices)
+        document["bufferViews"].append({"buffer": 0, "byteOffset": len(binary), "byteLength": len(packed), "target": 34963})
+        binary.extend(packed + b"\0" * (-len(packed) % 4))
+        document["accessors"].append({"bufferView": index, "componentType": 5125 if wide else 5123, "count": len(indices), "type": "SCALAR"})
+        return index
+
     for group in groups:
         primitives = []
         for material in materials:
-            parts = tuple(geometry(part) for part in recipe["parts"]
-                          if part["group"] == group and part["material"] == material)
+            selected = tuple(part for part in recipe["parts"] if part["group"] == group and part["material"] == material)
+            parts = tuple(geometry(part) for part in selected)
             if parts:
                 positions = tuple(itertools.chain.from_iterable(part[0] for part in parts))
                 normals = tuple(itertools.chain.from_iterable(part[1] for part in parts))
-                primitives.append({"attributes": {"POSITION": accessor(positions, True), "NORMAL": accessor(normals),
-                                                  "TEXCOORD_0": accessor(texture_coordinates(positions, normals, recipe.get("surfaces", {}).get(material, {}).get("uvScale", 3), material in recipe.get("surfaces", {})))},
-                                   "material": materials.index(material), "mode": 4})
+                coordinates = texture_coordinates(positions, normals, recipe.get("surfaces", {}).get(material, {}).get("uvScale", 3), material in recipe.get("surfaces", {}))
+                shared_positions, shared_normals, shared_coordinates, indices = weld(positions, normals, coordinates)
+                primitives.append({"attributes": {"POSITION": accessor(shared_positions, True), "NORMAL": accessor(shared_normals),
+                                                  "TEXCOORD_0": accessor(shared_coordinates)},
+                                   "indices": index_accessor(indices), "material": materials.index(material), "mode": 4})
                 all_vertices.extend(positions)
         document["nodes"].append({"name": group, "mesh": len(document["meshes"])})
         document["meshes"].append({"name": group, "primitives": primitives})
@@ -193,7 +215,7 @@ def build(recipe):
         "bounds": {"min": [min(v[axis] for v in all_vertices) for axis in range(3)],
                    "max": [max(v[axis] for v in all_vertices) for axis in range(3)]},
         "bytes": len(glb), "category": recipe["category"], "front_axis": "+Z",
-        "id": recipe["id"], "label": recipe["label"], "license": "MIT",
+        "id": recipe["id"], "label": recipe["label"], "license": recipe.get("license", "MIT"),
         "materials": len(materials), "nodes": groups, "pivot": "bottom-center",
         "primitives": sum(len(mesh["primitives"]) for mesh in document["meshes"]),
         "provenance": recipe["provenance"], "revision": recipe["revision"],

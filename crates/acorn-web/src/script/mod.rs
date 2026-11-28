@@ -337,6 +337,12 @@ pub(crate) fn review_fragments_channel() -> document::Eval {
 pub(crate) fn run_editor_tool() {
     EventName::from(["run", "editor", "tool"]).fire(js!("document.getElementById('tool-run')?.click()"));
 }
+pub(crate) fn save_editor_tool() {
+    EventName::from(["save", "editor", "tool"]).fire(js!("document.getElementById('tool-save')?.click()"));
+}
+pub(crate) fn schedule_draft_banner() {
+    EventName::from(["schedule", "draft", "banner"]).fire(js_file!("schedule-draft-banner.js", ()));
+}
 pub(crate) async fn save_dashboard_layout(layout: &TileLayout) -> Result<bool, String> {
     query(
         "save_dashboard_layout",

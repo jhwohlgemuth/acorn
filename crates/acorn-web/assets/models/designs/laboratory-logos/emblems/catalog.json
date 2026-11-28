@@ -1,0 +1,761 @@
+{
+  "emblems": [
+    {
+      "background": "transparent RGBA",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/ames.png",
+      "nativeSourceSize": [
+        4096,
+        3658
+      ],
+      "notes": "Monochrome silhouette retains the authentic two-legged A and separate sphere; source shading is removed only by white RGB replacement. Original transparent cutouts remain.",
+      "outputSize": [
+        2048,
+        2048
+      ],
+      "renderedAlphaBounds": [
+        0,
+        248,
+        4069,
+        3548
+      ],
+      "selection": {
+        "elements": "Original defs plus final top-level g containing both A legs and the clipped embedded sphere; exclude the two preceding wordmark groups.",
+        "kind": "svg-elements",
+        "viewBox": [
+          0,
+          0,
+          112,
+          100
+        ]
+      },
+      "sha256": "351e3fb4231b7dce993f9187402afc83775ac42af2ebac2cb8388dacaa577b3e",
+      "slug": "ames",
+      "source": "designs/laboratory-logos/ames.svg",
+      "sourceSha256": "d08677010d239a137de4d7cc2e60bd8a693728bcfda7c65c89eef9ae38fd530e",
+      "sourceUrl": "https://www.ameslab.gov/themes/unobtainium/images/logo-narrow.svg"
+    },
+    {
+      "background": "transparent RGBA",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/argonne.png",
+      "nativeSourceSize": [
+        463,
+        125
+      ],
+      "notes": "The full-color triangular graphic is isolated above the tagline. White union retains the hollow triangular center. Upscaled from the retained original raster; no invented detail.",
+      "outputSize": [
+        2048,
+        2048
+      ],
+      "renderedAlphaBounds": [
+        3,
+        0,
+        105,
+        88
+      ],
+      "selection": {
+        "box": [
+          358,
+          0,
+          463,
+          95
+        ],
+        "coordinateConvention": "left, top, right-exclusive, bottom-exclusive in original raster pixels",
+        "kind": "raster-crop",
+        "whiteKnockout": "Original near-white RGB >220 in each channel is negative space, removed from alpha; includes the hollow triangular center."
+      },
+      "sha256": "3e55d9e2d35db5a8f9736c8b2502c22b658a39cd592277a958813373d7cf5cdd",
+      "slug": "argonne",
+      "source": "designs/laboratory-logos/argonne.png",
+      "sourceSha256": "7d9f255874a041287820feb1c912d7740479108d3b2824390eeb66de2c8a66cf",
+      "sourceUrl": "https://www.alcf.anl.gov/sites/default/files/2020-01/Argonne_cmyk_black.png"
+    },
+    {
+      "background": "transparent",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/berkeley.png",
+      "notes": "Exact ALS dome/campanile symbol; all wordmark/tagline pixels excluded. White foreground with original alpha and cutouts. No redraw or resampling.",
+      "pixelSize": [
+        342,
+        243
+      ],
+      "selection": {
+        "method": "native raster crop with original alpha",
+        "outputPaddingPixels": 7,
+        "sourceCropPixels": [
+          60,
+          60,
+          430,
+          435
+        ],
+        "tightSymbolBoundsPixels": [
+          84,
+          83,
+          412,
+          312
+        ]
+      },
+      "sha256": "21fac182e63df8b9716e06de81be31d39da5195ac4bb053278deb049bbf09904",
+      "slug": "berkeley",
+      "source": "designs/laboratory-logos/berkeley.png",
+      "sourcePage": "https://dreambeam.lbl.gov/about/acknowledgements/logos",
+      "sourceSha256": "71e4c32ef5555616d13268209fc384636bd12377391cbcd3a3778baa04c7d951",
+      "sourceUrl": "https://drive.google.com/uc?export=download&id=1a2YEtQoegKLYDGJiHFZuZ9r5PHWtB1Jj"
+    },
+    {
+      "background": "transparent RGBA",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/brookhaven.png",
+      "nativeSourceSize": [
+        4096,
+        4613
+      ],
+      "notes": "Authentic outer b-shaped ribbon and separate central cube union retain their open negative spaces. Color boundaries within contiguous surfaces are intentionally absent from the monochrome extrusion mask.",
+      "outputSize": [
+        2048,
+        2048
+      ],
+      "renderedAlphaBounds": [
+        0,
+        0,
+        4067,
+        4606
+      ],
+      "selection": {
+        "elements": "Original style plus first seven geometry elements: six paths and one polygon forming the colored b/cube emblem; exclude all following wordmark paths.",
+        "kind": "svg-elements",
+        "viewBox": [
+          0,
+          0,
+          127,
+          143
+        ]
+      },
+      "sha256": "7b3d837e967231e3da8c8cc534fe9b0ca54d11ecdb02c785512197a2681d8ccf",
+      "slug": "brookhaven",
+      "source": "designs/laboratory-logos/brookhaven.svg",
+      "sourceSha256": "792e5e8e099d77b6901290f80f5ffaab642df3ecbcf9ab647d334e9cfe07f8d3",
+      "sourceUrl": "https://www.bnl.gov/brandcenter/logo/bnl_logo_horizontal_rgb.svg"
+    },
+    {
+      "background": "transparent RGBA",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/fermilab.png",
+      "nativeSourceSize": [
+        455,
+        86
+      ],
+      "notes": "Historic magnet-aperture symbol only; Fermilab wordmark removed. Fourfold symmetry and original cutouts preserved. Upscaled from retained raster.",
+      "outputSize": [
+        2048,
+        2048
+      ],
+      "renderedAlphaBounds": [
+        2,
+        2,
+        84,
+        84
+      ],
+      "selection": {
+        "box": [
+          0,
+          0,
+          90,
+          86
+        ],
+        "coordinateConvention": "left, top, right-exclusive, bottom-exclusive in original raster pixels",
+        "kind": "raster-crop"
+      },
+      "sha256": "70cd0d80bce94355f5ae42e170bb129542e9c0b1d30fbf7029c5a25162d210b4",
+      "slug": "fermilab",
+      "source": "designs/laboratory-logos/fermilab.png",
+      "sourceSha256": "fd5f90f44ec25251674ff90eb19b759acee290a722e8a5b1a491baae15224306",
+      "sourceUrl": "https://www.fnal.gov/faw/designstandards/filesfordownload/FNAL-Logo-NAL-Blue.png"
+    },
+    {
+      "background": "transparent RGBA",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/idaho.png",
+      "nativeSourceSize": [
+        4416,
+        858
+      ],
+      "notes": "Source-informed text-free orbital adaptation from official INL logo. Original visible orbit proportions, tilt, taper and dot retained. Only letter-occluded contours reconstructed using conic fits to source boundary samples. No INL letters or full-name wordmark. This is an adapted graphic component, not an official standalone INL emblem.",
+      "outputSize": [
+        2048,
+        2048
+      ],
+      "renderedAlphaBounds": [
+        0,
+        1,
+        1607,
+        857
+      ],
+      "selection": {
+        "box": [
+          0,
+          0,
+          1645,
+          858
+        ],
+        "coordinateConvention": "Original 4416x858 raster coordinates.",
+        "exclusionPaddingPixels": 1,
+        "foregroundSelection": "Original non-white ink with alpha, minus letter silhouettes; no pixels added.",
+        "kind": "raster-component-excerpt",
+        "letterExclusionPolygons": [
+          [
+            [
+              342,
+              189
+            ],
+            [
+              520,
+              189
+            ],
+            [
+              520,
+              845
+            ],
+            [
+              342,
+              845
+            ]
+          ],
+          [
+            [
+              579,
+              189
+            ],
+            [
+              763,
+              189
+            ],
+            [
+              871,
+              494
+            ],
+            [
+              871,
+              189
+            ],
+            [
+              1042,
+              189
+            ],
+            [
+              1042,
+              845
+            ],
+            [
+              842,
+              845
+            ],
+            [
+              750,
+              574
+            ],
+            [
+              750,
+              845
+            ],
+            [
+              579,
+              845
+            ]
+          ],
+          [
+            [
+              1100,
+              189
+            ],
+            [
+              1279,
+              189
+            ],
+            [
+              1279,
+              689
+            ],
+            [
+              1411,
+              689
+            ],
+            [
+              1411,
+              845
+            ],
+            [
+              1100,
+              845
+            ]
+          ]
+        ],
+        "reconstruction": {
+          "boundarySamples": 760,
+          "equation": "a*x*x+b*x*y+c*y*y+d*x+e*y=1",
+          "innerCoefficients": [
+            2.407614436813611,
+            -3.898134070750528,
+            2.785241743478354,
+            0.06880157953658127,
+            -0.1383283781571114
+          ],
+          "method": "Separate least-squares conic fits to outer and inner visible orbital boundaries, sampled only from uninterrupted source ink outside the excluded letter silhouettes. Fill is clipped to letter-occluded regions; existing visible orbit and dot retained.",
+          "normalization": {
+            "offset": [
+              800,
+              430
+            ],
+            "scale": [
+              800,
+              430
+            ]
+          },
+          "outerCoefficients": [
+            2.1229851991312785,
+            -3.3237298371349184,
+            2.460983800215287,
+            0.16863501417408847,
+            -0.2596669606087787
+          ]
+        }
+      },
+      "sha256": "60bb806c580b27ebc68b0e07489136d08e2a4b988f83279a14a1ae6ad3a71963",
+      "slug": "idaho",
+      "source": "designs/laboratory-logos/emblems/sources/idaho.png",
+      "sourcePage": "https://mooseframework.inl.gov/",
+      "sourceSha256": "2fb03f248d6f265bd77ce6f810dec09afb9c23e9d3846ae9fda70e2d7577b691",
+      "sourceUrl": "https://mooseframework.inl.gov/large_media/organization_logos/INL-Logo_Left-Black.png",
+      "status": "ready"
+    },
+    {
+      "background": "transparent",
+      "cropPixels": [
+        146,
+        131,
+        2843,
+        1478
+      ],
+      "derivedSourcePath": "designs/laboratory-logos/emblems/sources/jefferson-restored-emblem.svg",
+      "epsDrawingSelection": "Editable Illustrator source: ASCII85 + zlib decoded AI9_DataStream; Layer 3 orbit segments at source lines19756\u201319795 and orb at19963\u201319967 (zero-based splitlines).",
+      "foreground": "opaque white",
+      "mask": "designs/laboratory-logos/emblems/jefferson.png",
+      "notes": "Original EPS orbit and orb curves isolated from decoded editable Illustrator source. Only the former letter-occluded lower-orbit intervals were restored using cubic continuation with matching endpoint tangents; visible contour, outer turnaround and original four-curve orb preserved. Gradients flattened to opaque white. No text.",
+      "officialStandalone": false,
+      "pixelSize": [
+        2729,
+        1379
+      ],
+      "reconstruction": "Seven short letter-occluded intervals restored; coordinates and cubic controls recorded below. Top fade becomes a solid original path silhouette.",
+      "restoredIntervals": [
+        {
+          "control1": [
+            228.95913333333334,
+            381.6323300533333
+          ],
+          "control2": [
+            231.28206666666665,
+            382.21157898666667
+          ],
+          "from": [
+            226.6362,
+            381.0732
+          ],
+          "reason": "Letter-occluded interval restored with endpoint tangents from adjacent original orbit curves.",
+          "to": [
+            233.605,
+            382.8174
+          ]
+        },
+        {
+          "control1": [
+            243.96013333333335,
+            385.6388828
+          ],
+          "control2": [
+            246.28306666666666,
+            386.31303248
+          ],
+          "from": [
+            241.6372,
+            384.9873
+          ],
+          "reason": "Letter-occluded interval restored with endpoint tangents from adjacent original orbit curves.",
+          "to": [
+            248.606,
+            387.0127
+          ]
+        },
+        {
+          "control1": [
+            266.8380333333333,
+            392.83911621333334
+          ],
+          "control2": [
+            279.1697666666667,
+            397.40190213333335
+          ],
+          "from": [
+            254.5063,
+            388.8535
+          ],
+          "reason": "Letter-occluded interval restored with endpoint tangents from adjacent original orbit curves.",
+          "to": [
+            291.5015,
+            404.4834
+          ]
+        },
+        {
+          "control1": [
+            289.4952666666667,
+            398.80736237499997
+          ],
+          "control2": [
+            284.18243333333334,
+            396.36003465000005
+          ],
+          "from": [
+            294.8081,
+            401.6484
+          ],
+          "reason": "Letter-occluded interval restored with endpoint tangents from adjacent original orbit curves.",
+          "to": [
+            278.8696,
+            394.1143
+          ]
+        },
+        {
+          "control1": [
+            274.1017333333333,
+            392.1333887133333
+          ],
+          "control2": [
+            271.30646666666667,
+            391.04459115333333
+          ],
+          "from": [
+            276.897,
+            393.2842
+          ],
+          "reason": "Letter-occluded interval restored with endpoint tangents from adjacent original orbit curves.",
+          "to": [
+            268.5112,
+            390
+          ]
+        },
+        {
+          "control1": [
+            260.3709666666667,
+            387.07811088
+          ],
+          "control2": [
+            258.07733333333334,
+            386.30938956
+          ],
+          "from": [
+            262.6646,
+            387.8818
+          ],
+          "reason": "Letter-occluded interval restored with endpoint tangents from adjacent original orbit curves.",
+          "to": [
+            255.7837,
+            385.5635
+          ]
+        },
+        {
+          "control1": [
+            246.28306666666666,
+            382.6171970666667
+          ],
+          "control2": [
+            243.96013333333335,
+            381.94130152
+          ],
+          "from": [
+            248.606,
+            383.3164
+          ],
+          "reason": "Letter-occluded interval restored with endpoint tangents from adjacent original orbit curves.",
+          "to": [
+            241.6372,
+            381.2939
+          ]
+        }
+      ],
+      "selection": "Original EPS orbit and orb curves isolated from decoded editable Illustrator source. Only the former letter-occluded lower-orbit intervals were restored using cubic continuation with matching endpoint tangents; visible contour, outer turnaround and original four-curve orb preserved. Gradients flattened to opaque white. No text.",
+      "sha256": "c799dda8854c050a8fd63f882f2d9fcd2d2cbce91c56a35fb0cba54024d8826f",
+      "slug": "jefferson",
+      "source": "designs/laboratory-logos/emblems/sources/jefferson.eps",
+      "sourcePage": "https://www.jlab.org/about/comms/resources/jlab-and-partners",
+      "sourceSha256": "e175e70f64f5b55650e2bd4a22df0b82f7c0f1417ecd5648c39ae03ccb9a1cdc",
+      "sourceUrl": "https://www.jlab.org/sites/default/files/images/logos/JLab_logo_white.eps",
+      "threshold": 128
+    },
+    {
+      "background": "transparent",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/livermore.png",
+      "notes": "Complete official LLNL graphic logomark; all four original paths retained, including zero-area source path. White fill, negative channels preserved. No abbreviation or wordmark added.",
+      "pixelSize": [
+        2048,
+        2010
+      ],
+      "selection": {
+        "method": "official SVG path selection/rasterization",
+        "paddingSourceUnits": 7.66199987411499,
+        "selector": "svg > path",
+        "sourceBoundsXYWH": [
+          12.300000190734863,
+          9.899999618530273,
+          383.0999937057495,
+          375.70001220703125
+        ]
+      },
+      "sha256": "58a0cde9406852518367c69feae5842634d466a84c9f2f441a8b1ab1e609a45c",
+      "slug": "livermore",
+      "source": "designs/laboratory-logos/livermore.svg",
+      "sourcePage": "https://software.llnl.gov/",
+      "sourceSha256": "e04787a3c306a9fcc7331a66b4e46a7d4a44d2e45969cdf51471a4f3a380b322",
+      "sourceUrl": "https://software.llnl.gov/assets/images/logomark-llnl.svg"
+    },
+    {
+      "background": "transparent",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/los-alamos.png",
+      "notes": "Only circular atom/orbital path retained. Both text paths excluded. Original white fill and internal negative orbital paths preserved.",
+      "pixelSize": [
+        2048,
+        2048
+      ],
+      "selection": {
+        "method": "official SVG path selection/rasterization",
+        "paddingSourceUnits": 1.2816917419433593,
+        "selector": "svg > g > path:nth-of-type(3)",
+        "sourceBoundsXYWH": [
+          0.0022531452123075724,
+          -0.00039706824463792145,
+          64.07181549072266,
+          64.08458709716797
+        ]
+      },
+      "sha256": "b7179859226c828dbed03ae7e326017c0f493a9a5125907e7a99afc1186ca65b",
+      "slug": "los-alamos",
+      "source": "designs/laboratory-logos/los-alamos.svg",
+      "sourcePage": "https://www.lanl.gov/",
+      "sourceSha256": "64b9091b03db2d81f3553fcac59cfac47c18b65d70750f07c610bf76b0a37dc9",
+      "sourceUrl": "https://www.lanl.gov/"
+    },
+    {
+      "background": "transparent",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/netl.png",
+      "notes": "Exact three green rounded bars converted to white; frame, letters and laboratory words excluded. Source-derived nontext graphic fragment, NOT an officially published standalone NETL emblem. No separate non-letter pictogram exists in supplied official mark. No redraw or resampling.",
+      "pixelSize": [
+        125,
+        151
+      ],
+      "selection": {
+        "colorSelection": "G > R + 15 and G > B + 30; retain original alpha",
+        "method": "native raster graphic-fragment selection",
+        "outputPaddingPixels": 4,
+        "sourceCropPixels": [
+          270,
+          140,
+          410,
+          305
+        ],
+        "tightSymbolBoundsPixels": [
+          281,
+          149,
+          398,
+          292
+        ]
+      },
+      "sha256": "778d2d1933e077cca9628a3c0a956862faece63a5dbc220de233f96539a5c9b3",
+      "slug": "netl",
+      "source": "designs/laboratory-logos/netl.png",
+      "sourcePage": "https://netl.doe.gov/about/netl-logo",
+      "sourceSha256": "94dda1ee4a72c36e8ac9d6214f50641c09b10ca005d419c2b063a8bed828c9e1",
+      "sourceUrl": "https://netl.doe.gov/sites/default/files/2023-05/NETL%20Stacked%20Color.png"
+    },
+    {
+      "background": "transparent",
+      "cropPixels": [
+        0,
+        27,
+        2400,
+        1234
+      ],
+      "foreground": "opaque white",
+      "mask": "designs/laboratory-logos/emblems/pnnl.png",
+      "notes": "Only original orange ray/fan emblem path 0 (class cls-1); all gray text paths omitted. Original path geometry and internal gaps preserved.",
+      "pixelSize": [
+        2432,
+        1239
+      ],
+      "selection": "Only original orange ray/fan emblem path 0 (class cls-1); all gray text paths omitted. Original path geometry and internal gaps preserved.",
+      "sha256": "6fcf562ce820aec8150135c35a284cf1c722542940d707e71e6bda24d7f40fd5",
+      "slug": "pnnl",
+      "source": "designs/laboratory-logos/pnnl.svg",
+      "sourceSha256": "104d42bb45dc63cbb65913f010dfccae7b1189b4e3722c086f482c4feb2040cb",
+      "sourceUrl": "https://www.pnnl.gov/themes/gesso/images/pnnl-logo.svg",
+      "svgPathIndices": [
+        0
+      ],
+      "threshold": 128
+    },
+    {
+      "background": "transparent",
+      "cropBoxPoints": [
+        20,
+        30,
+        52,
+        64
+      ],
+      "cropPixels": [
+        282,
+        204,
+        2207,
+        2047
+      ],
+      "foreground": "opaque white",
+      "mask": "designs/laboratory-logos/emblems/pppl.png",
+      "notes": "Only original orange/yellow plasma swirl emblem in footer of page 1; vector rasterization of [20,30,52,64] PDF-point crop excludes all text.",
+      "pdfPage": 1,
+      "pixelSize": [
+        1957,
+        1875
+      ],
+      "selection": "Only original orange/yellow plasma swirl emblem in footer of page 1; vector rasterization of [20,30,52,64] PDF-point crop excludes all text.",
+      "sha256": "ec63dec1c982d046c6416f89473267b315b943c697d87118a151dc6bca9cfd68",
+      "slug": "pppl",
+      "source": "designs/laboratory-logos/pppl.source.pdf",
+      "sourceSha256": "de966f20325e67f70791e105b2b77a185cd9ecc7eeeb565d3ccd48ff9cde6f92",
+      "sourceUrl": "https://www.pppl.gov/sites/g/files/toruqf286/files/documents/research_accomplishments_fy25_final.pdf",
+      "threshold": 128
+    },
+    {
+      "background": "transparent",
+      "foreground": "#FFFFFF",
+      "mask": "designs/laboratory-logos/emblems/rockies.png",
+      "notes": "Exact mountain, mesa and sun group; laboratory-name group excluded. All three original shapes rendered white with transparent negative spaces. Geometry and proportions preserved.",
+      "pixelSize": [
+        2048,
+        1252
+      ],
+      "selection": {
+        "method": "official SVG group selection/rasterization",
+        "paddingSourceUnits": 2.2751670837402345,
+        "selector": "svg > g:nth-of-type(2)",
+        "sourceBoundsXYWH": [
+          1.0368459224700928,
+          0.7361754179000854,
+          113.75835418701172,
+          67.78382873535156
+        ]
+      },
+      "sha256": "5cc7f25733a1c93b40df6a291a3e96b3c4150f10bac884cd47df6932aa8eccfb",
+      "slug": "rockies",
+      "source": "designs/laboratory-logos/rockies.svg",
+      "sourcePage": "https://www.nlr.gov/comm-standards/brand/logo",
+      "sourceSha256": "2cb220bba89ffb50a1337913d3f044437ef741d3cbc58cbecbc49d74c033a4c6",
+      "sourceUrl": "https://www.nlr.gov/images/libraries/global/nlr-logo-horizontal.svg?sfvrsn=3f07526e_2"
+    },
+    {
+      "background": "transparent",
+      "cropPixels": [
+        27,
+        33,
+        479,
+        483
+      ],
+      "foreground": "opaque white",
+      "mask": "designs/laboratory-logos/emblems/sandia.png",
+      "notes": "Official 512-pixel standalone Thunderbird website icon, preserving outer rounded-square outline, interior bird silhouette and all negative space. No text exists in source.",
+      "pixelSize": [
+        484,
+        482
+      ],
+      "selection": "Official 512-pixel standalone Thunderbird website icon, preserving outer rounded-square outline, interior bird silhouette and all negative space. No text exists in source.",
+      "sha256": "2119f9178716c89935886df82944b1b5a5230530d8f6e2871565e3aeac6d5174",
+      "slug": "sandia",
+      "source": "designs/laboratory-logos/emblems/sources/sandia.png",
+      "sourcePage": "https://www.sandia.gov/",
+      "sourceSha256": "a5064f92ec61895d6121b4dec5d3c9e0c87dee7a50f6bad973a4b799fffad74f",
+      "sourceSize": [
+        512,
+        512
+      ],
+      "sourceUrl": "https://www.sandia.gov/app/uploads/2020/11/cropped-SNL_thunderbird.png",
+      "threshold": 128
+    },
+    {
+      "background": "transparent",
+      "cropPixels": [
+        0,
+        0,
+        2400,
+        1704
+      ],
+      "foreground": "opaque white",
+      "mask": "designs/laboratory-logos/emblems/savannah-river.png",
+      "notes": "Original oval globe emblem paths 0\u20138; wordmark paths 9\u201341 omitted. All globe grid gaps preserved.",
+      "pixelSize": [
+        2432,
+        1736
+      ],
+      "selection": "Original oval globe emblem paths 0\u20138; wordmark paths 9\u201341 omitted. All globe grid gaps preserved.",
+      "sha256": "723cdea358c530e1724fbc3875d1e5fd6e2303a20bb8c02162545b4bc1081c9e",
+      "slug": "savannah-river",
+      "source": "designs/laboratory-logos/savannah-river.svg",
+      "sourceSha256": "123e1229872eda1fecb07540665fbc75ee999725890c4cb7a0f60c1b9c46ff05",
+      "sourceUrl": "https://www.srnl.gov/wp-content/uploads/srnl-logo.svg",
+      "svgPathIndices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "threshold": 128
+    },
+    {
+      "background": "transparent",
+      "cropPixels": [
+        27,
+        0,
+        2200,
+        2459
+      ],
+      "foreground": "opaque white",
+      "mask": "designs/laboratory-logos/emblems/slac.png",
+      "notes": "Exact accelerator arc, central beam interruption and circular particle from subpaths 6\u20139 of the official white wordmark path. Other S/L/A letter subpaths omitted. This is a requested graphic excerpt/adaptation, not an official standalone SLAC logo.",
+      "officialStandalone": false,
+      "pixelSize": [
+        2205,
+        2491
+      ],
+      "selection": "Exact accelerator arc, central beam interruption and circular particle from subpaths 6\u20139 of the official white wordmark path. Other S/L/A letter subpaths omitted. This is a requested graphic excerpt/adaptation, not an official standalone SLAC logo.",
+      "sha256": "4d145a2c4be2deb93c14c702b191664ce50795473833bc5ec4cbf9c8edec7187",
+      "slug": "slac",
+      "source": "designs/laboratory-logos/emblems/sources/slac.svg",
+      "sourcePage": "https://www6.slac.stanford.edu/",
+      "sourceSha256": "e33a18f795ba80ced39f211adda258307d536a9e43a1e508361dd1567d551e35",
+      "sourceUrl": "https://www6.slac.stanford.edu/themes/gesso/dist/images/SLAC_Logo_W.svg",
+      "svgSubpathIndices": [
+        6,
+        7,
+        8,
+        9
+      ],
+      "threshold": 128
+    }
+  ],
+  "treatment": "Text-free monochrome graphic emblems; source adaptations documented per entry.",
+  "version": 2
+}

@@ -1,4 +1,4 @@
-use super::{AcpSessionEvent, AgentProcessConfig, AgentProfile, Client, Codex, Error, OpenCode, SessionObserver};
+use super::{AcpSessionEvent, AgentProcessConfig, AgentProfile, Claude, Client, Codex, Error, OpenCode, SessionObserver, SessionPolicy};
 use crate::agent::{HydratedPrompt, InferencePermissionPolicy, InferenceRequest};
 #[cfg(feature = "exec")]
 use crate::agent::{PromptContext, PromptScriptHydrator};
@@ -263,6 +263,52 @@ fn test_agent_process_config_profiles_use_thin_command_defaults() {
         AgentProcessConfig::codex(Some(override_path.clone()), working_directory).executable(),
         &override_path
     );
+}
+#[test]
+fn test_claude_policy_fails_closed_before_prompt() {
+    let fake = FakeAgent::compile();
+    for policy in ["missing", "reject", "hang"] {
+        let config = fake
+            .config("fake")
+            .with_session_policy(SessionPolicy::ClaudeContentOnly)
+            .with_environment([("ACORN_FAKE_POLICY", policy)]);
+        let input = request("plain").with_timeout(500u64);
+        let result = runtime().block_on(Client::new(config).infer_checked(&input));
+        assert!(
+            matches!(result, Err(Error::Session { .. } | Error::Timeout { .. })),
+            "{policy}: {result:?}"
+        );
+        assert!(!fake._directory.path().join("unexpected-prompt").exists());
+    }
+}
+#[test]
+fn test_claude_policy_negotiates_before_typed_inference_and_denies_permissions() {
+    let fake = FakeAgent::compile();
+    let config = fake
+        .config("fake")
+        .with_session_policy(SessionPolicy::ClaudeContentOnly)
+        .with_environment([("ACORN_FAKE_POLICY", "accept")]);
+    let client = Client::new(config);
+    let structured = runtime()
+        .block_on(client.infer_checked(&request("structured").with_response_schema(Some(json!({"type":"object"})))))
+        .expect("restricted typed inference");
+    assert_eq!(structured.structured, Some(json!({"answer":42})));
+    let denied = runtime().block_on(client.infer_checked(&request("permission")));
+    assert!(matches!(denied, Err(Error::PermissionDenied { .. })));
+}
+#[test]
+fn test_claude_profile_preserves_restrictions_with_executable_override() {
+    let directory = tempfile::tempdir().expect("test workspace");
+    let executable = directory.path().join("missing-claude-adapter");
+    let config = AgentProcessConfig::claude(Some(executable.clone()), directory.path().to_path_buf());
+    assert_eq!(config.agent_id(), "claude");
+    assert_eq!(config.executable(), executable);
+    assert!(config.acp_arguments().is_empty());
+    assert_eq!(config.session_policy, SessionPolicy::ClaudeContentOnly);
+    assert_eq!(Claude::EXECUTABLE.command(), "claude-agent-acp");
+    let why = Client::new(config).check_installation().expect_err("missing adapter").to_string();
+    assert!(why.contains("npm install -g @agentclientprotocol/claude-agent-acp"));
+    assert!(why.contains("claude auth login"));
 }
 #[test]
 fn test_installation_preflight_distinguishes_failure_modes_and_agents() {

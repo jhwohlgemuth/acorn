@@ -26,8 +26,9 @@ for (const asset of catalog.assets) {
     for (const material of gltf.materials) {
         const natural = palette.naturalFinishes?.[material.extras.colorName];
         const accent = palette.customAccents?.[material.extras.colorName];
-        assert.equal(material.extras.brand, accent ? "custom accent" : natural ? "natural finish" : "ORNL");
-        const hex = accent ?? natural ?? palette.srgb[material.extras.colorName];
+        const laboratory = palette.laboratoryBrands?.[material.extras.colorName];
+        assert.equal(material.extras.brand, laboratory ? "laboratory brand" : accent ? "custom accent" : natural ? "natural finish" : "ORNL");
+        const hex = laboratory ?? accent ?? natural ?? palette.srgb[material.extras.colorName];
         assert.equal(material.extras.srgbHex, hex);
         assert.ok(hex);
         const linear = [1, 3, 5].map((offset) => {
@@ -46,7 +47,7 @@ for (const asset of catalog.assets) {
     assert.ok(gltf.buffers.every((buffer) => buffer.uri === undefined));
     assert.ok(gltf.images.every((image) => image.uri === undefined && Number.isInteger(image.bufferView)));
     assert.equal(gltf.textures.length, asset.textures);
-    reports.push({ id: asset.id, sha256: asset.sha256, palette: "ORNL with recorded natural finishes and requested custom accents", ...report });
+    reports.push({ id: asset.id, sha256: asset.sha256, palette: "ORNL with recorded laboratory brands, natural finishes and requested custom accents", ...report });
     console.log(`${asset.id}: Khronos ${report.validatorVersion}, zero errors/warnings; catalog hash, size and geometry counts match`);
 }
 if (process.argv[4]) await writeFile(resolve(process.argv[4]), `${JSON.stringify(reports, null, 2)}\n`);

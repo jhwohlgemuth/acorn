@@ -287,6 +287,17 @@ pub fn valid_path(path: &str) -> bool {
         && path.rsplit_once('.').is_some()
         && matches!(
             MimeType::from(path),
-            MimeType::Json | MimeType::Yaml | MimeType::Markdown | MimeType::Text | MimeType::Svg | MimeType::Png | MimeType::Jpeg | MimeType::Webp
+            MimeType::Cff
+                | MimeType::Json
+                | MimeType::LdJson
+                | MimeType::RdfXml
+                | MimeType::Turtle
+                | MimeType::Yaml
+                | MimeType::Markdown
+                | MimeType::Text
+                | MimeType::Svg
+                | MimeType::Png
+                | MimeType::Jpeg
+                | MimeType::Webp
         )
 }

@@ -1,0 +1,517 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oakley Avatar Preview</title>
+<style>
+/* Layout: one centered column of stacked sections; hero pairs copy and controls with a live stage. Palette follows acorn-web's light/dark tokens. */
+:root{
+  --bg:#f7f8fa;--panel:#ffffff;--raise:#edf1ef;--line:#d6dae1;
+  --fg:#242931;--muted:#5d6570;--head:#1b1f26;
+  --accent:#00662c;--amber:#825000;--blue:#005a9c;--danger:#9f1d2c;--on-danger:#ffffff;
+  --font-display:"Space Grotesk",Inter,ui-sans-serif,system-ui,sans-serif;
+  --font-body:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]):not([data-theme="uswds"]):not([data-theme="retro"]){
+  --bg:#1f2229;--panel:#252931;--raise:#2e333d;--line:#3c414e;
+  --fg:#abb2bf;--muted:#969daa;--head:#c0c4ce;
+  --accent:#98c379;--amber:#e5c07b;--blue:#61afef;--danger:#e06c75;--on-danger:#1f2229;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1f2229;--panel:#252931;--raise:#2e333d;--line:#3c414e;
+  --fg:#abb2bf;--muted:#969daa;--head:#c0c4ce;
+  --accent:#98c379;--amber:#e5c07b;--blue:#61afef;--danger:#e06c75;--on-danger:#1f2229;color-scheme:dark}
+:root[data-theme="uswds"]{
+  --bg:#ffffff;--panel:#ffffff;--raise:#f0f0f0;--line:#adadad;
+  --fg:#1b1b1b;--muted:#565c65;--head:#1b1b1b;
+  --accent:#005ea2;--amber:#936f38;--blue:#009ec1;--danger:#b50909;--on-danger:#ffffff;
+  --font-display:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-body:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color-scheme:light}
+:root[data-theme="uswds"] *{border-radius:0!important}
+:root[data-theme="uswds"] :is(.fab,.badge,.sw i,.app-dots i){border-radius:50%!important}
+:root[data-theme="uswds"] :is(button,select,input):focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+:root[data-theme="uswds"] .app-side{background:#f0f0f0}
+:root[data-theme="retro"]{
+  --bg:#c7d1a4;--panel:#d3dbb2;--raise:#bcc794;--line:#3d4a24;
+  --fg:#2c3618;--muted:#4c582c;--head:#1e2610;
+  --accent:#2c3618;--amber:#6b5a12;--blue:#24506b;--danger:#7a2a1a;--on-danger:#e6ebd2;
+  --font-display:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --font-body:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light}
+:root[data-theme="retro"] *{border-radius:0!important}
+:root[data-theme="retro"] :is(.card,.stage,.diagram,.app,.bubble,.panel,button,select){border:2px solid var(--line);box-shadow:3px 3px 0 var(--line)}
+:root[data-theme="retro"] button[aria-pressed="true"]{background:var(--line);color:var(--bg)}
+:root[data-theme="retro"] h1{letter-spacing:0;text-transform:uppercase}
+[hidden]{display:none!important}
+a{color:var(--accent)}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1080px;margin:0 auto;padding-block:40px 64px;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{font-family:var(--font-display);color:var(--head);margin:0;text-wrap:balance;font-weight:600}
+h1{font-size:clamp(40px,7vw,64px);line-height:1;letter-spacing:-.02em}
+h2{font-size:24px;line-height:1.2}
+h3{font-size:16px;font-weight:500}
+p{margin:0}
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lede{max-width:60ch;color:var(--fg)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--font-mono);font-size:12px}
+section{display:flex;flex-direction:column;gap:20px}
+.sec-head{display:flex;flex-direction:column;gap:6px;max-width:65ch}
+button{font:inherit;font-size:14px;color:var(--head);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{background:var(--raise)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--raise)}
+select{font:inherit;font-size:14px;color:var(--head);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+label{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:40px;align-items:center}
+.hero-copy{display:flex;flex-direction:column;gap:18px;min-width:0}
+.ctrl-group{display:flex;flex-direction:column;gap:8px}
+.ctrl-row{display:flex;flex-wrap:wrap;gap:8px}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px 20px 16px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.stage-av{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1.3;max-width:100%}
+.stage-av svg{width:min(240px,60vw);height:auto}
+.readout{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;color:var(--muted)}
+.readout b{color:var(--head);font-weight:500}
+.diagram{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px}
+.diagram svg{display:block;min-width:560px;width:100%;height:auto}
+.call{font-family:var(--font-body);font-size:13px;fill:var(--head)}
+.call-sub{font-family:var(--font-mono);font-size:11px;fill:var(--muted)}
+.leader{stroke:var(--muted);stroke-width:1}
+.pin{fill:var(--panel);stroke:var(--muted);stroke-width:1.2}
+.grid{display:grid;gap:12px}
+.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card .av{display:flex;justify-content:center;padding:8px 0;cursor:pointer;background:none;border:0}
+.card .av:hover{background:none}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto}
+.tag{font-family:var(--font-mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.bands{border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.band{display:flex;align-items:flex-end;justify-content:center;flex-wrap:wrap;gap:22px;padding:22px 16px}
+.band figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.band figcaption{font-family:var(--font-mono);font-size:11px}
+.band-dark{background:#1f2229;--ink:#98c379;color:#969daa}
+.band-light{background:#f7f8fa;--ink:#00662c;color:#5d6570}
+.band-neutral{background:#1f2229;--ink:#c0c4ce;color:#969daa}
+.band-uswds{background:#ffffff;--ink:#005ea2;color:#565c65}
+.band-retro{background:#c7d1a4;--ink:#2c3618;color:#4c582c}
+.demo-ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.app{position:relative;height:420px;background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.app-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.app-dots{display:flex;gap:6px}.app-dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+.app-body{flex:1;display:flex;min-height:0}
+.app-side{width:170px;flex:none;border-right:1px solid var(--line);background:var(--panel);padding:12px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.app-side span{padding:4px 8px;border-radius:6px;color:var(--fg)}
+.app-side span.on{background:var(--raise);color:var(--head)}
+.app-main{flex:1;min-width:0;padding:16px;display:flex;flex-direction:column;gap:10px}
+.app-status{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.code{font-family:var(--font-mono);font-size:12px;line-height:1.7;color:var(--fg);white-space:pre;overflow:hidden}
+.code .k{color:var(--blue)}.code .s{color:var(--accent)}
+.fab{position:absolute;right:16px;bottom:16px;width:58px;height:58px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:var(--panel);border:1.5px solid var(--accent)}
+.fab:hover{background:var(--raise)}
+.badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--danger);color:var(--on-danger);font-size:11px;font-weight:600;line-height:20px;text-align:center;font-family:var(--font-body)}
+.bubble{position:absolute;right:86px;bottom:22px;max-width:min(250px,calc(100% - 120px));background:var(--panel);border:1px solid var(--line);border-radius:12px 12px 4px 12px;padding:10px 12px;font-size:13px;line-height:1.45;color:var(--fg)}
+.bubble b{display:block;color:var(--head);font-weight:500}
+.panel{position:absolute;right:16px;bottom:86px;width:min(310px,calc(100% - 32px));height:260px;background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;font-size:13px}
+.panel-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.panel-head b{color:var(--head);font-weight:500}
+.online{margin-left:auto;font-size:12px;color:var(--accent)}
+.log{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.msg{background:var(--raise);border-radius:10px;padding:8px 10px;color:var(--fg);max-width:92%}
+.ask{margin:0 12px 12px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--muted)}
+.legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 20px;margin:0;padding:0;list-style:none;font-size:14px}
+.legend li{display:flex;gap:8px;align-items:baseline;min-width:0}
+.legend .tag{flex:none}
+.rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.rule{border-top:2px solid var(--accent);padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.rule h3{font-size:15px}
+.swatches{display:flex;flex-wrap:wrap;gap:10px}
+.sw{display:flex;align-items:center;gap:8px;font-size:13px}
+.sw i{width:18px;height:18px;border-radius:50%;display:block;border:1px solid var(--line)}
+.oakley{color:var(--ink,var(--accent));display:block;overflow:visible}
+.ok-led{fill:var(--led,currentColor)}
+.ok-blink,.ok-dbl,.ok-wink,.ok-bar{transform-box:fill-box;transform-origin:center}
+.ok-body{transform-origin:32px 60px}
+.ok-blink{animation:ok-blink 5s infinite}
+.ok-bar{animation:ok-wave .9s infinite ease-in-out}
+.ok-bob{animation:ok-bob .45s infinite ease-in-out alternate}
+.ok-pulse{animation:ok-pulse 1.1s infinite}
+.ok-glance{animation:ok-glance 3.2s ease-in-out var(--n,1)}
+.ok-arc{opacity:0;animation:ok-arc 1.4s var(--an,2)}
+.ok-arc2{animation-delay:.25s}
+.ok-dbl{animation:ok-dbl 2.4s 1}
+.ok-hop{animation:ok-hop 1.8s 1}
+.ok-wig{animation:ok-wig 2s 1}
+.ok-wink{animation:ok-wink 1.6s 1}
+.ok-caret{opacity:0;animation:ok-caret 1.6s 1}
+@keyframes ok-blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+@keyframes ok-wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@keyframes ok-bob{to{transform:translateY(-1.6px)}}
+@keyframes ok-pulse{50%{opacity:.25}}
+@keyframes ok-glance{0%,15%{transform:translate(0,0)}25%,75%{transform:translate(-3px,-1.6px)}85%,100%{transform:translate(0,0)}}
+@keyframes ok-arc{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+@keyframes ok-dbl{0%,70%,77%,84%,100%{transform:scaleY(1)}73.5%,80.5%{transform:scaleY(.1)}}
+@keyframes ok-hop{0%,45%,100%{transform:translateY(0) scaleY(1)}10%{transform:scaleY(.9)}22%{transform:translateY(-5px) scaleY(1.04)}34%{transform:translateY(0) scaleY(.94)}}
+@keyframes ok-wig{0%,55%,100%{transform:rotate(0)}10%{transform:rotate(-7deg)}20%{transform:rotate(7deg)}30%{transform:rotate(-5deg)}40%{transform:rotate(3deg)}}
+@keyframes ok-wink{0%,20%,70%,100%{transform:scaleY(1)}26%,64%{transform:scaleY(0)}}
+@keyframes ok-caret{0%,22%,68%,100%{opacity:0}28%,62%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.oakley *{animation:none!important}.ok-arc{opacity:1}}
+@media (max-width:860px){
+  .hero{grid-template-columns:minmax(0,1fr)}
+  .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .legend{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:520px){
+  .grid-3,.rules,.legend{grid-template-columns:minmax(0,1fr)}
+  .app-side{display:none}
+  .app{height:440px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="hero-copy">
+    <a class="mono" href="../index.html#agent-avatar" data-catalog-link>← ACORN component catalog</a>
+    <span class="eyebrow">ACORN agent avatar</span>
+    <h1>Oakley</h1>
+    <p class="lede">Oakley lives in a corner of the ACORN browser. Click it to open a chat with the ACORN agent, and watch it for news about your research activity data. It's a single-color acorn with ridge waves on its cap, two pill eyes, and an antenna light. It has no mouth; the eyes and the antenna do all the talking.</p>
+    <div class="ctrl-group">
+      <span class="eyebrow" style="color:var(--muted)">State</span>
+      <div class="ctrl-row" id="stateBtns" role="group" aria-label="State"></div>
+    </div>
+    <div class="ctrl-group">
+      <span class="eyebrow" style="color:var(--muted)">Play an action</span>
+      <div class="ctrl-row" id="actionBtns" role="group" aria-label="Actions"></div>
+    </div>
+    <div class="ctrl-group">
+      <span class="eyebrow" style="color:var(--muted)">Theme</span>
+      <div class="ctrl-row" id="themeBtns" role="group" aria-label="Theme"><button type="button" data-choice="system" aria-pressed="true">System</button><button type="button" data-choice="dark" aria-pressed="false">Dark</button><button type="button" data-choice="light" aria-pressed="false">Light</button><button type="button" data-choice="uswds" aria-pressed="false">USWDS</button><button type="button" data-choice="retro" aria-pressed="false">Retro</button></div>
+    </div>
+    <div class="ctrl-group">
+      <span class="eyebrow" style="color:var(--muted)">Style</span>
+      <div class="ctrl-row" id="styleBtns" role="group" aria-label="Style"><button type="button" data-style="smooth" aria-pressed="true">Smooth</button><button type="button" data-style="pixel" aria-pressed="false">Pixel</button></div>
+    </div>
+    <div class="ctrl-row" style="gap:20px">
+      <label for="ink">Ink
+        <select id="ink"><option value="accent">Theme accent</option><option value="neutral">Neutral text</option></select>
+      </label>
+      <label for="status"><input type="checkbox" id="status"> Status colors on the antenna</label>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="stage-av" id="heroAv"></div>
+    <div class="readout mono"><span>state <b id="roState">idle</b></span><span>action <b id="roAction">none</b></span></div>
+  </div>
+</header>
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Anatomy</span>
+    <h2>Six parts, one color</h2>
+    <p class="muted">Everything is drawn in one ink. The gap under the cap, the waves, and the eyes are cut out of the shape, so the page background shows through.</p>
+  </div>
+  <div class="diagram" id="anatomy"></div>
+</section>
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">States</span>
+    <h2>What Oakley is doing</h2>
+    <p class="muted">A state lasts until the agent's status changes. Only idle, thinking, and speaking loop.</p>
+  </div>
+  <div class="grid grid-4" id="states"></div>
+</section>
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Actions</span>
+    <h2>One-shot reactions</h2>
+    <p class="muted">An action plays once on top of the current state, then Oakley returns to that state. Click any avatar to replay it.</p>
+  </div>
+  <div class="grid grid-3" id="actions"></div>
+</section>
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Corner launcher</span>
+    <h2>Try it in the browser</h2>
+    <p class="muted">A mock ACORN workspace. Run a validation, hover over Oakley, open the chat, then close it.</p>
+  </div>
+  <div class="demo-ctrl">
+    <button type="button" id="runIssues">Run validation with issues</button>
+    <button type="button" id="runClean">Run clean validation</button>
+    <button type="button" id="reset">Reset</button>
+  </div>
+  <div class="app" id="app">
+    <div class="app-bar"><span class="app-dots"><i></i><i></i><i></i></span>acorn · research-activities</div>
+    <div class="app-body">
+      <div class="app-side"><span class="on">project.yaml</span><span>software.yaml</span><span>dataset-cfm.yaml</span><span>team.yaml</span></div>
+      <div class="app-main">
+        <div class="app-status" id="appStatus">Ready · 14 records</div>
+        <div class="code"><span class="k">title</span>: <span class="s">Neutron imaging of root growth</span>
+<span class="k">identifiers</span>:
+  - <span class="k">doi</span>: <span class="s">10.1234/acorn.0001</span>
+  - <span class="k">doi</span>: <span class="s">10.1234/acorn.0002</span>
+<span class="k">contact</span>: <span class="s">Research Enablement</span>
+<span class="k">keywords</span>: [<span class="s">imaging</span>, <span class="s">soil</span>, <span class="s">neutrons</span>]</div>
+      </div>
+    </div>
+    <div class="bubble" id="bubble" hidden></div>
+    <div class="panel" id="panel" hidden>
+      <div class="panel-head"><span id="panelAv"></span><b>Oakley</b><span class="online">online</span></div>
+      <div class="log" id="log"></div>
+      <div class="ask">Ask Oakley…</div>
+    </div>
+    <button type="button" class="fab" id="fab" aria-label="Open Oakley chat" aria-expanded="false"><span id="fabAv"></span><span class="badge" id="badge" hidden>2</span></button>
+  </div>
+  <ul class="legend">
+    <li><span class="tag">hover</span><span>Glance</span></li>
+    <li><span class="tag">working</span><span>Thinking</span></li>
+    <li><span class="tag">new message</span><span>Has news</span></li>
+    <li><span class="tag">open chat</span><span>Hop</span></li>
+    <li><span class="tag">reply streams</span><span>Speaking, then double blink</span></li>
+    <li><span class="tag">close chat</span><span>Wink</span></li>
+    <li><span class="tag">all pass</span><span>Wiggle</span></li>
+  </ul>
+</section>
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Sizes</span>
+    <h2>From hero to favicon</h2>
+    <p class="muted">Dark, Light, neutral ink, and USWDS. The waves read down to 32px and fade into the cap below that. The favicon drops them. The Retro band shows the Pixel style at whole-pixel multiples of its 26-unit frame.</p>
+  </div>
+  <div class="bands">
+    <div class="band band-dark" id="sizesDark"></div>
+    <div class="band band-light" id="sizesLight"></div>
+    <div class="band band-neutral" id="sizesNeutral"></div>
+    <div class="band band-uswds" id="sizesUswds"></div>
+    <div class="band band-retro" id="sizesRetro"></div>
+  </div>
+</section>
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">Rules</span>
+    <h2>Keeping Oakley Oakley</h2>
+  </div>
+  <div class="rules">
+    <div class="rule"><h3>No mouth</h3><p class="muted">Expression comes from the eyes and the antenna light only.</p></div>
+    <div class="rule"><h3>Nothing nags</h3><p class="muted">Has news plays twice, about six seconds, then settles with the antenna lit. Actions play once.</p></div>
+    <div class="rule"><h3>Respect reduced motion</h3><p class="muted">With reduced motion on, every animation stops and Oakley holds each pose.</p></div>
+    <div class="rule"><h3>A nod, not a logo</h3><p class="muted">The ridge waves hint at Oak Ridge. Oakley never copies ORNL's logo, wordmark, or official marks.</p></div>
+    <div class="rule"><h3>Ink and light</h3>
+      <div class="swatches">
+        <span class="sw"><i style="background:var(--accent)"></i>Ink · accent</span>
+        <span class="sw"><i style="background:var(--head)"></i>Ink · neutral</span>
+        <span class="sw"><i style="background:var(--amber)"></i>Thinking</span>
+        <span class="sw"><i style="background:var(--blue)"></i>News</span>
+      </div>
+    </div>
+    <div class="rule"><h3>Simple shapes</h3><p class="muted">Chubby nut, wide cap, curled stem. No leaf, since it made the shape read as an apple. The Pixel style redraws the same parts on a 20×20 grid and steps every animation by a whole pixel or frame.</p></div>
+  </div>
+</section>
+</div>
+<script src="pixel.js"></script>
+<script>
+(() => {
+  document.head.append(Object.assign(document.createElement('style'), { textContent: globalThis.OakleyPixel.CSS }));
+  const NUT = 'M12 33 C12 50 22 58.5 32 60 C42 58.5 52 50 52 33 Z';
+  const CAP = 'M8 32 C8 19.5 19 13 32 13 C45 13 56 19.5 56 32 C56 34.6 54.2 36 51.5 36 L12.5 36 C9.8 36 8 34.6 8 32 Z';
+  const STEM = 'M32 13.5 C32 10 31 8 28.5 6.8';
+  const LED = [27.2, 6.2];
+  const WAVES = 'M8 18.8 C12 18.8 16 23.2 20 23.2 S28 18.8 32 18.8 S40 23.2 44 23.2 S52 18.8 56 18.8 M6 25.3 C10.5 25.3 15.5 29.7 20 29.7 S28 25.3 32 25.3 S40 29.7 44 29.7 S53 25.3 58 25.3';
+  const STROKE = 'fill="none" stroke="#000" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
+  const pill = (x, cls) => `<rect class="${cls || ''}" x="${x}" y="40" width="4.6" height="8" rx="2.3" fill="#000"/>`;
+  const pills = (cls, clsRight) => pill(23.2, cls) + pill(36.2, clsRight === undefined ? cls : clsRight);
+  const happy = (cls) => `<g class="${cls || ''}"><path d="M22.5 46 L25.5 43 L28.5 46 M35.5 46 L38.5 43 L41.5 46" ${STROKE}/></g>`;
+  const bars = () => [-0.6, -0.15, -0.45, 0, -0.3].map((d, i) => `<rect class="ok-bar" style="animation-delay:${d}s" x="${21.4 + i * 4.6}" y="39" width="2.8" height="12" rx="1.4" fill="#000"/>`).join('');
+  const point = (r, deg) => [LED[0] + r * Math.cos(deg * Math.PI / 180), LED[1] + r * Math.sin(deg * Math.PI / 180)].map((n) => n.toFixed(2));
+  const arc = (r, i, an) => `<path class="ok-arc ok-arc${i + 1}" style="--an:${an}" d="M${point(r, 200).join(' ')} A${r} ${r} 0 0 1 ${point(r, 290).join(' ')}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
+  const arcs = (an) => [6, 9.5].map((r, i) => arc(r, i, an)).join('');
+  const STATES = {
+    idle: { label: 'Idle', desc: 'Pill eyes, blinks every five seconds.', features: () => pills('ok-blink') },
+    thinking: { label: 'Thinking', desc: 'Five bars rise and fall like a synth level meter.', features: bars, led: 'ok-pulse', status: '--amber' },
+    speaking: { label: 'Speaking', desc: 'Happy eyes bob while a reply streams in.', features: () => happy('ok-bob') },
+    news: { label: 'Has news', desc: 'Glances at the bubble while radio arcs leave the antenna. Plays twice, then settles.', features: () => `<g class="ok-glance" style="--n:2">${pills('')}</g>`, overlay: () => arcs(4), status: '--blue' },
+  };
+  const ACTIONS = {
+    glance: { label: 'Glance', desc: 'Eyes look up toward the speech bubble, hold, and return.', ms: 3300, when: 'Hover', features: () => `<g class="ok-glance">${pills('')}</g>` },
+    'double-blink': { label: 'Double blink', desc: 'Two quick blinks. A quiet "done".', ms: 2500, when: 'Reply finished', features: () => pills('ok-dbl') },
+    broadcast: { label: 'Broadcast', desc: 'Two radio arcs ripple off the antenna light.', ms: 3200, when: 'Message sent', features: () => pills(''), overlay: () => arcs(2) },
+    hop: { label: 'Hop', desc: 'A small squash, hop, and land.', ms: 1900, when: 'Chat opens', features: () => pills(''), body: 'ok-hop' },
+    wiggle: { label: 'Wiggle', desc: 'An excited side-to-side rock with happy eyes.', ms: 2100, when: 'All checks pass', features: () => happy(''), body: 'ok-wig' },
+    wink: { label: 'Wink', desc: 'The right eye closes into a thick caret, then opens.', ms: 1700, when: 'Chat closes', features: () => pills('', 'ok-wink') + '<path class="ok-caret" d="M35.2 45.6 L38.5 42.2 L41.8 45.6" fill="none" stroke="#000" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  };
+  const opts = { status: false, pixel: false, uid: 0 };
+  const pixelSize = (size) => (size >= 52 ? Math.round(size / 26) * 26 : size);
+  const oakley = ({ state = 'idle', action = null, size = 64, pixel = opts.pixel } = {}) => {
+    const st = STATES[state];
+    const pose = action ? ACTIONS[action] : st;
+    const id = `oakley-mask-${++opts.uid}`;
+    const ledCls = action ? '' : (st.led || '');
+    const ledStyle = opts.status && !action && st.status ? ` style="--led:var(${st.status})"` : '';
+    const label = (action ? ACTIONS[action].label : st.label).toLowerCase();
+    return pixel ? globalThis.OakleyPixel.svg(action || state, { id, size: pixelSize(size), label, ledStyle }) : `<svg class="oakley" width="${size}" height="${size}" viewBox="0 0 64 64" overflow="visible" role="img" aria-label="Oakley, ${label}"><defs><mask id="${id}"><rect x="-8" y="-8" width="80" height="80" fill="#fff"/><path d="M10 37 H54" stroke="#000" stroke-width="2.4"/><path d="${WAVES}" fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round"/>${pose.features()}</mask></defs><g class="ok-body ${pose.body || ''}"><g mask="url(#${id})" fill="currentColor"><path d="${NUT}"/><path d="${CAP}"/></g><path d="${STEM}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle class="ok-led ${ledCls}"${ledStyle} cx="${LED[0]}" cy="${LED[1]}" r="3"/>${pose.overlay ? pose.overlay() : ''}</g></svg>`;
+  };
+  const avatar = (el, size, onChange = () => {}) => {
+    const self = { state: 'idle', timer: null };
+    const draw = (action) => { el.innerHTML = oakley({ state: self.state, action, size }); onChange(self.state, action); };
+    draw(null);
+    return Object.assign(self, {
+      set: (next) => { self.state = next; clearTimeout(self.timer); draw(null); },
+      play: (action) => { clearTimeout(self.timer); draw(action); self.timer = setTimeout(() => draw(null), ACTIONS[action].ms); },
+      redraw: () => { clearTimeout(self.timer); draw(null); },
+    });
+  };
+  const $ = (id) => document.getElementById(id);
+  const hero = avatar($('heroAv'), 240, (s, a) => { $('roState').textContent = STATES[s].label.toLowerCase(); $('roAction').textContent = a ? ACTIONS[a].label.toLowerCase() : 'none'; });
+  $('stateBtns').innerHTML = Object.entries(STATES).map(([k, v]) => `<button type="button" data-state="${k}" aria-pressed="${k === 'idle'}">${v.label}</button>`).join('');
+  $('actionBtns').innerHTML = Object.entries(ACTIONS).map(([k, v]) => `<button type="button" data-action="${k}">${v.label}</button>`).join('');
+  $('stateBtns').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) { $('stateBtns').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); hero.set(b.dataset.state); }
+  });
+  $('actionBtns').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) hero.play(b.dataset.action); });
+  $('ink').addEventListener('change', (e) => document.documentElement.style.setProperty('--ink', e.target.value === 'neutral' ? 'var(--head)' : 'var(--accent)'));
+  const scale = 4, ox = 192, oy = 18;
+  const parts = [
+    { side: 'L', y: 40, at: [27.2, 6.2], t: 'Antenna light', d: 'status · pulses when busy' },
+    { side: 'R', y: 56, at: [31.6, 10.5], t: 'Curled stem', d: 'no leaf' },
+    { side: 'R', y: 108, at: [44, 21.5], t: 'Ridge waves', d: 'two rows · Oak Ridge nod' },
+    { side: 'L', y: 166, at: [14, 37], t: 'Brim gap', d: 'separates cap and nut' },
+    { side: 'R', y: 200, at: [38.5, 44], t: 'Pill eyes', d: 'no mouth' },
+    { side: 'L', y: 236, at: [19, 50], t: 'Chubby nut', d: 'soft point at the base' },
+  ];
+  const callout = ({ side, y, at, t, d }) => {
+    const [px, py] = [ox + at[0] * scale, oy + at[1] * scale];
+    const left = side === 'L';
+    const [lx, tx, anchor] = left ? [176, 168, 'end'] : [464, 472, 'start'];
+    return `<path class="leader" d="M${lx} ${y} H${left ? lx + 10 : lx - 10} L${px} ${py}" fill="none"/><circle class="pin" cx="${px}" cy="${py}" r="3.5"/><text class="call" x="${tx}" y="${y - 2}" text-anchor="${anchor}">${t}</text><text class="call-sub" x="${tx}" y="${y + 14}" text-anchor="${anchor}">${d}</text>`;
+  };
+  const anatomyBody = oakley({ state: 'idle', size: 256 }).replace('<svg class="oakley" width="256" height="256"', `<svg class="oakley" x="${ox}" y="${oy}" width="256" height="256"`);
+  $('anatomy').innerHTML = `<svg viewBox="0 0 640 290" role="img" aria-label="Oakley anatomy with six labeled parts">${anatomyBody}${parts.map(callout).join('')}</svg>`;
+  $('states').innerHTML = Object.entries(STATES).map(([k, v]) => `<article class="card"><div class="av" data-st="${k}"></div><h3>${v.label}</h3><p class="muted" style="font-size:14px">${v.desc}</p><div class="meta"><span class="tag">${k === 'news' ? 'plays twice' : 'loops'}</span><button type="button" data-replay="${k}">Replay</button></div></article>`).join('');
+  const stateAvs = Object.fromEntries([...document.querySelectorAll('[data-st]')].map((el) => [el.dataset.st, avatar(el, 96)]));
+  Object.entries(stateAvs).forEach(([k, a]) => a.set(k));
+  $('states').addEventListener('click', (e) => { const b = e.target.closest('[data-replay]'); if (b) stateAvs[b.dataset.replay].redraw(); });
+  $('actions').innerHTML = Object.entries(ACTIONS).map(([k, v]) => `<article class="card"><button type="button" class="av" data-ac="${k}" aria-label="Play ${v.label}"></button><h3>${v.label}</h3><p class="muted" style="font-size:14px">${v.desc}</p><div class="meta"><span class="tag">${v.when} · ${(v.ms / 1000).toFixed(1)} s</span><button type="button" data-play="${k}">Play</button></div></article>`).join('');
+  const actionAvs = Object.fromEntries([...document.querySelectorAll('[data-ac]')].map((el) => [el.dataset.ac, avatar(el, 96)]));
+  $('actions').addEventListener('click', (e) => { const b = e.target.closest('[data-play],[data-ac]'); if (b) { const k = b.dataset.play || b.dataset.ac; actionAvs[k].play(k); } });
+  Object.keys(ACTIONS).forEach((k, i) => setTimeout(() => actionAvs[k].play(k), 600 + i * 450));
+  const ladder = (el, sizes, pixel = false) => { el.innerHTML = sizes.map((sz) => `<figure>${oakley({ state: 'idle', size: sz, pixel })}<figcaption>${sz}px</figcaption></figure>`).join(''); };
+  ladder($('sizesDark'), [128, 64, 44, 32, 24, 16]);
+  ladder($('sizesLight'), [128, 64, 44, 32, 24, 16]);
+  ladder($('sizesNeutral'), [64, 32, 16]);
+  ladder($('sizesUswds'), [128, 64, 44, 32, 24, 16]);
+  ladder($('sizesRetro'), [104, 78, 52, 26], true);
+  const applyTheme = (choice) => {
+    const root = document.documentElement;
+    if (choice === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', choice);
+    $('themeBtns').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.choice === choice)));
+    try { localStorage.setItem('oakley-preview-theme', choice); } catch { }
+    if (choice === 'retro') applyStyle('pixel');
+  };
+  $('themeBtns').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) applyTheme(b.dataset.choice); });
+  const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+  const fab = avatar($('fabAv'), 42);
+  const panelAv = avatar($('panelAv'), 26);
+  const all = [hero, ...Object.values(stateAvs), ...Object.values(actionAvs), fab, panelAv];
+  $('status').addEventListener('change', (e) => { opts.status = e.target.checked; all.forEach((a) => a.redraw()); });
+  const GREETING = "Hi, I'm Oakley. I'll tell you when something in your records needs a look.";
+  const ISSUE = "2 DOIs in project.yaml don't resolve: 10.1234/acorn.0001 and 10.1234/acorn.0002. Want me to check them against doi.org?";
+  const demo = { open: false, busy: false, pending: null, run: 0 };
+  const addMsg = (text) => {
+    const m = Object.assign(document.createElement('div'), { className: 'msg', textContent: text });
+    $('log').appendChild(m);
+    $('log').scrollTop = $('log').scrollHeight;
+    return m;
+  };
+  const showBubble = (text) => { $('bubble').innerHTML = `<b>Oakley</b>${text}`; $('bubble').hidden = false; };
+  const resetDemo = () => {
+    Object.assign(demo, { open: false, busy: false, pending: null, run: demo.run + 1 });
+    $('panel').hidden = true;
+    $('bubble').hidden = true;
+    $('badge').hidden = true;
+    $('fab').setAttribute('aria-expanded', 'false');
+    $('fab').setAttribute('aria-label', 'Open Oakley chat');
+    $('log').innerHTML = '';
+    addMsg(GREETING);
+    $('appStatus').textContent = 'Ready · 14 records';
+    fab.set('idle');
+    panelAv.set('idle');
+  };
+  const stream = async (text) => {
+    const me = demo.run;
+    const m = addMsg('');
+    const steps = Array.from({ length: Math.ceil(text.length / 2) }, (_, i) => text.slice(0, (i + 1) * 2));
+    panelAv.set('speaking');
+    await steps.reduce((chain, chunk) => chain.then(() => (me === demo.run && demo.open ? sleep(28).then(() => { m.textContent = chunk; $('log').scrollTop = $('log').scrollHeight; }) : null)), Promise.resolve());
+    m.textContent = text;
+    panelAv.set('idle');
+    panelAv.play('double-blink');
+  };
+  const toggle = () => {
+    demo.open = !demo.open;
+    $('panel').hidden = !demo.open;
+    $('fab').setAttribute('aria-expanded', String(demo.open));
+    $('fab').setAttribute('aria-label', demo.open ? 'Close Oakley chat' : 'Open Oakley chat');
+    if (demo.open) {
+      $('bubble').hidden = true;
+      $('badge').hidden = true;
+      fab.set('idle');
+      fab.play('hop');
+      if (demo.pending) { stream(demo.pending); demo.pending = null; }
+    } else {
+      fab.play('wink');
+    }
+  };
+  const finishIssues = () => {
+    $('appStatus').textContent = '14 records checked · 2 need attention';
+    demo.pending = ISSUE;
+    fab.set('news');
+    $('badge').hidden = false;
+    showBubble("2 DOIs in project.yaml don't resolve. Want me to check them?");
+    $('fab').setAttribute('aria-label', 'Open Oakley chat, 1 new message');
+    demo.busy = false;
+  };
+  const finishClean = (me) => {
+    $('appStatus').textContent = '14 records checked · all pass';
+    fab.set('idle');
+    fab.play('wiggle');
+    showBubble('All 14 records pass validation.');
+    demo.busy = false;
+    sleep(4000).then(() => { if (me === demo.run) $('bubble').hidden = true; });
+  };
+  const validate = (withIssues) => {
+    if (!demo.busy) {
+      const me = demo.run + 1;
+      Object.assign(demo, { busy: true, run: me });
+      if (demo.open) toggle();
+      $('bubble').hidden = true;
+      $('badge').hidden = true;
+      $('appStatus').textContent = 'Validating 14 records…';
+      fab.set('thinking');
+      sleep(2600).then(() => { if (me === demo.run) { if (withIssues) finishIssues(); else finishClean(me); } });
+    }
+  };
+  $('fab').addEventListener('click', toggle);
+  $('fab').addEventListener('mouseenter', () => { if (!demo.open && fab.state === 'idle') fab.play('glance'); });
+  $('runIssues').addEventListener('click', () => validate(true));
+  $('runClean').addEventListener('click', () => validate(false));
+  function applyStyle(choice) {
+    opts.pixel = choice === 'pixel';
+    $('styleBtns').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.style === choice)));
+    all.forEach((a) => a.redraw());
+    try { localStorage.setItem('oakley-preview-style', choice); } catch { }
+  }
+  $('styleBtns').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) applyStyle(b.dataset.style); });
+  const read = (name) => { try { return localStorage.getItem(name); } catch { return null; } };
+  if (['dark', 'light', 'uswds', 'retro'].includes(read('oakley-preview-theme'))) applyTheme(read('oakley-preview-theme'));
+  if (read('oakley-preview-style') === 'pixel') applyStyle('pixel');
+  $('reset').addEventListener('click', resetDemo);
+  resetDemo();
+})();
+</script>
+</body>
+</html>

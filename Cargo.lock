@@ -482,6 +482,7 @@ version = "0.8.1"
 dependencies = [
  "acorn-analysis",
  "acorn-core",
+ "acorn-diff",
  "acorn-macros",
  "acorn-schema",
  "acorn-wasm",
@@ -500,6 +501,7 @@ dependencies = [
  "serde_json",
  "serde_norway",
  "strum 0.28.0",
+ "thiserror 2.0.18",
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-test",

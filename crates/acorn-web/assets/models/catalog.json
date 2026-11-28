@@ -4,7 +4,7 @@
       "bounds": {
         "max": [
           2.2,
-          1.3938106,
+          1.1513337,
           2.2
         ],
         "min": [
@@ -13,7 +13,7 @@
           -2.2
         ]
       },
-      "bytes": 1814180,
+      "bytes": 826484,
       "category": "drone",
       "file": "drones/autel-evo-max-4t.glb",
       "front_axis": "+Z",
@@ -28,11 +28,11 @@
       "pivot": "bottom-center",
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Autel EVO Max 4T; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
-      "revision": 5,
-      "sha256": "3837aedfc5ed0783b21bda1ffc4f4c093d58f1abd7ccaf9313e334dd6147d41c",
+      "revision": 6,
+      "sha256": "dacd1d88317f9b4c0ce64c17d61675640bbf6fb37a32aeb546ef6124d4bb0856",
       "source": "drones/autel-evo-max-4t.model.json",
       "textures": 1,
-      "triangles": 18804,
+      "triangles": 19012,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -49,7 +49,7 @@
           -2.2
         ]
       },
-      "bytes": 1048888,
+      "bytes": 452848,
       "category": "drone",
       "file": "drones/bitcraze-crazyflie-2-1.glb",
       "front_axis": "+Z",
@@ -65,7 +65,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Bitcraze Crazyflie 2.1; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 5,
-      "sha256": "7aaf200961dc57b8ec2cd6eda16a7a67c7005769f3eabcf6ce52d4671f26551d",
+      "sha256": "4f735f12b506d079d23c98a55e4e2b24f1c2d17fddff3ded6dbe126b8fa088a5",
       "source": "drones/bitcraze-crazyflie-2-1.model.json",
       "textures": 1,
       "triangles": 10832,
@@ -85,7 +85,7 @@
           -2.2
         ]
       },
-      "bytes": 709800,
+      "bytes": 383336,
       "category": "drone",
       "file": "drones/brinc-responder.glb",
       "front_axis": "+Z",
@@ -101,7 +101,7 @@
       "primitives": 8,
       "provenance": "Original simplified illustration inspired by BRINC Responder; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "44bca6831941ed50b38fefafdbc512467bfec6e5d8848df5d7cf5ee9d88e73b3",
+      "sha256": "577e45deac41273c6407b1235eec0ac710ed1f0196f26a8077c99865b30fe6df",
       "source": "drones/brinc-responder.model.json",
       "textures": 1,
       "triangles": 7284,
@@ -121,7 +121,7 @@
           -2.2
         ]
       },
-      "bytes": 683716,
+      "bytes": 593020,
       "category": "drone",
       "file": "drones/brinc-responder-station.glb",
       "front_axis": "+Z",
@@ -141,7 +141,7 @@
       "primitives": 22,
       "provenance": "Original simplified illustration of the BRINC Responder Station, revised from manufacturer photographs: horizontally sliding tray shells, tapered dock, telescopic rails and skid supports. ORNL accents; not manufacturer CAD or a measured replica.",
       "revision": 2,
-      "sha256": "7b96d92beee29d199d1fdd2fe192998bf4d49380e1fa44a70592f38a7a9c53c2",
+      "sha256": "f4faf0d4bb11890f762726d84da15465a7c6b755123519ed037b1cb2a77ba7ad",
       "source": "drones/brinc-responder-station.model.json",
       "textures": 1,
       "triangles": 6928,
@@ -161,7 +161,7 @@
           -2.2
         ]
       },
-      "bytes": 1083796,
+      "bytes": 507216,
       "category": "drone",
       "file": "drones/dji-agras-t50.glb",
       "front_axis": "+Z",
@@ -177,7 +177,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by DJI Agras T50; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "28d819cb3bf6514f2ba45e7642c147778fd15ac415ca2d89ed599f0159cdf862",
+      "sha256": "dd23a2b4ebe6ff27f9abbd253f6b47a555d3b0f5df796c61fff2b62b2bcac999",
       "source": "drones/dji-agras-t50.model.json",
       "textures": 1,
       "triangles": 11196,
@@ -197,7 +197,7 @@
           -2.2
         ]
       },
-      "bytes": 1393700,
+      "bytes": 577192,
       "category": "drone",
       "file": "drones/dji-avata-2.glb",
       "front_axis": "+Z",
@@ -213,7 +213,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by DJI Avata 2; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 2,
-      "sha256": "a3d9cf23bb1b41d5837725c681bc405172653a7d2e0f2631615c2fd6c420298b",
+      "sha256": "c90458d5beea643dcb268e3a05135543be6ad515ed0e04256d7977b625475d7c",
       "source": "drones/dji-avata-2.model.json",
       "textures": 1,
       "triangles": 14424,
@@ -233,7 +233,7 @@
           -2.2
         ]
       },
-      "bytes": 516240,
+      "bytes": 312048,
       "category": "drone",
       "file": "drones/dji-dock-3.glb",
       "front_axis": "+Z",
@@ -249,7 +249,7 @@
       "primitives": 7,
       "provenance": "Original simplified illustration inspired by DJI Dock 3; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "a48ec15ad1ffaaadc5e81b932247864469d4f45e43b27e734cc91d4f385a08ec",
+      "sha256": "59ecb807378eb0c04b3bfd93b7ad34dad1212c9a62e3ec969ab938e3cc1cbfca",
       "source": "drones/dji-dock-3.model.json",
       "textures": 1,
       "triangles": 5276,
@@ -269,7 +269,7 @@
           -2.2
         ]
       },
-      "bytes": 1073432,
+      "bytes": 495184,
       "category": "drone",
       "file": "drones/dji-flycart-30.glb",
       "front_axis": "+Z",
@@ -285,7 +285,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by DJI FlyCart 30; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "b26263e9767d228698c437501c73e5562f91ee9ce2ef47ee13ef4d42e5cd58a0",
+      "sha256": "af4cd6ac54763cc2ae9f27365a76e9acef31df7cfe15f426b609aa487be4314e",
       "source": "drones/dji-flycart-30.model.json",
       "textures": 1,
       "triangles": 11088,
@@ -305,7 +305,7 @@
           -2.2
         ]
       },
-      "bytes": 899432,
+      "bytes": 455700,
       "category": "drone",
       "file": "drones/dji-inspire-3.glb",
       "front_axis": "+Z",
@@ -321,7 +321,7 @@
       "primitives": 5,
       "provenance": "Original simplified illustration inspired by DJI Inspire 3; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "d729d6af47d4c953c05f67cd34c9a31623ad110b79acaa910060293f9f8b7306",
+      "sha256": "17de7b411dc697c1ebbe426853fa50a57c1e4556f22d22b9350447853d3d8a78",
       "source": "drones/dji-inspire-3.model.json",
       "textures": 1,
       "triangles": 9284,
@@ -341,7 +341,7 @@
           -2.2
         ]
       },
-      "bytes": 1747752,
+      "bytes": 755360,
       "category": "drone",
       "file": "drones/dji-matrice-350-rtk.glb",
       "front_axis": "+Z",
@@ -357,7 +357,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by DJI Matrice 350 RTK; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 5,
-      "sha256": "07eaab7e88da50267120b59f5d2326cbbebca29a88e1a977b9a8abc0a89d9f73",
+      "sha256": "600adac942b3fd120192a6390b1a3d3755f44ea26c8cde65fcca78ded44d984e",
       "source": "drones/dji-matrice-350-rtk.model.json",
       "textures": 1,
       "triangles": 18112,
@@ -377,7 +377,7 @@
           -2.2
         ]
       },
-      "bytes": 1158688,
+      "bytes": 519084,
       "category": "drone",
       "file": "drones/dji-matrice-4d.glb",
       "front_axis": "+Z",
@@ -393,7 +393,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by DJI Matrice 4D; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "eefba212ac6e34957f829eb6f162112f17c7cc1e908853c47f7dd6dbf9941916",
+      "sha256": "87aa19ce22dee930e1a9d79b8fbd9158741fcf1c9cc0a5a95e121d2868ef2651",
       "source": "drones/dji-matrice-4d.model.json",
       "textures": 1,
       "triangles": 11976,
@@ -404,7 +404,7 @@
       "bounds": {
         "max": [
           2.2,
-          1.4345198,
+          1.1583676,
           2.2
         ],
         "min": [
@@ -413,7 +413,7 @@
           -2.2
         ]
       },
-      "bytes": 1733548,
+      "bytes": 822572,
       "category": "drone",
       "file": "drones/dji-mavic-3-enterprise.glb",
       "front_axis": "+Z",
@@ -428,11 +428,11 @@
       "pivot": "bottom-center",
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by DJI Mavic 3 Enterprise; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
-      "revision": 5,
-      "sha256": "9dccb7ad898058af41e81c5f56bb2cb0f10b1601060d693335da649ab665878b",
+      "revision": 6,
+      "sha256": "eb70b1d3bf12967558c5ec60bdae8322daa9beb363db1688dbec27c74014c7d2",
       "source": "drones/dji-mavic-3-enterprise.model.json",
       "textures": 1,
-      "triangles": 17964,
+      "triangles": 18172,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -449,7 +449,7 @@
           -2.2
         ]
       },
-      "bytes": 1632184,
+      "bytes": 717392,
       "category": "drone",
       "file": "drones/dji-phantom-4-rtk.glb",
       "front_axis": "+Z",
@@ -465,7 +465,7 @@
       "primitives": 7,
       "provenance": "Original simplified illustration inspired by DJI Phantom 4 RTK; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 5,
-      "sha256": "6874d7b1051692f54e1164ab6d58c541e68f8106f9be90c28c0d55c1da29e472",
+      "sha256": "2c031bc25ae2b39cfe157bdb0ec6e13669800ed64d14d69438ea8f79098f66a5",
       "source": "drones/dji-phantom-4-rtk.model.json",
       "textures": 1,
       "triangles": 16900,
@@ -485,7 +485,7 @@
           -2.2
         ]
       },
-      "bytes": 342996,
+      "bytes": 160344,
       "category": "drone",
       "file": "drones/ebee-x.glb",
       "front_axis": "+Z",
@@ -501,7 +501,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by eBee X; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 4,
-      "sha256": "20bf46f9bdd27f98467923bf20abf273a34183e8bfe047bfbbf0a70b287d0dea",
+      "sha256": "98b42b22a7a1d1894ab2473ef8b2f5c9354df2e0d303e6b3fbc15d66237fbe41",
       "source": "drones/ebee-x.model.json",
       "textures": 1,
       "triangles": 3480,
@@ -521,7 +521,7 @@
           -2.2
         ]
       },
-      "bytes": 765064,
+      "bytes": 395624,
       "category": "drone",
       "file": "drones/elistair-khronos.glb",
       "front_axis": "+Z",
@@ -537,7 +537,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Elistair Khronos; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "8edb4af10f092afe24cdba24d0871af8c64bab2562d265dcf3a8c9b439d70e39",
+      "sha256": "901ddbe084f635a0809ff23f8a3b4543069c69e1a798a2ad77189c1a30d85eb1",
       "source": "drones/elistair-khronos.model.json",
       "textures": 1,
       "triangles": 7876,
@@ -557,7 +557,7 @@
           -2.2
         ]
       },
-      "bytes": 844952,
+      "bytes": 391448,
       "category": "drone",
       "file": "drones/elistair-khronos-station.glb",
       "front_axis": "+Z",
@@ -573,7 +573,7 @@
       "primitives": 7,
       "provenance": "Original simplified illustration inspired by Elistair Khronos Ground Station; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 2,
-      "sha256": "ee8168300bb60af0e7640e85aaa0c85c4bdda3b4f5dbaa773e31979e1bb827a0",
+      "sha256": "e3f2f9b6e81138dbb08eb6941b20f59dbf71c8b3035a3b7342490d0c5e49ae97",
       "source": "drones/elistair-khronos-station.model.json",
       "textures": 1,
       "triangles": 8700,
@@ -593,7 +593,7 @@
           -2.2
         ]
       },
-      "bytes": 1442060,
+      "bytes": 607108,
       "category": "drone",
       "file": "drones/flyability-elios-3.glb",
       "front_axis": "+Z",
@@ -609,7 +609,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Flyability Elios 3; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "eef66d370b86152a581d7a6122d449cec052003de70384ce4f5382ad9e2249bf",
+      "sha256": "0e1b087fe8b240ef033ffffafa52719c87fdbdcd05388c99f490c0e7dcb735cd",
       "source": "drones/flyability-elios-3.model.json",
       "textures": 1,
       "triangles": 14928,
@@ -629,7 +629,7 @@
           -2.2
         ]
       },
-      "bytes": 766216,
+      "bytes": 364804,
       "category": "drone",
       "file": "drones/freefly-alta-x.glb",
       "front_axis": "+Z",
@@ -645,7 +645,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Freefly Alta X; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "b85235a647269e48727739e349a0b5f4e9a3edd29465703651ea159d96161408",
+      "sha256": "1d3f03ef01efcd087ba9319924b38667e1a4f0cf684e33447b4c96af378e6809",
       "source": "drones/freefly-alta-x.model.json",
       "textures": 1,
       "triangles": 7888,
@@ -665,7 +665,7 @@
           -2.2
         ]
       },
-      "bytes": 1502020,
+      "bytes": 680880,
       "category": "drone",
       "file": "drones/freefly-astro.glb",
       "front_axis": "+Z",
@@ -681,7 +681,7 @@
       "primitives": 7,
       "provenance": "Original simplified illustration inspired by Freefly Astro; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 5,
-      "sha256": "7bc3f180ba80e2247bb014932eefadef3f730be03879802f04b962044eb751ab",
+      "sha256": "19644733f0b5d8adbf4a3bebf2e7ed2ab49b5706bc104d2d6694eca5bd9ff0f8",
       "source": "drones/freefly-astro.model.json",
       "textures": 1,
       "triangles": 15544,
@@ -701,7 +701,7 @@
           -2.2
         ]
       },
-      "bytes": 1420584,
+      "bytes": 660448,
       "category": "drone",
       "file": "drones/holybro-x500-v2.glb",
       "front_axis": "+Z",
@@ -717,7 +717,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Holybro X500 V2; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 5,
-      "sha256": "6b40758c8c06862d10e0c6650767347a6e1f385c6e8a8701628d5f4df82aee71",
+      "sha256": "7792f7e540f55a440d450ed2827d244714d04db13218d834d1497453ae457c65",
       "source": "drones/holybro-x500-v2.model.json",
       "textures": 1,
       "triangles": 14704,
@@ -737,7 +737,7 @@
           -2.2
         ]
       },
-      "bytes": 1295784,
+      "bytes": 579816,
       "category": "drone",
       "file": "drones/inspired-flight-if1200a.glb",
       "front_axis": "+Z",
@@ -753,7 +753,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Inspired Flight IF1200A; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "a7b7a0f4d7e49d7417f375d892196b55b5be2fcd3b7b1d859e02abd874f4ec68",
+      "sha256": "0b055f6c64fc9787daf76f363d8b675d8b8f98e12efc4cedba395c05b0bdb6b8",
       "source": "drones/inspired-flight-if1200a.model.json",
       "textures": 1,
       "triangles": 13404,
@@ -773,7 +773,7 @@
           -2.2
         ]
       },
-      "bytes": 725508,
+      "bytes": 349588,
       "category": "drone",
       "file": "drones/jouav-cw-15.glb",
       "front_axis": "+Z",
@@ -789,7 +789,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by JOUAV CW-15; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "9b3f08d5422a48cb99b4b73fbbce2b47dcef37a741671ad8bacc717b337abd91",
+      "sha256": "2628497de0d911020291f392dfac09561359592833a0d6e934a91f0929d7a95e",
       "source": "drones/jouav-cw-15.model.json",
       "textures": 1,
       "triangles": 7464,
@@ -809,7 +809,7 @@
           -1.5
         ]
       },
-      "bytes": 888544,
+      "bytes": 515316,
       "category": "drone",
       "file": "drones/landing-pad.glb",
       "front_axis": "+Z",
@@ -824,7 +824,7 @@
       "primitives": 5,
       "provenance": "Original generic flight-operations landing mat with ORNL green, neutral rubber and reflective target markings. Standalone bottom-centered geometry; no helicopter-specific H, display pedestal, imported mesh or vendor branding.",
       "revision": 1,
-      "sha256": "7ef8e072d6f5a37b48cb123f5cfa5414d39f496322ad0b0f6a6dcc983847a6b5",
+      "sha256": "5331821d7fe5f668e6650cfa02e05e0caf1b8e314b7423c2a623710afcdb1259",
       "source": "drones/landing-pad.model.json",
       "textures": 1,
       "triangles": 9172,
@@ -844,7 +844,7 @@
           -2.2
         ]
       },
-      "bytes": 582668,
+      "bytes": 309988,
       "category": "drone",
       "file": "drones/modalai-starling-2.glb",
       "front_axis": "+Z",
@@ -860,7 +860,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by ModalAI Starling 2; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "7fe6a0476cbaf23442c6ea9befea1aa987e9cf4fb478b785b61d5a1f876be306",
+      "sha256": "76ea06aaef6db41c5103ab5e49bae9b61537977fb41ed87d19d3bfea4f32f54e",
       "source": "drones/modalai-starling-2.model.json",
       "textures": 1,
       "triangles": 5976,
@@ -880,7 +880,7 @@
           -2.2
         ]
       },
-      "bytes": 1404844,
+      "bytes": 648520,
       "category": "drone",
       "file": "drones/ornl-strelka.glb",
       "front_axis": "+Z",
@@ -896,7 +896,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by ORNL Strelka; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 5,
-      "sha256": "886a69f7cc939fa9a5c6d84f690c1517eadb93b6a94dfa4568a54fc10fba65ff",
+      "sha256": "46c37096d4baa1d40aa8e8c8f4314c09af2115c10f1362e9000836f218e5d9bb",
       "source": "drones/ornl-strelka.model.json",
       "textures": 1,
       "triangles": 14540,
@@ -907,7 +907,7 @@
       "bounds": {
         "max": [
           2.2,
-          1.1346198,
+          0.9017857,
           2.2
         ],
         "min": [
@@ -916,26 +916,26 @@
           -2.2
         ]
       },
-      "bytes": 1818804,
+      "bytes": 712600,
       "category": "drone",
       "file": "drones/parrot-anafi-ai.glb",
       "front_axis": "+Z",
       "id": "drone/parrot-anafi-ai",
       "label": "Parrot ANAFI Ai",
       "license": "MIT",
-      "materials": 7,
+      "materials": 6,
       "nodes": [
         "body",
         "pedestal"
       ],
       "pivot": "bottom-center",
-      "primitives": 7,
+      "primitives": 6,
       "provenance": "Original simplified illustration inspired by Parrot ANAFI Ai; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
-      "revision": 5,
-      "sha256": "691f9c4e57d0f1af502d683f9f80dea5d756044b45f51278e26309a8dc08537e",
+      "revision": 6,
+      "sha256": "469d97a878b373a0ebc40b1f1af13c80b7de70e9c399b1c85b975d06890eaee4",
       "source": "drones/parrot-anafi-ai.model.json",
       "textures": 1,
-      "triangles": 18844,
+      "triangles": 17048,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -952,7 +952,7 @@
           -2.2
         ]
       },
-      "bytes": 676360,
+      "bytes": 300916,
       "category": "drone",
       "file": "drones/quantum-trinity-pro.glb",
       "front_axis": "+Z",
@@ -968,7 +968,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Quantum Systems Trinity Pro; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "9dddc150df3ae8f0f309f40cc4703d97d08061ef3efa520f94339e4d0da51169",
+      "sha256": "4262b9f11c4e9d75003a2bf72c8893d41f1006868393283edfdd224473e06cc7",
       "source": "drones/quantum-trinity-pro.model.json",
       "textures": 1,
       "triangles": 6952,
@@ -988,7 +988,7 @@
           -2.2
         ]
       },
-      "bytes": 1834912,
+      "bytes": 824412,
       "category": "drone",
       "file": "drones/skydio-x10.glb",
       "front_axis": "+Z",
@@ -1004,7 +1004,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Skydio X10; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 5,
-      "sha256": "9421ed274ae8e6b916d0708ef5256f1a154cc901880cceb836bb092e6b120047",
+      "sha256": "749866949603370a4ee24f041f84ce02e97bf4563fac0ba06bb5b3ea1c2b583e",
       "source": "drones/skydio-x10.model.json",
       "textures": 1,
       "triangles": 19020,
@@ -1024,7 +1024,7 @@
           -2.2
         ]
       },
-      "bytes": 1015068,
+      "bytes": 403620,
       "category": "drone",
       "file": "drones/swissdrones-sdo-50-v3.glb",
       "front_axis": "+Z",
@@ -1040,7 +1040,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by SwissDrones SDO 50 V3; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "945fc214b8e385e04048d98ef1bf07fa9e5f419556a640b3282f7068fd5a58e4",
+      "sha256": "8ed557a60df912c2fa1bddcb755beccc13b1d62852fa2f583e1bf08bbe13c155",
       "source": "drones/swissdrones-sdo-50-v3.model.json",
       "textures": 1,
       "triangles": 10480,
@@ -1060,7 +1060,7 @@
           -2.2
         ]
       },
-      "bytes": 598408,
+      "bytes": 260556,
       "category": "drone",
       "file": "drones/voliro-t.glb",
       "front_axis": "+Z",
@@ -1076,7 +1076,7 @@
       "primitives": 7,
       "provenance": "Original simplified illustration inspired by Voliro T; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "e8f4dcac681034e5a60a9a6ce71d68fbcc37c27f6603d7ff271dfd2865bb1737",
+      "sha256": "11778f3d7f88cb104bae5646c362c4741e9e40431d33dc00ce3a92a329bcbcce",
       "source": "drones/voliro-t.model.json",
       "textures": 1,
       "triangles": 6132,
@@ -1096,7 +1096,7 @@
           -2.2
         ]
       },
-      "bytes": 661364,
+      "bytes": 415224,
       "category": "drone",
       "file": "drones/wingcopter-198.glb",
       "front_axis": "+Z",
@@ -1112,7 +1112,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Wingcopter 198; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "62ee2c708d868ce6887e9e2397c2fadcae55ad92a0602bc79e9e5497beacebd4",
+      "sha256": "04fbe807061e3d52a5d1a39d862a5618a268b7dc0e3f8e7cba722a17d5902a77",
       "source": "drones/wingcopter-198.model.json",
       "textures": 1,
       "triangles": 6796,
@@ -1132,7 +1132,7 @@
           -2.2
         ]
       },
-      "bytes": 358780,
+      "bytes": 171996,
       "category": "drone",
       "file": "drones/wingtraone-gen-ii.glb",
       "front_axis": "+Z",
@@ -1148,7 +1148,7 @@
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by WingtraOne GEN II; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 4,
-      "sha256": "311ab2486b218590cd5dd869a7cb692526c26c31211a6e88c12cc195bb186d6b",
+      "sha256": "1da3518535f4772bc3a8daa6f181f4d1a449bfeca0d31957a1b6fe0e1aa40246",
       "source": "drones/wingtraone-gen-ii.model.json",
       "textures": 1,
       "triangles": 3644,
@@ -1159,7 +1159,7 @@
       "bounds": {
         "max": [
           2.2,
-          3.4131177,
+          3.4762319,
           2.2
         ],
         "min": [
@@ -1168,7 +1168,7 @@
           -2.2
         ]
       },
-      "bytes": 753532,
+      "bytes": 380568,
       "category": "drone",
       "file": "drones/zipline-delivery-droid.glb",
       "front_axis": "+Z",
@@ -1183,11 +1183,11 @@
       "pivot": "bottom-center",
       "primitives": 6,
       "provenance": "Original simplified illustration inspired by Zipline Delivery Droid; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
-      "revision": 1,
-      "sha256": "36676bd4b88ab09580817e758f652640e780afdf8903cefe8856302e62a31bda",
+      "revision": 2,
+      "sha256": "cf98a841e4014c7daff7dcffccfe42534123d759fe0804325a9c9e228dda3eca",
       "source": "drones/zipline-delivery-droid.model.json",
       "textures": 1,
-      "triangles": 7756,
+      "triangles": 10238,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1204,7 +1204,7 @@
           -2.2
         ]
       },
-      "bytes": 551956,
+      "bytes": 330880,
       "category": "drone",
       "file": "drones/zipline-platform-2.glb",
       "front_axis": "+Z",
@@ -1220,7 +1220,7 @@
       "primitives": 7,
       "provenance": "Original simplified illustration inspired by Zipline Platform 2; ORNL palette; not manufacturer CAD or a flight/simulation model. See drones/README.md for source and selection context.",
       "revision": 1,
-      "sha256": "89ef948d92c60a6770a568f8e7991420c604b5e878352f34c151976eb1b94b5d",
+      "sha256": "e2c9ee375f107b19563ac59573a2af91e7f831921140adb0f952e46f0c9ae823",
       "source": "drones/zipline-platform-2.model.json",
       "textures": 1,
       "triangles": 5648,
@@ -1240,7 +1240,7 @@
           -2.2
         ]
       },
-      "bytes": 370832,
+      "bytes": 182424,
       "category": "landmarks",
       "file": "landmarks/gateway-arch.glb",
       "front_axis": "+Z",
@@ -1255,11 +1255,11 @@
       "pivot": "bottom-center",
       "primitives": 4,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
-      "revision": 5,
-      "sha256": "376959930fc71175b7553da5c6587442497c31ebe284da13ec6f1353b0f89070",
+      "revision": 6,
+      "sha256": "49478e31891d0170c7b22876ea82b8bedde326622da2ef5c593c4457ac802610",
       "source": "landmarks/gateway-arch.model.json",
       "textures": 1,
-      "triangles": 3786,
+      "triangles": 3186,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1276,7 +1276,7 @@
           -2.2
         ]
       },
-      "bytes": 1437064,
+      "bytes": 672360,
       "category": "landmarks",
       "file": "landmarks/golden-gate-bridge.glb",
       "front_axis": "+Z",
@@ -1292,7 +1292,7 @@
       "primitives": 6,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "ea293dcd0d7433b1e3438cb7df73bfd0fa1cde23e72aeeb17a79aacd0c6e6f9c",
+      "sha256": "38ac7c2d8793865fde08a14ed6f461261836e4f4963d1122891b3ae98d2fdd8a",
       "source": "landmarks/golden-gate-bridge.model.json",
       "textures": 1,
       "triangles": 14876,
@@ -1312,7 +1312,7 @@
           -2.2
         ]
       },
-      "bytes": 1047488,
+      "bytes": 986072,
       "category": "landmarks",
       "file": "landmarks/grand-canyon.glb",
       "front_axis": "+Z",
@@ -1328,7 +1328,7 @@
       "primitives": 5,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "4bd38c8bd895044f2e1ec001e354edadc5d12fc45a92dbcae30adc1a2e287a0f",
+      "sha256": "aa6b9790a217c57a134dd70d4d6c1d335a939c92dd4c79de8aad52b7c1a86fc7",
       "source": "landmarks/grand-canyon.model.json",
       "textures": 1,
       "triangles": 10826,
@@ -1348,7 +1348,7 @@
           -2.2
         ]
       },
-      "bytes": 1189812,
+      "bytes": 675420,
       "category": "landmarks",
       "file": "landmarks/hoover-dam.glb",
       "front_axis": "+Z",
@@ -1363,11 +1363,11 @@
       "pivot": "bottom-center",
       "primitives": 6,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
-      "revision": 5,
-      "sha256": "4d5b508b1016c674db3a3b6bd01222b60f1bd9ce0380927bbd740da411b2541e",
+      "revision": 6,
+      "sha256": "610d61411a04e3f82ff4addd8b46ef309bfe7f12ced153e933054cfadb5733e1",
       "source": "landmarks/hoover-dam.model.json",
       "textures": 1,
-      "triangles": 12300,
+      "triangles": 12044,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1384,7 +1384,7 @@
           -2.2
         ]
       },
-      "bytes": 947532,
+      "bytes": 597168,
       "category": "landmarks",
       "file": "landmarks/kennedy-space-center.glb",
       "front_axis": "+Z",
@@ -1400,7 +1400,7 @@
       "primitives": 7,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "f4ccb024d83e97dfb46b0528e35154a726fe8b18c6ae9ef91e0a500bbcacacda",
+      "sha256": "a5128277d4af156159185c5de3b415c6c92078fd5a65709e5f0e9d966068ea08",
       "source": "landmarks/kennedy-space-center.model.json",
       "textures": 1,
       "triangles": 9768,
@@ -1411,7 +1411,7 @@
       "bounds": {
         "max": [
           2.2,
-          2.2915417,
+          2.5720417,
           2.2
         ],
         "min": [
@@ -1420,7 +1420,7 @@
           -2.2
         ]
       },
-      "bytes": 936060,
+      "bytes": 725276,
       "category": "landmarks",
       "file": "landmarks/us-capitol.glb",
       "front_axis": "+Z",
@@ -1435,11 +1435,415 @@
       "pivot": "bottom-center",
       "primitives": 4,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
-      "revision": 4,
-      "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934",
+      "revision": 5,
+      "sha256": "faa87f5ebdb3d8fefe3ca041bbdd0200fb83976aa55b2a0a1e91d92f3f981139",
       "source": "landmarks/us-capitol.model.json",
       "textures": 1,
-      "triangles": 9674,
+      "triangles": 14110,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.22
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.22
+        ]
+      },
+      "bytes": 133300,
+      "category": "marker",
+      "file": "markers/plain-blue.glb",
+      "front_axis": "+Z",
+      "id": "marker/plain-blue",
+      "label": "Plain Marker \u2014 Blue",
+      "license": "MIT",
+      "materials": 2,
+      "nodes": [
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 2,
+      "provenance": "Plain blue map pin with a beveled body and Graphite metallic rim. No text, logo or pedestal. Uses the recorded ORNL palette or requested natural brown finish. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 1,
+      "sha256": "ee447f592ff293ab9f4cd83ef10b9e4a457838d7d566113fa60e967b590250df",
+      "source": "markers/plain-blue.model.json",
+      "textures": 1,
+      "triangles": 1560,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.22
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.22
+        ]
+      },
+      "bytes": 133324,
+      "category": "marker",
+      "file": "markers/plain-brown.glb",
+      "front_axis": "+Z",
+      "id": "marker/plain-brown",
+      "label": "Plain Marker \u2014 Brown",
+      "license": "MIT",
+      "materials": 2,
+      "nodes": [
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 2,
+      "provenance": "Plain brown map pin with a beveled body and Graphite metallic rim. No text, logo or pedestal. Uses the recorded ORNL palette or requested natural brown finish. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 1,
+      "sha256": "3e0e85a498a08f37303bc201decc319eb82379b2065db4b3aea4bae5b02eaf03",
+      "source": "markers/plain-brown.model.json",
+      "textures": 1,
+      "triangles": 1560,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.22
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.22
+        ]
+      },
+      "bytes": 133304,
+      "category": "marker",
+      "file": "markers/plain-green.glb",
+      "front_axis": "+Z",
+      "id": "marker/plain-green",
+      "label": "Plain Marker \u2014 Green",
+      "license": "MIT",
+      "materials": 2,
+      "nodes": [
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 2,
+      "provenance": "Plain green map pin with a beveled body and Graphite metallic rim. No text, logo or pedestal. Uses the recorded ORNL palette or requested natural brown finish. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 1,
+      "sha256": "ede48fe519aaccdd255c14754436217be3f8133175ccf08033af01b8062b241c",
+      "source": "markers/plain-green.model.json",
+      "textures": 1,
+      "triangles": 1560,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.22
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.22
+        ]
+      },
+      "bytes": 133304,
+      "category": "marker",
+      "file": "markers/plain-magenta.glb",
+      "front_axis": "+Z",
+      "id": "marker/plain-magenta",
+      "label": "Plain Marker \u2014 Magenta",
+      "license": "MIT",
+      "materials": 2,
+      "nodes": [
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 2,
+      "provenance": "Plain magenta map pin with a beveled body and Graphite metallic rim. No text, logo or pedestal. Uses the recorded ORNL palette or requested natural brown finish. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 1,
+      "sha256": "4d165af4c3d57020fbc030a317c780b6efc0166dec52cdfd61f15d67ff76d92c",
+      "source": "markers/plain-magenta.model.json",
+      "textures": 1,
+      "triangles": 1560,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.22
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.22
+        ]
+      },
+      "bytes": 133304,
+      "category": "marker",
+      "file": "markers/plain-purple.glb",
+      "front_axis": "+Z",
+      "id": "marker/plain-purple",
+      "label": "Plain Marker \u2014 Purple",
+      "license": "MIT",
+      "materials": 2,
+      "nodes": [
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 2,
+      "provenance": "Plain purple map pin with a beveled body and Graphite metallic rim. No text, logo or pedestal. Uses the recorded ORNL palette or requested natural brown finish. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 1,
+      "sha256": "ed0a409470e700edc3337539d2248726187e5a1126d85b2e576c42deff3cc721",
+      "source": "markers/plain-purple.model.json",
+      "textures": 1,
+      "triangles": 1560,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.22
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.22
+        ]
+      },
+      "bytes": 133300,
+      "category": "marker",
+      "file": "markers/plain-teal.glb",
+      "front_axis": "+Z",
+      "id": "marker/plain-teal",
+      "label": "Plain Marker \u2014 Teal",
+      "license": "MIT",
+      "materials": 2,
+      "nodes": [
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 2,
+      "provenance": "Plain teal map pin with a beveled body and Graphite metallic rim. No text, logo or pedestal. Uses the recorded ORNL palette or requested natural brown finish. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 1,
+      "sha256": "68cf9b485ecf7a8f4140e75f65a584db3c7db8ee9c66d195ce4bc49eb28078a0",
+      "source": "markers/plain-teal.model.json",
+      "textures": 1,
+      "triangles": 1560,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.2400402,
+          3.4,
+          0.22
+        ],
+        "min": [
+          -1.2400402,
+          0.0,
+          -0.22
+        ]
+      },
+      "bytes": 89052,
+      "category": "research",
+      "file": "research/acorn-logo.glb",
+      "front_axis": "+Z",
+      "id": "research/acorn-logo",
+      "label": "ACORN Logo",
+      "license": "MIT",
+      "materials": 1,
+      "nodes": [
+        "cap-and-stem",
+        "nut-body"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 2,
+      "provenance": "Three-dimensional extrusion of docs/src/_assets/acorn.svg in its ACORN Brown (#80350E). Source silhouette, curved stem, four cap openings, cap/body gap and curved nut cutout retained as geometry, with shallow beveled edges. Original repository artwork and derived geometry under the repository MIT license. No background tile or pedestal. Illustrative 3.4-meter authoring height; +Y up, +Z front and bottom-center origin.",
+      "revision": 1,
+      "sha256": "859720ace69b89c3db659eff8ebbb50de5bc4da6ad8e06cc765a8a8925d2f812",
+      "source": "research/acorn-logo.model.json",
+      "textures": 1,
+      "triangles": 2480,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 175488,
+      "category": "research",
+      "file": "research/ames-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/ames-marker",
+      "label": "AMES \u2014 Ames National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Ames National Laboratory location marker with a raised white graphic emblem on both faces, Ames identity purple (#3C3B72) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Monochrome silhouette retains the authentic two-legged A and separate sphere; source shading is removed only by white RGB replacement. Original transparent cutouts remain. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "418dc7a97c7e5c52bc9cbbd739d7feca8c4a67db7d3d96c45a1b0ff99552c3b9",
+      "source": "research/ames-marker.model.json",
+      "textures": 1,
+      "triangles": 2216,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 288184,
+      "category": "research",
+      "file": "research/argonne-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/argonne-marker",
+      "label": "ANL \u2014 Argonne National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Argonne National Laboratory location marker with a raised white graphic emblem on both faces, Argonne logo blue (#0093D0) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. The full-color triangular graphic is isolated above the tagline. White union retains the hollow triangular center. Upscaled from the retained original raster; no invented detail. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "2c351aa19403f5b88060e2c17dc0eeca921126830eb830aad2b359b53c04639d",
+      "source": "research/argonne-marker.model.json",
+      "textures": 1,
+      "triangles": 4144,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 360060,
+      "category": "research",
+      "file": "research/berkeley-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/berkeley-marker",
+      "label": "LBNL \u2014 Lawrence Berkeley National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Lawrence Berkeley National Laboratory location marker with a raised white graphic emblem on both faces, Berkeley Dark Blue (#00313C) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Exact ALS dome/campanile symbol; all wordmark/tagline pixels excluded. White foreground with original alpha and cutouts. No redraw or resampling. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "b81aa2d2ce7c32c827048e7ee435ff552dbbe95de1e2e1a33cda09210f749518",
+      "source": "research/berkeley-marker.model.json",
+      "textures": 1,
+      "triangles": 5008,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 220892,
+      "category": "research",
+      "file": "research/brookhaven-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/brookhaven-marker",
+      "label": "BNL \u2014 Brookhaven National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Brookhaven National Laboratory location marker with a raised white graphic emblem on both faces, Brookhaven Teal (#105C78) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Authentic outer b-shaped ribbon and separate central cube union retain their open negative spaces. Color boundaries within contiguous surfaces are intentionally absent from the monochrome extrusion mask. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "30f06b140c4d6aaafe49e13ed86390e13a231180675abb3837b83c3bd71eb352",
+      "source": "research/brookhaven-marker.model.json",
+      "textures": 1,
+      "triangles": 2960,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1456,7 +1860,7 @@
           -2.2
         ]
       },
-      "bytes": 418220,
+      "bytes": 149752,
       "category": "research",
       "file": "research/collaboration.glb",
       "front_axis": "+Z",
@@ -1472,7 +1876,7 @@
       "primitives": 3,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 4,
-      "sha256": "73f6505c4329ea8f37c5ded6bf271e3be5e46c0b9b5431c3c83b4262e95083ad",
+      "sha256": "d28b4a0bf6dc28951a0cf1ab262c5092daf80b089f39129fc6e4222c30742392",
       "source": "research/collaboration.model.json",
       "textures": 1,
       "triangles": 4288,
@@ -1492,7 +1896,7 @@
           -2.2
         ]
       },
-      "bytes": 1748584,
+      "bytes": 829784,
       "category": "research",
       "file": "research/dataset.glb",
       "front_axis": "+Z",
@@ -1508,7 +1912,7 @@
       "primitives": 7,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "84e26f725244883d1e34e201db520976afd73a46a203cc4f62217f1e6e17b4d5",
+      "sha256": "5dfdf27c9e6ae9c0ac2eedb8d8573672945939e4d796603ccab242b6961da3bc",
       "source": "research/dataset.model.json",
       "textures": 1,
       "triangles": 18112,
@@ -1528,7 +1932,7 @@
           -2.2
         ]
       },
-      "bytes": 4299576,
+      "bytes": 1705508,
       "category": "research",
       "file": "research/doe-national-laboratory.glb",
       "front_axis": "+Z",
@@ -1544,10 +1948,48 @@
       "primitives": 8,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "c452fcd7b6cf618448d092af1d9efd13e96977c4330c683aef56f0be3d26c320",
+      "sha256": "a787a982028b36bc707ba5781b9658732f21d90088669c2ed54524700394760f",
       "source": "research/doe-national-laboratory.model.json",
       "textures": 1,
       "triangles": 44676,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 254644,
+      "category": "research",
+      "file": "research/fermilab-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/fermilab-marker",
+      "label": "FNAL \u2014 Fermi National Accelerator Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Fermi National Accelerator Laboratory location marker with a raised white graphic emblem on both faces, Fermilab NAL Blue (#004C97) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Historic magnet-aperture symbol only; Fermilab wordmark removed. Fourfold symmetry and original cutouts preserved. Upscaled from retained raster. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "a8de534673c353d27a60ef7a092e55b8f58b5e23ebba750022b3347453cb7191",
+      "source": "research/fermilab-marker.model.json",
+      "textures": 1,
+      "triangles": 3488,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1564,7 +2006,7 @@
           -2.2
         ]
       },
-      "bytes": 525072,
+      "bytes": 401628,
       "category": "research",
       "file": "research/field-site.glb",
       "front_axis": "+Z",
@@ -1580,7 +2022,7 @@
       "primitives": 7,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "4d810af780d4cd94a49e1c2055110cce06b5e694ca9973146c35ad64befd6173",
+      "sha256": "6b3437cc5c15c66c4f8922eeebca14433b729616dd69f2c8923aac72693bdb9e",
       "source": "research/field-site.model.json",
       "textures": 1,
       "triangles": 5368,
@@ -1600,7 +2042,7 @@
           -2.2
         ]
       },
-      "bytes": 1250852,
+      "bytes": 528304,
       "category": "research",
       "file": "research/funding.glb",
       "front_axis": "+Z",
@@ -1616,10 +2058,86 @@
       "primitives": 6,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 4,
-      "sha256": "4e92afb41ceb67bb718e6eaedae901059cc146404287268c318697f602e32249",
+      "sha256": "eb4c4fb282fdc1a183fa13bb4135a17b25028005de20bf2e424117bd4a3c7f77",
       "source": "research/funding.model.json",
       "textures": 1,
       "triangles": 12936,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 317972,
+      "category": "research",
+      "file": "research/idaho-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/idaho-marker",
+      "label": "INL \u2014 Idaho National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Idaho National Laboratory location marker with a raised white graphic emblem on both faces, INL identity blue (#07519E) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Source-informed text-free orbital adaptation from official INL logo. Original visible orbit proportions, tilt, taper and dot retained. Only letter-occluded contours reconstructed using conic fits to source boundary samples. No INL letters or full-name wordmark. This is an adapted graphic component, not an official standalone INL emblem. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "6f078350416eff5a650ea32cbe4b599d368af203613a91cfe04b20cef799f7b4",
+      "source": "research/idaho-marker.model.json",
+      "textures": 1,
+      "triangles": 4576,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 215720,
+      "category": "research",
+      "file": "research/jefferson-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/jefferson-marker",
+      "label": "JLAB \u2014 Thomas Jefferson National Accelerator Facility Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Thomas Jefferson National Accelerator Facility location marker with a raised white graphic emblem on both faces, Jefferson Lab Red (#A6192E) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Original EPS orbit and orb curves isolated from decoded editable Illustrator source. Only the former letter-occluded lower-orbit intervals were restored using cubic continuation with matching endpoint tangents; visible contour, outer turnaround and original four-curve orb preserved. Gradients flattened to opaque white. No text. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "b4e8417b5e31654bdbeca43c416cd81e7dcf6e3cf0943b34d7097ac121d3e3f9",
+      "source": "research/jefferson-marker.model.json",
+      "textures": 1,
+      "triangles": 2864,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1636,7 +2154,7 @@
           -2.2
         ]
       },
-      "bytes": 1652084,
+      "bytes": 684168,
       "category": "research",
       "file": "research/laboratory.glb",
       "front_axis": "+Z",
@@ -1652,10 +2170,124 @@
       "primitives": 9,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "2590b9851df7a32f3a4724abc53c3e9d1eeec813f207e0fd75235d0171e1e639",
+      "sha256": "ca4c057e1e220b4dfaea1aa2e510ce9b8ea7594c4437ef4ba3adc10f7c536e90",
       "source": "research/laboratory.model.json",
       "textures": 1,
       "triangles": 17090,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 184212,
+      "category": "research",
+      "file": "research/livermore-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/livermore-marker",
+      "label": "LLNL \u2014 Lawrence Livermore National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Lawrence Livermore National Laboratory location marker with a raised white graphic emblem on both faces, LLNL logo blue (#0032A1) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Complete official LLNL graphic logomark; all four original paths retained, including zero-area source path. White fill, negative channels preserved. No abbreviation or wordmark added. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "95eb8207daaa35b3c800994f2b9e99b24dec92aa8de34f812ae5131d59e482ed",
+      "source": "research/livermore-marker.model.json",
+      "textures": 1,
+      "triangles": 2336,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 291216,
+      "category": "research",
+      "file": "research/los-alamos-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/los-alamos-marker",
+      "label": "LANL \u2014 Los Alamos National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Los Alamos National Laboratory location marker with a raised white graphic emblem on both faces, LANL Ultramarine (#000F7E) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Only circular atom/orbital path retained. Both text paths excluded. Original white fill and internal negative orbital paths preserved. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "3912b0ff017c486ca85b0a4f20b3f1736631c4aa9ae16909891ab8147ab8507a",
+      "source": "research/los-alamos-marker.model.json",
+      "textures": 1,
+      "triangles": 4064,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 181896,
+      "category": "research",
+      "file": "research/netl-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/netl-marker",
+      "label": "NETL \u2014 National Energy Technology Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "National Energy Technology Laboratory location marker with a raised white graphic emblem on both faces, NETL logo green (#97C83D) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Exact three green rounded bars converted to white; frame, letters and laboratory words excluded. Source-derived nontext graphic fragment, NOT an officially published standalone NETL emblem. No separate non-letter pictogram exists in supplied official mark. No redraw or resampling. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "46018e8a2e0c6d6d6bea0baa0c463e039adb0252c972ee3610b3df5951b37bd3",
+      "source": "research/netl-marker.model.json",
+      "textures": 1,
+      "triangles": 2256,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1672,7 +2304,7 @@
           -217.35
         ]
       },
-      "bytes": 46065580,
+      "bytes": 26581056,
       "category": "research",
       "file": "research/ornl-campus.glb",
       "front_axis": "+Z",
@@ -1700,10 +2332,124 @@
       "primitives": 81,
       "provenance": "Original detailed reconstruction of ORNL's East Quad from public ORNL aerial photography and the 2024 DOE campus map. Six buildings (5100, 5200, 5300, 5600, 5700, 5800), pond and landscaped approaches. Approximate meter scale, estimated heights and facade/landscape detail; not photogrammetry, surveyed CAD, a georeferenced site model or the full reservation. Local campus-map orientation. See research/ornl-campus.md for sources and limitations.",
       "revision": 1,
-      "sha256": "49bde708a05c4b05a84a16102c3d7927ee98127a966c2144048071a324c56578",
+      "sha256": "fe7a8b311471c8a1cad7b89755164565f26f181620a4b7831b282f48207eb088",
       "source": "research/ornl-campus.model.json",
       "textures": 6,
       "triangles": 436262,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.252
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.252
+        ]
+      },
+      "bytes": 282080,
+      "category": "research",
+      "file": "research/ornl-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/ornl-marker",
+      "label": "ORNL Marker",
+      "license": "MIT marker geometry; ORNL logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "ORNL location marker: text-free beveled ORNL Green pin with the raised oak-leaf contour derived from the bundled acorn-cli/assets/images/logo_ornl_white.svg wordmark and extruded on both faces. Graphite rim and white emblem; no lettering, name or plaque. Point at bottom-center origin; +Y up and +Z front; illustrative 3.37-meter authoring size, intended to scale at placement.",
+      "revision": 3,
+      "sha256": "6cdda9d331e3c5603c7b8e4891108ca7ff018bded60fcace416bd384cd58de38",
+      "source": "research/ornl-marker.model.json",
+      "textures": 1,
+      "triangles": 3992,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 285096,
+      "category": "research",
+      "file": "research/pnnl-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/pnnl-marker",
+      "label": "PNNL \u2014 Pacific Northwest National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Pacific Northwest National Laboratory location marker with a raised white graphic emblem on both faces, PNNL Emblem Orange (#D77900) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Only original orange ray/fan emblem path 0 (class cls-1); all gray text paths omitted. Original path geometry and internal gaps preserved. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "fac27dc295d40c252465ab84df8453525141d9f762f0ce78a292c7db7c6e3852",
+      "source": "research/pnnl-marker.model.json",
+      "textures": 1,
+      "triangles": 4000,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 431192,
+      "category": "research",
+      "file": "research/pppl-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/pppl-marker",
+      "label": "PPPL \u2014 Princeton Plasma Physics Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Princeton Plasma Physics Laboratory location marker with a raised white graphic emblem on both faces, PPPL Logo Orange (#F46F1B) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Only original orange/yellow plasma swirl emblem in footer of page 1; vector rasterization of [20,30,52,64] PDF-point crop excludes all text. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "cdd97b589988aed79b7afcc6bd4107dde39f598ab4b3420502f8a9058f183823",
+      "source": "research/pppl-marker.model.json",
+      "textures": 1,
+      "triangles": 6408,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1720,7 +2466,7 @@
           -2.2
         ]
       },
-      "bytes": 297284,
+      "bytes": 277556,
       "category": "research",
       "file": "research/publication.glb",
       "front_axis": "+Z",
@@ -1736,7 +2482,7 @@
       "primitives": 5,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 4,
-      "sha256": "fc28fa627612803783a7047962ad8d6bdd0f0b7d98640dc5604b11484b6105ef",
+      "sha256": "93ae58882d5ee5758a5b4e9ffffb29d49654ce2e2f9a255a388a8137c9b1dfa6",
       "source": "research/publication.model.json",
       "textures": 1,
       "triangles": 3012,
@@ -1756,7 +2502,7 @@
           -2.2
         ]
       },
-      "bytes": 1510820,
+      "bytes": 856044,
       "category": "research",
       "file": "research/research-project.glb",
       "front_axis": "+Z",
@@ -1772,7 +2518,7 @@
       "primitives": 8,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "e2c31ff5d541b9f576f191523fd5e753ec07d66ad22662c09f9e69346d114c9c",
+      "sha256": "9d422507520f17b33d06a1786b193855696b4310e3db2684cd70382fcfabf7ac",
       "source": "research/research-project.model.json",
       "textures": 1,
       "triangles": 15628,
@@ -1792,7 +2538,7 @@
           -2.2
         ]
       },
-      "bytes": 958356,
+      "bytes": 309604,
       "category": "research",
       "file": "research/research-team.glb",
       "front_axis": "+Z",
@@ -1808,10 +2554,162 @@
       "primitives": 5,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 7,
-      "sha256": "2284cd92cc6b57719fa49fae5485c0219ecfbabc6c259a947ca6d35855046bfd",
+      "sha256": "177c21b501200089d8885be8b2223adadc1c7fc7d9b4a5691e17f073f98e6a78",
       "source": "research/research-team.model.json",
       "textures": 1,
       "triangles": 9898,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 222220,
+      "category": "research",
+      "file": "research/rockies-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/rockies-marker",
+      "label": "NLR \u2014 National Laboratory of the Rockies Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "National Laboratory of the Rockies location marker with a raised white graphic emblem on both faces, NLR Rocky Blue (#003A69) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Exact mountain, mesa and sun group; laboratory-name group excluded. All three original shapes rendered white with transparent negative spaces. Geometry and proportions preserved. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "2b7c468b7830bf5f225b7d66fa1e41013a08e8634331e18c1f007dac4572915a",
+      "source": "research/rockies-marker.model.json",
+      "textures": 1,
+      "triangles": 2952,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 462300,
+      "category": "research",
+      "file": "research/sandia-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/sandia-marker",
+      "label": "SNL \u2014 Sandia National Laboratories Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Sandia National Laboratories location marker with a raised white graphic emblem on both faces, Sandia Primary Navy (#003359) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Official 512-pixel standalone Thunderbird website icon, preserving outer rounded-square outline, interior bird silhouette and all negative space. No text exists in source. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "2f21c3c936608631efe97d4028cb368123fd3fdbee38d83cfc5bc8f46f2dd39a",
+      "source": "research/sandia-marker.model.json",
+      "textures": 1,
+      "triangles": 6720,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 436384,
+      "category": "research",
+      "file": "research/savannah-river-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/savannah-river-marker",
+      "label": "SRNL \u2014 Savannah River National Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "Savannah River National Laboratory location marker with a raised white graphic emblem on both faces, SRNL Blue (#005288) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Original oval globe emblem paths 0\u20138; wordmark paths 9\u201341 omitted. All globe grid gaps preserved. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "504287d429028764bb763c70517c08e365543757cf1d28b47ad5742419578bb0",
+      "source": "research/savannah-river-marker.model.json",
+      "textures": 1,
+      "triangles": 6392,
+      "units": "meters",
+      "up_axis": "+Y"
+    },
+    {
+      "bounds": {
+        "max": [
+          1.12,
+          3.37,
+          0.253
+        ],
+        "min": [
+          -1.12,
+          0.0,
+          -0.253
+        ]
+      },
+      "bytes": 255252,
+      "category": "research",
+      "file": "research/slac-marker.glb",
+      "front_axis": "+Z",
+      "id": "research/slac-marker",
+      "label": "SLAC \u2014 SLAC National Accelerator Laboratory Marker",
+      "license": "MIT marker geometry; laboratory logo rights retained by its owner",
+      "materials": 3,
+      "nodes": [
+        "identity-back",
+        "identity-front",
+        "marker-body",
+        "rim"
+      ],
+      "pivot": "bottom-center",
+      "primitives": 4,
+      "provenance": "SLAC National Accelerator Laboratory location marker with a raised white graphic emblem on both faces, SLAC Red (#8C1515) body and Graphite rim. Text-free: no name, abbreviation, billboard or logo plaque. Exact accelerator arc, central beam interruption and circular particle from subpaths 6\u20139 of the official white wordmark path. Other S/L/A letter subpaths omitted. This is a requested graphic excerpt/adaptation, not an official standalone SLAC logo. Source-derived contours with open cutouts; logos retain their owners' rights. Bottom-center point, +Y up, +Z front; illustrative 3.37-meter authoring height.",
+      "revision": 3,
+      "sha256": "b6d3cc0e02953053b19427b96cb1ebe1d6ca9fb1b8d7b2f586eeec4a1fa5cafa",
+      "source": "research/slac-marker.model.json",
+      "textures": 1,
+      "triangles": 3496,
       "units": "meters",
       "up_axis": "+Y"
     },
@@ -1828,7 +2726,7 @@
           -2.2
         ]
       },
-      "bytes": 315480,
+      "bytes": 225416,
       "category": "research",
       "file": "research/software.glb",
       "front_axis": "+Z",
@@ -1844,7 +2742,7 @@
       "primitives": 9,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
       "revision": 5,
-      "sha256": "4ce70d5e61b53f5adb424343a49e47395ac07287f987f580a59e12092f530218",
+      "sha256": "04ac1972cbba2d34237ec4173e2102de10fe881e68acaaf3853c367d3b4aa142",
       "source": "research/software.model.json",
       "textures": 1,
       "triangles": 3168,
@@ -1864,7 +2762,7 @@
           -2.05
         ]
       },
-      "bytes": 1946748,
+      "bytes": 856020,
       "category": "research",
       "file": "research/supercomputer.glb",
       "front_axis": "+Z",
@@ -1882,7 +2780,7 @@
       "primitives": 19,
       "provenance": "Original ACORN procedural geometry based on the research-object concept sheet; generic three-rack system, no vendor branding or external meshes. ORNL brand palette with requested bright cyan illuminated accents.",
       "revision": 5,
-      "sha256": "ddd4a2bd13fd00ec51b0cc22889ee6b805ff3e9dd3a6596c644900f0ef45af02",
+      "sha256": "0ae15ffe756fc5226d6d4bd93041c0e2fbba1d0ec45ac67103f2ee8fd9dfcdd4",
       "source": "research/supercomputer.model.json",
       "textures": 1,
       "triangles": 20108,
@@ -1893,7 +2791,7 @@
       "bounds": {
         "max": [
           2.2,
-          2.0428723,
+          2.1294552,
           2.2
         ],
         "min": [
@@ -1902,7 +2800,7 @@
           -2.2
         ]
       },
-      "bytes": 2032652,
+      "bytes": 933000,
       "category": "research",
       "file": "research/user-facility.glb",
       "front_axis": "+Z",
@@ -1917,11 +2815,11 @@
       "pivot": "bottom-center",
       "primitives": 9,
       "provenance": "Original ACORN procedural miniature with ORNL brand palette and requested natural earth finishes; simplified illustrative geometry, not a measured architectural or geographic replica. No imported meshes or vendor branding.",
-      "revision": 6,
-      "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f",
+      "revision": 7,
+      "sha256": "c419ae7367481ed94cc6bac11406953875792b9ac247caa75d8f5524fd15572b",
       "source": "research/user-facility.model.json",
       "textures": 1,
-      "triangles": 21054,
+      "triangles": 23282,
       "units": "meters",
       "up_axis": "+Y"
     }

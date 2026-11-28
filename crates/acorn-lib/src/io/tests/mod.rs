@@ -594,21 +594,22 @@ fn test_baginfo_save_single_value_fields_only() {
 }
 #[test]
 fn test_bagit() {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    let temp_dir = temp_dir().join(format!("acorn-bagit-{stamp}"));
-    let _ = create_dir_all(temp_dir.clone());
+    let temporary = tempfile::tempdir().unwrap();
+    let source = bag_fixture(&temporary.path().join("source"), None, &[], &[("first", "one"), ("nested/second", "two")]);
     let info = BagInfo::init()
         .organization(vec!["Oak Ridge National Laboratory".to_string()])
         .contact_name(vec!["Jason Wohlgemuth".to_string()])
         .build();
     let bag = Bag::init()
-        .base_directory(fixtures_dir().join("data").display().to_string())
+        .base_directory(source.join("data").display().to_string())
         .info(info)
         .build()
         .with_payload();
-    assert_eq!(bag.payload.len(), 36);
+    assert_eq!(bag.payload.len(), 2);
+    assert!(bag.payload.contains(&"first".to_string()));
+    assert!(bag.payload.contains(&"nested/second".to_string()));
     assert_eq!(bag.clone().info.unwrap().entries().len(), 2);
-    let save_path = temp_dir.join("bag");
+    let save_path = temporary.path().join("bag");
     match bag.save(save_path.to_str().unwrap()) {
         | Ok(path) => {
             assert_eq!(path.file_name().unwrap().to_str().unwrap(), "bag.zip");
@@ -616,7 +617,6 @@ fn test_bagit() {
         }
         | Err(why) => panic!("Failed to save bag: {why}"),
     }
-    let _ = remove_dir_all(temp_dir);
 }
 #[test]
 fn test_bagit_declaration_exposes_version_and_encoding() {

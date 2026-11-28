@@ -90,10 +90,7 @@ pub struct RoutedInference {
 impl CompleteResponse {
     fn execution_gate(&self, threshold: Noul, caller_grounded: bool) -> ApiResult<Result<(), WithheldExecution>> {
         let valid_type = self.response_type.is_call();
-        let confidence = self
-            .confidence
-            .and_then(|confidence| Noul::new(confidence).ok())
-            .ok_or(WithheldExecution::Uncalibrated);
+        let confidence = self.confidence.ok_or(WithheldExecution::Uncalibrated);
         match (valid_type, self.validation.as_ref(), confidence) {
             | (false, _, _) => Err(eyre!("Needle response type '{}' cannot contain function calls", self.response_type)),
             | (_, Some(validation), _) if validation.negation => Ok(Err(WithheldExecution::Negation)),

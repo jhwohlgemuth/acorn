@@ -28,6 +28,8 @@ ACORN is context-aware at the data and workflow level. It keeps project descript
 ## What ACORN does
 The `acorn` command checks and formats research records, adds linked-data context, and creates reusable outputs. It runs on Windows, macOS, and Linux. See [Why ACORN?](https://acorn.ornl.gov/motivation.html) for the project-level research model and its intended uses.
 
+Direct inference supports OpenCode, Codex, and Claude through ACP. Use `acorn infer run summarize input.json --agent claude` with an installed, authenticated Claude Agent ACP adapter. See [inference setup](docs/src/cli-reference/commands/infer.md#claude-through-acp) for installation, usage costs, and the content-only permission policy.
+
 The bot can also consume a GitLab JSONL logbook inbox, durably admit authorized submissions, and propose project updates through review. See [ACRE inbox configuration](docs/src/concepts/acre.md#gitlab-logbook-inbox).
 
 ACRE application configuration accepts JSON, JSONC, YAML, and RON. See the [ACRE format guide](docs/src/concepts/acre.md) for filenames, validation, and formatting behavior.
@@ -50,7 +52,7 @@ For existing local project indexes, `acorn intake stage --batch --source <URI-or
 ## Installation
 See [the ACORN book](https://acorn.ornl.gov) for detailed installation instructions for the [CLI application](https://acorn.ornl.gov/getting-started.html#installation) and [🦀Rust packages](http://acorn.ornl.gov/packages/README.html). Portable integrations can use `acorn-schema`, `acorn-analysis`, and `acorn-service` directly; authenticated JSON-RPC and typed gRPC deployments use `acorn-server`. Python users can use the independently maintained [🐍`acorn-py` companion project](https://code.ornl.gov/research-enablement/acorn-py). Contributors can check the portable Rust surface using the [WebAssembly development guide](http://acorn.ornl.gov/packages/acorn-web.html).
 
-The local [browser](crates/acorn-web/README.md) provides nine research tools without a backend. Its RADS template picker offers three validated starters in JSON or YAML with highlighted previews, and Review accepts bounded `code`, `template`, and HTTPS file `url` links. Run `make web-setup` once, then `make web-dev`; use `make web-check`, `make web-test`, `make web-build` and `make web-preview` for validation and release-preview review.
+The local [browser](crates/acorn-web/README.md) provides ten research tools without a backend. Its RADS template picker offers three validated starters in JSON or YAML with highlighted previews, and Review accepts bounded `code`, `template`, and HTTPS file `url` links. Run `make web-setup` once, then `make web-dev`; use `make web-check`, `make web-test`, `make web-build` and `make web-preview` for validation and release-preview review.
 
 ## Architecture
 

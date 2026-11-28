@@ -30,6 +30,8 @@ pub trait AgentProfile: Sized {
     const EXECUTABLE: Software;
     /// Guidance appended when the configured executable cannot be found.
     const MISSING_EXECUTABLE_HELP: &'static str = "";
+    /// Mandatory session policy applied before sending inference prompts.
+    const SESSION_POLICY: SessionPolicy = SessionPolicy::ClientPermissions;
     /// Arguments used by the read-only installation version probe.
     const VERSION_ARGUMENTS: &'static [&'static str] = &["--version"];
     /// Build immutable process configuration from this launch profile.
@@ -43,6 +45,7 @@ pub trait AgentProfile: Sized {
             .with_acp_arguments(Self::ACP_ARGUMENTS.iter().copied())
             .with_environment(Self::ENVIRONMENT.iter().copied())
             .with_missing_executable_help(Self::MISSING_EXECUTABLE_HELP)
+            .with_session_policy(Self::SESSION_POLICY)
             .with_version_arguments(Self::VERSION_ARGUMENTS.iter().copied())
     }
 }
@@ -191,6 +194,15 @@ pub enum Error {
         timeout: Duration,
     },
 }
+/// Required session restrictions in addition to client permission denial.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum SessionPolicy {
+    /// Rely on the profile's launch restrictions and client permission denial.
+    #[default]
+    ClientPermissions,
+    /// Require Claude Plan mode and disable tools and settings sources.
+    ClaudeContentOnly,
+}
 /// Successful read-only installation and version preflight.
 #[derive(Clone, Debug, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -227,6 +239,9 @@ pub struct AgentProcessConfig {
     /// Maximum permission policy granted to the child process.
     #[builder(default = InferencePermissionPolicy::DenyMutation)]
     permission_policy: InferencePermissionPolicy,
+    /// Required session restrictions before inference.
+    #[builder(default)]
+    session_policy: SessionPolicy,
     /// Maximum duration for readiness and inference operations.
     #[builder(default = Duration::from_secs(120))]
     timeout: Duration,
@@ -249,6 +264,9 @@ pub struct AuthenticationMethod {
     /// Whether authentication requires a separately launched terminal flow.
     pub terminal: bool,
 }
+/// Claude Agent ACP profile restricted to supplied-content inference.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Claude;
 /// Codex ACP launch profile backed by the `codex-acp` adapter.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Codex;
@@ -280,6 +298,10 @@ impl AgentProcessConfig {
     /// Borrow the stable agent identifier.
     pub fn agent_id(&self) -> &str {
         &self.agent_id
+    }
+    /// Create restricted launch data for the installed Claude Agent ACP adapter.
+    pub fn claude(executable: Option<PathBuf>, working_directory: PathBuf) -> Self {
+        Claude::process_config(executable, working_directory)
     }
     /// Create launch data for `codex-acp` and `codex-acp --version`.
     pub fn codex(executable: Option<PathBuf>, working_directory: PathBuf) -> Self {
@@ -355,6 +377,13 @@ impl AgentProcessConfig {
     pub fn working_directory(&self) -> &Path {
         &self.working_directory
     }
+}
+impl AgentProfile for Claude {
+    const ACP_ARGUMENTS: &'static [&'static str] = &[];
+    const AGENT: Software = Software::Claude;
+    const EXECUTABLE: Software = Software::ClaudeAgentAcp;
+    const MISSING_EXECUTABLE_HELP: &'static str = "\nInstall it with `npm install -g @agentclientprotocol/claude-agent-acp` and authenticate with `claude auth login`. Ensure `claude-agent-acp` is on PATH.";
+    const SESSION_POLICY: SessionPolicy = SessionPolicy::ClaudeContentOnly;
 }
 impl AgentProfile for Codex {
     const ACP_ARGUMENTS: &'static [&'static str] = &[];

@@ -41,16 +41,17 @@
       "id": "drone/autel-evo-max-4t",
       "label": "Autel EVO Max 4T",
       "disposition": "improved",
-      "reviewFinding": "Oversized black nose and floating-looking sensor package; tapered shell and attached gimbal improve realism and distinction.",
-      "change": "Tapered shell, smaller obstacle sensors, visible camera cradle, and dark motor details.",
-      "revision": 5,
-      "sha256": "3837aedfc5ed0783b21bda1ffc4f4c093d58f1abd7ccaf9313e334dd6147d41c",
+      "reviewFinding": "Tall front posts under the motors exaggerated the landing gear; the rear arms had no ground contact.",
+      "change": "Gimbal assembly raised; four short dark landing feet sit under the motors.",
+      "revision": 6,
+      "sha256": "dacd1d88317f9b4c0ce64c17d61675640bbf6fb37a32aeb546ef6124d4bb0856",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "drone/bitcraze-crazyflie-2-1",
@@ -206,16 +207,17 @@
       "id": "drone/dji-mavic-3-enterprise",
       "label": "DJI Mavic 3 Enterprise",
       "disposition": "improved",
-      "reviewFinding": "Tapered shell, dark arms, visible hinge joints and attached camera cradle are a stronger compact folding-drone silhouette.",
-      "change": "Shaped compact shell, folding joints, attached camera cradle and dark motor details.",
-      "revision": 5,
-      "sha256": "9dccb7ad898058af41e81c5f56bb2cb0f10b1601060d693335da649ab665878b",
+      "reviewFinding": "Tall ivory front posts do not match the compact folding airframe.",
+      "change": "Gimbal raised to the nose; four short motor feet replace the posts.",
+      "revision": 6,
+      "sha256": "eb70b1d3bf12967558c5ec60bdae8322daa9beb363db1688dbec27c74014c7d2",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "drone/dji-phantom-4-rtk",
@@ -368,6 +370,22 @@
       ]
     },
     {
+      "id": "drone/landing-pad",
+      "label": "Landing Pad",
+      "disposition": "retained",
+      "reviewFinding": "Inward approach guides, target rings and anchor eyelets read clearly at ground level.",
+      "change": "No change needed.",
+      "revision": 1,
+      "sha256": "5331821d7fe5f668e6650cfa02e05e0caf1b8e314b7423c2a623710afcdb1259",
+      "reviewedOn": "2026-11-27",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
       "id": "drone/modalai-starling-2",
       "label": "ModalAI Starling 2",
       "disposition": "retained",
@@ -401,16 +419,17 @@
       "id": "drone/parrot-anafi-ai",
       "label": "Parrot ANAFI Ai",
       "disposition": "improved",
-      "reviewFinding": "Stereo eyes and narrow body are distinctive; darken motor cages. Preserve eye proportions rather than adding decorative hardware.",
-      "change": "Darker motor bars and lower rings with a restrained steel upper lip.",
-      "revision": 5,
-      "sha256": "691f9c4e57d0f1af502d683f9f80dea5d756044b45f51278e26309a8dc08537e",
+      "reviewFinding": "Stereo obstacle cameras were oversized spheres wider than the body; tall leg posts.",
+      "change": "Compact stereo pair on a mount bar above the main gimbal; raised gimbal and short motor feet.",
+      "revision": 6,
+      "sha256": "469d97a878b373a0ebc40b1f1af13c80b7de70e9c399b1c85b975d06890eaee4",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "drone/quantum-trinity-pro",
@@ -505,17 +524,18 @@
     {
       "id": "drone/zipline-delivery-droid",
       "label": "Zipline Delivery Droid",
-      "disposition": "retained",
-      "reviewFinding": "Cargo pod, tether eye and directional thrusters make the delivery role clear; stable display is an illustrative pose.",
-      "change": "No change needed for the established illustrative style.",
-      "revision": 1,
-      "sha256": "36676bd4b88ab09580817e758f652640e780afdf8903cefe8856302e62a31bda",
+      "disposition": "improved",
+      "reviewFinding": "Rear ducted fan floated behind the body with no attachment; side thrusters only on one side; blunt cylindrical body.",
+      "change": "Streamlined pod, strut-mounted rear duct, symmetric side thrusters on pylons, rear fins and hatch seams.",
+      "revision": 2,
+      "sha256": "cf98a841e4014c7daff7dcffccfe42534123d759fe0804325a9c9e228dda3eca",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "drone/zipline-platform-2",
@@ -536,16 +556,17 @@
       "id": "landmarks/gateway-arch",
       "label": "Gateway Arch",
       "disposition": "improved",
-      "reviewFinding": "Correct proportions/cross-section/silhouette; keep steel neutral.",
-      "change": "Near-square catenary silhouette and tapered triangular sections replace tall flat slab.",
-      "revision": 5,
-      "sha256": "376959930fc71175b7553da5c6587442497c31ebe284da13ec6f1353b0f89070",
+      "reviewFinding": "Ten loose plaza tiles on the pedestal read as clutter rather than grounds.",
+      "change": "Tiles removed; leg foundations retained.",
+      "revision": 6,
+      "sha256": "49478e31891d0170c7b22876ea82b8bedde326622da2ef5c593c4457ac802610",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "landmarks/golden-gate-bridge",
@@ -581,16 +602,17 @@
       "id": "landmarks/hoover-dam",
       "label": "Hoover Dam",
       "disposition": "improved",
-      "reviewFinding": "Add battered curved wall and four towers; improve water-level and powerhouse composition.",
-      "change": "Battered curved wall, four intake towers, bridges, curved solid reservoir meeting the upstream face and split powerhouse.",
-      "revision": 5,
-      "sha256": "4d5b508b1016c674db3a3b6bd01222b60f1bd9ce0380927bbd740da411b2541e",
+      "reviewFinding": "Arch curvature was inverted: the wall bulged downstream with the reservoir on its concave side.",
+      "change": "Arch center moved downstream so the vertical upstream face is convex toward the reservoir and the battered downstream face is concave; towers, reservoir, river and a curved toe powerhouse follow the new geometry.",
+      "revision": 6,
+      "sha256": "610d61411a04e3f82ff4addd8b46ef309bfe7f12ced153e933054cfadb5733e1",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "landmarks/kennedy-space-center",
@@ -610,17 +632,18 @@
     {
       "id": "landmarks/us-capitol",
       "label": "U.S. Capitol",
-      "disposition": "retained",
-      "reviewFinding": "Recognizable dome, wings, portico, steps and restrained stone materials. It is simplified; more fa\u00e7ade fragments would not improve globe-size readability.",
-      "change": "No change needed for the established illustrative style.",
-      "revision": 4,
-      "sha256": "7dfcdfc6c2c7e3d1dda8904e1103e308c4d777f760912bf66d0987b441e2b934",
+      "disposition": "improved",
+      "reviewFinding": "Short drum made the dome squat and low relative to the building.",
+      "change": "Taller colonnaded drum, entablature, windowed attic, taller ribbed dome, raised lantern and statue.",
+      "revision": 5,
+      "sha256": "faa87f5ebdb3d8fefe3ca041bbdd0200fb83976aa55b2a0a1e91d92f3f981139",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "research/collaboration",
@@ -713,6 +736,22 @@
       ]
     },
     {
+      "id": "research/ornl-campus",
+      "label": "ORNL — East Quad Campus",
+      "disposition": "retained",
+      "reviewFinding": "Recognizable campus scene; it dominated collection size before indexed geometry.",
+      "change": "No geometry change; indexed geometry reduced the file from 46.1 MB to 26.6 MB.",
+      "revision": 1,
+      "sha256": "fe7a8b311471c8a1cad7b89755164565f26f181620a4b7831b282f48207eb088",
+      "reviewedOn": "2026-11-27",
+      "visualReviewViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ]
+    },
+    {
       "id": "research/publication",
       "label": "Publication",
       "disposition": "retained",
@@ -790,17 +829,18 @@
     {
       "id": "research/user-facility",
       "label": "User Facility",
-      "disposition": "retained",
-      "reviewFinding": "Curved wings, dome and visible instrument produce a distinctive futuristic campus. It is a concept facility, so no real-facility identity claim.",
-      "change": "No change needed for the established illustrative style.",
-      "revision": 6,
-      "sha256": "190cb76eb2e1334c9ee96f1dc2e9a15ab3dafe381f57ffb44ed025d7a2e4006f",
+      "disposition": "improved",
+      "reviewFinding": "Hard to distinguish from Laboratory at globe size: shared glass atrium, curved wings, stairs and planters.",
+      "change": "Illuminated ORNL Mist storage-ring halo on steel supports above the roof; all requested campus features retained.",
+      "revision": 7,
+      "sha256": "c419ae7367481ed94cc6bac11406953875792b9ac247caa75d8f5524fd15572b",
       "visualReviewViews": [
         "front",
         "rear",
         "top",
         "small"
-      ]
+      ],
+      "reviewedOn": "2026-11-27"
     },
     {
       "id": "risk/artillery",
@@ -999,5 +1039,28 @@
     ],
     "pageErrors": 0,
     "externalRequests": 0
+  },
+  "followUp": {
+    "reviewedOn": "2026-11-27",
+    "scope": {
+      "acorn": 53,
+      "improved": 8
+    },
+    "note": "Follow-up review of the 53 ACORN GLBs present on 2026-11-26; ACORN Logo and ORNL Marker were added separately and are not covered here.",
+    "builder": "build-models.py now writes indexed triangles, sharing bit-identical float32 position/normal/UV corners. Bounds and triangle counts are unchanged; the 55-model library dropped from 105,492,048 to 55,544,712 bytes. Hashes of every GLB changed.",
+    "technicalChecks": {
+      "deterministicRegeneration": "passed",
+      "khronosErrors": 0,
+      "khronosWarnings": 0,
+      "outwardWinding": "positive signed volume for every part of the eight revised recipes",
+      "cesiumViews": [
+        "front",
+        "rear",
+        "top",
+        "small"
+      ],
+      "pageErrors": 0,
+      "externalRequests": 0
+    }
   }
 }

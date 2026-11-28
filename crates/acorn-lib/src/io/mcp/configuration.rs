@@ -3,10 +3,20 @@ use crate::io::{api::Endpoint, mcp::config::McpServerConfiguration};
 use acorn_core::validation::ValidationError;
 use acorn_core::OneOrMany;
 use acorn_schema::validation::{is_identifier, Validate, ValidationReport};
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
+/// Trusted ACP profiles shared by configuration validation and routed registration.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, strum::Display, strum::EnumIter, strum::EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub(super) enum AcpProfile {
+    Claude,
+    Codex,
+    #[strum(serialize = "opencode")]
+    OpenCode,
+}
 /// How an endpoint binding may send caller data beyond the local host.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -61,6 +71,17 @@ pub struct ExecutorBindingConfiguration {
     pub capability_id: String,
     /// Provider selector; no discovery occurs while parsing this declaration.
     pub executor: ExecutorConfiguration,
+}
+impl AcpProfile {
+    fn names() -> String {
+        Self::iter().map(|profile| profile.to_string()).collect::<Vec<_>>().join(", ")
+    }
+    /// Parse a configured profile and retain the list of trusted names on failure.
+    pub(super) fn parse(value: &str) -> Result<Self, color_eyre::Report> {
+        value
+            .parse()
+            .map_err(|_| color_eyre::eyre::eyre!("ACP profile must be one of: {}", Self::names()))
+    }
 }
 impl ExecutorBindingConfiguration {
     /// Check references to configured MCP allowlists and named endpoints without I/O.
@@ -134,11 +155,8 @@ impl Validate for ExecutorBindingConfiguration {
                 }
             }
             | ExecutorConfiguration::Acp { profile, model } => {
-                if !matches!(profile.as_str(), "codex" | "opencode") {
-                    report.add(
-                        "executor.profile",
-                        ValidationError::new("trusted-profile").with_message("ACP profile must be codex or opencode"),
-                    );
+                if let Err(why) = AcpProfile::parse(profile.as_str()) {
+                    report.add("executor.profile", ValidationError::new("trusted-profile").with_message(why.to_string()));
                 }
                 if model.as_deref().is_some_and(|value| value.trim().is_empty()) {
                     report.add(

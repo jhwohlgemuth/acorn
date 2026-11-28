@@ -6,9 +6,11 @@ use acorn_core::{
 };
 use core::fmt;
 /// Software probed by ACORN host diagnostics.
-pub const SOFTWARE: [Software; 13] = [
+pub const SOFTWARE: [Software; 15] = [
     Software::Acorn,
     Software::Chromium,
+    Software::Claude,
+    Software::ClaudeAgentAcp,
     Software::Codex,
     Software::CodexAcp,
     Software::Git,
@@ -28,6 +30,10 @@ pub enum Software {
     Acorn,
     /// Chromium or a compatible Chrome executable.
     Chromium,
+    /// Claude Code CLI.
+    Claude,
+    /// Claude Agent ACP adapter.
+    ClaudeAgentAcp,
     /// Codex CLI.
     Codex,
     /// Codex ACP adapter.
@@ -68,6 +74,8 @@ impl fmt::Display for Software {
         formatter.write_str(match self {
             | Self::Acorn => "ACORN",
             | Self::Chromium => "Chromium",
+            | Self::Claude => "Claude Code",
+            | Self::ClaudeAgentAcp => "Claude Agent ACP",
             | Self::Codex => "Codex",
             | Self::CodexAcp => "Codex ACP",
             | Self::Git => "Git",
@@ -88,6 +96,8 @@ impl From<&str> for Software {
         match value {
             | "ACORN" => Self::Acorn,
             | "Chromium" => Self::Chromium,
+            | "Claude Code" => Self::Claude,
+            | "Claude Agent ACP" => Self::ClaudeAgentAcp,
             | "Codex" => Self::Codex,
             | "Codex ACP" => Self::CodexAcp,
             | "Git" => Self::Git,
@@ -109,6 +119,8 @@ impl Software {
         match self {
             | Self::Acorn => "acorn",
             | Self::Chromium => "chromium",
+            | Self::Claude => "claude",
+            | Self::ClaudeAgentAcp => "claude-agent-acp",
             | Self::Codex => "codex",
             | Self::CodexAcp => "codex-acp",
             | Self::Git => "git",

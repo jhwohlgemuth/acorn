@@ -331,7 +331,7 @@ fuzz-smoke: ## Run lightweight fuzz smoke checks for the project.
 	@sh -c 'if command -v timeout >/dev/null 2>&1; then timeout --foreground --kill-after=30 180 cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; else cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; fi'
 
 help: ## Show the available development tasks.
-	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [CI_JOB=<id|name>] [CI_PIPELINE=<id>] [CI_REF=<branch|tag>] [RELEASE_REF=<branch|tag>] [TAG=vX.Y.Z] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex|claude] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [CI_JOB=<id|name>] [CI_PIPELINE=<id>] [CI_REF=<branch|tag>] [RELEASE_REF=<branch|tag>] [TAG=vX.Y.Z] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 help-cli: ## Regenerate the ACORN CLI markdown help reference.
 	@cargo run --bin acorn -- --markdown-help | awk 'length($$0) > 0 { while (blank > 0) { print ""; blank-- } print; next } { blank++ }' > CommandLineHelp.md
@@ -464,13 +464,19 @@ sqlcheck: ## Run SQL linting and formatting for migrations.
 test: ## Run the main test suite with nextest.
 	@cargo nextest run
 
-test-acp: ## Run interoperability tests for ACP_AGENT=opencode|codex.
-	@case "$(ACP_AGENT)" in codex|opencode) ;; *) echo "Unsupported ACP_AGENT '$(ACP_AGENT)'; expected codex or opencode"; exit 2;; esac
+test-acp: ## Run interoperability tests for ACP_AGENT=opencode|codex|claude.
+	@case "$(ACP_AGENT)" in claude|codex|opencode) ;; *) echo "Unsupported ACP_AGENT '$(ACP_AGENT)'; expected claude, codex, or opencode"; exit 2;; esac
 	@if [ "$(ACP_AGENT)" = codex ] && ! command -v codex-acp >/dev/null 2>&1; then \
 		echo "codex-acp is required for ACP_AGENT=codex but was not found on PATH."; \
 		echo "Install it with: npm install -g @agentclientprotocol/codex-acp"; \
 		echo "The global install does not require npx. If npm is unavailable, install Node.js/npm or download a standalone binary:"; \
 		echo "https://github.com/agentclientprotocol/codex-acp/releases"; \
+		exit 2; \
+	fi
+	@if [ "$(ACP_AGENT)" = claude ] && ! command -v claude-agent-acp >/dev/null 2>&1; then \
+		echo "claude-agent-acp is required for ACP_AGENT=claude but was not found on PATH."; \
+		echo "Install it with: npm install -g @agentclientprotocol/claude-agent-acp"; \
+		echo "Authenticate with: claude auth login"; \
 		exit 2; \
 	fi
 	@ACORN_TEST_ACP_AGENT="$(ACP_AGENT)" cargo nextest run -p acorn-lib --test acp_interoperability --no-default-features --features acp,analysis --run-ignored only --success-output final
@@ -505,6 +511,9 @@ version: ## Print the project version string.
 
 design-preview: ## Serve and open the browser component catalog.
 	@python3 crates/acorn-web/scripts/preview.py crates/acorn-web --port $(DESIGN_SYSTEM_PORT) --path /design-system/ --open
+
+oakley-preview: ## Serve and open the Oakley agent avatar design preview.
+	@python3 crates/acorn-web/scripts/preview.py crates/acorn-web --port $(DESIGN_SYSTEM_PORT) --path /design-system/oakley/ --open
 
 web-build: web-cli web-map web-prepare ## Build the release browser and verify its single WASM payload.
 	@python3 crates/acorn-web/scripts/clean-output.py
@@ -579,7 +588,7 @@ web-skill: ## Stage and verify the canonical release-matched skill bundle.
 web-stop: ## Stop this checkout's web-dev and browser preview processes.
 	@python3 crates/acorn-web/scripts/stop.py
 
-web-test: web-prepare ## Test browser bounds, nine real WASM operations and WebMCP.
+web-test: web-prepare ## Test browser bounds, ten real WASM operations and WebMCP.
 	@python3 -m unittest discover -s scripts/tests -p 'test_package_acorn_skill.py'
 	@python3 -m unittest discover -s scripts/tests -p 'test_web_dev.py'
 	@python3 -m unittest discover -s scripts/tests -p 'test_web_doctor.py'
@@ -604,7 +613,7 @@ web-test-pages: ## Smoke-test the built Pages site with Chromium (npm ci and pla
 	@node crates/acorn-web/scripts/editor-smoke.mjs
 	@node --test crates/acorn-web/scripts/workspace-storage-browser.test.mjs
 
-web-test-wasm: web-prepare ## Run all nine browser operations in the real WASM runtime.
+web-test-wasm: web-prepare ## Run all ten browser operations in the real WASM runtime.
 	@python3 crates/acorn-web/scripts/rust.py wasm-pack test --node crates/acorn-web --lib --bin acorn-web
 
 .DEFAULT_GOAL := setup
@@ -734,6 +743,7 @@ TASKS = \
 	linux-package-arm64 \
 	linux-packages \
 	mcpb \
+	oakley-preview \
 	publish-book \
 	release-checksums \
 	release-download \

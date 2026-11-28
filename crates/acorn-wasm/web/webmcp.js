@@ -18,6 +18,7 @@ const DIFF_MODES = Object.freeze(["json-patch", "unified"]);
 const DIFF_TOOL_NAME = "acorn_diff_content";
 const DISCOVERY_TOOL_NAME = "acorn_discover_persistent_identifiers";
 const FAIR_TOOL_NAME = "acorn_assess_fair_metadata";
+const FORMAT_TOOL_NAME = "acorn_format_metadata";
 const FORMATS = Object.freeze(["cff", "json", "jsonc", "json-ld", "markdown", "rdf-xml", "text", "turtle", "yaml", "zon"]);
 const IDENTIFIER_INPUT_LIMIT = 2 * 1024;
 const IDENTIFIER_KINDS = Object.freeze(["ark", "arxiv", "doi", "handle", "isbn", "isni", "orcid", "patent", "raid", "ror", "rrid", "swhid"]);
@@ -84,6 +85,17 @@ const fairInputSchema = Object.freeze({
         standard: { description: "Metadata standard represented by the JSON.", enum: METADATA_STANDARDS, type: "string" },
     },
     required: ["json", "standard"],
+    type: "object",
+});
+const formatInputSchema = Object.freeze({
+    additionalProperties: false,
+    properties: {
+        content: { description: "CFF, DataCite, Dublin Core, Invenio, or Research Activity metadata to normalize in memory. JSONC comments are removed.", maxLength: JSON_INPUT_LIMIT, type: "string" },
+        format: { enum: ["cff", "json", "json-ld", "jsonc", "markdown", "rdf-xml", "turtle", "yaml", "zon"], type: "string" },
+        fuzzy: { description: "Vocabulary matching policy (default: strict).", enum: ["off", "relaxed", "strict"], type: "string" },
+        standard: { enum: ["citation-file-format", "datacite", "dublin-core", "invenio", "research-activity-data"], type: "string" },
+    },
+    required: ["content", "format", "standard"],
     type: "object",
 });
 
@@ -317,6 +329,19 @@ function validationResult(value) {
         ...(vocabularyFuzzy === null ? {} : { vocabularyFuzzy }),
     };
 }
+function formatResult(value, format, standard) {
+    const result = normalize(value);
+    if (!isRecord(result)
+        || Object.keys(result).sort().join(",") !== "changed,content,format,standard,vocabularyFuzzy"
+        || typeof result.changed !== "boolean"
+        || typeof result.content !== "string"
+        || result.format !== format
+        || result.standard !== standard
+        || !["off", "relaxed", "strict"].includes(result.vocabularyFuzzy)) {
+        throw new AdapterError("execution_failed", "ACORN returned an invalid format result.");
+    }
+    return result;
+}
 
 function readabilityResult(value) {
     const normalized = normalize(value);
@@ -530,6 +555,22 @@ function metadataValidationArguments(input) {
     }
     return input;
 }
+function formatArguments(input) {
+    validateKeys(input, ["content", "format", "fuzzy", "standard"], ["content", "format", "standard"]);
+    const cff = input.standard === "citation-file-format" && ["cff", "json", "yaml"].includes(input.format);
+    const datacite = input.standard === "datacite" && ["json", "yaml"].includes(input.format);
+    const invenio = input.standard === "invenio" && ["json", "yaml"].includes(input.format);
+    const dublinCore = input.standard === "dublin-core" && ["json", "json-ld", "rdf-xml", "turtle", "yaml"].includes(input.format);
+    const rad = input.standard === "research-activity-data" && ["json", "jsonc", "markdown", "yaml", "zon"].includes(input.format);
+    if (typeof input.content !== "string" || !(cff || datacite || dublinCore || invenio || rad)
+        || (input.fuzzy !== undefined && !["off", "relaxed", "strict"].includes(input.fuzzy))) {
+        throw new AdapterError("invalid_arguments", "Formatting requires a supported CFF, DataCite, Dublin Core, Invenio, or RAD syntax and vocabulary policy.");
+    }
+    if (byteLength(input.content) > JSON_INPUT_LIMIT) {
+        throw new AdapterError("input_too_large", "Metadata content exceeded the 256 KiB UTF-8 input limit.");
+    }
+    return input;
+}
 
 function readabilityArguments(input) {
     validateKeys(input, ["metric", "text"]);
@@ -576,6 +617,7 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
         || typeof bindings?.crosswalkMetadata !== "function"
         || typeof bindings?.diffContent !== "function"
         || typeof bindings?.discoverPersistentIdentifiers !== "function"
+        || typeof bindings?.formatMetadata !== "function"
         || typeof bindings?.inspectPersistentIdentifier !== "function"
         || typeof bindings?.validateMetadataStandard !== "function"
         || typeof bindings?.validateResearchActivity !== "function"
@@ -644,6 +686,22 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
     const discoverPersistentIdentifiers = (input, execution = {}) => run(DISCOVERY_TOOL_NAME, execution.signal, () => {
         const { text } = discoveryArguments(input);
         return discoveryResult(bindings.discoverPersistentIdentifiers(text));
+    });
+    const formatMetadata = (input, execution = {}) => run(FORMAT_TOOL_NAME, execution.signal, () => {
+        const { content, format, fuzzy, standard } = formatArguments(input);
+        let result;
+        try {
+            result = formatResult(bindings.formatMetadata(content, standard, format, fuzzy), format, standard);
+        } catch (error) {
+            if (typeof error === "string" && error.startsWith("Format output exceeds")) {
+                throw new AdapterError("result_too_large", "The ACORN result exceeded the 256 KiB output limit.");
+            }
+            if (typeof error === "string") {
+                throw new AdapterError("invalid_arguments", `Metadata could not be formatted as ${standard} ${format.toUpperCase()}.`);
+            }
+            throw error;
+        }
+        return result;
     });
     const inspectPersistentIdentifier = (input, execution = {}) => run(IDENTIFIER_TOOL_NAME, execution.signal, () => {
         const { kind, value } = identifierArguments(input);
@@ -728,6 +786,14 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
                 },
                 {
                     annotations,
+                    description: "Normalize supplied Research Activity JSON, JSONC, or YAML in memory without changing the source. JSONC comments are removed.",
+                    execute: (input, execution) => formatMetadata(input, execution),
+                    inputSchema: formatInputSchema,
+                    name: FORMAT_TOOL_NAME,
+                    title: "Format metadata",
+                },
+                {
+                    annotations,
                     description: "Classify, validate, and normalize one supplied research identifier without resolving it.",
                     execute: (input, execution) => inspectPersistentIdentifier(input, execution),
                     inputSchema: identifierInputSchema,
@@ -782,6 +848,7 @@ export function createAcornWebMcpAdapter(bindings, options = {}) {
         crosswalkMetadata,
         diffContent,
         discoverPersistentIdentifiers,
+        formatMetadata,
         inspectPersistentIdentifier,
         install,
         validateMetadataStandard,

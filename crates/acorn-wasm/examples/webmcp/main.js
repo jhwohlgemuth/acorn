@@ -5,6 +5,7 @@ import init, {
     crosswalkMetadata,
     diffContent,
     discoverPersistentIdentifiers,
+    formatMetadata,
     inspectPersistentIdentifier,
     validateMetadataStandard,
     validateResearchActivity,
@@ -105,16 +106,20 @@ async function initialize() {
             crosswalkMetadata,
             diffContent,
             discoverPersistentIdentifiers,
+            formatMetadata,
             inspectPersistentIdentifier,
             validateMetadataStandard,
             validateResearchActivity,
         },
         {
             onInvocation: (event) => {
-                if (event.phase === "started") {
-                    toolViews[event.tool].status.textContent = `Running ${event.tool}…`;
-                } else {
-                    render(event.tool, event.output, `${event.tool} completed.`);
+                const view = toolViews[event.tool];
+                if (view) {
+                    if (event.phase === "started") {
+                        view.status.textContent = `Running ${event.tool}…`;
+                    } else {
+                        render(event.tool, event.output, `${event.tool} completed.`);
+                    }
                 }
             },
         },

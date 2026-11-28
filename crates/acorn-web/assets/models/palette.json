@@ -1,7 +1,27 @@
 {
   "brand": "ORNL",
   "customAccents": {
+    "ACORN Brown": "#80350E",
     "Tech cyan": "#00E5FF"
+  },
+  "laboratoryBrandSource": "designs/laboratory-logos/colors.json",
+  "laboratoryBrands": {
+    "Ames identity purple": "#3C3B72",
+    "Argonne logo blue": "#0093D0",
+    "Berkeley Dark Blue": "#00313C",
+    "Brookhaven Teal": "#105C78",
+    "Fermilab NAL Blue": "#004C97",
+    "INL identity blue": "#07519E",
+    "Jefferson Lab Red": "#A6192E",
+    "LANL Ultramarine": "#000F7E",
+    "LLNL logo blue": "#0032A1",
+    "NETL logo green": "#97C83D",
+    "NLR Rocky Blue": "#003A69",
+    "PNNL Emblem Orange": "#D77900",
+    "PPPL Logo Orange": "#F46F1B",
+    "SLAC Red": "#8C1515",
+    "SRNL Blue": "#005288",
+    "Sandia Primary Navy": "#003359"
   },
   "naturalFinishes": {
     "Antique brass": "#9B804A",

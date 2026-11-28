@@ -1147,6 +1147,10 @@ fn test_executor_bindings_validate_references_duplicates_and_round_trip() {
     let config = ApplicationConfiguration::parse(json).expect("executor configuration");
     assert_eq!(config.executors.len(), 4);
     assert!(config.validate().is_ok(), "{:?}", config.validate());
+    for profile in ["claude", "opencode"] {
+        let configured = ApplicationConfiguration::parse(json.replace("\"codex\"", &format!("\"{profile}\""))).expect("trusted ACP profile");
+        assert!(configured.validate().is_ok());
+    }
     let serialized = serde_json::to_string(&config).expect("serialize configuration");
     let round_trip: ApplicationConfiguration = serde_json::from_str(&serialized).expect("parse round trip");
     assert_eq!(round_trip.executors, config.executors);

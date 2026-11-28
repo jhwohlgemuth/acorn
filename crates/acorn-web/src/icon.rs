@@ -41,6 +41,7 @@ pub(crate) enum IconName {
     Play,
     Portfolio,
     Reset,
+    Save,
     Search,
     Settings,
     Shield,
@@ -136,6 +137,9 @@ impl IconName {
       <rect class="s" x="14" y="14" width="7" height="7" rx="1" />"#
             }
             | Self::Reset => r#"<path d="M3 12a9 9 0 1 0 3-6.7M3 3v5h5"/>"#,
+            | Self::Save => {
+                r#"<path class="s" d="M4 3h14l3 3v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path class="s" d="M7 3v6h10V3M7 21v-9h10v9"/>"#
+            }
             | Self::Search => {
                 r#"<circle class="stroke" cx="11" cy="11" r="7" />
       <path class="stroke" d="m20 20-4-4" />"#
@@ -212,7 +216,7 @@ impl IconName {
             | Self::X => Some("close"),
             | Self::ZoomIn => Some("zoom_in"),
             | Self::ZoomOut => Some("zoom_out"),
-            | Self::Unknown => None,
+            | Self::Save | Self::Unknown => None,
         }
     }
 }

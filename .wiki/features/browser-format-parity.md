@@ -17,10 +17,22 @@ Add a `/format` page and `acorn_format_metadata` WebMCP tool over one in-memory 
 
 This is one format operation, not a second crosswalk or generic pretty printer. It parses a declared standard and input syntax, applies that standard's normalization rules, and returns formatted content in the same syntax. Conversion between standards belongs to Crosswalk; rendering PDF/PPTX/DOCX/BagIt belongs to Export.
 
-# Current evidence — November 24, 2026
+# Current evidence — November 27, 2026
 
-- At baseline `2369335b` with concurrent uncommitted browser and wiki work, `crates/acorn-wasm/src/lib.rs` exports validation, crosswalk, diff, identifiers, FAIR, readability, and Big-O operations, but no format binding. `crates/acorn-wasm/web/webmcp.js` registers nine read-only tools and enforces a 256 KiB serialized result limit (`resultEnvelope`, lines 255–260). Its TypeScript contract and Node tests cover that adapter.
-- `crates/acorn-web/src/operations.rs` declares the nine browser `Tool` variants, bounded `Request`, and worker dispatch. `crates/acorn-web/src/ui.rs` routes tool slugs through `ToolWorkspace`, with a loaded-file editor, and `crates/acorn-web/src/results.rs` plus `presentation.rs` provide result rendering and content-only export. Existing dirty edits in these files are owned by concurrent work and must be coordinated before implementation.
+- At baseline `2369335b`, `crates/acorn-wasm/src/lib.rs` exported validation, crosswalk, diff, identifiers, FAIR, readability, and Big-O operations. FMT-01 now adds `formatMetadata(content, standard, format, fuzzy?)` for RAD JSON with strict default and 256 KiB input/output bounds. Its result contains `changed`, `content`, `format`, `standard`, and `vocabularyFuzzy`. `cargo test -p acorn-wasm` (33 tests and two doctests), `cargo fmt --all -- --check`, and the WASM target check passed on November 26. `crates/acorn-wasm/web/webmcp.js` enforces a 256 KiB serialized result limit.
+- FMT-02 registers `acorn_format_metadata` as a tenth read-only WebMCP tool with a checked five-field result. `make test-webmcp` passed 49 Node and browser lifecycle tests; `make build-wasm` passed its package checks and 12 WASM tests. A real generated WASM binding and the WebMCP adapter returned formatted content from the valid RAD fixture in Node.
+- FMT-03 adds `/format` as the tenth browser operation with an independent form, strict-default fuzzy choice, exact formatted-code result, content-only copy/download, and explicit freshness-checked workspace save. `cargo test -p acorn-web` and `make web-check` passed. Built Chromium smokes covered direct route, changed/unchanged/invalid results, keyboard input, mobile layout, and selected workspace save; the source lookup regression test covers stale selection. `make web-build` passed with one WASM payload.
+- FMT-04 passed `make build-wasm`, `make web-test`, root and `/acorn/` `make web-test-pages`, and 57 full Chromium parity checks. The package check verifies one WASM payload and ten exports. Google Chrome 158.0.8127.88 with WebMCP testing enabled passed native ten-tool registration, discovery, format execution, schemas, bounds, timing, and cleanup on a loopback origin. The built Format page passed keyboard, direct-route reload, exact copy/download, and mobile checks. A WASM test exhaustiveness defect found by the broad gate was repaired; all 14 browser WASM tests passed. Current support is RAD JSON only.
+- FMT-05 extends the same WASM/WebMCP/browser operation to RAD JSONC and YAML. The portable codec already decoded and encoded these syntaxes; JSONC comments are removed by its encoder and are disclosed in the interface. Valid/invalid/idempotent Rust tests, 49 adapter tests, strict browser checks, 14 real-WASM browser tests, root Pages checks, 57 Chromium parity checks, and native Chrome WebMCP calls passed. On an image-free RAD fixture, generated WASM and `acorn format` produced byte-identical JSONC and YAML output. A separate fixture in a folder with an image showed the native path-context media URL that in-memory formatting does not add. The release WASM measured 9,003,081 bytes with ten exports.
+- FMT-05B adds RAD Markdown and ZON to the same bounded operation. On a generated fixture, both codecs preserved serialized RAD metadata and were idempotent. The native CLI and generated WASM produced byte-identical ZON; Markdown output differed only in front matter key order, and both outputs normalized to the same portable form. Focused Rust and 49 adapter tests, browser Rust tests, 14 browser WASM tests, `make web-check`, and 57 built-browser parity checks passed on November 27. The release browser build contained one 9,003,441-byte WASM payload and ten exports.
+- FMT-06 adds CFF `.cff`, JSON, and YAML formatting. The portable `Cff` codec already provides the typed decode/encode path and native CFF formatting makes no vocabulary transformation without enrichment. A focused host test proved its native preview and shared CLI normalization content exactly match the portable codec in all three syntaxes; the CLI does not rewrite source layout when its typed before/after values match. Focused Rust, 49 adapter, real-WASM adapter, and browser Rust tests, `make web-check`, and 57 built-browser parity checks passed on November 27. The release browser build contained one 9,034,473-byte WASM payload and ten exports.
+- FMT-06B adds DataCite JSON and YAML using the shared typed codec. The native preview and portable encoder produced identical content for both syntaxes, including the one-record wrapper shape. Focused Rust, 49 adapter, real-WASM adapter, browser Rust, `make web-check`, and 57 built-browser parity checks passed on November 27. The release browser build contained one 9,055,188-byte WASM payload and ten exports. Provider enrichment and file selection remain native-only.
+- FMT-06C adds Invenio JSON and YAML using the shared typed codec. Its valid format fixture has an object-valued description type; the older single-record validation fixture's string-valued type is invalid for the current schema. Native preview and portable output matched for both syntaxes, including one-record array input normalized to a single record. Focused Rust, 49 adapter, real-WASM adapter, browser Rust, `make web-check`, and 57 built-browser parity checks passed on November 27. The release browser build contained one 9,103,598-byte WASM payload and ten exports. Provider enrichment and file selection remain native-only.
+- FMT-07 adds Dublin Core JSON, JSON-LD, and YAML. The existing graph codec validates and normalizes all three; a focused host test showed native preview and CLI normalization content exactly match portable output on each representation. Valid/invalid/idempotent Rust cases, 49 adapter tests, real-WASM adapter calls, browser Rust tests, `make web-check`, and 57 built-browser parity checks passed on November 27. The release browser build contained one 9,104,795-byte WASM payload and ten exports.
+- FMT-07B adds Dublin Core RDF/XML and Turtle through the same graph codec. Native preview and CLI normalization content matched portable output for both representations; malformed and idempotent Rust cases, 49 adapter tests, real-WASM adapter calls, browser Rust tests, `make web-check`, and 57 built-browser parity checks passed on November 27. The direct release build and package check verified one 9,104,992-byte WASM payload and ten exports. `make web-build` stopped at Stylelint errors in concurrently added, untracked `crates/acorn-web/assets/models/designs/laboratory-logos/los-alamos.css`; FMT did not edit that file.
+- FMT-08 compared native ACRE JSON, JSONC, YAML, and RON formatting with the existing typed `ApplicationConfiguration` codec on the same valid configuration. All four native outputs differed bytewise from the codec while reparsing to the same configuration; both native formatting and codec output were parseable. Native JSONC retained comments that codec encoding removed; native RON removed comments while retaining omitted-field behavior. Malformed configuration was rejected and the native preview rejected input above its 32 MiB bound without changing the file. Both focused host tests passed on November 27. `ApplicationConfiguration` and its codec are implemented in `acorn-lib` under the `analysis` feature, while native JSON/JSONC and YAML formatting depends on host-only `dprint-plugin-json` and `pretty_yaml` through `agentic`. No current ACRE pair can be exposed through the existing portable WASM leaf with native output and configuration semantics intact; ACRE remains native-only. A future extraction would need a separately bounded schema/formatter design and new fixture parity before any selector entry.
+- FMT-07C repaired Format workspace loading for `.jsonld`, `.rdf`, and `.ttl` and exact download extensions/MIME types for JSON-LD, RDF/XML, and Turtle. Focused browser Rust tests, WASM target check, strict browser Clippy, direct release build/package verification, and 57 built-browser parity checks passed on November 27. Chromium exercised the three RDF downloads and draft navigation. The release package contained one 9,105,191-byte WASM payload and ten exports. Both `make web-build` and `make web-check` were blocked by two Stylelint errors in the concurrently added, untracked laboratory logo stylesheet, outside FMT's write set.
+- FMT-07D aligned browser workspace import and Rust restoration with Format's `.cff`, `.jsonld`, `.rdf`, and `.ttl` sources, selects CFF or Dublin Core alongside their unique syntaxes, and centralizes the Format Strict reset for code-link drafts, initial state, and Clear. Browser Rust tests, 49 JavaScript tests, strict browser Clippy, WASM target check, direct release build/package verification, and 58 Chromium parity checks passed on November 27. Chromium selected and formatted each of the four workspace file types and confirmed Clear restores Strict. The release package contained one 9,104,988-byte WASM payload and ten exports. `make web-build` remained blocked by two Stylelint errors in the unrelated untracked laboratory logo stylesheet.
 - `acorn_schema::codec::DocumentCodec` decodes and encodes supplied text without host I/O (`crates/acorn-schema/src/codec.rs`, lines 30–36). RAD supports JSON, JSONC, Markdown, YAML, and ZON (`codec.rs`, lines 120–180), and `ResearchActivity::format_with_vocabulary_report` provides portable vocabulary normalization (`research_activity/mod.rs`, lines 1032–1046).
 - The direct native format route currently supports ACRE, CFF, DataCite, Dublin Core, Invenio, and RAD (`crates/acorn-lib/src/io/mcp/tools/native/format.rs`, lines 55–69 and 340–363). Its `normalize_metadata_file` reads a path and calls the host `InputOutput` trait (`format.rs`, lines 681–700). Native RAD additionally scans neighboring image files (`crates/acorn-lib/src/io/adapter/mod.rs`, lines 581–600 and 809–846). CLI `format` defaults to strict vocabulary matching (`crates/acorn-cli/src/cli/arguments/mod.rs`, lines 254–264).
 - The [desktop workspace plan](acorn-browser-workspace/index.md#abw-50--review-local-creation-and-mutation-workflows) assigns host-only `format` preview, confirmation, freshness checks, and bounded writes to ABW-50 after the companion boundary in ABW-45. `crates/acorn-desktop/` is absent at this baseline. ABW-47 owns export formats; its CFF/JSON/YAML output list is not a promise that the new formatter supports those standards.
@@ -45,11 +57,11 @@ The WebMCP result is the replacement content once, not `{original, content, diff
 | Standard | Tier-0 syntax | Candidate portable syntaxes | Native-only difference to record |
 |---|---|---|---|
 | RAD | JSON | JSONC, Markdown, YAML, ZON after fixture parity | Neighboring-image context; optional provider enrichment; path/directory input. |
-| CFF | — | CFF/YAML and JSON if the existing codec and CLI accept the exact pair | Provider enrichment and local-file naming. |
+| CFF | — | CFF/YAML and JSON accepted | Provider enrichment and local-file naming. |
 | DataCite | — | JSON and YAML only after codec/CLI fixture comparison | Provider enrichment and local-file selection. |
 | Invenio | — | JSON and YAML only after wrapper-shape fixture comparison | Provider enrichment and local-file selection. |
 | Dublin Core | — | Only representations proven by its portable codec and native format route | Host parser/serializer differences and RDF representation support must be measured, not assumed. |
-| ACRE | — | JSON, JSONC, YAML, RON only if a portable configuration formatter can be extracted without changing comments or semantics | Configuration discovery, file names, and native formatting context. |
+| ACRE | — | None in the current portable boundary | Native JSON/JSONC/YAML/RON formatting uses the host configuration type and formatter dependencies; JSONC comments and RON omissions require their native paths. Native preview accepts up to 32 MiB, versus 256 KiB for browser formatting. |
 
 Unsupported pairs remain absent from selector choices and are rejected by the binding. `dcat`, `document`, `huwise`, `kitfile`, `modelkit`, `raid`, and `text` are validation/export standards, not currently direct native format-route promises. Adding one requires its own source-backed matrix row and bounded phase. Do not claim byte identity with the CLI where the CLI uses file context, dprint/pretty_yaml, or a different serializer until a fixture comparison passes.
 
@@ -71,143 +83,11 @@ Unsupported pairs remain absent from selector choices and are rejected by the bi
 
 # Execution phases
 
-## FMT-01 — Export bounded RAD JSON normalization from WASM
-
-- Status: ready
-- Budget: 5 active hours maximum
-- Prerequisites: no concurrent `acorn-wasm` binding or schema-root owner
-- Exact write set: `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`
-- Primary integration lock: WASM format binding
-- Outcome: Add a pure `formatMetadata` binding for RAD JSON using `DocumentCodec` and `format_with_vocabulary_report`; default to strict, return the agreed result, and reject invalid/oversized input without mutation or network use. Keep initial DTO small and explicit.
-- Focused validation: `cargo test -p acorn-wasm`; `cargo check -p acorn-wasm --target wasm32-unknown-unknown`; valid/invalid fixture, strict/off policy, idempotence, and boundary-size tests.
-- Handoff: Record the exact Rust/JS DTO and supported pair; make FMT-02 eligible.
-
-## FMT-02 — Register the first format WebMCP tool
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-01; adapter owner available
-- Exact write set: `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-wasm/examples/webmcp/smoke.js`
-- Primary integration lock: WebMCP adapter contract
-- Outcome: Register `acorn_format_metadata` with a strict RAD/JSON-only schema, read-only annotations, structured error mapping, result-shape validation, and no original/diff duplication. Update the demo smoke for the new tool count and a real invocation.
-- Focused validation: `make test-webmcp`; fake-context tests for registration/unsupported host, invalid keys/pair, byte and envelope bounds, busy/cancel/dispose, and result shape; native demo smoke when a supported Chrome is available.
-- Handoff: Publish the tenth-tool contract to FMT-03 and WME; no page or desktop dependency.
-
-## FMT-03 — Add the browser Format page
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-01; exclusive shared browser UI/operation write set
-- Exact write set: `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/results.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/window_sync.rs`, `crates/acorn-web/src/workspace.rs`, `crates/acorn-web/src/tests/mod.rs`
-- Primary integration lock: browser tool route and result contract
-- Outcome: Add `Tool::Format`, `/format`, navigation, independent form state, RAD/JSON and fuzzy controls, example, exact formatted-code result, explicit copy/download, and optional user-clicked save to an unchanged selected workspace source. Reuse the operation worker and existing content-only effect boundary.
-- Focused validation: `cargo test -p acorn-web`; `make web-check`; focused browser smoke for direct route, unchanged/changed/error, loaded file, stale-source save denial, reload, keyboard and narrow layout.
-- Handoff: Record operation/route shape and any shared UI conflicts; make FMT-04 eligible.
-
-## FMT-04 — Accept and document the initial browser delivery
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-02 and FMT-03 on a stable browser tree; no concurrent CI/build owner
-- Exact write set: `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/README.md`, `crates/acorn-wasm/examples/webmcp/README.md`, `crates/acorn-cli/assets/skills/acorn/SKILL.md`, `Makefile`, `.wiki/features/browser-format-parity.md`
-- Primary integration lock: format release and build acceptance
-- Outcome: Add the tenth operation to browser and package smoke, update documented support and the release-matched ACORN skill, and record the exact initial browser/WebMCP limits. Keep independent WME evaluator ownership.
-- Focused validation: `make build-wasm`, `make test-webmcp`, `make web-test`, root and `/acorn/` `make web-test-pages`; real supported-Chrome tool invocation and no-WebMCP manual route. Serialize broad gates after concurrent browser edits settle.
-- Handoff: Preserve dated test/size evidence; remove accepted Tier-0/1 phases and make FMT-05 eligible.
-
-## FMT-05 — Extend RAD to JSONC and YAML
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-04; no schema codec or WebMCP adapter owner
-- Exact write set: `crates/acorn-schema/src/codec.rs`, `crates/acorn-schema/src/research_activity/mod.rs`, `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`
-- Primary integration lock: RAD portable syntax matrix
-- Outcome: Admit RAD JSONC and YAML only where decode/normalize/encode round trips preserve documented semantics; retain exact source syntax and surface comment-loss caveats for JSONC.
-- Focused validation: per-format valid/invalid/idempotent fixtures, CLI output comparison, Rust/WASM tests, Node adapter schema tests, and browser selection smoke.
-- Handoff: Record accepted pairs and unresolved discrepancies; do not mark an unproven pair supported.
-
-## FMT-05B — Extend RAD to Markdown and ZON
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-05; no schema codec or WebMCP adapter owner
-- Exact write set: `crates/acorn-schema/src/codec.rs`, `crates/acorn-schema/src/research_activity/mod.rs`, `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/operations.rs`
-- Primary integration lock: RAD Markdown/ZON format contract
-- Outcome: Add Markdown and ZON only after the existing portable codecs prove useful idempotence and preserve metadata meaning; report any unavoidable source-layout differences from CLI output.
-- Focused validation: valid/invalid/idempotent fixtures for each pair, CLI comparison, Rust/WASM tests, Node adapter tests, and browser selection smoke.
-- Handoff: Record accepted pairs and caveats; keep unsupported cases out of the selectors.
-
-## FMT-06 — Share deterministic CFF formatting
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-04; accepted per-standard fixture/serialization matrix and exclusive native-format/schema owner
-- Exact write set: `crates/acorn-schema/src/codec.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format.rs`, `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/ui.rs`
-- Primary integration lock: typed standard formatter semantics
-- Outcome: Extract or reuse the same pure decode/normalize/encode behavior for CFF; enable only tested CFF/YAML and JSON syntax pairs. Keep enrichment outside WASM.
-- Focused validation: native CLI/MCP versus WASM fixture bytes or documented semantic equivalence; malformed/wrapper-shape, idempotence, size, and adapter/browser selection tests.
-- Handoff: Record the authoritative implementation and accepted matrix; leave unsupported pairs disabled.
-
-## FMT-06B — Share deterministic DataCite formatting
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-06; accepted DataCite fixture matrix and exclusive native-format/schema owner
-- Exact write set: `crates/acorn-schema/src/codec.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format.rs`, `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/ui.rs`
-- Primary integration lock: DataCite format contract
-- Outcome: Add only native-comparable DataCite JSON/YAML pairs; preserve typed parsing and output shape without enrichment.
-- Focused validation: native/WASM fixture comparison, invalid and idempotent cases, size bound, adapter schema and browser selector.
-- Handoff: Record accepted pairs and any serialization difference.
-
-## FMT-06C — Share deterministic Invenio formatting
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-06B; accepted Invenio fixture matrix and exclusive native-format/schema owner
-- Exact write set: `crates/acorn-schema/src/codec.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format.rs`, `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/ui.rs`
-- Primary integration lock: Invenio format contract
-- Outcome: Add only native-comparable Invenio JSON/YAML pairs; preserve its native wrapper shape and keep enrichment outside WASM.
-- Focused validation: wrapper and native/WASM fixture comparison, invalid and idempotent cases, size bound, adapter schema and browser selector.
-- Handoff: Record accepted pairs and any serialization difference.
-
-## FMT-07 — Add proven structured Dublin Core formatting
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-04; Dublin Core codec/native fixture matrix inspected; exclusive standards owner
-- Exact write set: `crates/acorn-schema/src/standard/dublin_core/mod.rs`, `crates/acorn-schema/src/codec.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format.rs`, `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/ui.rs`
-- Primary integration lock: Dublin Core representation contract
-- Outcome: Compare native normalization and portable codec for JSON, JSON-LD, and YAML candidates; expose each pair only after exact or explicitly documented semantic parity. Keep crosswalk conversion separate.
-- Focused validation: structured representation round trips, invalid JSON/YAML, idempotence, native comparison, result bound and browser selector tests.
-- Handoff: Record supported structured representations and discrepancies before FMT-07B.
-
-## FMT-07B — Add proven RDF Dublin Core formatting
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-07; exclusive Dublin Core codec/adapter owner
-- Exact write set: `crates/acorn-schema/src/standard/dublin_core/mod.rs`, `crates/acorn-schema/src/codec.rs`, `crates/acorn-lib/src/io/mcp/tools/native/format.rs`, `crates/acorn-wasm/src/lib.rs`, `crates/acorn-wasm/src/tests.rs`, `crates/acorn-wasm/web/webmcp.js`, `crates/acorn-wasm/web/webmcp.d.ts`, `crates/acorn-wasm/web/webmcp.test.mjs`, `crates/acorn-web/src/operations.rs`, `crates/acorn-web/src/ui.rs`
-- Primary integration lock: Dublin Core RDF representation contract
-- Outcome: Compare RDF/XML and Turtle separately against native formatting; expose only pairs that preserve meaning and have stable portable encoding. Do not imply that a crosswalkable RDF representation is necessarily a format-route representation.
-- Focused validation: RDF/XML and Turtle valid/invalid/idempotent fixtures, native comparison, output bound and browser selector checks.
-- Handoff: Record supported RDF representations or a precise native-only limitation.
-
-## FMT-08 — Decide ACRE formatting portability
-
-- Status: planned
-- Budget: 5 active hours maximum
-- Prerequisites: FMT-04; ACRE native formatter and configuration semantics inspected; exclusive ACRE/config owner
-- Exact write set: `.wiki/features/browser-format-parity.md`, `crates/acorn-lib/src/io/mcp/tools/tests/format.rs`
-- Primary integration lock: ACRE format portability decision
-- Outcome: Determine which ACRE JSON/JSONC/YAML/RON pairs can move to a portable leaf without changing comments, configuration meaning, or native output. Record the exact destination crate, function contract, required dependencies, and pair-level fixtures. If no pair is portable, retain ACRE as a documented native-only row. If a pair is portable, add one bounded implementation phase with its proven exact write set before starting it.
-- Focused validation: native ACRE fixtures, comment and RON round trips, malformed configuration, output-size and semantics comparison; WASM target check for any extracted dependency.
-- Handoff: Record a verified portable matrix or a specific native-only reason; add and link a bounded implementation phase for each supported pair before the final parity gate.
-
 ## FMT-09 — Reconcile the shared page with desktop local format
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: ABW-45 and ABW-50 accepted; FMT-03; exclusive browser/desktop UI owner
+- Prerequisites: ABW-45 and ABW-50 accepted; browser Format page available; exclusive browser/desktop UI owner
 - Exact write set: `crates/acorn-web/src/ui.rs`, `crates/acorn-web/src/results.rs`, `crates/acorn-web/src/presentation.rs`, `crates/acorn-web/src/host.rs`, `crates/acorn-web/src/host/local.rs`, `crates/acorn-desktop/acceptance/capability-matrix.md`, `crates/acorn-web/README.md`
 - Primary integration lock: shared browser/desktop format presentation
 - Outcome: Show in-memory preview in both deliveries and, only in desktop, the ABW-50 selected-file preview/apply affordance with visible source, destination, freshness, confirmation, conflicts and provider prerequisites. Use the already accepted typed host API; do not add a Tauri command here. Keep browser download/workspace save separate from native disk apply.
@@ -218,7 +98,7 @@ Unsupported pairs remain absent from selector choices and are rejected by the bi
 
 - Status: planned
 - Budget: 5 active hours maximum
-- Prerequisites: FMT-05, FMT-05B, FMT-06, FMT-06B, FMT-06C, FMT-07, FMT-07B, FMT-08 and any ACRE implementation phases it adds, and FMT-09 resolved; stable shared frontend and native acceptance environment
+- Prerequisites: Accepted RAD JSONC/YAML/Markdown/ZON, CFF, DataCite, Invenio, and Dublin Core syntax matrix plus ACRE native-only decision; FMT-09 resolved; stable shared frontend and native acceptance environment
 - Exact write set: `crates/acorn-web/scripts/parity-smoke.mjs`, `crates/acorn-web/README.md`, `crates/acorn-wasm/examples/webmcp/README.md`, `crates/acorn-cli/assets/skills/acorn/SKILL.md`, `crates/acorn-desktop/acceptance/capability-matrix.md`, `.wiki/features/browser-format-parity.md`, `.wiki/features/acorn-browser-workspace/index.md`
 - Primary integration lock: cross-surface format parity acceptance
 - Outcome: Publish a versioned matrix of accepted standard/syntax/policy pairs and explicit browser-versus-native differences. Measure format latency and WASM size; review user-facing names and limits. Close only gaps that fit this write set; any new product defect opens a bounded repair phase.

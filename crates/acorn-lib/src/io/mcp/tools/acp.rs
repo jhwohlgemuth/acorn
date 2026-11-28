@@ -3,37 +3,16 @@ use super::{BindingAvailability, BindingKind, InferenceBackend, InferenceBinding
 use crate::error::ApiResult;
 use crate::io::acp::{AgentProcessConfig, Client};
 use crate::io::config::ApplicationConfiguration;
-use crate::io::mcp::ExecutorConfiguration;
+use crate::io::mcp::{configuration::AcpProfile, ExecutorConfiguration};
 use alloc::sync::Arc;
-use color_eyre::eyre::eyre;
 use std::path::PathBuf;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum AcpProfile {
-    Codex,
-    OpenCode,
-}
 impl AcpProfile {
-    fn id(self) -> &'static str {
-        match self {
-            | Self::Codex => "codex",
-            | Self::OpenCode => "opencode",
-        }
-    }
     fn process_config(self, working_directory: PathBuf) -> AgentProcessConfig {
         match self {
+            | Self::Claude => AgentProcessConfig::claude(None, working_directory),
             | Self::Codex => AgentProcessConfig::codex(None, working_directory),
             | Self::OpenCode => AgentProcessConfig::opencode(None, working_directory),
-        }
-    }
-}
-impl TryFrom<&str> for AcpProfile {
-    type Error = color_eyre::Report;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            | "codex" => Ok(Self::Codex),
-            | "opencode" => Ok(Self::OpenCode),
-            | _ => Err(eyre!("Untrusted ACP profile '{value}'")),
         }
     }
 }
@@ -57,13 +36,13 @@ impl ToolRegistry {
                 | _ => None,
             })
             .try_fold(self, |registry, (configured, profile, model)| {
-                AcpProfile::try_from(profile.as_str()).and_then(|profile| {
+                AcpProfile::parse(profile.as_str()).and_then(|profile| {
                     backend_for(profile).and_then(|backend| {
                         registry.register_inference_binding(
                             configured,
                             backend,
                             InferenceBindingOptions {
-                                agent: Some(profile.id().to_string()),
+                                agent: Some(profile.to_string()),
                                 model: model.clone(),
                                 kind: BindingKind::Local,
                                 availability: BindingAvailability::Ready,

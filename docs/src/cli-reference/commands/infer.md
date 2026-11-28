@@ -87,7 +87,7 @@ The prompt data block defaults to canonical ZON; use `--format json` for trouble
 
 Backend precedence is an explicit `--backend`, then `ACORN_INFERENCE_BACKEND`, then `acp`. ACORN does not fall back if the selected backend fails.
 
-- ACP uses `opencode acp` by default. Select `--agent codex` to use Codex through an installed `codex-acp` adapter. `--agent-executable`, `--working-directory`, and optional `--model` customize either agent session; ACORN does not install adapters or fall back between them.
+- ACP uses `opencode acp` by default. Select `--agent codex` for `codex-acp` or `--agent claude` for `claude-agent-acp`. `--agent-executable`, `--working-directory`, and optional `--model` customize the selected agent session; ACORN does not install adapters or fall back between them.
 - Ollama uses its [OpenAI-compatible Chat Completions API](https://docs.ollama.com/api/openai-compatibility) at `http://localhost:11434/v1/chat/completions` by default. Select `--backend ollama --model MODEL` with a model already available to your Ollama server. `--base-url` selects another server and `--endpoint-mode responses` opts into its Responses API. The Ollama selector ignores `OPENAI_SERVER_HOST`; it does not start Ollama or download a model.
 - OpenAI-compatible inference requires `--model`. `--base-url` overrides `OPENAI_SERVER_HOST`, `--endpoint-mode` selects `responses` or `chat-completions`, and `OPENAI_API_KEY` is the only credential source.
 
@@ -105,6 +105,30 @@ acorn infer run summarize input.json --agent codex --agent-executable /path/to/c
 ```
 
 If `codex-acp` is missing, install it with `npm install -g @agentclientprotocol/codex-acp`. That global installation does not require `npx`. If npm and npx are unavailable, install Node.js/npm or place a standalone binary from the [`codex-acp` releases](https://github.com/agentclientprotocol/codex-acp/releases) on `PATH`.
+
+#### Claude through ACP
+
+Install the adapter and authenticate through Claude Code, then pass the source content to ACORN:
+
+```sh
+npm install -g @agentclientprotocol/claude-agent-acp
+claude auth login
+acorn doctor --check software
+acorn infer run summarize input.json --agent claude --timeout 120s
+acorn infer run summarize input.json --agent claude --model haiku --timeout 120s
+```
+
+Install Claude Code separately if `claude` is missing. `--agent-executable /path/to/claude-agent-acp` selects a custom adapter location. Authentication stays with Claude Code and the adapter; ACORN does not read, store, or forward Anthropic credentials. Requests consume the selected Claude subscription allowance or API usage, according to the adapter's authentication configuration.
+
+ACORN supplies the prompt content directly. The Claude profile disables agent tools and user/project/local settings sources, disallows permission bypass, and selects Plan mode before sending a prompt. If Plan mode is missing, rejected, or times out, inference fails without sending the prompt. Claude therefore cannot inspect neighboring files or apply suggested changes through this profile. ACORN validates structured proposals and leaves any later application to the existing explicit review workflow. This policy was exercised with adapter 0.113.0, including permissive fixture settings and a startup hook; it is not an operating-system sandbox for an arbitrary replacement executable.
+
+The opt-in live check exercises summaries, validated fixes, and mutation refusal on disposable inputs:
+
+```sh
+make test-acp ACP_AGENT=claude
+```
+
+The test is ignored by default. `ACP_AGENT=codex` and `ACP_AGENT=opencode` select the existing agents.
 
 ## Custom Rhai prompts
 

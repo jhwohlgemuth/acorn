@@ -89,7 +89,12 @@ try {
     assert.equal(await previous.isDisabled(), true);
     await page.getByRole("button", { name: "Clear filters" }).click();
     assert.equal(await page.locator("#asset option").count(), catalog.assets.length);
-    assert.deepEqual(await page.locator("#asset optgroup").evaluateAll((groups) => groups.map((group) => group.label)), ["Drones", "Landmarks", "Research"]);
+    assert.deepEqual(await page.locator("#asset optgroup").evaluateAll((groups) => groups.map((group) => group.label)), ["Drones", "Landmarks", "Markers", "Research"]);
+    assert.equal(await page.locator('#asset optgroup[label="Markers"] option').count(), 23);
+    for (const id of ["research/ames-marker", "research/ornl-marker", "marker/plain-blue"]) {
+        assert.equal(await page.locator(`#asset optgroup[label="Markers"] option[value="${id}"]`).count(), 1);
+    }
+    assert.equal(await page.locator('#asset optgroup[label="Research"] option').count(), 14);
     assert.equal(await page.locator('#categories option[value="other"]').count(), 0);
     assert.equal((await page.request.get(`${origin}/models/other/player-pawn.glb`)).status(), 404);
     await page.locator("#categories").selectOption("drone");
@@ -100,6 +105,23 @@ try {
     assert.equal(await page.locator("#download").getAttribute("href"), "/models/drones/landing-pad.glb");
     assert.equal((await page.request.get(`${origin}/models/drones/landing-pad.glb`)).status(), 200);
     await page.getByRole("button", { name: "Clear filters" }).click();
+    await page.locator("#categories").selectOption("marker");
+    assert.equal(await page.locator("#asset option").count(), 23);
+    assert.equal(await page.locator('#categories option[value="marker"]').textContent(), "Markers (23)");
+    await page.locator("#asset").selectOption("marker/plain-blue");
+    await ready("Plain Marker — Blue");
+    await next.click();
+    await ready("Plain Marker — Brown");
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    const labMarker = catalog.assets.find((asset) => asset.id === "research/los-alamos-marker");
+    await page.locator("#asset").selectOption(labMarker.id);
+    await ready(labMarker.label);
+    assert.equal((await page.request.get(`${origin}/models/${labMarker.file}`)).status(), 200);
+    const markerIndex = options.findIndex((item) => item.id === labMarker.id);
+    await next.click();
+    await ready(options[markerIndex + 1].label);
+    await previous.click();
+    await ready(labMarker.label);
     const firstLandmark = options.findIndex((item) => item.id.startsWith("landmarks/"));
     await page.locator("#asset").selectOption(options[firstLandmark - 1].id);
     await ready(options[firstLandmark - 1].label);

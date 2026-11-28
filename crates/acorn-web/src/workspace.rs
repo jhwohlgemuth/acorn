@@ -26,7 +26,7 @@ const FILE_KIND_FILTERS: [(Option<MimeType>, &str, &str, &str); 6] = [
     (None, "other", "Other", "Other files"),
 ];
 const IDENTIFIER_COLOR_COUNT: usize = 8;
-const TAG_COLOR_COUNT: usize = 8;
+pub(crate) const TAG_COLOR_COUNT: usize = 8;
 #[derive(Clone, Default, serde::Deserialize)]
 pub(crate) struct BucketHistory {
     repositories: Vec<String>,
@@ -66,12 +66,24 @@ fn file_kind(file: &SuppliedFile) -> &'static str {
         .map(|(_, value, _, _)| *value)
         .unwrap_or(if mime.is_image() { "image" } else { "other" })
 }
-fn file_loadable(file: &SuppliedFile, tool: Tool) -> bool {
+pub(crate) fn file_loadable(file: &SuppliedFile, tool: Tool) -> bool {
     let mime = MimeType::from(file.path.as_str());
     !mime.is_image()
         && file.content.len() <= tool.limit()
         && match tool {
             | Tool::Activity | Tool::Fair => matches!(mime, MimeType::Json),
+            | Tool::Format => matches!(
+                mime,
+                MimeType::Cff
+                    | MimeType::Json
+                    | MimeType::Jsonc
+                    | MimeType::LdJson
+                    | MimeType::Markdown
+                    | MimeType::RdfXml
+                    | MimeType::Turtle
+                    | MimeType::Yaml
+                    | MimeType::Zon
+            ),
             | Tool::Standard | Tool::Crosswalk => file_format(&file.path).is_some(),
             | _ => true,
         }
@@ -285,7 +297,7 @@ pub(crate) fn Loader(ontemplate: EventHandler<(String, MimeType)>) -> Element {
                 input.set(next.content()); workspace.set(next); message.set("File loaded. Choose Portfolio to validate and explore activities.".into()); close_url();
             } }
         } }
-        p { class: "load-limits small muted", "JSON, YAML, Markdown, text, SVG, PNG, JPEG or WebP · 2 MiB per file · 500 files · 32 MiB stored total" }
+        p { class: "load-limits small muted", "CFF, JSON, JSON-LD, RDF/XML, Turtle, YAML, Markdown, text, SVG, PNG, JPEG or WebP · 2 MiB per file · 500 files · 32 MiB stored total" }
         details { class: "remote-entry", summary {
             "Open a " span { class: "repository-name repository-github", img { src: asset!("/assets/generated/github.svg"), alt: "", width: "16", height: "16" } "GitHub" }
             " or " span { class: "repository-name", img { src: asset!("/assets/generated/gitlab.svg"), alt: "", width: "16", height: "16" } "GitLab" } " bucket"
@@ -675,7 +687,7 @@ fn StatusDonut(counts: BTreeMap<String, usize>) -> Element {
         .collect();
     rsx! { DonutTile { tile_id: "statuses", class: "status-donut", title: "Statuses", center_label: "activities", empty_message: "No matching activities", segments } }
 }
-fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
+pub(crate) fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
     projects
         .iter()
         .flat_map(|project| project.keywords.iter().map(String::as_str))
@@ -688,7 +700,7 @@ fn tag_colors(projects: &[Project]) -> BTreeMap<&str, usize> {
 fn tile_label(id: &str) -> &'static str {
     PORTFOLIO_TILES.iter().find(|(tile, _)| *tile == id).map_or("Tile", |(_, label)| *label)
 }
-fn top_topics(records: &[(&SuppliedFile, &Value)]) -> Vec<(String, usize)> {
+pub(crate) fn top_topics(records: &[(&SuppliedFile, &Value)]) -> Vec<(String, usize)> {
     let counts = records.iter().fold(BTreeMap::new(), |mut counts, (_, value)| {
         session::many(value.pointer("/meta/keywords").unwrap_or(&Value::Null))
             .into_iter()
@@ -723,7 +735,7 @@ fn TopicBars(counts: Vec<(String, usize)>, total: usize) -> Element {
         }
     } }
 }
-fn tree_children(paths: &[String], prefix: &str, descending: bool) -> Vec<(bool, String)> {
+pub(crate) fn tree_children(paths: &[String], prefix: &str, descending: bool) -> Vec<(bool, String)> {
     let mut children = paths
         .iter()
         .filter_map(|path| path.strip_prefix(prefix))
@@ -737,7 +749,7 @@ fn tree_children(paths: &[String], prefix: &str, descending: bool) -> Vec<(bool,
     }
     children
 }
-fn visible_file_paths(
+pub(crate) fn visible_file_paths(
     files: &[SuppliedFile],
     pattern: &SearchPattern,
     kind: &str,
@@ -757,133 +769,4 @@ fn visible_file_paths(
         })
         .map(|file| file.path.clone())
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_file_format_for_loaded_content() {
-        assert_eq!(file_format("record.json"), Some("json"));
-        assert_eq!(file_format("record.yaml"), Some("yaml"));
-        assert_eq!(file_format("record.md"), Some("markdown"));
-        assert_eq!(file_format("record.jsonld"), Some("json-ld"));
-        assert_eq!(file_format("cover.svg"), None);
-    }
-    #[test]
-    fn test_loaded_file_matches_page_input() {
-        let json = SuppliedFile {
-            path: "project/index.json".into(),
-            content: "{}".into(),
-        };
-        let yaml = SuppliedFile {
-            path: "project/index.yaml".into(),
-            content: "title: Test".into(),
-        };
-        let svg = SuppliedFile {
-            path: "project/banner.svg".into(),
-            content: "<svg/>".into(),
-        };
-        let long_text = SuppliedFile {
-            path: "project/notes.txt".into(),
-            content: "x".repeat(Tool::Inspect.limit() + 1),
-        };
-        assert!(file_loadable(&json, Tool::Activity));
-        assert!(!file_loadable(&yaml, Tool::Activity));
-        assert!(file_loadable(&yaml, Tool::Standard));
-        assert!(!file_loadable(&svg, Tool::Standard));
-        assert!(!file_loadable(&long_text, Tool::Inspect));
-    }
-    #[test]
-    fn test_tag_colors_repeat_after_palette_and_ignore_project_order() {
-        let tags = (0..=TAG_COLOR_COUNT).map(|index| format!("tag-{index:02}")).collect::<Vec<_>>();
-        let first = tags.first().expect("first tag");
-        let wrapped = tags.get(TAG_COLOR_COUNT).expect("tag after the palette");
-        let project = |keywords: Vec<String>| Project {
-            id: String::new(),
-            title: String::new(),
-            summary: String::new(),
-            paths: Vec::new(),
-            organizations: Vec::new(),
-            keywords,
-        };
-        let projects = [project(tags.clone()), project(vec![first.clone()])];
-        let colors = tag_colors(&projects);
-        assert_eq!(colors.len(), TAG_COLOR_COUNT + 1);
-        assert_eq!(colors.values().copied().collect::<BTreeSet<_>>().len(), TAG_COLOR_COUNT);
-        assert_eq!(colors.get(first.as_str()), colors.get(wrapped.as_str()));
-        assert_eq!(colors, tag_colors(&[projects[1].clone(), projects[0].clone()]));
-    }
-    #[test]
-    fn test_top_topics_counts_activities_once_and_sorts_by_frequency() {
-        let files = (0..4)
-            .map(|index| SuppliedFile {
-                path: format!("{index}.json"),
-                content: String::new(),
-            })
-            .collect::<Vec<_>>();
-        let values = [
-            json!({"meta":{"keywords":["mapping","mapping","visualization"]}}),
-            json!({"meta":{"keywords":["mapping","geospatial"]}}),
-            json!({"meta":{"keywords":["geospatial","visualization"]}}),
-            json!({"meta":{"keywords":["mapping"]}}),
-        ];
-        let records = files.iter().zip(values.iter()).collect::<Vec<_>>();
-        assert_eq!(
-            top_topics(&records),
-            [("mapping".into(), 3), ("geospatial".into(), 2), ("visualization".into(), 2)]
-        );
-        assert!(top_topics(&[]).is_empty());
-    }
-    #[test]
-    fn test_tree_children_keep_folders_first_in_both_directions() {
-        let paths = vec!["z.txt".into(), "b/index.json".into(), "a.txt".into(), "a/index.json".into()];
-        assert_eq!(
-            tree_children(&paths, "", false),
-            vec![(false, "a".into()), (false, "b".into()), (true, "a.txt".into()), (true, "z.txt".into())]
-        );
-        assert_eq!(
-            tree_children(&paths, "", true),
-            vec![(false, "b".into()), (false, "a".into()), (true, "z.txt".into()), (true, "a.txt".into())]
-        );
-    }
-    #[test]
-    fn test_visible_file_paths_preserve_matching_hierarchy() {
-        let files = vec![
-            SuppliedFile {
-                path: "Gold/index.json".into(),
-                content: "{}".into(),
-            },
-            SuppliedFile {
-                path: "Gold/banner.svg".into(),
-                content: "<svg/>".into(),
-            },
-            SuppliedFile {
-                path: "Other/notes.txt".into(),
-                content: "notes".into(),
-            },
-        ];
-        let gold = SearchPattern::new("gold", false, false).expect("literal query");
-        let all = SearchPattern::new("", false, false).expect("empty query");
-        assert_eq!(
-            visible_file_paths(&files, &gold, "all", None, None),
-            vec!["Gold/index.json", "Gold/banner.svg"]
-        );
-        assert_eq!(visible_file_paths(&files, &all, "image", None, None), vec!["Gold/banner.svg"]);
-        assert_eq!(
-            visible_file_paths(&files, &gold, "loadable", Some(Tool::Activity), None),
-            vec!["Gold/index.json"]
-        );
-        let case_sensitive = SearchPattern::new("gold", false, true).expect("literal query");
-        assert!(visible_file_paths(&files, &case_sensitive, "all", None, None).is_empty());
-        let regex = SearchPattern::new(r"Gold/.*\.svg$", true, true).expect("regex query");
-        assert_eq!(visible_file_paths(&files, &regex, "all", None, None), vec!["Gold/banner.svg"]);
-        let selected = BTreeSet::from(["json".to_owned(), "text".to_owned()]);
-        assert_eq!(
-            visible_file_paths(&files, &all, "all", None, Some(&selected)),
-            vec!["Gold/index.json", "Other/notes.txt"]
-        );
-        assert!(visible_file_paths(&files, &all, "all", None, Some(&BTreeSet::new())).is_empty());
-    }
 }

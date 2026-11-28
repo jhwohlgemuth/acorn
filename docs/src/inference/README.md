@@ -11,4 +11,18 @@ Native Needle routing is still experimental. Unscoped `--route` requests only pr
 
 For direct inference APIs, embedded prompt instructions remain Markdown and the complete caller data object is appended once as canonical ZON. Local Rhai prompt scripts can build the complete prompt body from the merged data instead. Library callers can explicitly choose pretty JSON for troubleshooting. This is model-facing text only: ACP still uses JSON-RPC and OpenAI-compatible endpoints still use JSON request envelopes.
 
-The CLI exposes that boundary through [`acorn infer run`](../cli-reference/commands/infer.md). ACP is the default backend and OpenCode is its default agent; `--agent codex` selects an installed `codex-acp` adapter. `--backend ollama --model MODEL` uses the local Ollama server through its OpenAI-compatible Chat Completions API. `ACORN_INFERENCE_BACKEND` supplies a default backend and an explicit `--backend` wins over it. ACORN never falls back between backends or agents. ACP permission requests remain governed by the fixed deny-mutation policy even when a session observer is attached.
+The CLI exposes that boundary through [`acorn infer run`](../cli-reference/commands/infer.md). ACP is the default backend and OpenCode is its default agent; `--agent codex` selects an installed `codex-acp` adapter, and `--agent claude` selects `claude-agent-acp`. Claude sessions disable tools and user/project settings sources, disallow permission bypass, and require Plan mode before inference. `--backend ollama --model MODEL` uses the local Ollama server through its OpenAI-compatible Chat Completions API. `ACORN_INFERENCE_BACKEND` supplies a default backend and an explicit `--backend` wins over it. ACORN never falls back between backends or agents. ACP permission requests remain governed by the fixed deny-mutation policy even when a session observer is attached.
+
+Explicit executor bindings use the same trusted agent profiles:
+
+```json
+{
+  "executors": [{
+    "id": "acp:summary",
+    "capabilityId": "acorn.summary",
+    "executor": {"type": "acp", "profile": "claude"}
+  }]
+}
+```
+
+The accepted profiles are `claude`, `codex`, and `opencode`. Installing an agent does not enable a binding. See [Claude setup](../cli-reference/commands/infer.md#claude-through-acp) for installation, authentication, and usage costs.

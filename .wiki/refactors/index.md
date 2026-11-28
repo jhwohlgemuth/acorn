@@ -10,6 +10,8 @@
 - [Shared API client contract](api/shared-client-contract.md) - Finish the reusable API boundary before provider extraction.
 - [Portable diff resource and API hardening](acorn-diff-resource-and-api-hardening.md) - Bound diff work and output, complete the patch API, and add configurable unified and sequence-aware array behavior.
 - [ZON codec hardening](zon-codec-hardening.md) - Review the pinned encoder and decoder, consolidate duplicated grammar logic, and strengthen conformance evidence.
+- [Portable module cycles](portable-module-cycles.md) - Remove three narrow sibling-module cycles in analysis, core, and vocabulary without changing public contracts.
+- [Command macro convergence](command-macro-convergence.md) - Route Rust subprocess construction and explicit argument collections through `cmd!` and `args!` while preserving process lifecycles.
 - [Browser workspace runtime performance](browser-performance.md) - Operations run in a worker; shrink the ROR and WASM payloads and measure binding, build, observer and caching changes. BWP-03 and BWP-06 are ready.
 - [Workspace dependency audit](workspace-dependency-audit.md) - Triage and remediate RustSec findings in the workspace lockfile under the Workspace graph lock.
 - [CLI composition boundary](core/cli-composition-boundary.md) - Normalize parser inputs, isolate startup, share remote serve dispatch, and map errors/exits once.

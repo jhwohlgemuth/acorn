@@ -3,6 +3,7 @@ const BIG_O_TOOL = "acorn_compare_big_o";
 const CROSSWALK_TOOL = "acorn_crosswalk_metadata";
 const DIFF_TOOL = "acorn_diff_content";
 const DISCOVERY_TOOL = "acorn_discover_persistent_identifiers";
+const FORMAT_TOOL = "acorn_format_metadata";
 const IDENTIFIER_TOOL = "acorn_inspect_persistent_identifier";
 const METADATA_TOOL = "acorn_validate_metadata_standard";
 const READABILITY_TOOL = "acorn_check_readability";
@@ -14,6 +15,7 @@ const ACORN_TOOL_NAMES = Object.freeze([
     CROSSWALK_TOOL,
     DIFF_TOOL,
     DISCOVERY_TOOL,
+    FORMAT_TOOL,
     IDENTIFIER_TOOL,
     METADATA_TOOL,
     VALIDATION_TOOL,
@@ -111,7 +113,7 @@ export async function runNativeSmoke({ adapter, installation }) {
     assert(typeof document.modelContext?.executeTool === "function", "executeTool is unavailable");
     const tools = await document.modelContext.getTools();
     const acornTools = tools.filter(({ name }) => ACORN_TOOL_NAMES.includes(name));
-    assert(acornTools.length === 9, "ACORN tools were not discovered");
+    assert(acornTools.length === 10, "ACORN tools were not discovered");
     assert(JSON.stringify(acornTools.map(({ name }) => name)) === JSON.stringify(ACORN_TOOL_NAMES), "ACORN tools are not ordered by name");
     acornTools.forEach((tool) => {
         assert(registeredSchema(tool)?.additionalProperties === false, `${tool.name} accepts unknown fields`);
@@ -133,6 +135,17 @@ export async function runNativeSmoke({ adapter, installation }) {
     const discovery = parseExecutionResult(await executeNativeTool(document.modelContext, discoveryTool, discoveryInput));
     assert(discovery.ok && discovery.result.count === 2, "Identifier discovery did not return both persistent identifiers");
     assert(JSON.stringify(discovery) === JSON.stringify(await adapter.discoverPersistentIdentifiers(discoveryInput)), "Manual and tool identifier discovery differ");
+    const formatTool = acornTools.find(({ name }) => name === FORMAT_TOOL);
+    const formatInput = { content: DATACITE_PROJECT, format: "json", standard: "research-activity-data" };
+    const formatted = parseExecutionResult(await executeNativeTool(document.modelContext, formatTool, formatInput));
+    assert(formatted.ok && formatted.result.format === "json", "RAD JSON formatting did not return JSON");
+    assert(JSON.stringify(formatted) === JSON.stringify(await adapter.formatMetadata(formatInput)), "Manual and tool formatting differ");
+    const jsoncInput = { ...formatInput, content: `// A comment removed on format\n${DATACITE_PROJECT}`, format: "jsonc" };
+    const formattedJsonc = parseExecutionResult(await executeNativeTool(document.modelContext, formatTool, jsoncInput));
+    assert(formattedJsonc.ok && formattedJsonc.result.format === "jsonc" && !formattedJsonc.result.content.includes("A comment"), "RAD JSONC formatting did not remove comments");
+    const yamlInput = { ...formatInput, format: "yaml" };
+    const formattedYaml = parseExecutionResult(await executeNativeTool(document.modelContext, formatTool, yamlInput));
+    assert(formattedYaml.ok && formattedYaml.result.format === "yaml" && formattedYaml.result.content.includes("meta:"), "RAD YAML formatting did not return YAML");
     const identifierTool = acornTools.find(({ name }) => name === IDENTIFIER_TOOL);
     const identifierInput = { value: "https://doi.org/10.1000/182" };
     const identifier = parseExecutionResult(await executeNativeTool(document.modelContext, identifierTool, identifierInput));

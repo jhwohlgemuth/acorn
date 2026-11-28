@@ -48,6 +48,7 @@ const bindings = (overrides = {}) => ({
     crosswalkMetadata: (_content, _format, source, target) => ({ content: "{}", format: "json", source, target, warnings: [] }),
     diffContent: () => ({ changed: true, diff: "--- before\n+++ after", mode: "unified" }),
     discoverPersistentIdentifiers: () => ({ count: 1, identifiers: [{ kind: "doi", normalized: "10.1000/182" }], truncated: false }),
+    formatMetadata: (content, _standard, format) => ({ changed: true, content, format, standard: "research-activity-data", vocabularyFuzzy: "strict" }),
     inspectPersistentIdentifier: () => identifierValue(),
     validateMetadataStandard: () => ({ diagnostics: [], valid: true }),
     validateResearchActivity: () => ({ diagnostics: [], valid: true, value: { private: true } }),
@@ -331,6 +332,61 @@ test("identifier inspection rejects malformed binding results", async () => {
     const adapter = createAcornWebMcpAdapter(bindings({ inspectPersistentIdentifier: () => ({ status: "valid" }) }));
     assert.equal((await adapter.inspectPersistentIdentifier({ value: "10.1000/182" })).error.code, "execution_failed");
 });
+test("format metadata accepts bounded CFF, DataCite, Dublin Core, Invenio, and RAD syntax pairs and validates the result", async () => {
+    const calls = [];
+    const adapter = createAcornWebMcpAdapter(bindings({
+        formatMetadata: (...args) => {
+            calls.push(args);
+            return { changed: true, content: "{\"title\":\"Formatted\"}", format: args[2], standard: args[1], vocabularyFuzzy: args[3] ?? "strict" };
+        },
+    }));
+    const input = { content: "{}", format: "json", standard: "research-activity-data" };
+    assert.equal((await adapter.formatMetadata(input)).result.content, "{\"title\":\"Formatted\"}");
+    assert.equal((await adapter.formatMetadata({ ...input, fuzzy: "off" })).result.vocabularyFuzzy, "off");
+    assert.equal((await adapter.formatMetadata({ ...input, format: "jsonc" })).result.format, "jsonc");
+    assert.equal((await adapter.formatMetadata({ ...input, format: "markdown" })).result.format, "markdown");
+    assert.equal((await adapter.formatMetadata({ ...input, format: "yaml" })).result.format, "yaml");
+    assert.equal((await adapter.formatMetadata({ ...input, format: "zon" })).result.format, "zon");
+    for (const format of ["cff", "json", "yaml"]) {
+        assert.equal((await adapter.formatMetadata({ ...input, format, standard: "citation-file-format" })).result.format, format);
+    }
+    for (const format of ["json", "yaml"]) {
+        assert.equal((await adapter.formatMetadata({ ...input, format, standard: "datacite" })).result.standard, "datacite");
+        assert.equal((await adapter.formatMetadata({ ...input, format, standard: "invenio" })).result.standard, "invenio");
+    }
+    for (const format of ["json", "json-ld", "rdf-xml", "turtle", "yaml"]) {
+        assert.equal((await adapter.formatMetadata({ ...input, format, standard: "dublin-core" })).result.standard, "dublin-core");
+    }
+    assert.deepEqual(calls, [["{}", "research-activity-data", "json", undefined], ["{}", "research-activity-data", "json", "off"], ["{}", "research-activity-data", "jsonc", undefined], ["{}", "research-activity-data", "markdown", undefined], ["{}", "research-activity-data", "yaml", undefined], ["{}", "research-activity-data", "zon", undefined], ["{}", "citation-file-format", "cff", undefined], ["{}", "citation-file-format", "json", undefined], ["{}", "citation-file-format", "yaml", undefined], ["{}", "datacite", "json", undefined], ["{}", "invenio", "json", undefined], ["{}", "datacite", "yaml", undefined], ["{}", "invenio", "yaml", undefined], ["{}", "dublin-core", "json", undefined], ["{}", "dublin-core", "json-ld", undefined], ["{}", "dublin-core", "rdf-xml", undefined], ["{}", "dublin-core", "turtle", undefined], ["{}", "dublin-core", "yaml", undefined]]);
+    for (const invalid of [
+        { ...input, extra: true },
+        { ...input, format: "cff" },
+        { ...input, format: "markdown", standard: "citation-file-format" },
+        { ...input, fuzzy: "unknown" },
+        { ...input, standard: "datacite", format: "jsonc" },
+        { ...input, standard: "invenio", format: "jsonc" },
+        { ...input, standard: "dublin-core", format: "jsonc" },
+        { content: "{}", format: "json" },
+    ]) {
+        assert.equal((await adapter.formatMetadata(invalid)).error.code, "invalid_arguments");
+    }
+    assert.equal((await adapter.formatMetadata({ ...input, content: "é".repeat(128 * 1024) })).ok, true);
+    assert.equal((await adapter.formatMetadata({ ...input, content: `${"é".repeat(128 * 1024)}x` })).error.code, "input_too_large");
+});
+test("format metadata maps parse, output, cancellation, and malformed results", async () => {
+    const input = { content: "{}", format: "json", standard: "research-activity-data" };
+    const parse = createAcornWebMcpAdapter(bindings({ formatMetadata: () => { throw "Invalid research activity JSON"; } }));
+    assert.equal((await parse.formatMetadata(input)).error.code, "invalid_arguments");
+    const large = createAcornWebMcpAdapter(bindings({ formatMetadata: () => { throw "Format output exceeds 256 KiB"; } }));
+    assert.equal((await large.formatMetadata(input)).error.code, "result_too_large");
+    const malformed = createAcornWebMcpAdapter(bindings({ formatMetadata: () => ({ content: "{}" }) }));
+    assert.equal((await malformed.formatMetadata(input)).error.code, "execution_failed");
+    const wrongSyntax = createAcornWebMcpAdapter(bindings({ formatMetadata: () => ({ changed: true, content: "{}", format: "json", standard: "research-activity-data", vocabularyFuzzy: "strict" }) }));
+    assert.equal((await wrongSyntax.formatMetadata({ ...input, format: "yaml" })).error.code, "execution_failed");
+    const cancelled = new AbortController();
+    cancelled.abort();
+    assert.equal((await malformed.formatMetadata(input, { signal: cancelled.signal })).error.code, "cancelled");
+});
 
 test("installation cleans up partial registration and permits retry", async () => {
     const adapter = createAcornWebMcpAdapter(bindings());
@@ -348,6 +404,7 @@ test("installation cleans up partial registration and permits retry", async () =
         "acorn_crosswalk_metadata",
         "acorn_diff_content",
         "acorn_discover_persistent_identifiers",
+        "acorn_format_metadata",
         "acorn_inspect_persistent_identifier",
         "acorn_validate_metadata_standard",
         "acorn_validate_research_activity",

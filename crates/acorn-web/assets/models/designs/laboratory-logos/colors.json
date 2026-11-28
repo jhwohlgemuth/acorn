@@ -1,0 +1,144 @@
+{
+  "checkedDate": "2026-11-27",
+  "laboratories": [
+    {
+      "classification": "official-artwork-dominant-color-fallback",
+      "evidence": "The current official homepage SVG assigns #3c3b72 to class cls-4, used by the complete AMES wordmark. This is the dominant solid identity color, selected over the emblem gradients and red sphere. A publicly accessible standard explicitly naming a primary color was not found; use as an artwork-derived fallback, not a claimed official primary designation.",
+      "hex": "#3C3B72",
+      "label": "Ames identity purple",
+      "slug": "ames",
+      "sourceUrl": "https://www.ameslab.gov/themes/unobtainium/images/logo-narrow.svg"
+    },
+    {
+      "classification": "official-artwork-multicolor-selection-fallback",
+      "evidence": "Official Argonne logo supplied by the ALCF media kit uses exact opaque RGB 0,147,208 for its principal blue facet. Its red, green and blue facets have nearly equal area; select blue for this single-color marker rather than asserting a sole primary. The public Argonne brand notice links to my.anl.gov internal guidance, and an explicit accessible primary-color standard was not found. #00609C appears on third-party palette sites but could not be verified from an official source, so it is not used.",
+      "hex": "#0093D0",
+      "label": "Argonne logo blue",
+      "slug": "argonne",
+      "sourceUrl": "https://www.alcf.anl.gov/sites/default/files/2020-01/Argonne_cmyk_black.png"
+    },
+    {
+      "classification": "Published primary brand standard",
+      "evidence": "Official Primary Palette lists Dark Blue, PMS 547, RGB 0 49 60, HTML 00313C. The page identifies this as the dark blue of the preferred logo and says the primary palette should dominate communications. Chosen over co-primary teal/grays for the main mark color and white-emblem contrast.",
+      "hex": "#00313C",
+      "label": "Berkeley Dark Blue",
+      "slug": "berkeley",
+      "sourceUrl": "https://creative.lbl.gov/visual-identity/"
+    },
+    {
+      "classification": "published-primary-palette-selection",
+      "evidence": "Official Digital Primary Palette specifies Teal RGB 16,92,120 / HEX #105C78. Teal, cerulean and lime are the three principal logo colors. Select teal because the same guidance keeps dark teal in its recommended combinations; it also distinguishes the white emblem clearly. This is one of multiple published primaries, not an assertion that the others are secondary.",
+      "hex": "#105C78",
+      "label": "Brookhaven Teal",
+      "slug": "brookhaven",
+      "sourceUrl": "https://www.bnl.gov/brandcenter/palette.php"
+    },
+    {
+      "classification": "published-primary-brand-color",
+      "evidence": "Official graphics standards identify NAL Blue as the core color and list it under Primary: RGB 0,76,151 / HEX #004C97. Selected the signature color rather than the lighter tint #41B6E6 or darker shade #002855.",
+      "hex": "#004C97",
+      "label": "Fermilab NAL Blue",
+      "slug": "fermilab",
+      "sourceUrl": "https://www.fnal.gov/faw/designstandards/color-palette.html"
+    },
+    {
+      "classification": "official-artwork-dominant-color-fallback",
+      "evidence": "The current official homepage two-tone logo contains exact opaque RGB 7,81,158 / #07519E as its dominant dark blue (7,197 opaque pixels), compared with 1,099 pixels of the cyan accent #2BA8E0. Choose the dominant blue for the marker. A publicly accessible standard explicitly naming its primary color was not found; this is an artwork-derived fallback, not an official primary designation.",
+      "hex": "#07519E",
+      "label": "INL identity blue",
+      "slug": "idaho",
+      "sourceUrl": "https://inl.gov/content/uploads/2025/02/logo-inl-two-tone-blue.png"
+    },
+    {
+      "classification": "Published brand standard: explicit HEX",
+      "evidence": "The July 2023 graphic standards, page 8, explicitly specify PMS 187 C, RGB 166/25/46 and HEX #a6192e. The guide pairs red with black; red is selected as the chromatic institutional identity color for the marker.",
+      "hex": "#A6192E",
+      "label": "Jefferson Lab Red",
+      "slug": "jefferson",
+      "sourceUrl": "https://www.jlab.org/sites/default/files/documents/comms/cs/JLabGraphicStandards2023_F1.pdf#page=8"
+    },
+    {
+      "classification": "Official identity-file color fallback",
+      "evidence": "The current official LLNL Software Portal vector logomark assigns fill #0032a1 to its .st0 paths; this is its sole visible source color. No publicly accessible explicit LLNL primary-palette HEX standard was located, so this is an official identity-file fallback rather than a claimed formal primary specification. Label is descriptive.",
+      "hex": "#0032A1",
+      "label": "LLNL logo blue",
+      "slug": "livermore",
+      "sourceUrl": "https://software.llnl.gov/assets/images/logomark-llnl.svg"
+    },
+    {
+      "classification": "Published primary brand standard",
+      "evidence": "LANL Design & Brand Guidelines, printed page 20 / PDF page 22, explicitly names Ultramarine as the primary brand color and specifies RGB 0 15 126 / Hex #000F7E. Current lanl.gov official homepage CSS independently uses --bg-brand:var(--ultramarine-10,#000f7e).",
+      "hex": "#000F7E",
+      "label": "LANL Ultramarine",
+      "slug": "los-alamos",
+      "sourceUrl": "https://www.osti.gov/servlets/purl/1764177#page=22"
+    },
+    {
+      "alternateHex": "#383838",
+      "classification": "Official identity-file color selection",
+      "evidence": "The official color PNG uses green RGB151,200,61 (#97C83D) for the three bars and ENERGY word. Select this characteristic chromatic identity color for the pin, with white emblem geometry; darkgray #383838 is the other main logo color. No public explicit primary-palette HEX standard was located.",
+      "hex": "#97C83D",
+      "label": "NETL logo green",
+      "slug": "netl",
+      "sourceUrl": "https://netl.doe.gov/sites/default/files/2023-05/NETL%20Stacked%20Color.png"
+    },
+    {
+      "classification": "Existing repository primary palette retained",
+      "evidence": "Existing ACORN-maintained ORNL primary palette: COLOR_PRIMARY uses ORNL_COLOR_GREEN [0x00,0x66,0x2C]. The existing ORNL marker color is retained. The bundled color wordmark has a different older green; this selection follows the maintained application palette.",
+      "hex": "#00662C",
+      "label": "ORNL Green",
+      "slug": "ornl",
+      "sourceUrl": "../../../../../acorn-lib/src/util/constants/app.rs"
+    },
+    {
+      "classification": "Official identity asset selection: explicit SVG fill; primary designation not independently verified",
+      "evidence": "The current official website logo SVG defines the fan emblem with fill #d77900 and the wordmark with #636569. Orange is selected from the actual institutional emblem. A current public general PNNL primary-palette specification was not located.",
+      "hex": "#D77900",
+      "label": "PNNL Emblem Orange",
+      "slug": "pnnl",
+      "sourceUrl": "https://www.pnnl.gov/themes/gesso/images/pnnl-logo.svg"
+    },
+    {
+      "classification": "Official identity asset selection: rendered RGB; primary designation not independently verified",
+      "evidence": "The official FY25 research accomplishments PDF, dated January 30, 2026, contains the current vector logo. Rendering its logo at 1000 dpi produces a dominant solid orange of RGB 244/111/27 (#F46F1B); the plasma emblem also uses a yellow-orange gradient. Orange is selected as the dominant logo color. This is an asset-derived rendering value, not a published brand HEX standard.",
+      "hex": "#F46F1B",
+      "label": "PPPL Logo Orange",
+      "slug": "pppl",
+      "sourceUrl": "https://www.pppl.gov/sites/g/files/toruqf286/files/documents/research_accomplishments_fy25_final.pdf#page=1"
+    },
+    {
+      "classification": "Published primary brand standard",
+      "evidence": "Current National Laboratory of the Rockies Primary Colors table explicitly specifies Rocky Blue, PMS 2955C, RGB 0 58 105, Hex #003a69. Select this dark main-symbol primary for a white emblem rather than co-primary Mesa Blue #0079C2, Golden Sun #DB9728 or Obsidian #111212. Published standard takes precedence over the SVG export color #003B6D.",
+      "hex": "#003A69",
+      "label": "NLR Rocky Blue",
+      "slug": "rockies",
+      "sourceUrl": "https://www.nlr.gov/comm-standards/brand/colors-typography"
+    },
+    {
+      "classification": "Published historical primary brand standard: explicit HEX; current primary designation not independently verified",
+      "evidence": "Sandia Corporate Style Guide SAND2011-9283P, last updated November 2011, page 14, explicitly places Pantone 540 / Web HEX 003359 in its primary palette, alongside warm gray and maroon. Navy is selected as the first primary swatch. The guide lists brighter Sandia Blue as secondary. Its RGB column slightly disagrees with the explicit HEX, so the Web HEX is used. No newer public primary-palette standard was located; current standalone Thunderbird artwork uses #00ACD9.",
+      "hex": "#003359",
+      "label": "Sandia Primary Navy",
+      "slug": "sandia",
+      "sourceUrl": "https://www.osti.gov/servlets/purl/1661563#page=14"
+    },
+    {
+      "classification": "Official identity asset: explicit SVG fill, corroborated by historical published primary palette",
+      "evidence": "All 42 paths in the current official SRNL logo SVG use #005288. SRNL describes its 2022-present identity as blue-only. The same HEX is listed in the historical official SRNL identity guide primary palette, so the current monochromatic identity provides direct corroboration.",
+      "hex": "#005288",
+      "label": "SRNL Blue",
+      "slug": "savannah-river",
+      "sourceUrl": "https://www.srnl.gov/wp-content/uploads/srnl-logo.svg"
+    },
+    {
+      "classification": "Published brand standard: explicit HEX",
+      "evidence": "The current official logo resources page explicitly gives HEX #8C1515 and RGB 140/21/21 for SLAC red, and describes the one-color red logo as preferred on white. Red is selected over the alternative black and white versions.",
+      "hex": "#8C1515",
+      "label": "SLAC Red",
+      "slug": "slac",
+      "sourceUrl": "https://www6.slac.stanford.edu/about/resources/logos"
+    }
+  ],
+  "selectionPolicy": "Use a published primary color where accessible; otherwise use an explicitly documented color from official laboratory artwork. A single body color is chosen from multicolor identities. White emblems and metallic rims remain unchanged.",
+  "version": 1
+}

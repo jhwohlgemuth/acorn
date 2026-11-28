@@ -5,6 +5,7 @@
   "scripts": {
     "build:editor": "node scripts/build-editor.mjs",
     "models": "node scripts/model-viewer.mjs",
+    "test:design-system": "node --test scripts/design-system-catalog.test.mjs scripts/design-system-oakley.test.mjs",
     "test:models-viewer": "node scripts/model-viewer-smoke.mjs"
   },
   "devDependencies": {
