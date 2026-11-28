@@ -91,6 +91,7 @@ dependencies = [
  "tracing-indicatif",
  "tracing-log",
  "tracing-subscriber",
+ "unicode-segmentation",
  "unicode-width",
  "which",
 ]

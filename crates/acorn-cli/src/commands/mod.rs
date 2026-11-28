@@ -43,6 +43,7 @@ pub mod intake;
 pub mod link;
 pub mod mcp;
 pub mod report;
+pub mod say;
 pub mod serve;
 pub mod skill;
 pub mod swhid;
@@ -585,6 +586,7 @@ fn run_command(args: &Arguments, offline: bool, config: &DatabaseConfig, threads
                 | Err(why) => Err(why),
             }
         }),
+        | Some(Commands::Say { text, wrap }) => say::run(text, usize::from(*wrap)),
         | Some(Commands::Serve { command, .. }) => match command {
             | Some(ServeCommands::Bot(args)) => with_runtime(async {
                 let bind = args.common.bind_address();

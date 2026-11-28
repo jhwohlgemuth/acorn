@@ -293,6 +293,20 @@ pub enum Commands {
     ///
     #[clap(verbatim_doc_comment, next_help_heading = "FLAGS")]
     Report(Box<arguments::Report>),
+    /// Show Oakley saying the supplied text.
+    ///
+    ///     $> acorn say
+    ///     $> acorn say "Plant an ACORN and grow your science"
+    ///     $> acorn say "A longer message" --wrap 20
+    #[clap(verbatim_doc_comment)]
+    Say {
+        /// Text to display in Oakley's speech bubble.
+        #[arg(default_value = "Hello there! I'm Oakley!", value_name = "TEXT")]
+        text: String,
+        /// Maximum text width before wrapping to a new line.
+        #[arg(long, default_value_t = 40, value_name = "COLUMNS", value_parser = clap::value_parser!(u16).range(1..))]
+        wrap: u16,
+    },
     /// Calculate or verify a Software Hash Identifier (SWHID)
     ///
     ///     Hash a local file or directory
@@ -556,8 +570,10 @@ pub enum WatchMode {
     /// Poll local and network sources.
     Poll,
 }
-/// "Plant an ACORN and grow your science"
-///
+///       ╭──────────────────────────────────────╮
+///       │ Plant an ACORN and grow your science │
+///       ╰────────────┬─────────────────────────╯
+///        ╭───────────╯
 ///      ██▄
 ///       ▄▄█▄▄▄            █████████     █████████     ███████    ███████████   ██████   █████
 ///   ▄▄▄▀▀▄▄▄▄▀▀▄▄▄       ███▒▒▒▒▒███   ███▒▒▒▒▒███  ███▒▒▒▒▒███ ▒▒███▒▒▒▒▒███ ▒▒██████ ▒▒███
@@ -568,6 +584,7 @@ pub enum WatchMode {
 ///  ▀███  ████  ███▀     █████   █████ ▒▒█████████  ▒▒▒███████▒   █████   █████ █████  ▒▒█████
 ///    ▀██████████▀      ▒▒▒▒▒   ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒     ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒
 ///       ▀▀██▀▀
+///
 ///                               ~ Accessible Content Optimization for Research Needs ~
 ///
 #[derive(Debug, Parser)]

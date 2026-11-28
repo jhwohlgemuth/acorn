@@ -28,6 +28,8 @@ ACORN is context-aware at the data and workflow level. It keeps project descript
 ## What ACORN does
 The `acorn` command checks and formats research records, adds linked-data context, and creates reusable outputs. It runs on Windows, macOS, and Linux. See [Why ACORN?](https://acorn.ornl.gov/motivation.html) for the project-level research model and its intended uses.
 
+Run `acorn say` to print the acorn mascot greeting, or `acorn say "Hello, Oakley!"` to supply your own speech bubble. `--wrap` sets the text width in columns (40 by default).
+
 Direct inference supports OpenCode, Codex, and Claude through ACP. Use `acorn infer run summarize input.json --agent claude` with an installed, authenticated Claude Agent ACP adapter. See [inference setup](docs/src/cli-reference/commands/infer.md#claude-through-acp) for installation, usage costs, and the content-only permission policy.
 
 The bot can also consume a GitLab JSONL logbook inbox, durably admit authorized submissions, and propose project updates through review. See [ACRE inbox configuration](docs/src/concepts/acre.md#gitlab-logbook-inbox).

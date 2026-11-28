@@ -51,6 +51,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * [`acorn-cli mcp call`↴](#acorn-cli-mcp-call)
 * [`acorn-cli mcp list`↴](#acorn-cli-mcp-list)
 * [`acorn-cli report`↴](#acorn-cli-report)
+* [`acorn-cli say`↴](#acorn-cli-say)
 * [`acorn-cli swhid`↴](#acorn-cli-swhid)
 * [`acorn-cli skill`↴](#acorn-cli-skill)
 * [`acorn-cli serve`↴](#acorn-cli-serve)
@@ -71,8 +72,10 @@ This document contains the help content for the `acorn-cli` command-line program
 
 ## `acorn-cli`
 
-"Plant an ACORN and grow your science"
-
+      ╭──────────────────────────────────────╮
+      │ Plant an ACORN and grow your science │
+      ╰────────────┬─────────────────────────╯
+       ╭───────────╯
      ██▄
       ▄▄█▄▄▄            █████████     █████████     ███████    ███████████   ██████   █████
   ▄▄▄▀▀▄▄▄▄▀▀▄▄▄       ███▒▒▒▒▒███   ███▒▒▒▒▒███  ███▒▒▒▒▒███ ▒▒███▒▒▒▒▒███ ▒▒██████ ▒▒███
@@ -83,6 +86,7 @@ This document contains the help content for the `acorn-cli` command-line program
  ▀███  ████  ███▀     █████   █████ ▒▒█████████  ▒▒▒███████▒   █████   █████ █████  ▒▒█████
    ▀██████████▀      ▒▒▒▒▒   ▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒     ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒
       ▀▀██▀▀
+
                               ~ Accessible Content Optimization for Research Needs ~
 
 **Usage:** `acorn-cli [OPTIONS] [COMMAND]`
@@ -104,6 +108,7 @@ This document contains the help content for the `acorn-cli` command-line program
 * `link` — Add linked data context to research activity data
 * `mcp` — Discover and invoke allowlisted tools on configured MCP servers
 * `report` — Generate bounded artifacts and publish immutable GitLab packages
+* `say` — Show Oakley saying the supplied text.
 * `swhid` — Calculate or verify a Software Hash Identifier (SWHID)
 * `skill` — Print the embedded ACORN skill path and copy agent instructions to clipboard
 * `serve` — Start a server (bot, MCP, etc.)
@@ -283,10 +288,10 @@ Perform static analysis on research activity data and apply standardized best pr
 * `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
 
   Possible values:
-  - `claude`:
-    Run the Claude Agent ACP adapter with tools disabled
   - `opencode`:
     Run OpenCode's native ACP server
+  - `claude`:
+    Run the Claude Agent ACP adapter with tools disabled
   - `codex`:
     Run the Codex ACP adapter
 
@@ -1130,10 +1135,10 @@ Run bounded inference through Needle or a configured prompt backend
 * `-a`, `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
 
   Possible values:
-  - `claude`:
-    Run the Claude Agent ACP adapter with tools disabled
   - `opencode`:
     Run OpenCode's native ACP server
+  - `claude`:
+    Run the Claude Agent ACP adapter with tools disabled
   - `codex`:
     Run the Codex ACP adapter
 
@@ -1219,10 +1224,10 @@ Hydrate and run an embedded prompt or local Rhai script
 * `--agent <AGENT>` — ACP agent identifier; defaults to `opencode`
 
   Possible values:
-  - `claude`:
-    Run the Claude Agent ACP adapter with tools disabled
   - `opencode`:
     Run OpenCode's native ACP server
+  - `claude`:
+    Run the Claude Agent ACP adapter with tools disabled
   - `codex`:
     Run the Codex ACP adapter
 
@@ -1809,6 +1814,30 @@ Generate bounded artifacts and publish immutable GitLab packages
 * `--dry-run` [alias: `what-if`] — Generate local artifacts and manifests without GitLab publication or callbacks
 * `-v`, `--verbose` — Increase logging verbosity
 * `-q`, `--quiet` — Decrease logging verbosity
+
+
+
+## `acorn-cli say`
+
+Show Oakley saying the supplied text.
+
+    $> acorn say
+    $> acorn say "Plant an ACORN and grow your science"
+    $> acorn say "A longer message" --wrap 20
+
+**Usage:** `acorn-cli say [OPTIONS] [TEXT]`
+
+###### **Arguments:**
+
+* `<TEXT>` — Text to display in Oakley's speech bubble
+
+  Default value: `Hello there! I'm Oakley!`
+
+###### **Options:**
+
+* `--wrap <COLUMNS>` — Maximum text width before wrapping to a new line
+
+  Default value: `40`
 
 
 

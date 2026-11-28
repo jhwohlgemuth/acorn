@@ -1906,6 +1906,17 @@ fn test_rpc_server_arguments() {
     ));
 }
 #[test]
+fn test_say_defaults_text_and_rejects_extra_or_invalid_wrap() {
+    let greeting = Arguments::try_parse_from(["acorn", "say"]).expect("parse default greeting");
+    assert!(matches!(greeting.command, Some(Commands::Say { text, wrap: 40 }) if text == "Hello there! I'm Oakley!"));
+    let default = Arguments::try_parse_from(["acorn", "say", "Hello Oakley"]).expect("parse say");
+    assert!(matches!(default.command, Some(Commands::Say { text, wrap: 40 }) if text == "Hello Oakley"));
+    let custom = Arguments::try_parse_from(["acorn", "say", "Hello Oakley", "--wrap", "12"]).expect("parse custom wrap");
+    assert!(matches!(custom.command, Some(Commands::Say { wrap: 12, .. })));
+    assert!(Arguments::try_parse_from(["acorn", "say", "one", "two"]).is_err());
+    assert!(Arguments::try_parse_from(["acorn", "say", "one", "--wrap", "0"]).is_err());
+}
+#[test]
 fn test_schema_export_defaults_to_json_without_changing_regular_export_default() {
     let schema = Arguments::try_parse_from(["acorn", "export", "--schema"]).expect("parse schema export");
     let regular = Arguments::try_parse_from(["acorn", "export"]).expect("parse regular export");
