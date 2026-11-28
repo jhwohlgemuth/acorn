@@ -9,7 +9,7 @@ use acorn::io::workflow::WorkflowAction;
 use acorn::io::workflow::{self, Workflow, WorkflowExtension};
 use acorn_core::options::CommonRuntime;
 use acorn_core::Location;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use clap_verbosity_flag::Verbosity;
 #[cfg(not(feature = "exec"))]
 use color_eyre::eyre::eyre;

@@ -327,7 +327,7 @@ async fn test_format_supported_standard_matrix() {
     let invenio: serde_json::Value =
         serde_json::from_str(include_str!("../../../../../../../tests/fixtures/schema/invenio.json")).expect("Invenio fixture");
     let first_invenio = invenio.as_array().and_then(|records| records.first()).expect("Invenio record");
-    let rad = serde_json::to_string(&acorn_schema::research_activity::ResearchActivity::default()).expect("RAD default");
+    let rad = serde_json::to_string(&acorn_schema::standard::rads::ResearchActivity::default()).expect("RAD default");
     let cases = [
         (".acorn.jsonc", include_str!("../../../../../../../tests/fixtures/config/basic.jsonc").to_string(), FormatStandard::ApplicationConfigurationResearchEnablement),
         ("CITATION.cff", include_str!("../../../../../../../tests/fixtures/CITATION.cff").to_string(), FormatStandard::CitationFileFormat),

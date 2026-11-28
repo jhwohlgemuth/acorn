@@ -1,7 +1,7 @@
 //! Renderer-independent research activity values for export.
 use crate::io::ApiResult;
 use acorn_core::util::interpolation::ReplacementPlan;
-use acorn_schema::{research_activity::ResearchActivity, ContactPoint, Other};
+use acorn_schema::{standard::rads::ResearchActivity, ContactPoint, Other};
 use color_eyre::eyre::eyre;
 use core::marker::PhantomData;
 

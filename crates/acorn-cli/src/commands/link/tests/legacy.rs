@@ -1,7 +1,7 @@
 #![cfg(feature = "exec")]
 use crate::test::util::fixture_path;
 use acorn::io::InputOutput;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use assert_cmd::Command;
 use std::fs::{copy, create_dir, read_to_string, write};
 use tempfile::tempdir;

@@ -14,13 +14,21 @@ use acorn::io::{
     ArchiveCandidate, ArchiveExtraction, InputOutput,
 };
 use acorn_core::util::MimeType;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::Standard;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use tempfile::tempdir;
 
+#[cfg(feature = "chart")]
+fn render_chart(activity: &ResearchActivity) -> color_eyre::eyre::Result<Option<Vec<u8>>> {
+    ChartOptions::init().file_type("png").build().render(activity.aspect.as_ref())
+}
+#[cfg(not(feature = "chart"))]
+fn render_chart(_activity: &ResearchActivity) -> color_eyre::eyre::Result<Option<Vec<u8>>> {
+    Ok(None)
+}
 fn render_services() -> ExportRenderServices {
     ExportRenderServices::new(
         |_, _| Ok("<html><body><h1>Native fact sheet</h1><img src=\"00.png\"></body></html>".to_string()),
@@ -35,14 +43,6 @@ fn render_services() -> ExportRenderServices {
         },
         Vec::new(),
     )
-}
-#[cfg(feature = "chart")]
-fn render_chart(activity: &ResearchActivity) -> color_eyre::eyre::Result<Option<Vec<u8>>> {
-    ChartOptions::init().file_type("png").build().render(activity.aspect.as_ref())
-}
-#[cfg(not(feature = "chart"))]
-fn render_chart(_activity: &ResearchActivity) -> color_eyre::eyre::Result<Option<Vec<u8>>> {
-    Ok(None)
 }
 #[test]
 fn test_bag_and_pdf_dry_runs_match_read_only_previews() {

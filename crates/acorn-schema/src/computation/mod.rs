@@ -4,7 +4,7 @@
 //! profiles bind those stages to research-activity infrastructure, while impedance
 //! records measured or estimated transfer, scheduling, setup, and coordination costs.
 use crate::hardware::Memory;
-use crate::research_activity::aspect::data::Data;
+use crate::standard::rads::aspect::data::Data;
 use crate::validation::{Validate, ValidationReport};
 use crate::OneOrMany;
 use acorn_core::big_o::Expression;

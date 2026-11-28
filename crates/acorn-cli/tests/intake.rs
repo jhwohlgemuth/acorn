@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 //! Exercise explicit approval at the local intake command boundary.
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use assert_cmd::Command;
 use serde_json::{json, Value};
 use std::fs::{read, read_dir, write};

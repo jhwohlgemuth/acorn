@@ -30,7 +30,6 @@ pub mod infrastructure;
 pub mod namespaces;
 pub mod oci;
 pub mod pid;
-pub mod research_activity;
 pub mod software;
 pub mod standard;
 mod types;

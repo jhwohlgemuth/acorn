@@ -66,17 +66,6 @@ pub struct GraphNode {
     /// Relative RAD path that supplied the node.
     pub path: String,
 }
-impl GraphNode {
-    fn new(kind: GraphNodeKind, identity: &str, label: &str, record: &GraphRecord<'_>) -> Self {
-        Self {
-            id: urn(kind.as_ref(), identity),
-            kind,
-            label: label.to_string(),
-            source: record.source.to_string(),
-            path: record.path.to_string(),
-        }
-    }
-}
 /// A validated RAD with its workspace source and relative file path.
 #[derive(Clone, Copy, Debug)]
 pub struct GraphRecord<'a> {
@@ -103,6 +92,17 @@ impl AsRef<str> for GraphEdgeKind {
             | Self::HasIdentifier => "hasIdentifier",
             | Self::Involves => "involves",
             | Self::RelatesTo => "relatesTo",
+        }
+    }
+}
+impl GraphNode {
+    fn new(kind: GraphNodeKind, identity: &str, label: &str, record: &GraphRecord<'_>) -> Self {
+        Self {
+            id: urn(kind.as_ref(), identity),
+            kind,
+            label: label.to_string(),
+            source: record.source.to_string(),
+            path: record.path.to_string(),
         }
     }
 }

@@ -7,7 +7,7 @@
     missing_docs
 )]
 use acorn_core::util::MarkdownSupport;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::zon;
 use acorn_schema::validation::Validate;
 use core::hint::black_box;

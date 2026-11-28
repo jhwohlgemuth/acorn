@@ -1,7 +1,7 @@
 //! Portable descriptions of compute platforms, facilities, and environments.
 //!
 //! These values describe an observed configuration. They are distinct from
-//! [`ResearchActivityMetadata::resources`](crate::research_activity::ResearchActivityMetadata::resources),
+//! [`ResearchActivityMetadata::resources`](crate::standard::rads::ResearchActivityMetadata::resources),
 //! which records minimum compute requirements. This module composes hardware
 //! resources with standards and OCP authority records without exposing
 //! management endpoints, credentials, hostnames, serial numbers, or control

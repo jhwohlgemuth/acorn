@@ -1,7 +1,7 @@
 use super::{ExportContext, ImageSource};
 use acorn_core::util::interpolation::ReplacementValue;
 use acorn_core::OneOrMany;
-use acorn_schema::{research_activity::ResearchActivity, research_activity::Sections, ImageObject, MediaObject};
+use acorn_schema::{standard::rads::ResearchActivity, standard::rads::Sections, ImageObject, MediaObject};
 
 #[test]
 fn test_authored_image_selection_does_not_read_the_file() {

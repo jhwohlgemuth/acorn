@@ -1,6 +1,6 @@
 #![allow(clippy::panic)] // Unexpected review callbacks must fail the test, even on expected-error paths.
 use super::*;
-use acorn_schema::research_activity::{GraduationCandidate, GraduationTarget, Logbook, ResearchActivityMetadata};
+use acorn_schema::standard::rads::{GraduationCandidate, GraduationTarget, Logbook, ResearchActivityMetadata};
 use std::fs;
 
 fn fixture(directory: &Path, extension: &str) -> PathBuf {
@@ -13,7 +13,7 @@ fn fixture(directory: &Path, extension: &str) -> PathBuf {
         logbook: Some(
             Logbook::init()
                 .entries(vec![
-                    acorn_schema::research_activity::ActivityEntry::init()
+                    acorn_schema::standard::rads::ActivityEntry::init()
                         .identifier("person-one")
                         .project_id("acorn")
                         .timestamp("2026-10-24T12:00:00Z")
@@ -22,7 +22,7 @@ fn fixture(directory: &Path, extension: &str) -> PathBuf {
                         .summary("Example, Avery")
                         .build()
                         .into(),
-                    acorn_schema::research_activity::ActivityEntry::init()
+                    acorn_schema::standard::rads::ActivityEntry::init()
                         .identifier("person-two")
                         .project_id("acorn")
                         .timestamp("2026-10-24T13:00:00Z")
@@ -169,7 +169,7 @@ fn test_run_force_accepts_all_eligible_entries_and_replay_is_unchanged() {
     let path = fixture(directory.path(), "json");
     let mut activity = decode(&fs::read_to_string(&path).unwrap(), &MimeType::Json).unwrap();
     activity.logbook.as_mut().unwrap().entries.push(
-        acorn_schema::research_activity::ActivityEntry::init()
+        acorn_schema::standard::rads::ActivityEntry::init()
             .identifier("research-only")
             .project_id("acorn")
             .timestamp("2026-10-24T14:00:00Z")

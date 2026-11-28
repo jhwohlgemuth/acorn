@@ -3,7 +3,7 @@ use crate::assets::{draft_placeholder_bytes, DRAFT_PLACEHOLDER_ASSET};
 use acorn::io::export::ExportContext;
 use acorn_core::OneOrMany;
 use acorn_schema::{
-    research_activity::{ResearchActivity, Sections},
+    standard::rads::{ResearchActivity, Sections},
     ImageObject, MediaObject,
 };
 

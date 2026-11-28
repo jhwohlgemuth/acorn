@@ -2,6 +2,15 @@
 //!
 //! Module that defines the research activity schema
 //!
+//! ```
+//! use acorn_schema::standard::rads::ResearchActivity;
+//! let _: Option<ResearchActivity> = None;
+//! ```
+//!
+//! ```compile_fail
+//! use acorn_schema::research_activity::ResearchActivity;
+//! ```
+//!
 #[cfg(feature = "std")]
 use crate::codec::DocumentCodec;
 use crate::enrichment::Provider;
@@ -10,8 +19,8 @@ use crate::infrastructure::ComputeEnvironment;
 use crate::namespaces::{activity_streams, bibo, codemeta, dcat, dcterms, schema_org, DEFAULT_RAID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::pid::raid::{Language, SpatialCoverage};
 use crate::pid::{Handle, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, SWHID};
-use crate::research_activity::output::Funding;
 use crate::standard::cff::{Agent, Cff, Identifier, IdentifierType, Person};
+use crate::standard::rads::output::Funding;
 use crate::standard::text::Text;
 #[cfg(feature = "std")]
 use crate::standard::zon;

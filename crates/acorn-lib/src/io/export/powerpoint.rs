@@ -18,7 +18,7 @@ use acorn_host::{
     fs::{read_text, SafePath},
     terminal::Label,
 };
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use color_eyre::eyre::eyre;
 use itertools::izip;
 use nanoid::nanoid;

@@ -5,7 +5,7 @@ use crate::io::http::{HttpResponse, HttpService, ReqwestHttpService};
 use crate::io::ApiResult;
 use crate::util::constants::env::GITLAB_TOKEN_VARIABLE_NAMES;
 use acorn_core::prelude::{String, Vec};
-use acorn_schema::research_activity::ReportingWindow;
+use acorn_schema::standard::rads::ReportingWindow;
 use acorn_schema::validation::Validate;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;

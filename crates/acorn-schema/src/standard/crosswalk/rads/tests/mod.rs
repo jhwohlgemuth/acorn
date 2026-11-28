@@ -7,12 +7,6 @@
 )]
 use crate::infrastructure::ComputeEnvironment;
 use crate::pid::raid::{self, CreditRole};
-use crate::research_activity::output::{Award, Contributor, Funding, ResearchOutput};
-use crate::research_activity::{
-    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, ControlledSubject, DatedAgentRole, DatedOrganizationRole,
-    RelatedResourceCategory, ResearchActivity, ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
-    TypedRelatedResource,
-};
 use crate::standard::crosswalk::*;
 use crate::standard::crosswalk::{
     mapping::{
@@ -20,6 +14,12 @@ use crate::standard::crosswalk::{
         year_to_date,
     },
     FieldValue, Fields, SchemaBuilder, SchemaExtractor,
+};
+use crate::standard::rads::output::{Award, Contributor, Funding, ResearchOutput};
+use crate::standard::rads::{
+    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, ControlledSubject, DatedAgentRole, DatedOrganizationRole,
+    RelatedResourceCategory, ResearchActivity, ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
+    TypedRelatedResource,
 };
 use crate::standard::{datacite, dcat, huwise, invenio};
 use crate::validation::Validate;

@@ -12,7 +12,7 @@ use crate::io::api::webhooks::{self, CallbackResolver, ErrorKind, InboundRequest
 use crate::io::config::application::{ApplicationConfiguration, Destination, FolderRegistry};
 use crate::io::workflow::{LogbookProposal, ProcessRepositoryResponse};
 use acorn_core::OneOrMany;
-use acorn_schema::research_activity::{Logbook, LogbookEntry, LogbookState, ReportingWindow, ResearchActivity};
+use acorn_schema::standard::rads::{Logbook, LogbookEntry, LogbookState, ReportingWindow, ResearchActivity};
 use acorn_schema::validation::Validate;
 use alloc::collections::BTreeSet;
 use http::{HeaderMap, HeaderValue};
@@ -218,7 +218,7 @@ fn test_form_conversion_forces_effect_fields_and_rejects_late_entries() {
     assert_eq!(entry.identifier(), "form-123-e-4567-e-89-b-12-d-3-a-456-426614174000");
     assert_eq!(
         entry.activity().expect("activity").origin,
-        acorn_schema::research_activity::LogbookEntryOrigin::Manual
+        acorn_schema::standard::rads::LogbookEntryOrigin::Manual
     );
     assert_eq!(entry.project_id(), "pilot");
     assert!(!entry.archived());
@@ -255,7 +255,7 @@ fn test_form_payload_is_strict_and_authorized() {
 fn test_logbook_fixture_graduates_a_project_routed_entry() {
     let mut logbook = logbook_fixture();
     logbook.entries.push(
-        acorn_schema::research_activity::ActivityEntry::init()
+        acorn_schema::standard::rads::ActivityEntry::init()
             .category("personnel")
             .identifier("powerautomate-new-contributor")
             .project_id("fullmetal-alchemist")
@@ -435,7 +435,7 @@ fn test_status_form_uses_submission_range_and_preserves_health() {
     let submission: form::Submission = serde_json::from_value(value).expect("status form");
     let entry = submission.entry(&FolderRegistry::fixture()).expect("authorized status form");
     assert!(
-        matches!(entry, LogbookEntry::StatusUpdate(update) if update.range.is_some() && matches!(update.health, acorn_schema::research_activity::ProjectHealth::AtRisk { reason: None }))
+        matches!(entry, LogbookEntry::StatusUpdate(update) if update.range.is_some() && matches!(update.health, acorn_schema::standard::rads::ProjectHealth::AtRisk { reason: None }))
     );
     assert!(submission.entry_after(&FolderRegistry::fixture(), Some("2026-08-01T00:00:00Z")).is_err());
     assert!(submission.entry_after(&FolderRegistry::fixture(), Some("2026-07-01T00:00:00Z")).is_ok());

@@ -1,7 +1,7 @@
 #[cfg(feature = "std")]
 use crate::ContactPoint;
 use crate::{
-    research_activity::LogbookEntry,
+    standard::rads::LogbookEntry,
     types::{OneOrMany, OneOrManyCodec},
     validation::Validate,
 };

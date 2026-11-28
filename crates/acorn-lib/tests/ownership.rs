@@ -1,7 +1,7 @@
 //! Compile-time tests for canonical portable type ownership.
 
 use acorn_core::{Location, Release, Repository, Scheme};
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 
 #[test]
 fn test_canonical_crates_export_their_owned_types() {

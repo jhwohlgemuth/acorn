@@ -8,7 +8,7 @@ use acorn_core::{
 use acorn_host::fs::SafePath;
 use acorn_schema::{
     codec::DocumentCodec,
-    research_activity::{Logbook, LogbookEntry, ResearchActivity},
+    standard::rads::{Logbook, LogbookEntry, ResearchActivity},
     validation::Validate,
 };
 use bon::Builder;

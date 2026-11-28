@@ -13,7 +13,7 @@ use crate::io::{FromPath, InputOutput};
 use crate::util::StringConversion;
 use acorn_analysis::StandardCrosswalk;
 use acorn_core::util::{format_bytes, MimeType};
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::Standard;
 use alloc::sync::Arc;
 use color_eyre::eyre::eyre;

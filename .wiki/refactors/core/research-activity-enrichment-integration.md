@@ -17,15 +17,15 @@ Use the structured activity metadata already owned by `acorn-schema` as the dest
 
 # Current evidence
 
-- `ResearchActivityMetadata` already exposes `typed_dates`, `contributors`, `funders`, `rights`, and `access` in `crates/acorn-schema/src/research_activity/mod.rs`.
-- The corresponding portable types and validation live in `crates/acorn-schema/src/research_activity/common.rs` and reuse output funding types where appropriate.
+- `ResearchActivityMetadata` already exposes `typed_dates`, `contributors`, `funders`, `rights`, and `access` in `crates/acorn-schema/src/standard/rads/mod.rs`.
+- The corresponding portable types and validation live in `crates/acorn-schema/src/standard/rads/common.rs` and reuse output funding types where appropriate.
 - RAiD and CFF adapters expose activity dates, credited people, roles, and rights assertions; `crates/acorn-lib/src/io/api/osti.rs` exposes release dates, developers, contributors, and sponsor award identifiers.
 - Discovery and candidate persistence retain provider evidence, but they do not yet project every supported assertion into the structured activity fields with one documented merge policy.
 - `GraduationCandidates` currently proposes only administration classification and personnel contributors. It has no source-category rules for dates, rights, or funding.
 
 # Project code boundaries
 
-- **Update:** research-activity logbook rules and tests in `crates/acorn-schema/src/research_activity/`; provider/discovery and candidate merge adapters in `crates/acorn-lib/src/io/`; focused OSTI, CFF, and RAiD fixtures and tests.
+- **Update:** research-activity logbook rules and tests in `crates/acorn-schema/src/standard/rads/`; provider/discovery and candidate merge adapters in `crates/acorn-lib/src/io/`; focused OSTI, CFF, and RAiD fixtures and tests.
 - **Create:** dedicated merge-policy helpers only where at least two adapters need the same stable-key or conflict behavior.
 - **Delete:** note-only enrichment fallbacks after the same assertion and its provenance are retained structurally.
 

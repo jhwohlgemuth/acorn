@@ -8,7 +8,7 @@ use acorn::{
 };
 use acorn_core::util::MimeType;
 use acorn_host::terminal::Label;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use color_eyre::eyre::eyre;
 use core::str::from_utf8;
 use data_encoding::BASE64;
@@ -22,6 +22,9 @@ use quick_xml::escape::escape;
 use rust_embed::{Embed, EmbeddedFile};
 use tracing::error;
 
+pub(crate) const ORNL_COLOR_LOGO: &str = "logo_ornl_color.svg";
+pub(crate) const ORNL_LEAF_LOGO: &str = "logo_leaf.svg";
+pub(crate) const ORNL_WHITE_LOGO: &str = "logo_ornl_white.svg";
 pub trait Converter {
     fn to_html(&self, aspect_chart: Option<&[u8]>) -> ApiResult<VirtualNode>;
 }
@@ -56,9 +59,6 @@ pub enum TargetLabel {
     Ornl,
 }
 pub(crate) struct DataUri {}
-pub(crate) const ORNL_COLOR_LOGO: &str = "logo_ornl_color.svg";
-pub(crate) const ORNL_LEAF_LOGO: &str = "logo_leaf.svg";
-pub(crate) const ORNL_WHITE_LOGO: &str = "logo_ornl_white.svg";
 #[derive(Embed)]
 #[folder = "assets/fonts/"]
 struct Font;

@@ -4,14 +4,14 @@
 //! deposit metadata and reports every local-only or simplified RAD value.
 use crate::pid::raid::CreditRole;
 use crate::pid::{PersistentIdentifierParse, DOI, PID};
-use crate::research_activity::output::{Affiliation, Contributor, ResearchOutput};
-use crate::research_activity::{ActivityDateType, ActivityOrganization, ResearchActivity, StructuredRights, TypedIdentifier, TypedRelatedResource};
 use crate::standard::crosswalk::CrosswalkSchema::{DataCite as DATACITE, Rad as RAD};
 use crate::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError};
 use crate::standard::datacite::{
     self, ContributorType, Description, DescriptionType, GeoLocation, NameType, Publisher, RelatedItem, RelatedItemContributor, RelatedItemCreator,
     RelatedItemIdentifier, RelatedItemTitle, RelationType, ResourceTypeGeneral, Title, TitleType,
 };
+use crate::standard::rads::output::{Affiliation, Contributor, ResearchOutput};
+use crate::standard::rads::{ActivityDateType, ActivityOrganization, ResearchActivity, StructuredRights, TypedIdentifier, TypedRelatedResource};
 use crate::util::constants::app::HANDLE_RESOLVER_URI;
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use core::iter::once;

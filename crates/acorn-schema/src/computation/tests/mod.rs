@@ -1,6 +1,6 @@
 use super::*;
 use crate::hardware::Resource;
-use crate::research_activity::ResearchActivity;
+use crate::standard::rads::ResearchActivity;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -178,12 +178,12 @@ fn test_hybrid_computation_round_trip_and_validation() {
     }))
     .expect("parse compute environment");
     let activity = ResearchActivity {
-        meta: crate::research_activity::ResearchActivityMetadata {
+        meta: crate::standard::rads::ResearchActivityMetadata {
             infrastructure: Some(vec![environment].into()),
             ..Default::default()
         },
         aspect: Some(
-            crate::research_activity::aspect::AspectFramework::init()
+            crate::standard::rads::aspect::AspectFramework::init()
                 .computation(vec![computation])
                 .build(),
         ),
@@ -206,7 +206,7 @@ fn test_invalid_dependencies_and_profile_references_are_rejected() {
     assert!(report.to_string().contains("port"));
     let activity = ResearchActivity {
         aspect: Some(
-            crate::research_activity::aspect::AspectFramework::init()
+            crate::standard::rads::aspect::AspectFramework::init()
                 .computation(vec![computation])
                 .build(),
         ),

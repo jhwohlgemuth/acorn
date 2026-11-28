@@ -1,7 +1,7 @@
 use super::{DiffFormat, DiffInput, SemanticDiff, SemanticDiffError};
 use acorn_core::util::{MarkdownSupport, MimeType};
 use acorn_schema::{
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     standard::{zon, Standard},
 };
 

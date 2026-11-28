@@ -336,7 +336,7 @@ mod models_dev {
     }
     #[test]
     fn test_model_row_modalities_are_comma_separated() {
-        use acorn_schema::research_activity::aspect::data::Modality;
+        use acorn_schema::standard::rads::aspect::data::Modality;
         let model = ModelDetails {
             id: Some("gpt-4o".to_string()),
             modalities: Some(acorn_schema::agent::Modalities {

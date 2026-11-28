@@ -38,7 +38,7 @@ mod gitlab_review {
         fn new(inbox: String) -> Self {
             let base = format!("{:040x}", 1);
             let activity = |identifier: &str| {
-                let mut activity = acorn_schema::research_activity::ResearchActivity::default();
+                let mut activity = acorn_schema::standard::rads::ResearchActivity::default();
                 activity.meta.identifier = identifier.to_string();
                 serde_json::to_string(&activity).unwrap()
             };

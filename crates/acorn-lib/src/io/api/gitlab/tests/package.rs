@@ -2,7 +2,7 @@ use super::super::package::{Package, PackageLifecycle, PackageOptions, ReportMan
 use super::super::Options;
 use crate::io::http::{HttpRequest, HttpResponse, HttpService};
 use crate::io::ApiResult;
-use acorn_schema::research_activity::ReportingWindow;
+use acorn_schema::standard::rads::ReportingWindow;
 use alloc::{collections::VecDeque, sync::Arc};
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;

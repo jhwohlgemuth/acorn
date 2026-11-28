@@ -22,7 +22,7 @@ use acorn_schema::agent::tools::ToolEffects;
 use acorn_schema::agent::tools::{ToolDefinition, ToolExposure, ToolResult};
 #[cfg(feature = "agentic")]
 use acorn_schema::agent::{PromptFileAsset, PromptTemplateConfiguration};
-use acorn_schema::research_activity::{GraduationCandidates, ResearchActivity};
+use acorn_schema::standard::rads::{GraduationCandidates, ResearchActivity};
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::{crosswalk::CrosswalkStandard, Standard};
 use acorn_schema::validation::Validate;

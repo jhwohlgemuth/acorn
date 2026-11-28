@@ -1,5 +1,5 @@
 use super::ChartOptions;
-use acorn_schema::research_activity::aspect::{AspectFramework, Autonomy, Motivity, SoftwarePortability};
+use acorn_schema::standard::rads::aspect::{AspectFramework, Autonomy, Motivity, SoftwarePortability};
 use acorn_schema::TechnologyReadinessLevel;
 fn render_svg(aspect: Option<&AspectFramework>, options: ChartOptions) -> Option<String> {
     options

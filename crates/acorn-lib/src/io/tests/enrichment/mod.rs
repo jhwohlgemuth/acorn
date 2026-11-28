@@ -3,9 +3,9 @@ use crate::io::enrichment::{orcid_decision, Enrich, OrcidBatch, OrcidBatchResult
 use crate::io::workflow::EnrichmentOrigin;
 use acorn_core::Location;
 use acorn_schema::enrichment::Provider;
-use acorn_schema::research_activity::output::{Contributor as OutputContributor, ResearchOutput};
-use acorn_schema::research_activity::{ActivityContributor, ResearchActivity, ResearchActivityMetadata};
 use acorn_schema::standard::cff::{Agent as CffAgent, Cff, Person as CffPerson, Reference as CffReference};
+use acorn_schema::standard::rads::output::{Contributor as OutputContributor, ResearchOutput};
+use acorn_schema::standard::rads::{ActivityContributor, ResearchActivity, ResearchActivityMetadata};
 use acorn_schema::standard::{datacite, invenio};
 use acorn_schema::ContactPoint;
 

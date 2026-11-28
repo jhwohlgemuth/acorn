@@ -1,6 +1,6 @@
 use super::*;
 use acorn::io::api::powerautomate::local::BatchSummary;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use axum::{
     extract::{Path as AxumPath, Query},
     http::StatusCode,

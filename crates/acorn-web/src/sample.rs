@@ -176,7 +176,7 @@ pub(crate) fn is_loaded(workspace: &Workspace) -> bool {
 mod tests {
     use super::*;
     use acorn_schema::pid::{PersistentIdentifierParse, ORCID, ROR};
-    use acorn_schema::research_activity::ResearchActivity;
+    use acorn_schema::standard::rads::ResearchActivity;
     use acorn_schema::Validate;
     use acorn_web::session::Selection;
     use alloc::collections::BTreeSet;

@@ -13,8 +13,8 @@ use acorn_core::prelude::{format, String, ToString, Vec};
 use acorn_core::util::merge_unique_by;
 use acorn_core::{Location, Noul};
 use acorn_schema::pid::{PersistentIdentifierParse, DOI};
-use acorn_schema::research_activity::output::{Access, Affiliation, Award, Contributor, Funding};
-use acorn_schema::research_activity::ResearchOutput;
+use acorn_schema::standard::rads::output::{Access, Affiliation, Award, Contributor, Funding};
+use acorn_schema::standard::rads::ResearchOutput;
 use acorn_schema::Website;
 use async_trait::async_trait;
 use color_eyre::eyre::eyre;
@@ -177,16 +177,6 @@ impl From<Grant> for Option<Funding> {
         })
     }
 }
-impl Provider {
-    /// Create a provider using base request options.
-    pub fn new(options: Options) -> Self {
-        Self { options }
-    }
-    /// Create a provider from environment configuration.
-    pub fn from_env() -> Self {
-        Self::new(Options::from_env())
-    }
-}
 #[async_trait]
 impl<T> Enrich<(Location, T)> for Provider
 where
@@ -220,6 +210,16 @@ where
             decisions: result.decisions,
             failures: result.failures,
         })
+    }
+}
+impl Provider {
+    /// Create a provider using base request options.
+    pub fn new(options: Options) -> Self {
+        Self { options }
+    }
+    /// Create a provider from environment configuration.
+    pub fn from_env() -> Self {
+        Self::new(Options::from_env())
     }
 }
 impl From<Work> for ResearchOutput {

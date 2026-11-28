@@ -16,7 +16,7 @@ use acorn_core::util::constants::app::{MAX_EXEC_BYTES, SUPPORTED_EXEC_VERSION};
 use acorn_core::util::MimeType;
 use acorn_core::Location;
 use acorn_core::OneOrMany;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::validation::Validate as SchemaValidate;
 use alloc::collections::BTreeMap;
 use core::str::FromStr;

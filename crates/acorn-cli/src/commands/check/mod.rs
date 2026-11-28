@@ -47,7 +47,7 @@ use acorn_core::{
 };
 use acorn_host::terminal::Label;
 #[cfg(feature = "exec")]
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::Standard;
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use clap_verbosity_flag::Verbosity;

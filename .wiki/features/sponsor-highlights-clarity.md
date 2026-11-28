@@ -18,10 +18,10 @@ Help a sponsor reader answer what changed, why it matters to the mission, what c
 # Current evidence
 
 - Stakeholder feedback on the monthly sponsor highlights, supplied on 2026-10-18, values operational transitions, new data and tools, engagement, infrastructure planning, and evidence of partnership health. It requests quantified mission value, a consistent five-part project update, and broader approved access.
-- The current report PDF has a general-updates title page, project title/subtitle and Principal Investigator/sponsor credits, then logbook entries grouped by completed, in-progress, and upcoming status. Each entry has a `summary` and optional supporting `items`; the report has no dedicated project-level mission-value, challenge, or cross-project-opportunity fields. See `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-cli/src/commands/export/html.rs` and `crates/acorn-cli/src/commands/export/updates.rs`. The existing `report --combine` output already supplies a general-updates title page and final legend; it does not implement the proposed five-part editorial input.
+- The current report PDF has a general-updates title page, project title/subtitle and Principal Investigator/sponsor credits, then logbook entries grouped by completed, in-progress, and upcoming status. Each entry has a `summary` and optional supporting `items`; the report has no dedicated project-level mission-value, challenge, or cross-project-opportunity fields. See `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-cli/src/commands/export/html.rs` and `crates/acorn-cli/src/commands/export/updates.rs`. The existing `report --combine` output already supplies a general-updates title page and final legend; it does not implement the proposed five-part editorial input.
 - The fictional `tests/fixtures/report/` projects exercise layout and logbook diversity, but do not test a repeatable sponsor-facing editorial structure. The existing [grouped separator plan](grouped-report-separators.md) owns office divider pages and is independent of this content change.
-- `GraduationCandidates` currently proposes only classification and contributors. `ResearchActivity::graduate` accepts entry IDs, applies every candidate attached to each accepted entry, and archives the source. Database, MCP, GitLab and the implemented local `intake run --index` path consume that contract. The local CLI supports preview, interactive review and force-all approval, rejects ambiguous entry IDs, validates both documents and preserves backups. It has no entry-and-target selector or ASPECT proposals; those remain work here. See `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-lib/src/io/database/logbook.rs`, and `crates/acorn-lib/src/io/api/gitlab/automation.rs`.
-- Canonical `aspect.maturity` is a `TechnologyReadinessLevel` (0–9); the six-level ASPECT `Maturity` label is derived for display. `aspect` also contains portability, motivity, autonomy, and data. An event category or completed state alone does not establish any of those values. See `crates/acorn-schema/src/research_activity/aspect/mod.rs`, `crates/acorn-schema/src/types.rs`, and `docs/src/concepts/aspect/maturity.md`.
+- `GraduationCandidates` currently proposes only classification and contributors. `ResearchActivity::graduate` accepts entry IDs, applies every candidate attached to each accepted entry, and archives the source. Database, MCP, GitLab and the implemented local `intake run --index` path consume that contract. The local CLI supports preview, interactive review and force-all approval, rejects ambiguous entry IDs, validates both documents and preserves backups. It has no entry-and-target selector or ASPECT proposals; those remain work here. See `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-lib/src/io/database/logbook.rs`, and `crates/acorn-lib/src/io/api/gitlab/automation.rs`.
+- Canonical `aspect.maturity` is a `TechnologyReadinessLevel` (0–9); the six-level ASPECT `Maturity` label is derived for display. `aspect` also contains portability, motivity, autonomy, and data. An event category or completed state alone does not establish any of those values. See `crates/acorn-schema/src/standard/rads/aspect/mod.rs`, `crates/acorn-schema/src/types.rs`, and `docs/src/concepts/aspect/maturity.md`.
 
 # Recommendations, ordered by difficulty then impact
 
@@ -77,7 +77,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-01 and sponsor-editor acceptance of its labels
-- Exact write set: `crates/acorn-schema/src/research_activity/report_highlights.rs`, `crates/acorn-schema/src/research_activity/mod.rs`, `crates/acorn-schema/src/research_activity/tests/mod.rs`, `tests/fixtures/report/highlights.json`
+- Exact write set: `crates/acorn-schema/src/standard/rads/report_highlights.rs`, `crates/acorn-schema/src/standard/rads/mod.rs`, `crates/acorn-schema/src/standard/rads/tests/mod.rs`, `tests/fixtures/report/highlights.json`
 - Primary integration lock: research-activity schema roots
 - Outcome: Add an optional, reporting-window-bound input type keyed by project ID, with project synthesis, contextual measures, and explicit cross-project opportunities; validate missing, duplicate, stale-window, and malformed records.
 - Focused validation: Focused `acorn-schema` tests for valid and invalid editorial input plus fixture deserialization.
@@ -154,7 +154,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-08
-- Exact write set: `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-schema/src/research_activity/tests/mod.rs`
+- Exact write set: `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-schema/src/standard/rads/tests/mod.rs`
 - Primary integration lock: research-activity schema roots
 - Outcome: Give each candidate a stable entry-and-target selection key and record which targets on an entry have graduated. Keep entry-ID-only acceptance for an entry with exactly one candidate; reject ambiguous entry-ID-only acceptance and allow explicit selection of one target without archiving an entry that still has unapplied candidates. Previously accepted targets must not reappear as candidates.
 - Focused validation: Focused schema tests for one target, two targets on one entry, duplicate selections, unknown targets, deterministic notes, and archived-entry behavior.
@@ -165,7 +165,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-09
-- Exact write set: `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-schema/src/research_activity/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
+- Exact write set: `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-schema/src/standard/rads/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
 - Primary integration lock: research-activity schema roots
 - Outcome: Add optional typed maturity evidence on a logbook event, generate a candidate only from a qualifying completed outcome, and apply an explicitly accepted transition to canonical `aspect.maturity` as a TRL. Keep unaccepted and previously archived source entries inspectable.
 - Focused validation: Focused schema and fixture tests for TRL 6–9 evidence, missing ASPECT, unchanged/equal/lower/stale values, unsupported outcomes, repeated acceptance, and one accepted target among several.
@@ -176,7 +176,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-08 and HIL-10
-- Exact write set: `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-schema/src/research_activity/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
+- Exact write set: `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-schema/src/standard/rads/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
 - Primary integration lock: research-activity schema roots
 - Outcome: Add a separate portability target that proposes the canonical `SoftwarePortability` value only from reviewed packaging or runtime evidence; do not infer portability from a software release alone.
 - Focused validation: Focused tests for container/build, installer, and WebAssembly evidence, unsupported claims, current-value conflicts, and independent target acceptance.
@@ -187,7 +187,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-08 and HIL-11
-- Exact write set: `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-schema/src/research_activity/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
+- Exact write set: `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-schema/src/standard/rads/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
 - Primary integration lock: research-activity schema roots
 - Outcome: Add a separate motivity target based on observed input, output, and state behavior. Treat it as a reviewed classification change, not an automatic numerical promotion.
 - Focused validation: Focused tests for reactive versus adaptive evidence, absent behavioral evidence, conflicting current values, and isolated acceptance.
@@ -198,7 +198,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-08 and HIL-12
-- Exact write set: `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-schema/src/research_activity/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
+- Exact write set: `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-schema/src/standard/rads/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
 - Primary integration lock: research-activity schema roots
 - Outcome: Add a separate autonomy target based on demonstrated human and machine roles, including the actual approval/oversight boundary. Do not infer autonomy from the use of AI or automation terms.
 - Focused validation: Focused tests for observed oversight roles, unsupported labels, conflicting current values, and isolated acceptance.
@@ -209,7 +209,7 @@ Use focused schema and report-command tests, a dry-run over `tests/fixtures/repo
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: HIL-08 and HIL-13
-- Exact write set: `crates/acorn-schema/src/research_activity/aspect/data.rs`, `crates/acorn-schema/src/research_activity/logbook.rs`, `crates/acorn-schema/src/research_activity/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
+- Exact write set: `crates/acorn-schema/src/standard/rads/aspect/data.rs`, `crates/acorn-schema/src/standard/rads/logbook.rs`, `crates/acorn-schema/src/standard/rads/tests/mod.rs`, `tests/fixtures/report/aspect-graduation.json`
 - Primary integration lock: research-activity schema roots
 - Outcome: Add optional stable identity to `DataDescription` and a data target for an explicitly identified Real/Synthetic dataset, appending it to `aspect.data` only after review. Reject duplicate identities and conflicting descriptions; leave existing data untouched. Model artifacts remain outside this first data target.
 - Focused validation: Focused tests for new dataset, duplicate/replay, same identity with conflicting description, missing evidence, and preservation of existing data.

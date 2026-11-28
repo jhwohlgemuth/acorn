@@ -2,7 +2,7 @@
 use acorn::io::vocabulary::cached_vocabulary_resolver_in;
 use acorn_analysis::CheckBatch;
 use acorn_schema::{
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     vocabulary::{VocabularyFuzzyMode, VocabularyKind, VocabularyResolver},
     OneOrMany,
 };

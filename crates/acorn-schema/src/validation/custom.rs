@@ -6,13 +6,13 @@ use super::{report_of, rules, IntoValidationReport, Validate, ValidationReport};
 use crate::geonames::{CodeFormat, GeonamesParser};
 use crate::namespaces::{DEFAULT_ISNI_SCHEMA_URI, DEFAULT_ORCID_SCHEMA_URI, DEFAULT_ROR_SCHEMA_URI};
 use crate::regex_validator;
-use crate::research_activity::output::Funding;
-use crate::research_activity::AgentIdentifier;
 use crate::standard::datacite::{
     Affiliation, FunderIdentifier, FunderIdentifierType, FundingReference, GeoLocationPoint, NameIdentifier, Publisher, RelatedIdentifier,
     RelatedIdentifierType, RelatedItemIdentifier,
 };
 use crate::standard::invenio::{PersonOrOrgIdentifier, PersonOrOrgIdentifierScheme};
+use crate::standard::rads::output::Funding;
+use crate::standard::rads::AgentIdentifier;
 use crate::util::constants::{RE_GND, RE_IMAGE_EXTENSION, RE_PARTIAL_DATE, RE_PHONE};
 use crate::util::Constant;
 use crate::OneOrMany;

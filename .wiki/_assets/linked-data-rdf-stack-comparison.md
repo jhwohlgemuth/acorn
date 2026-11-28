@@ -15,7 +15,7 @@ OxiXML should be reconsidered only if ACORN needs a broader XML platform, direct
 ACORN declares `sophia = { version = "0.9.0", default-features = false }` in the workspace and uses it only through `sophia::api::ns::Namespace` in:
 
 - `crates/acorn-schema/src/namespaces.rs`
-- `crates/acorn-schema/src/research_activity/logbook.rs`
+- `crates/acorn-schema/src/standard/rads/logbook.rs`
 
 There is no current use of Sophia's RDF terms, graphs, datasets, RDF/XML, Turtle, JSON-LD, SPARQL, reasoning, or canonicalization APIs. The current dependency is therefore preparatory rather than an implemented RDF integration.
 

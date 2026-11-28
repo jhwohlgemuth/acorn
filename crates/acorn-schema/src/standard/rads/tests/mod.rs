@@ -9,10 +9,10 @@ use crate::agent::{CostDetails, LimitDetails, Model, ModelDetails, Weight, Weigh
 use crate::codec::DocumentCodec;
 use crate::enrichment::Provider;
 use crate::hardware::{CpuArchitecture, GpuArchitecture, Resource, Vendor};
-use crate::research_activity::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
-use crate::research_activity::output::{Access, Affiliation, Award, Contributor, Funding};
-use crate::research_activity::*;
 use crate::standard::cff::{Agent, Cff, IdentifierType};
+use crate::standard::rads::aspect::{Autonomy, Availability, Data, DataDescription, Modality, Motivity, Quality, SoftwarePortability};
+use crate::standard::rads::output::{Access, Affiliation, Award, Contributor, Funding};
+use crate::standard::rads::*;
 use crate::validation::Validate;
 use crate::*;
 use acorn_core::util::{LinkedData, MarkdownSupport, MimeType, SemanticVersion};
@@ -1129,9 +1129,9 @@ fn test_logbook_validation_reports_origin_timestamp_and_duplicate_contracts() {
 #[test]
 fn test_logbook_whiteboard_fixtures_are_compatible() {
     let json: Logbook =
-        serde_json::from_str(include_str!("../../../../../tests/fixtures/schema/logbook/whiteboard.json")).expect("parse JSON fixture");
+        serde_json::from_str(include_str!("../../../../../../tests/fixtures/schema/logbook/whiteboard.json")).expect("parse JSON fixture");
     let yaml: Logbook =
-        serde_norway::from_str(include_str!("../../../../../tests/fixtures/schema/logbook/whiteboard.yaml")).expect("parse YAML fixture");
+        serde_norway::from_str(include_str!("../../../../../../tests/fixtures/schema/logbook/whiteboard.yaml")).expect("parse YAML fixture");
     assert!(json.validate().is_ok());
     assert!(yaml.validate().is_ok());
     assert_eq!(json.entries.len(), yaml.entries.len());

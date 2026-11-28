@@ -1,11 +1,11 @@
 use crate::codec::DocumentCodec;
-use crate::research_activity::ResearchActivity;
+use crate::standard::rads::ResearchActivity;
 use crate::validation::Validate;
 use acorn_core::util::MimeType;
 use serde_json::{json, Value};
 
 fn baseline() -> Value {
-    let activity: ResearchActivity = serde_json::from_str(include_str!("../../../../../tests/fixtures/data/valid_project/index.json")).unwrap();
+    let activity: ResearchActivity = serde_json::from_str(include_str!("../../../../../../tests/fixtures/data/valid_project/index.json")).unwrap();
     serde_json::to_value(activity).unwrap()
 }
 fn replace(pointer: &str, value: Value) -> ResearchActivity {

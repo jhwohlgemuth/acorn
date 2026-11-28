@@ -4,7 +4,7 @@ use crate::io::config::application::{FolderRegistry, GeneralLogbookConfig};
 use crate::io::{ApiResult, EmailAddress};
 use acorn_core::prelude::{String, Vec};
 use acorn_core::validation::ValidationError;
-use acorn_schema::research_activity::{
+use acorn_schema::standard::rads::{
     ActivityEntry, LogbookCategory, LogbookDiscovery, LogbookEntry, LogbookEntryOrigin, LogbookEventType, LogbookState, ProjectHealth, ProjectRisk,
     ReportingWindow, StatusUpdateEntry,
 };

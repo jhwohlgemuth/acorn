@@ -3,7 +3,7 @@ use super::{DocumentEntry, DocumentParser, SourceDocument};
 use crate::{error::ApiResult, io::Parse};
 use acorn_core::prelude::{format, Vec};
 use acorn_core::util::MarkdownSupport;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use color_eyre::eyre::eyre;
 use convert_case::{Case, Casing};
 

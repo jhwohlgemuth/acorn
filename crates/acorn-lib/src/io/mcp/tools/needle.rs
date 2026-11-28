@@ -14,9 +14,9 @@ use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::util::{MimeType, StringConversion};
 use acorn_schema::agent::tools::{NeedleToolDefinition, ToolDefinition, ToolExposure};
 use acorn_schema::hardware::memory::Memory;
-use acorn_schema::research_activity::ResearchActivity;
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::crosswalk::CrosswalkStandard;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::validation::Validate;
 use alloc::collections::BTreeSet;
 use alloc::sync::Arc;
@@ -28,6 +28,24 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 const MAX_PROMPT_CATALOG_BYTES: usize = 6 * 1024;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum Family {
+    Check,
+    Diff,
+    Doctor,
+    Download,
+    Exec,
+    Export,
+    Format,
+    Gather,
+    Import,
+    Link,
+    Report,
+    Swhid,
+    Sync,
+    Unknown,
+}
 
 #[derive(Debug, Deserialize, JsonSchema, Validate)]
 #[serde(deny_unknown_fields)]
@@ -164,132 +182,6 @@ impl Parse<&str> for CrosswalkStandard {
             .parse()
             .map_err(|_| eyre!("Unsupported crosswalk standard '{value}'; expected datacite, dcat, huwise, or invenio"))
     }
-}
-impl Registered {
-    pub(super) fn handler(&self, context: ToolCallContext) -> &ToolHandler {
-        match context.exposure {
-            | ToolExposure { needle: true, mcp: false } => self.needle_handler.as_ref().unwrap_or(&self.handler),
-            | _ => &self.handler,
-        }
-    }
-}
-impl ToolCallContext {
-    /// Restrictive context for a Needle-selected call
-    pub fn needle(offline: bool) -> Self {
-        Self {
-            exposure: ToolExposure { needle: true, mcp: false },
-            offline,
-            allow_mutation: false,
-            max_output_bytes: 1024 * 1024,
-        }
-    }
-}
-impl ToolHandler {
-    fn projected<A, C, O, R, N, Fut>(name: String, handler: Arc<R>, adapter: Arc<N>) -> Self
-    where
-        A: DeserializeOwned + Send + 'static,
-        C: DeserializeOwned + Send + Validate + 'static,
-        O: Serialize + 'static,
-        R: Fn(A) -> Fut + Send + Sync + 'static,
-        N: Fn(C) -> ApiResult<A> + Send + Sync + 'static,
-        Fut: Future<Output = ApiResult<O>> + Send + 'static,
-    {
-        Self(Arc::new(move |arguments: Value| {
-            let input = serde_json::from_value::<C>(arguments)
-                .map_err(|why| eyre!("Invalid arguments for tool '{name}' — {why}"))
-                .and_then(|input| {
-                    input
-                        .validate()
-                        .map_err(|why| eyre!("Invalid arguments for tool '{name}' — {why}"))
-                        .and_then(|()| adapter(input))
-                });
-            let handler = handler.clone();
-            let name = name.clone();
-            Box::pin(async move {
-                match input {
-                    | Ok(input) => match handler(input).await {
-                        | Ok(output) => serde_json::to_value(output).map_err(|why| eyre!("Invalid output from tool '{name}' — {why}")),
-                        | Err(why) => Err(why),
-                    },
-                    | Err(why) => Err(why),
-                }
-            })
-        }))
-    }
-}
-impl ToolRegistry {
-    #[cfg(feature = "needle")]
-    pub(crate) fn has_capabilities(&self) -> bool {
-        !self.capabilities.is_empty()
-    }
-    /// Return the deterministic Needle-native catalog.
-    pub fn needle_tools(&self) -> Vec<NeedleToolDefinition> {
-        self.needle_tools_with_context(ToolCallContext::needle(false))
-    }
-    /// Return tools available to Needle under the caller's execution policy.
-    pub fn needle_tools_with_context(&self, context: ToolCallContext) -> Vec<NeedleToolDefinition> {
-        self.tools
-            .iter()
-            .filter(|tool| context.exposure.needle && tool.definition.exposure.needle && self.is_available(&tool.definition, context))
-            .map(|tool| {
-                let mut parameters = tool.needle_parameters.clone().unwrap_or_else(|| tool.definition.input_schema.clone());
-                if let Value::Object(parameters) = &mut parameters {
-                    parameters.remove("$defs");
-                    parameters.remove("$schema");
-                    parameters.remove("additionalProperties");
-                    parameters.remove("title");
-                    parameters.entry("properties").or_insert_with(|| Value::Object(Default::default()));
-                }
-                NeedleToolDefinition {
-                    name: tool.definition.name.clone(),
-                    description: tool.definition.to_string(),
-                    parameters,
-                    triggers: tool.definition.needle_triggers(),
-                }
-            })
-            .collect()
-    }
-    pub(super) fn register_projected<A, C, O, R, N, Fut>(self, definition: ToolDefinition, adapter: N, handler: R) -> ApiResult<Self>
-    where
-        A: DeserializeOwned + Send + 'static,
-        C: DeserializeOwned + JsonSchema + Send + Validate + 'static,
-        O: Serialize + 'static,
-        R: Fn(A) -> Fut + Send + Sync + 'static,
-        N: Fn(C) -> ApiResult<A> + Send + Sync + 'static,
-        Fut: Future<Output = ApiResult<O>> + Send + 'static,
-    {
-        let name = definition.name.clone();
-        let handler = Arc::new(handler);
-        let canonical = ToolHandler::new::<A, O, R, Fut>(name.clone(), handler.clone());
-        let projected = ToolHandler::projected::<A, C, O, R, N, Fut>(name, handler, Arc::new(adapter));
-        serde_json::to_value(schema_for!(C))
-            .map_err(|why| eyre!("Failed to serialize Needle tool schema — {why}"))
-            .and_then(|parameters| self.insert(definition, canonical, Some(projected), Some(parameters)))
-    }
-}
-impl TryFrom<ActivityInput> for ValidationInput<ResearchActivity> {
-    type Error = Report;
-    fn try_from(input: ActivityInput) -> Result<Self, Self::Error> {
-        ResearchActivity::parse(&input.activity).map(|activity| Self { activity })
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum Family {
-    Check,
-    Diff,
-    Doctor,
-    Download,
-    Exec,
-    Export,
-    Format,
-    Gather,
-    Import,
-    Link,
-    Report,
-    Swhid,
-    Sync,
-    Unknown,
 }
 impl Family {
     fn for_prompt(words: &BTreeSet<String>) -> Option<Self> {
@@ -437,6 +329,108 @@ impl From<&String> for Family {
 impl From<String> for Family {
     fn from(id: String) -> Self {
         Self::from(id.as_str())
+    }
+}
+impl Registered {
+    pub(super) fn handler(&self, context: ToolCallContext) -> &ToolHandler {
+        match context.exposure {
+            | ToolExposure { needle: true, mcp: false } => self.needle_handler.as_ref().unwrap_or(&self.handler),
+            | _ => &self.handler,
+        }
+    }
+}
+impl ToolCallContext {
+    /// Restrictive context for a Needle-selected call
+    pub fn needle(offline: bool) -> Self {
+        Self {
+            exposure: ToolExposure { needle: true, mcp: false },
+            offline,
+            allow_mutation: false,
+            max_output_bytes: 1024 * 1024,
+        }
+    }
+}
+impl ToolHandler {
+    fn projected<A, C, O, R, N, Fut>(name: String, handler: Arc<R>, adapter: Arc<N>) -> Self
+    where
+        A: DeserializeOwned + Send + 'static,
+        C: DeserializeOwned + Send + Validate + 'static,
+        O: Serialize + 'static,
+        R: Fn(A) -> Fut + Send + Sync + 'static,
+        N: Fn(C) -> ApiResult<A> + Send + Sync + 'static,
+        Fut: Future<Output = ApiResult<O>> + Send + 'static,
+    {
+        Self(Arc::new(move |arguments: Value| {
+            let input = serde_json::from_value::<C>(arguments)
+                .map_err(|why| eyre!("Invalid arguments for tool '{name}' — {why}"))
+                .and_then(|input| {
+                    input
+                        .validate()
+                        .map_err(|why| eyre!("Invalid arguments for tool '{name}' — {why}"))
+                        .and_then(|()| adapter(input))
+                });
+            let handler = handler.clone();
+            let name = name.clone();
+            Box::pin(async move {
+                match input {
+                    | Ok(input) => match handler(input).await {
+                        | Ok(output) => serde_json::to_value(output).map_err(|why| eyre!("Invalid output from tool '{name}' — {why}")),
+                        | Err(why) => Err(why),
+                    },
+                    | Err(why) => Err(why),
+                }
+            })
+        }))
+    }
+}
+impl ToolRegistry {
+    #[cfg(feature = "needle")]
+    pub(crate) fn has_capabilities(&self) -> bool {
+        !self.capabilities.is_empty()
+    }
+    /// Return the deterministic Needle-native catalog.
+    pub fn needle_tools(&self) -> Vec<NeedleToolDefinition> {
+        self.needle_tools_with_context(ToolCallContext::needle(false))
+    }
+    /// Return tools available to Needle under the caller's execution policy.
+    pub fn needle_tools_with_context(&self, context: ToolCallContext) -> Vec<NeedleToolDefinition> {
+        self.tools
+            .iter()
+            .filter(|tool| context.exposure.needle && tool.definition.exposure.needle && self.is_available(&tool.definition, context))
+            .map(|tool| {
+                let mut parameters = tool.needle_parameters.clone().unwrap_or_else(|| tool.definition.input_schema.clone());
+                if let Value::Object(parameters) = &mut parameters {
+                    parameters.remove("$defs");
+                    parameters.remove("$schema");
+                    parameters.remove("additionalProperties");
+                    parameters.remove("title");
+                    parameters.entry("properties").or_insert_with(|| Value::Object(Default::default()));
+                }
+                NeedleToolDefinition {
+                    name: tool.definition.name.clone(),
+                    description: tool.definition.to_string(),
+                    parameters,
+                    triggers: tool.definition.needle_triggers(),
+                }
+            })
+            .collect()
+    }
+    pub(super) fn register_projected<A, C, O, R, N, Fut>(self, definition: ToolDefinition, adapter: N, handler: R) -> ApiResult<Self>
+    where
+        A: DeserializeOwned + Send + 'static,
+        C: DeserializeOwned + JsonSchema + Send + Validate + 'static,
+        O: Serialize + 'static,
+        R: Fn(A) -> Fut + Send + Sync + 'static,
+        N: Fn(C) -> ApiResult<A> + Send + Sync + 'static,
+        Fut: Future<Output = ApiResult<O>> + Send + 'static,
+    {
+        let name = definition.name.clone();
+        let handler = Arc::new(handler);
+        let canonical = ToolHandler::new::<A, O, R, Fut>(name.clone(), handler.clone());
+        let projected = ToolHandler::projected::<A, C, O, R, N, Fut>(name, handler, Arc::new(adapter));
+        serde_json::to_value(schema_for!(C))
+            .map_err(|why| eyre!("Failed to serialize Needle tool schema — {why}"))
+            .and_then(|parameters| self.insert(definition, canonical, Some(projected), Some(parameters)))
     }
 }
 impl ToolRegistry {
@@ -642,6 +636,12 @@ impl ToolRegistry {
                 .collect::<Vec<_>>();
             serde_json::to_string(&definitions).map_err(|why| CapabilityError::CatalogSerialization(why.to_string()).into())
         })
+    }
+}
+impl TryFrom<ActivityInput> for ValidationInput<ResearchActivity> {
+    type Error = Report;
+    fn try_from(input: ActivityInput) -> Result<Self, Self::Error> {
+        ResearchActivity::parse(&input.activity).map(|activity| Self { activity })
     }
 }
 pub(super) fn model_catalog_schema(schema: &Value) -> Value {

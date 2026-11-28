@@ -25,14 +25,14 @@ use acorn::util::constants::env::CHROME_PATH;
 use acorn_core::util::MimeType;
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::pid::raid;
-use acorn_schema::research_activity::{
-    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, DatedAgentRole, DatedOrganizationRole, Logbook, ResearchActivity,
-    ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
-};
 use acorn_schema::standard::datacite;
 use acorn_schema::standard::dcat;
 use acorn_schema::standard::dublin_core::DublinCoreDocument;
 use acorn_schema::standard::invenio;
+use acorn_schema::standard::rads::{
+    ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, DatedAgentRole, DatedOrganizationRole, Logbook, ResearchActivity,
+    ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier,
+};
 use acorn_schema::standard::zon;
 use acorn_schema::standard::Standard;
 use acorn_schema::validation::Validate;
@@ -1118,7 +1118,7 @@ async fn test_export_updates_writes_filtered_markdown_and_docx() -> Result<()> {
         logbook: Some(
             Logbook::init()
                 .entries(vec![
-                    acorn_schema::research_activity::ActivityEntry::init()
+                    acorn_schema::standard::rads::ActivityEntry::init()
                         .identifier("included")
                         .project_id("example-project")
                         .timestamp("2026-09-01T12:00:00Z")
@@ -1127,7 +1127,7 @@ async fn test_export_updates_writes_filtered_markdown_and_docx() -> Result<()> {
                         .summary("Included update")
                         .build()
                         .into(),
-                    acorn_schema::research_activity::ActivityEntry::init()
+                    acorn_schema::standard::rads::ActivityEntry::init()
                         .identifier("excluded")
                         .project_id("example-project")
                         .timestamp("2026-08-01T12:00:00Z")

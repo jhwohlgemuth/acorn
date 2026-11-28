@@ -25,11 +25,11 @@ use std::{
 
 mod index;
 mod matching;
-mod research_activity;
+mod rads;
 
 pub(crate) use index::{DocumentEntry, DocumentParser};
 pub use index::{DocumentExcerpt, DocumentIndex, DocumentMatch, DocumentPath, DocumentPathSegment, DocumentPosition, DocumentQuery, DocumentSpan};
-pub(crate) use research_activity::MarkdownParser;
+pub(crate) use rads::MarkdownParser;
 
 static DOCUMENT_CACHE: OnceLock<Cache<DocumentCacheKey, SourceDocument>> = OnceLock::new();
 
@@ -79,14 +79,14 @@ struct DocumentCacheKey {
     modified: Option<Timestamp>,
     path: PathBuf,
 }
-#[derive(Debug)]
-struct PdfDocumentError(String);
 #[derive(Clone, Debug)]
 /// Normalized text and one-based page number for an extracted PDF page.
 pub struct DocumentPage {
     content: String,
     number: usize,
 }
+#[derive(Debug)]
+struct PdfDocumentError(String);
 /// Loaded document content and its source metadata.
 #[derive(Builder, Clone, Debug)]
 #[builder(start_fn = init, on(String, into))]
@@ -108,22 +108,6 @@ pub struct SourceDocuments(
     /// Documents in source order.
     pub Vec<SourceDocument>,
 );
-impl From<Format> for DocumentFormat {
-    fn from(value: Format) -> Self {
-        #[allow(clippy::expect_used)]
-        Self::try_from(&MimeType::from(value)).expect("anydoc formats always map to document formats")
-    }
-}
-impl From<Vec<SourceDocument>> for SourceDocuments {
-    fn from(value: Vec<SourceDocument>) -> Self {
-        Self(value)
-    }
-}
-impl From<SourceDocuments> for Vec<SourceDocument> {
-    fn from(value: SourceDocuments) -> Self {
-        value.0
-    }
-}
 impl From<&Path> for DocumentCacheKey {
     fn from(path: &Path) -> Self {
         let metadata = fs::metadata(path).ok();
@@ -136,15 +120,10 @@ impl From<&Path> for DocumentCacheKey {
         }
     }
 }
-impl From<PdfError> for PdfDocumentError {
-    fn from(why: PdfError) -> Self {
-        Self(match why {
-            | PdfError::Encrypted => "PDF is encrypted; remove password protection before checking it".to_string(),
-            | PdfError::InvalidStructure => "PDF has an invalid structure".to_string(),
-            | PdfError::Io(why) => format!("Failed to read PDF - {why}"),
-            | PdfError::NotAPdf(why) => format!("Invalid PDF - {why}"),
-            | PdfError::Parse(why) => format!("Failed to parse PDF - {why}"),
-        })
+impl From<Format> for DocumentFormat {
+    fn from(value: Format) -> Self {
+        #[allow(clippy::expect_used)]
+        Self::try_from(&MimeType::from(value)).expect("anydoc formats always map to document formats")
     }
 }
 impl TryFrom<&MimeType> for DocumentFormat {
@@ -190,12 +169,23 @@ impl From<DocumentFormat> for MimeType {
         Self::from(Format::from(value))
     }
 }
+impl core::error::Error for PdfDocumentError {}
 impl fmt::Display for PdfDocumentError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
     }
 }
-impl core::error::Error for PdfDocumentError {}
+impl From<PdfError> for PdfDocumentError {
+    fn from(why: PdfError) -> Self {
+        Self(match why {
+            | PdfError::Encrypted => "PDF is encrypted; remove password protection before checking it".to_string(),
+            | PdfError::InvalidStructure => "PDF has an invalid structure".to_string(),
+            | PdfError::Io(why) => format!("Failed to read PDF - {why}"),
+            | PdfError::NotAPdf(why) => format!("Invalid PDF - {why}"),
+            | PdfError::Parse(why) => format!("Failed to parse PDF - {why}"),
+        })
+    }
+}
 impl SourceDocument {
     pub(crate) fn is_markdown(&self) -> bool {
         MimeType::from(self.source.as_str()) == MimeType::Markdown || MimeType::from(self.format.as_str()) == MimeType::Markdown
@@ -353,6 +343,16 @@ impl SourceDocument {
     /// Return non-fatal document extraction warnings.
     pub fn warnings(&self) -> &[String] {
         &self.warnings
+    }
+}
+impl From<Vec<SourceDocument>> for SourceDocuments {
+    fn from(value: Vec<SourceDocument>) -> Self {
+        Self(value)
+    }
+}
+impl From<SourceDocuments> for Vec<SourceDocument> {
+    fn from(value: SourceDocuments) -> Self {
+        value.0
     }
 }
 /// Convert a supported document file to GitHub-Flavored Markdown.

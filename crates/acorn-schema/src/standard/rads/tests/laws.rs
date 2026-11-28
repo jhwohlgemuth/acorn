@@ -1,4 +1,4 @@
-use crate::research_activity::output::ResearchOutput;
+use crate::standard::rads::output::ResearchOutput;
 use proptest::{
     prelude::*,
     test_runner::{Config as ProptestConfig, FileFailurePersistence},
@@ -32,17 +32,17 @@ proptest! {
         ..ProptestConfig::default()
     })]
     #[test]
-    fn research_output_merge_has_empty_candidate_identity(value in output()) {
+    fn test_research_output_merge_has_empty_candidate_identity(value in output()) {
         let empty = ResearchOutput::init().title("").build();
         prop_assert_eq!(semantic_value(&value.clone().merge(empty)), semantic_value(&value));
     }
     #[test]
-    fn research_output_merge_is_idempotent(value in output()) {
+    fn test_research_output_merge_is_idempotent(value in output()) {
         prop_assert_eq!(semantic_value(&value.clone().merge(value.clone())), semantic_value(&value));
     }
 }
 #[test]
-fn research_output_merge_is_intentionally_left_biased() {
+fn test_research_output_merge_is_intentionally_left_biased() {
     let left = ResearchOutput::init().title("Stored title").identifier("stored").build();
     let right = ResearchOutput::init().title("Observed title").identifier("observed").build();
     let forward = left.clone().merge(right.clone());

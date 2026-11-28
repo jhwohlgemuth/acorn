@@ -2,7 +2,7 @@ use super::*;
 use acorn::io::api::powerautomate::local::ApplyStatus;
 use acorn::io::config::ApplicationConfiguration;
 use acorn_host::fs::file_checksum;
-use acorn_schema::research_activity::Logbook;
+use acorn_schema::standard::rads::Logbook;
 use clap_verbosity_flag::Verbosity;
 use std::env::temp_dir;
 use std::fs::write;
@@ -451,7 +451,7 @@ async fn test_report_project_with_entries_writes_pdf_when_chrome_is_configured()
         let activity = ResearchActivity {
             logbook: Some(
                 Logbook::init()
-                    .entries(vec![acorn_schema::research_activity::ActivityEntry::init()
+                    .entries(vec![acorn_schema::standard::rads::ActivityEntry::init()
                         .category("software")
                         .identifier("release")
                         .project_id("pilot")

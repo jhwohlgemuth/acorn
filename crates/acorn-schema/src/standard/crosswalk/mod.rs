@@ -65,12 +65,12 @@ pub(crate) use via_datacite;
 
 mod dublin_core;
 pub mod mapping;
-mod research_activity;
+mod rads;
 mod rrid;
 
 pub use dublin_core::DublinCoreImportOptions;
 pub use mapping::{FieldMapping, FieldRule, FieldValue, Fields};
-pub use research_activity::{RaidExportOptions, RaidImportOptions};
+pub use rads::{RaidExportOptions, RaidImportOptions};
 /// Convert between metadata schemas with tracking of warnings and data loss
 ///
 /// Implementers provide error context and track lossy conversions via ConversionWarning.

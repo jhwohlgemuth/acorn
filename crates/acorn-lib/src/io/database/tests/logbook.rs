@@ -1,6 +1,6 @@
 use crate::io::database::schema::Table;
 use crate::io::database::{Database, ResearchActivityCandidate};
-use acorn_schema::research_activity::{Logbook, ResearchActivity};
+use acorn_schema::standard::rads::{Logbook, ResearchActivity};
 use acorn_schema::ClassificationLevel;
 use nanoid::nanoid;
 use std::env::temp_dir;
@@ -10,7 +10,7 @@ fn activity() -> ResearchActivity {
     activity.meta.identifier = format!("database-logbook-{}", nanoid!(8));
     activity.logbook = Some(
         Logbook::init()
-            .entries(vec![acorn_schema::research_activity::ActivityEntry::init()
+            .entries(vec![acorn_schema::standard::rads::ActivityEntry::init()
                 .identifier("new-contributor")
                 .project_id("example-project")
                 .timestamp("2026-09-01T08:00:00-04:00")
@@ -34,7 +34,7 @@ fn test_classification_graduation_persists_canonical_metadata_and_backup() {
     let mut activity = activity();
     activity.logbook = Some(
         Logbook::init()
-            .entries(vec![acorn_schema::research_activity::ActivityEntry::init()
+            .entries(vec![acorn_schema::standard::rads::ActivityEntry::init()
                 .identifier("classified-activity")
                 .project_id("example-project")
                 .timestamp("2026-09-01T08:00:00-04:00")

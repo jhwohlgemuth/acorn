@@ -171,7 +171,7 @@ pub struct LogbookEntryRow {
     pub research_activity_iid: Option<String>,
     /// Stable identifier within the research activity logbook.
     pub entry_identifier: Option<String>,
-    /// Complete serialized [`acorn_schema::research_activity::LogbookEntry`].
+    /// Complete serialized [`acorn_schema::standard::rads::LogbookEntry`].
     #[validate(json)]
     pub entry_json: Option<String>,
     /// Logbook entry timestamp retained for indexed ordering.

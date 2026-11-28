@@ -20,13 +20,13 @@ use acorn_macros::With;
 use acorn_schema::codec::DocumentCodec;
 #[cfg(feature = "analysis")]
 use acorn_schema::pid::raid;
-use acorn_schema::research_activity::ResearchActivity;
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::crosswalk::mapping::{
     datacite_to_dcat, datacite_to_huwise, datacite_to_invenio, dcat_to_datacite, huwise_to_datacite, invenio_to_datacite,
 };
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError, FieldMapping, Fields, SchemaExtractor};
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::Standard;
 #[cfg(feature = "analysis")]
 use acorn_schema::standard::{ckan, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio};
@@ -626,18 +626,18 @@ impl From<Vec<Check>> for CheckBatch {
         Self(checks)
     }
 }
-impl IntoIterator for CheckBatch {
-    type Item = Check;
-    type IntoIter = alloc::vec::IntoIter<Check>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
 impl<'a> IntoIterator for &'a CheckBatch {
     type Item = &'a Check;
     type IntoIter = core::slice::Iter<'a, Check>;
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+impl IntoIterator for CheckBatch {
+    type Item = Check;
+    type IntoIter = alloc::vec::IntoIter<Check>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 impl CheckCategory {
@@ -924,6 +924,22 @@ impl IntoIterator for Findings {
         self.values.into_iter()
     }
 }
+impl StandardCheckCapabilities for Standard {
+    fn supports_check(self, category: &CheckCategory) -> bool {
+        match self {
+            | Self::ApplicationConfigurationResearchEnablement | Self::Ckan | Self::Czml => category.is_schema(),
+            | Self::CitationFileFormat | Self::Document => {
+                category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
+            }
+            | Self::Datacite | Self::Dcat | Self::DublinCore | Self::Invenio => !category.is_compute() && !category.is_crosswalk(),
+            | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
+            | Self::Kitfile | Self::ModelKit | Self::Oci => category.is_schema() || category.is_quality(),
+            | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
+            | Self::ResearchActivityData => !category.is_crosswalk(),
+            | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
+        }
+    }
+}
 #[cfg(feature = "analysis")]
 impl StandardCrosswalk for Standard {
     /// Convert serialized content from one metadata standard to another.
@@ -1138,22 +1154,6 @@ impl StandardCrosswalk for Standard {
         CrosswalkError::BuildFailed(format!(
             "Unsupported metadata crosswalk pair: {self} -> {target} (supported: ckan, rads, raid, datacite, dcmi, dcat, invenio, huwise)"
         ))
-    }
-}
-impl StandardCheckCapabilities for Standard {
-    fn supports_check(self, category: &CheckCategory) -> bool {
-        match self {
-            | Self::ApplicationConfigurationResearchEnablement | Self::Ckan | Self::Czml => category.is_schema(),
-            | Self::CitationFileFormat | Self::Document => {
-                category.is_schema() || category.is_link() || category.is_prose() || category.is_quality() || category.is_readability()
-            }
-            | Self::Datacite | Self::Dcat | Self::DublinCore | Self::Invenio => !category.is_compute() && !category.is_crosswalk(),
-            | Self::Huwise => category.is_schema() || category.is_prose() || category.is_quality() || category.is_fair() || category.is_readability(),
-            | Self::Kitfile | Self::ModelKit | Self::Oci => category.is_schema() || category.is_quality(),
-            | Self::Raid => category.is_schema() || category.is_quality() || category.is_fair(),
-            | Self::ResearchActivityData => !category.is_crosswalk(),
-            | Self::Text => category.is_schema() || category.is_prose() || category.is_quality() || category.is_readability(),
-        }
     }
 }
 impl From<&CheckCategory> for u8 {

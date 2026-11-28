@@ -496,7 +496,7 @@ mod research_graph_tests {
         analyze_graph, entity_href, graph_analysis_within_budget, graph_parameters, keywords, metric_spectrum, pid_href, project, visible,
         GraphMetrics, DIAGRAM_EDGE_LIMIT, DIAGRAM_NODE_LIMIT,
     };
-    use acorn_schema::research_activity::graph::{GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, ResearchGraph};
+    use acorn_schema::standard::rads::graph::{GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, ResearchGraph};
     use acorn_web::{
         search::SearchPattern,
         session::{SuppliedFile, Workspace},
@@ -931,7 +931,7 @@ mod session_tests {
 }
 mod template_tests {
     use acorn_core::util::MimeType;
-    use acorn_schema::research_activity::ResearchActivity;
+    use acorn_schema::standard::rads::ResearchActivity;
     use acorn_schema::Validate;
     #[cfg(target_arch = "wasm32")]
     use acorn_web::operations::{self, Request, Tool};

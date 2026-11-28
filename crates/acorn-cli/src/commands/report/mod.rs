@@ -25,7 +25,7 @@ use acorn::io::{
     ApiResult, InputOutput,
 };
 use acorn_schema::{
-    research_activity::{LogbookEntry, LogbookUpdates, ReportingWindow, ResearchActivity},
+    standard::rads::{LogbookEntry, LogbookUpdates, ReportingWindow, ResearchActivity},
     validation::Validate,
 };
 use bon::Builder;

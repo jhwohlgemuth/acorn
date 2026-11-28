@@ -111,7 +111,7 @@ async fn test_manual_review_worker_graduates_an_authorized_note_once() {
         let snapshot = state.lock().unwrap();
         let branch = snapshot.merge_requests[0]["source_branch"].as_str().unwrap().to_string();
         let content = snapshot.content.get(&(branch.clone(), "acorn/index.json".to_string())).unwrap();
-        let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
+        let activity: acorn_schema::standard::rads::ResearchActivity = serde_json::from_str(content).unwrap();
         (branch, activity.logbook.unwrap().entries[0].identifier().to_string())
     };
     let delivery = WebhookDelivery {
@@ -136,7 +136,7 @@ async fn test_manual_review_worker_graduates_an_authorized_note_once() {
     {
         let snapshot = state.lock().unwrap();
         let content = snapshot.content.get(&(branch, "acorn/index.json".to_string())).unwrap();
-        let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
+        let activity: acorn_schema::standard::rads::ResearchActivity = serde_json::from_str(content).unwrap();
         assert!(activity.logbook.unwrap().entries[0].archived());
         assert_eq!(snapshot.merge_requests.len(), 1);
         assert_eq!(snapshot.review_writes.len(), 2);
@@ -252,7 +252,7 @@ async fn test_single_and_mixed_inbox_publish_only_selected_review_indexes() {
         let entries = |branch: &str, path: &str| -> usize {
             let content = state_before_replay.content.get(&(branch.to_string(), path.to_string()));
             content
-                .map(|content| serde_json::from_str::<acorn_schema::research_activity::ResearchActivity>(content).unwrap())
+                .map(|content| serde_json::from_str::<acorn_schema::standard::rads::ResearchActivity>(content).unwrap())
                 .and_then(|activity| activity.logbook)
                 .map_or(0, |logbook| logbook.entries.len())
         };
@@ -272,7 +272,7 @@ async fn test_single_and_mixed_inbox_publish_only_selected_review_indexes() {
             let branch = format!("acorn/powerautomate/{}/2026-10", shared.folder_id);
             let path = format!("{}/index.json", shared.folder_id);
             let content = state_before_replay.content.get(&(branch, path)).unwrap();
-            let activity: acorn_schema::research_activity::ResearchActivity = serde_json::from_str(content).unwrap();
+            let activity: acorn_schema::standard::rads::ResearchActivity = serde_json::from_str(content).unwrap();
             let logbook = activity.logbook.unwrap();
             let published = logbook
                 .entries

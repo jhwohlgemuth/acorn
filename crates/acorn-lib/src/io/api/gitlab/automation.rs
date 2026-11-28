@@ -20,7 +20,7 @@ use acorn_core::{
     util::{MarkdownSupport, MimeType},
 };
 use acorn_host::fs::SafePath;
-use acorn_schema::research_activity::{GraduationCandidates, LogbookEntry, ResearchActivity};
+use acorn_schema::standard::rads::{GraduationCandidates, LogbookEntry, ResearchActivity};
 use async_trait::async_trait;
 use bon::Builder;
 use color_eyre::eyre::eyre;

@@ -1,5 +1,5 @@
 use super::*;
-use crate::research_activity::{ActivityOrganization, ResearchActivityMetadata, TypedIdentifier, TypedRelatedResource};
+use crate::standard::rads::{ActivityOrganization, ResearchActivityMetadata, TypedIdentifier, TypedRelatedResource};
 use crate::OneOrMany;
 
 fn activity(title: &str, project: &str) -> ResearchActivity {
@@ -69,11 +69,11 @@ fn test_graph_resolves_explicit_relation_and_preserves_missing_target() {
     let second = activity("Second activity", "project-two");
     first.meta.related_resources = Some(OneOrMany::Many(vec![
         TypedRelatedResource::init()
-            .identifier(crate::research_activity::TypedIdentifier::init().value("b.json").build())
+            .identifier(crate::standard::rads::TypedIdentifier::init().value("b.json").build())
             .relation_type("References")
             .build(),
         TypedRelatedResource::init()
-            .identifier(crate::research_activity::TypedIdentifier::init().value("missing.json").build())
+            .identifier(crate::standard::rads::TypedIdentifier::init().value("missing.json").build())
             .relation_type("References")
             .build(),
     ]));

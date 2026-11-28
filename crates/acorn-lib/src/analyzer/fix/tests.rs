@@ -604,7 +604,7 @@ fn test_trusted_document_plan_applies_and_rolls_back_on_failed_verification() {
 }
 #[test]
 fn test_vocabulary_fix_deduplicates_scalars_but_preserves_funder_records() {
-    let mut data = serde_json::from_str::<acorn_schema::research_activity::ResearchActivity>(include_str!(
+    let mut data = serde_json::from_str::<acorn_schema::standard::rads::ResearchActivity>(include_str!(
         "../../../../../tests/fixtures/data/valid_project/index.json"
     ))
     .expect("research activity fixture");

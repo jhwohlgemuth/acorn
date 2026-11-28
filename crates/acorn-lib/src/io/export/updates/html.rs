@@ -1,6 +1,6 @@
 //! Shared HTML composition for logbook update and report pages.
 use crate::util::constants::app::REPORT_FULL_TIMESTAMP_FORMAT;
-use acorn_schema::research_activity::{ActivityEntry, LogbookCategory, LogbookEntry, LogbookState, LogbookUpdates};
+use acorn_schema::standard::rads::{ActivityEntry, LogbookCategory, LogbookEntry, LogbookState, LogbookUpdates};
 use acorn_schema::ClassificationLevel;
 use bon::Builder;
 use quick_xml::escape::escape;

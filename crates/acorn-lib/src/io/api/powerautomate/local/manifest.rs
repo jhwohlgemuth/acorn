@@ -5,7 +5,7 @@ use super::types::{BatchApplyStatus, BatchInspectionStatus, BatchLineStatus, Bat
 use super::{digest_text, ApplicationConfiguration, Destination, FolderRegistry, Proposal, MAX_INDEX_BYTES};
 use crate::io::{read_file_snapshot, sync_parent_directory, ApiResult};
 use acorn_host::fs::SafePath;
-use acorn_schema::research_activity::LogbookEntry;
+use acorn_schema::standard::rads::LogbookEntry;
 use acorn_schema::validation::Validate;
 use alloc::collections::BTreeMap;
 use bon::Builder;
@@ -514,15 +514,6 @@ pub(super) fn manifest_path(config_path: &Path, batch_id: &str) -> ApiResult<Pat
         | false => Err(eyre!("Batch ID must be a SHA-256 hex digest")),
     }
 }
-pub(super) fn secure_directory(config_path: &Path) -> ApiResult<PathBuf> {
-    batch_directory(config_path).and_then(|path| match path.symlink_metadata().is_ok_and(|metadata| metadata.is_symlink()) {
-        | true => Err(eyre!("Local batch directory must not be a symlink")),
-        | false => create_dir_all(&path)
-            .map_err(|why| eyre!("Cannot create local batch directory: {why}"))
-            .and_then(|()| protect_local_batch(&path))
-            .map(|()| path),
-    })
-}
 #[cfg(unix)]
 fn protect_local_batch(path: &Path) -> ApiResult<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -532,4 +523,13 @@ fn protect_local_batch(path: &Path) -> ApiResult<()> {
 fn protect_local_batch(path: &Path) -> ApiResult<()> {
     let _ = path;
     Ok(())
+}
+pub(super) fn secure_directory(config_path: &Path) -> ApiResult<PathBuf> {
+    batch_directory(config_path).and_then(|path| match path.symlink_metadata().is_ok_and(|metadata| metadata.is_symlink()) {
+        | true => Err(eyre!("Local batch directory must not be a symlink")),
+        | false => create_dir_all(&path)
+            .map_err(|why| eyre!("Cannot create local batch directory: {why}"))
+            .and_then(|()| protect_local_batch(&path))
+            .map(|()| path),
+    })
 }

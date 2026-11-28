@@ -13,7 +13,7 @@ phase_budget_hours: 5
 
 # Project code boundaries
 
-- **Update:** `crates/acorn-schema/src/pid/{mod.rs,tests.rs}`, `crates/acorn-schema/src/research_activity/{mod.rs,common.rs,output.rs}`, `crates/acorn-schema/src/standard/{mod.rs,tests/mod.rs}`, `crates/acorn-lib/src/io/api/{mod.rs,tests/mod.rs}`, `crates/acorn-lib/assets/constants/application.json`, `crates/acorn-lib/src/analyzer/host/discovery/{mod.rs,tests/mod.rs}`, `crates/acorn-lib/src/io/config/transfer.rs`, `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs,tests/mod.rs}`, `crates/acorn-cli/src/commands/{mod.rs,import/mod.rs,import/tests/mod.rs}`, `docs/src/concepts/persistent-identifiers.md`, `docs/src/cli-reference/commands/{gather,import}.md`, and generated command help.
+- **Update:** `crates/acorn-schema/src/pid/{mod.rs,tests.rs}`, `crates/acorn-schema/src/standard/rads/{mod.rs,common.rs,output.rs}`, `crates/acorn-schema/src/standard/{mod.rs,tests/mod.rs}`, `crates/acorn-lib/src/io/api/{mod.rs,tests/mod.rs}`, `crates/acorn-lib/assets/constants/application.json`, `crates/acorn-lib/src/analyzer/host/discovery/{mod.rs,tests/mod.rs}`, `crates/acorn-lib/src/io/config/transfer.rs`, `crates/acorn-cli/src/cli/{mod.rs,arguments/mod.rs,tests/mod.rs}`, `crates/acorn-cli/src/commands/{mod.rs,import/mod.rs,import/tests/mod.rs}`, `docs/src/concepts/persistent-identifiers.md`, `docs/src/cli-reference/commands/{gather,import}.md`, and generated command help.
 - **Create:** `crates/acorn-schema/src/pid/dpid/{mod.rs,tests.rs}`, `crates/acorn-schema/src/standard/rocrate/mod.rs`, `crates/acorn-schema/src/standard/tests/rocrate.rs`, `crates/acorn-lib/src/io/api/dpid.rs`, `crates/acorn-lib/src/io/api/tests/dpid.rs`, `crates/acorn-cli/src/commands/import/dpid.rs`, and pinned resolver/history/RO-Crate fixtures under `tests/fixtures/dpid/`.
 - **Delete:** None.
 
@@ -157,7 +157,7 @@ Add `acorn import dpid <DPID> [OUTPUT]` as the explicit transformation workflow.
 
 ## 2. Add extensible activity identifiers and root persistence
 
-**Atomic write set:** `crates/acorn-schema/src/research_activity/{mod.rs,common.rs}`, adjacent research-activity tests, `crates/acorn-lib/src/io/config/transfer.rs`.
+**Atomic write set:** `crates/acorn-schema/src/standard/rads/{mod.rs,common.rs}`, adjacent research-activity tests, `crates/acorn-lib/src/io/config/transfer.rs`.
 
 - Add the optional `identifiers` collection to activity metadata and one pure scheme-aware coherence validator for dPID values and scheme URI. Preserve unknown explicitly named schemes and existing serialized RAD documents.
 - Define deterministic deduplication and ordering by normalized scheme plus value. Multiple versions of one dPID may coexist as provenance, but candidate/database identity collapses only on `dpid:<root>`.
@@ -168,7 +168,7 @@ Add `acorn import dpid <DPID> [OUTPUT]` as the explicit transformation workflow.
 
 ## 3. Implement the portable dPID RO-Crate profile and crosswalk
 
-**Atomic write set:** `crates/acorn-schema/src/standard/rocrate/mod.rs`, `crates/acorn-schema/src/standard/{mod.rs,tests/mod.rs}`, `crates/acorn-schema/src/standard/tests/rocrate.rs`, `crates/acorn-schema/src/research_activity/output.rs` only if the frozen mapping exposes a missing reusable field.
+**Atomic write set:** `crates/acorn-schema/src/standard/rocrate/mod.rs`, `crates/acorn-schema/src/standard/{mod.rs,tests/mod.rs}`, `crates/acorn-schema/src/standard/tests/rocrate.rs`, `crates/acorn-schema/src/standard/rads/output.rs` only if the frozen mapping exposes a missing reusable field.
 
 - Decode the narrow JSON-LD graph/profile described above with `serde`, explicit required invariants, deterministic graph indexing, and unknown-field preservation or loss reporting.
 - Resolve only local graph references. Never dereference external JSON-LD contexts, remote entity ids, IPFS links, or DID service endpoints in the portable layer.
@@ -315,7 +315,7 @@ No required test contacts a public dPID resolver, IPFS gateway, Ceramic/Codex no
 - Status: planned
 - Budget: 5 active hours maximum
 - Prerequisites: DPID-03
-- Exact write set: `crates/acorn-schema/src/research_activity/mod.rs`, `crates/acorn-schema/src/research_activity/common.rs`
+- Exact write set: `crates/acorn-schema/src/standard/rads/mod.rs`, `crates/acorn-schema/src/standard/rads/common.rs`
 - Primary integration lock: research-activity schema
 - Outcome: Add optional typed identifiers with deterministic scheme/value coherence, ordering, and compatibility.
 - Focused validation: Run serde, schema, duplicate, unknown-scheme, and old-document round trips.

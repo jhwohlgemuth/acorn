@@ -9,8 +9,8 @@ use acorn::io::{
 };
 use acorn_core::{util::interpolation::ReplacementPlan, util::MimeType};
 use acorn_host::fs::read_text;
-use acorn_schema::research_activity::logbook::MAX_LOGBOOK_SUMMARY_CHARACTERS;
-use acorn_schema::research_activity::{LogbookCategory, LogbookEntry, LogbookUpdates, ResearchActivity};
+use acorn_schema::standard::rads::logbook::MAX_LOGBOOK_SUMMARY_CHARACTERS;
+use acorn_schema::standard::rads::{LogbookCategory, LogbookEntry, LogbookUpdates, ResearchActivity};
 use color_eyre::eyre::eyre;
 use core::ops::Range;
 use quick_xml::{events::Event, Reader};

@@ -44,7 +44,7 @@ use acorn_core::{
 use acorn_schema::{
     agent::{ModelDetails, ModelSelectors, Quantization, Weight, Weights},
     hardware::memory::Memory,
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     OneOrMany,
 };
 use alloc::sync::Arc;

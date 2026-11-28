@@ -1,6 +1,6 @@
 use super::Research;
 use super::{Logbook, ResearchActivity, ResearchActivityContext, ResearchActivityMetadata, Sections};
-use crate::research_activity::aspect::AspectFramework;
+use crate::standard::rads::aspect::AspectFramework;
 use crate::util::constants::app::RAD_MARKDOWN_SCHEMA;
 use crate::util::constants::app::{RAD_MARKDOWN_OPTIONAL_SECTIONS, RAD_MARKDOWN_PROSE_SECTIONS, RAD_MARKDOWN_REQUIRED_SECTIONS};
 use crate::{ContactPoint, ContactPointContext, Other};

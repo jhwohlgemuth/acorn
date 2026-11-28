@@ -15,7 +15,7 @@ use acorn::io::export::powerpoint::{self, add_aspect_chart, prepare_destination,
 use acorn::io::{export::ExportContext, write_file};
 use acorn_core::prelude::Arc;
 use acorn_host::fs::read_text;
-use acorn_schema::{research_activity::ResearchActivity, ImageObject, MediaObject};
+use acorn_schema::{standard::rads::ResearchActivity, ImageObject, MediaObject};
 use std::{
     env::temp_dir,
     fs::{create_dir_all, read},
@@ -156,7 +156,7 @@ fn test_copy_image_normalizes_jpeg_extension() {
     write_file(root.join("photo.jpg"), "jpeg bytes".to_string()).unwrap();
     let data = ResearchActivity::init()
         .meta(
-            acorn_schema::research_activity::ResearchActivityMetadata::init()
+            acorn_schema::standard::rads::ResearchActivityMetadata::init()
                 .media(vec![MediaObject::Image(
                     ImageObject::init().caption(String::new()).content_url("photo.jpg".to_string()).build(),
                 )])
@@ -178,7 +178,7 @@ fn test_copy_image_reports_missing_authored_media() {
     setup_image_relationship(&root);
     let data = ResearchActivity::init()
         .meta(
-            acorn_schema::research_activity::ResearchActivityMetadata::init()
+            acorn_schema::standard::rads::ResearchActivityMetadata::init()
                 .media(vec![MediaObject::Image(
                     ImageObject::init().caption(String::new()).content_url("missing.png".to_string()).build(),
                 )])
@@ -228,7 +228,7 @@ fn test_create_preserves_existing_output_on_late_media_failure() {
     let input = root.join("index.json");
     let data = ResearchActivity::init()
         .meta(
-            acorn_schema::research_activity::ResearchActivityMetadata::init()
+            acorn_schema::standard::rads::ResearchActivityMetadata::init()
                 .media(vec![MediaObject::Image(
                     ImageObject::init().caption(String::new()).content_url("missing.png".to_string()).build(),
                 )])

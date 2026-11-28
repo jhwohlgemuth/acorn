@@ -10,7 +10,7 @@ use crate::agent::{
     Benchmark, CostDetails, CostTier, FrontMatter, Harness, LimitDetails, Metric, Modalities, ModelDetails, ModelList, ModelResolutionReason,
     ModelSelector, ModelSelectors, PromptFileAsset, PromptTemplate, PromptTemplateConfiguration, Quantization, TierInfo, Weight, Weights,
 };
-use crate::research_activity::aspect::data::Modality;
+use crate::standard::rads::aspect::data::Modality;
 use crate::OneOrMany;
 use acorn_core::{util::MarkdownSupport, Noul};
 

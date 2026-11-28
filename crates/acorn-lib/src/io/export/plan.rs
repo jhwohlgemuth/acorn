@@ -2,7 +2,7 @@
 use crate::io::{ApiResult, InputOutput};
 use acorn_core::util::MimeType;
 use acorn_host::fs::SafePath;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use color_eyre::eyre::eyre;
 use std::path::{Path, PathBuf};
 

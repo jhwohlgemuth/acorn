@@ -5,7 +5,7 @@ use crate::search_ui::SearchField;
 use crate::ui::{Icon, Route};
 use acorn_schema::{
     pid::{Arxiv, Handle, Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, ISNI, PID, RRID, SWHID},
-    research_activity::{
+    standard::rads::{
         graph::{GraphEdge, GraphEdgeKind, GraphNode, GraphNodeKind, GraphRecord, ResearchGraph},
         ResearchActivity,
     },

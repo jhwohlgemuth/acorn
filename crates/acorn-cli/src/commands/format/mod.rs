@@ -25,7 +25,7 @@ use acorn_diff::unified_diff;
 use acorn_host::terminal::Label;
 use acorn_schema::{
     enrichment::Provider,
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     standard::Standard,
     standard::{cff::Cff, datacite, dublin_core::DublinCoreDocument, invenio},
     validation::Validate,

@@ -2,7 +2,7 @@ use super::super::link::*;
 use crate::io::mcp::tools::{CapabilitySelectionContext, ExecutionContext, ExecutionOutcome, MutationAuthority};
 use crate::io::mcp::{InputReference, ToolRegistry};
 use crate::io::InputOutput;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;

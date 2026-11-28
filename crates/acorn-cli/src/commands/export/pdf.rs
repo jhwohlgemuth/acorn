@@ -8,7 +8,7 @@ use acorn::{
     util::StringConversion,
 };
 use acorn_host::{fs::SafePath, terminal::Label};
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use chromiumoxide::Page;
 use color_eyre::eyre::eyre;
 use std::{

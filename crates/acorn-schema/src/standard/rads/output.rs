@@ -1,7 +1,7 @@
 //! Structured research outputs associated with a research activity
 use crate::pid::raid::CreditRole;
-use crate::research_activity::common::{ControlledSubject, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource};
 use crate::standard::datacite::{self, Description, GeoLocation, Publisher, ResourceTypeGeneral};
+use crate::standard::rads::common::{ControlledSubject, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource};
 use crate::validation::{is_iso_639_1_language_code, rules::nonempty, validate_output_funding_identifier, Property, PropertySet, Validate};
 use crate::{Keyword, Website};
 use acorn_core::prelude::alloc::{String, Vec};

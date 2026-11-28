@@ -328,7 +328,7 @@ fuzz-smoke: ## Run lightweight fuzz smoke checks for the project.
 	@rm -rf fuzz/artifacts
 	@sh -c 'if command -v timeout >/dev/null 2>&1; then timeout --foreground --kill-after=30 180 cargo +nightly fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; else cargo +nightly fuzz run --fuzz-dir fuzz location_repository fuzz/corpus/location_repository -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; fi'
 	@sh -c 'if command -v timeout >/dev/null 2>&1; then timeout --foreground --kill-after=30 180 cargo +nightly fuzz run --fuzz-dir fuzz powerpoint fuzz/corpus/powerpoint -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; else cargo +nightly fuzz run --fuzz-dir fuzz powerpoint fuzz/corpus/powerpoint -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; fi'
-	@sh -c 'if command -v timeout >/dev/null 2>&1; then timeout --foreground --kill-after=30 180 cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; else cargo +nightly fuzz run --fuzz-dir fuzz research_activity fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; fi'
+	@sh -c 'if command -v timeout >/dev/null 2>&1; then timeout --foreground --kill-after=30 180 cargo +nightly fuzz run --fuzz-dir fuzz rads fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; else cargo +nightly fuzz run --fuzz-dir fuzz rads fuzz/corpus/research_activity -- -max_total_time=5 -rss_limit_mb=2048 -timeout=5 -print_final_stats=1; fi'
 
 help: ## Show the available development tasks.
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target> [VERSION=x.y.z] [ACP_AGENT=opencode|codex|claude] [BENCH_ARGS=\"...\"] [BENCH_BASELINE=x.y.z] [BENCH_HISTORY=...] [CI_JOB=<id|name>] [CI_PIPELINE=<id>] [CI_REF=<branch|tag>] [RELEASE_REF=<branch|tag>] [TAG=vX.Y.Z] [WASM_PACK_BUILD_ARGS=\"...\"] [FUZZ_CRASH=path]\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -662,7 +662,7 @@ DEV_DEPENDENCIES = \
 DIOXUS ?= $(CURDIR)/target/tools/dioxus/bin/dx
 DOCKER_HUB_REGISTRY = mirror.gcr.io/library
 FUZZ_ARGS =
-FUZZ_TARGET = research_activity
+FUZZ_TARGET = rads
 IMAGE_AMD64_CONTEXT ?= oklahoma
 IMAGE_ARM64_CONTEXT ?= dante
 IMAGE_BUILD_CACHE ?= --no-cache

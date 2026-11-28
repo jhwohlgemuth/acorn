@@ -229,27 +229,6 @@ pub struct Cff {
     #[validate(version)]
     pub version: Option<String>,
 }
-impl Cff {
-    /// Parse CFF records embedded in fenced Markdown blocks.
-    pub fn embedded(content: &str) -> Vec<Self> {
-        content
-            .split("```")
-            .enumerate()
-            .filter(|(index, _)| index % 2 == 1)
-            .filter_map(|(_, block)| {
-                let value = block
-                    .strip_prefix("cff\n")
-                    .or_else(|| block.strip_prefix("yaml\n"))
-                    .or_else(|| block.strip_prefix("yml\n"))
-                    .unwrap_or(block);
-                value
-                    .contains("cff-version")
-                    .then(|| serde_norway::from_str::<Self>(value).ok())
-                    .flatten()
-            })
-            .collect()
-    }
-}
 /// Organization, team, or other non-person entity metadata used in CFF
 #[skip_serializing_none]
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize, Validate)]
@@ -401,7 +380,7 @@ pub struct Reference {
     #[validate(date)]
     pub date_released: Option<String>,
     /// Department where the work was produced
-    // TODO: Map to research_activity::contact::organization
+    // TODO: Map to rads::contact::organization
     pub department: Option<String>,
     /// DOI of the related work
     #[validate(doi)]
@@ -543,6 +522,35 @@ pub struct Reference {
     #[validate(nested)]
     pub year_original: Option<YearValue>,
 }
+impl Validate for Agent {
+    fn validate(&self) -> Result<(), ValidationReport> {
+        match self {
+            | Self::Entity(value) => value.validate(),
+            | Self::Person(value) => value.validate(),
+        }
+    }
+}
+impl Cff {
+    /// Parse CFF records embedded in fenced Markdown blocks.
+    pub fn embedded(content: &str) -> Vec<Self> {
+        content
+            .split("```")
+            .enumerate()
+            .filter(|(index, _)| index % 2 == 1)
+            .filter_map(|(_, block)| {
+                let value = block
+                    .strip_prefix("cff\n")
+                    .or_else(|| block.strip_prefix("yaml\n"))
+                    .or_else(|| block.strip_prefix("yml\n"))
+                    .unwrap_or(block);
+                value
+                    .contains("cff-version")
+                    .then(|| serde_norway::from_str::<Self>(value).ok())
+                    .flatten()
+            })
+            .collect()
+    }
+}
 impl Default for Cff {
     fn default() -> Self {
         Self {
@@ -582,13 +590,5 @@ impl ToProse for Cff {
             .flatten()
             .collect::<Vec<String>>()
             .join("\n\n")
-    }
-}
-impl Validate for Agent {
-    fn validate(&self) -> Result<(), ValidationReport> {
-        match self {
-            | Self::Entity(value) => value.validate(),
-            | Self::Person(value) => value.validate(),
-        }
     }
 }

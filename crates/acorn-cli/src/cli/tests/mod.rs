@@ -26,7 +26,7 @@ use acorn_core::{
     util::{MarkdownSupport, MimeType},
     Noul,
 };
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::zon;
 use acorn_schema::standard::Standard;
 use clap::{CommandFactory, Parser, ValueEnum};
@@ -1530,7 +1530,7 @@ fn test_paste_rejects_watch_mode() {
 }
 #[test]
 fn test_report_command_date_bounds_preserve_half_open_window() {
-    use acorn_schema::research_activity::{Logbook, ReportingWindow, ResearchActivity};
+    use acorn_schema::standard::rads::{Logbook, ReportingWindow, ResearchActivity};
     let parsed = Arguments::try_parse_from(["acorn", "report", "--from", "2024-02-29", "--through", "2024-03-01"]).expect("date-only report bounds");
     let Some(Commands::Report(arguments)) = parsed.command else {
         panic!("expected report command");
@@ -1546,7 +1546,7 @@ fn test_report_command_date_bounds_preserve_half_open_window() {
     ]
     .into_iter()
     .map(|(id, timestamp)| {
-        acorn_schema::research_activity::ActivityEntry::init()
+        acorn_schema::standard::rads::ActivityEntry::init()
             .identifier(id)
             .project_id("example")
             .timestamp(timestamp)
@@ -1569,7 +1569,7 @@ fn test_report_command_date_bounds_preserve_half_open_window() {
 }
 #[test]
 fn test_report_command_date_bounds_reject_empty_or_reversed_windows() {
-    use acorn_schema::research_activity::ReportingWindow;
+    use acorn_schema::standard::rads::ReportingWindow;
     for from in ["2026-10-27", "2026-10-28"] {
         let parsed = Arguments::try_parse_from(["acorn", "report", "--from", from, "--through", "2026-10-27"])
             .expect("calendar dates parse before window validation");

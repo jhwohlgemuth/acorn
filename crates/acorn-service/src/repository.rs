@@ -7,8 +7,8 @@ use acorn_core::prelude::{format, String, ToString, Vec};
 use acorn_core::util::{LinkedData, MimeType};
 use acorn_core::Location;
 use acorn_schema::codec::{decode_value, encode_value, DocumentCodec};
-use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::cff::Cff;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::validation::Validate;
 use serde_json::Value;
 

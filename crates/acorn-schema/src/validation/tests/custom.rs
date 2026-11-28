@@ -1,6 +1,6 @@
 #![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
 use super::super::*;
-use crate::research_activity::ResearchActivityMetadata;
+use crate::standard::rads::ResearchActivityMetadata;
 use crate::validation::{rules, Validate};
 
 const VALID_ARK_VALUES: [&str; 8] = [

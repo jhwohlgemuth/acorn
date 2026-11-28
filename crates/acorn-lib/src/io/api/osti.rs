@@ -3,7 +3,7 @@ use crate::io::api::{ApiResult, Param, Params, RemoteResource, INCLUDED_ENDPOINT
 use acorn_core::util::Searchable;
 use acorn_schema::discovery::{Organization, Person, ProjectOrganization, ProjectPerson, RemoteEntity, RemoteOrganizationRole};
 use acorn_schema::pid::{Identifier, PersistentIdentifier, PersistentIdentifierParse, DOI, ORCID, PID};
-use acorn_schema::research_activity::{ResearchActivity, ResearchActivityMetadata};
+use acorn_schema::standard::rads::{ResearchActivity, ResearchActivityMetadata};
 use alloc::collections::{BTreeMap, BTreeSet};
 use color_eyre::eyre::eyre;
 use core::fmt;
@@ -255,14 +255,6 @@ fn normalized(value: &str) -> String {
         .flat_map(char::to_lowercase)
         .collect()
 }
-fn organizations_with_role(
-    organizations: &[ProjectOrganization],
-    role: RemoteOrganizationRole,
-) -> impl Iterator<Item = (String, RemoteOrganizationRole)> + '_ {
-    organizations
-        .iter()
-        .map(move |organization| (organization.organization_name.clone(), role))
-}
 fn organization_values(project: &Project, role: RemoteOrganizationRole) -> Vec<(String, RemoteOrganizationRole)> {
     let site = (!project.site_ownership_code.is_empty())
         .then(|| (project.site_ownership_code.clone(), RemoteOrganizationRole::SiteOwner))
@@ -316,6 +308,14 @@ fn organizations(projects: &[Project], role: RemoteOrganizationRole, filter: Opt
             ..organization
         })
         .collect()
+}
+fn organizations_with_role(
+    organizations: &[ProjectOrganization],
+    role: RemoteOrganizationRole,
+) -> impl Iterator<Item = (String, RemoteOrganizationRole)> + '_ {
+    organizations
+        .iter()
+        .map(move |organization| (organization.organization_name.clone(), role))
 }
 async fn page(options: &Options) -> ApiResult<RawSearchResponse> {
     match INCLUDED_ENDPOINTS.find_by_name("osti") {
@@ -425,27 +425,6 @@ async fn project_pages(options: &Options, first: RawSearchResponse) -> ApiResult
         }
     }
 }
-fn request_params(options: &Options) -> ApiResult<Vec<Param>> {
-    match (options.query.trim().is_empty(), options.organization.as_deref()) {
-        | (false, _) => Ok(options.query.as_str()),
-        | (true, Some(value)) if !value.trim().is_empty() => Ok(value),
-        | _ => Err(eyre!("OSTI search requires a query or organization")),
-    }
-    .and_then(Query::from_value)
-    .map(|query| {
-        let (field, value) = query.pair(options.view);
-        let params = match (&options.organization, options.organization_role, options.query.trim().is_empty()) {
-            | (Some(organization), RemoteOrganizationRole::SiteOwner, false) => Params::new()
-                .with_keyvalue(field, Some(value))
-                .with_keyvalue("site_ownership_code", Some(organization)),
-            | (Some(organization), RemoteOrganizationRole::SiteOwner, true) => Params::new().with_keyvalue("site_ownership_code", Some(organization)),
-            | _ => Params::new().with_keyvalue(field, Some(value)),
-        };
-        let rows = options.limit.max(1).to_string();
-        let start = options.start.to_string();
-        params.with_keyvalue("rows", Some(&rows)).with_keyvalue("start", Some(&start)).build()
-    })
-}
 /// Retrieve a single DOE CODE project by Code ID
 /// ## Examples
 /// ```no_run
@@ -466,6 +445,27 @@ pub async fn record(code_id: u64) -> ApiResult<Project> {
         }
         | None => Err(eyre!("OSTI API endpoint not found")),
     }
+}
+fn request_params(options: &Options) -> ApiResult<Vec<Param>> {
+    match (options.query.trim().is_empty(), options.organization.as_deref()) {
+        | (false, _) => Ok(options.query.as_str()),
+        | (true, Some(value)) if !value.trim().is_empty() => Ok(value),
+        | _ => Err(eyre!("OSTI search requires a query or organization")),
+    }
+    .and_then(Query::from_value)
+    .map(|query| {
+        let (field, value) = query.pair(options.view);
+        let params = match (&options.organization, options.organization_role, options.query.trim().is_empty()) {
+            | (Some(organization), RemoteOrganizationRole::SiteOwner, false) => Params::new()
+                .with_keyvalue(field, Some(value))
+                .with_keyvalue("site_ownership_code", Some(organization)),
+            | (Some(organization), RemoteOrganizationRole::SiteOwner, true) => Params::new().with_keyvalue("site_ownership_code", Some(organization)),
+            | _ => Params::new().with_keyvalue(field, Some(value)),
+        };
+        let rows = options.limit.max(1).to_string();
+        let start = options.start.to_string();
+        params.with_keyvalue("rows", Some(&rows)).with_keyvalue("start", Some(&start)).build()
+    })
 }
 /// Search DOE CODE using one page or sequentially retrieve all pages
 /// ## Examples

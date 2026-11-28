@@ -4,7 +4,7 @@ use crate::io::config::application::GeneralLogbookConfig;
 use crate::io::{read_file_snapshot, ApiResult};
 use acorn_core::validation::ValidationError;
 use acorn_host::fs::SafePath;
-use acorn_schema::research_activity::{Logbook, LogbookEntry, ReportingWindow};
+use acorn_schema::standard::rads::{Logbook, LogbookEntry, ReportingWindow};
 use acorn_schema::validation::{Validate, ValidationReport};
 use color_eyre::eyre::eyre;
 use std::io::ErrorKind;

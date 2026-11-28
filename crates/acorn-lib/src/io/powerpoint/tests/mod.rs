@@ -14,7 +14,7 @@ use crate::io::export::ExportContext;
 use crate::io::powerpoint::*;
 use crate::io::read_file;
 use acorn_core::util::interpolation::{ReplacementPlan, ReplacementValue};
-use acorn_schema::research_activity::{ResearchActivity, Sections};
+use acorn_schema::standard::rads::{ResearchActivity, Sections};
 use std::path::PathBuf;
 
 fn fixtures_dir() -> PathBuf {

@@ -1,6 +1,6 @@
 use super::*;
-use crate::research_activity::graph::{GraphRecord, ResearchGraph};
-use crate::research_activity::{ResearchActivity, ResearchActivityMetadata, TypedIdentifier, TypedRelatedResource};
+use crate::standard::rads::graph::{GraphRecord, ResearchGraph};
+use crate::standard::rads::{ResearchActivity, ResearchActivityMetadata, TypedIdentifier, TypedRelatedResource};
 use crate::OneOrMany;
 use sophia::api::prelude::*;
 use sophia::inmem::graph::FastGraph;

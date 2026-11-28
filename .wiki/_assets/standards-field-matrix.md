@@ -12,7 +12,7 @@ Slice 0 fixtures (referenced per row): `tests/fixtures/schema/datacite/4.7/valid
 
 | Level | Gate | Mandatory Fields | Source |
 |---|---|---|---|
-| Valid RAD | `Validate` derive | `ResearchActivity.title` len 4..MAX, `ResearchActivityMetadata.identifier` kebabcase, `ContactPoint`, `Sections`, vocab-normalized keywords/technology | `crates/acorn-schema/src/research_activity/mod.rs:160`, `crates/acorn-schema/src/validation/` |
+| Valid RAD | `Validate` derive | `ResearchActivity.title` len 4..MAX, `ResearchActivityMetadata.identifier` kebabcase, `ContactPoint`, `Sections`, vocab-normalized keywords/technology | `crates/acorn-schema/src/standard/rads/mod.rs:160`, `crates/acorn-schema/src/validation/` |
 | RAiD-ready | `pid/raid/mod.rs` `Metadata::validate` | `access` (required), `contributor` ≥1 (leader/contact flags), `date.startDate`, `title` Primary≥1, `organization` LeadResearchOrganisation | `crates/acorn-schema/src/pid/raid/mod.rs` |
 | Deposit-ready | `validate_deposit_ready(&Record)` / `&Resource` | `doi`/`identifier`, `titles`, `creators`, `publisher`, `publicationYear`, `resourceTypes`/`resourceType` (general) | `crates/acorn-schema/src/standard/datacite.rs:1525` (distinct from `Validate`) |
 | Valid Dublin Core graph | `DublinCoreDocument::decode` plus `Validate` | At least one description; absolute subject, predicate, resource, and datatype IRIs; valid blank-node labels and language tags; no remote JSON-LD context, relative IRI, named graph, or RDF-star quoted triple | `crates/acorn-schema/src/standard/dublin_core.rs`, `crates/acorn-schema/src/standard/dublin_core/rdf.rs` |

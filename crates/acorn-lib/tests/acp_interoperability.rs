@@ -9,7 +9,7 @@ use acorn::{
 };
 use acorn_schema::{
     agent::{PromptFileAsset, PromptTemplateConfiguration},
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     validation::Validate,
 };
 use owo_colors::OwoColorize;

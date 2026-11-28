@@ -84,7 +84,7 @@ pub enum ErrorCode {
     Ror,
     /// Invalid Software Heritage identifier
     Swhid,
-    /// Research activity prose section (see [`acorn_schema::research_activity::Sections`])
+    /// Research activity prose section (see [`acorn_schema::standard::rads::Sections`])
     Section,
     /// Invalid snake_case string
     SnakeCase,

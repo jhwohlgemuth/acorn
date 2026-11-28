@@ -20,8 +20,10 @@
 
 ACORN is context-aware at the data and workflow level. It keeps project descriptions with their identifiers, provenance, and relationships so people and software can interpret records in context. That awareness can unlock a fuller understanding of the work by making documented connections and gaps visible.
 
+Rust library users: the RAD schema module is now `acorn_schema::standard::rads`. The former `acorn_schema::research_activity` path was removed. `ResearchActivity`, RAD file formats, and the `rads` CLI spelling retain their names and behavior.
+
 > [!NOTE]
-> **AI assistance disclosure, Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](./crates/acorn-schema/src/research_activity/aspect/mod.rs): humans author most project code, while AI tools may directly create or edit auxiliary files such as documentation and tests. Humans retain review and decision authority. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
+> **AI assistance disclosure, Level 4.** ACORN uses AI in accordance with [`VisidataMachineAssistanceLevel::Significant`](./crates/acorn-schema/src/standard/rads/aspect/mod.rs): humans author most project code, while AI tools may directly create or edit auxiliary files such as documentation and tests. Humans retain review and decision authority. AI-assisted contributions at this level must identify the model and version used and the responsible human operator in the contribution metadata.
 
 [[_TOC_]]
 

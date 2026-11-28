@@ -33,7 +33,7 @@ use acorn_core::{
 use acorn_host::{fs::read_text, terminal::Label};
 use acorn_schema::{
     codec::DocumentCodec,
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     standard::{
         crosswalk::{Conversion, CrosswalkError, DublinCoreImportOptions},
         dublin_core::DublinCoreDocument,

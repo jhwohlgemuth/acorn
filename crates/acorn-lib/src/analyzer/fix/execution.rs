@@ -12,7 +12,7 @@ use crate::io::{
 use acorn_cmd::CommandSpec;
 use acorn_core::util::{constants::app::APPLICATION, stable_deduplicate, MimeType};
 use acorn_schema::{
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     validation::Validate,
     vocabulary::{VocabularyKind, VocabularyOptions, VocabularyResolver},
     OneOrMany,

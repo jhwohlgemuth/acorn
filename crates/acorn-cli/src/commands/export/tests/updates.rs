@@ -3,7 +3,7 @@ use acorn::io::export::updates::{
     self,
     html::{self, LogbookEntryRender},
 };
-use acorn_schema::research_activity::{LogbookEntry, LogbookUpdates};
+use acorn_schema::standard::rads::{LogbookEntry, LogbookUpdates};
 use std::path::PathBuf;
 
 #[test]

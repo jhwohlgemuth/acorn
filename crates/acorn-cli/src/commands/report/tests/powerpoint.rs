@@ -2,8 +2,8 @@ use super::super::powerpoint::PowerPointReporter;
 use super::*;
 use acorn::io::{archive, ArchiveCandidate, ArchiveExtraction};
 use acorn_core::util::MimeType;
-use acorn_schema::research_activity::logbook::MAX_LOGBOOK_SUMMARY_CHARACTERS;
-use acorn_schema::research_activity::{LogbookEntry, ProjectHealth, StatusUpdateEntry};
+use acorn_schema::standard::rads::logbook::MAX_LOGBOOK_SUMMARY_CHARACTERS;
+use acorn_schema::standard::rads::{LogbookEntry, ProjectHealth, StatusUpdateEntry};
 
 fn pptx_part(root: &Path, part: &str) -> String {
     std::fs::read_to_string(root.join(part)).expect("PowerPoint part")
@@ -58,9 +58,9 @@ fn test_composition_groups_entries_in_schema_order() {
     assert_eq!(
         slides.iter().map(|slide| slide.category).collect::<Vec<_>>(),
         [
-            Some(acorn_schema::research_activity::LogbookCategory::Data),
-            Some(acorn_schema::research_activity::LogbookCategory::Method),
-            Some(acorn_schema::research_activity::LogbookCategory::Research),
+            Some(acorn_schema::standard::rads::LogbookCategory::Data),
+            Some(acorn_schema::standard::rads::LogbookCategory::Method),
+            Some(acorn_schema::standard::rads::LogbookCategory::Research),
         ]
     );
     assert!(slides.iter().all(|slide| slide.project_id == updates.identifier));

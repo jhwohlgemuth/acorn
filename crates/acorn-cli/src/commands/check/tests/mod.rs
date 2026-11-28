@@ -26,7 +26,7 @@ use acorn::io::TextOrigin;
 use acorn::LocationExt;
 use acorn_analysis::{readability::ReadabilityType, Check, CheckCategory, CheckSummary};
 use acorn_core::util::MimeType;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::{datacite, dcat, huwise, invenio, zon, Standard};
 use assert_cmd::Command;
 use clap_verbosity_flag::Verbosity;

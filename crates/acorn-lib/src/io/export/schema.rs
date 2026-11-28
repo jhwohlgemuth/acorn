@@ -4,7 +4,7 @@ use crate::io::ApiResult;
 use acorn_core::util::MimeType;
 use acorn_schema::{
     pid::raid::Metadata,
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     standard::{cff, ckan, czml, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile, text, Standard},
 };
 use color_eyre::eyre::eyre;

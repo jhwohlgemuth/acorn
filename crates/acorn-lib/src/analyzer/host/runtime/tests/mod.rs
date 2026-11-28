@@ -39,8 +39,8 @@ use acorn_core::{
 };
 use acorn_host::fs::make_executable;
 use acorn_schema::{
-    research_activity::output::Funding,
-    research_activity::ResearchActivity,
+    standard::rads::output::Funding,
+    standard::rads::ResearchActivity,
     standard::{
         cff::Cff,
         crosswalk::ConversionWarning,

@@ -6,10 +6,10 @@
     clippy::unwrap_used
 )]
 use crate::geonames::{CodeFormat, Country, GeonamesParser};
-use crate::research_activity::aspect::Maturity;
-use crate::research_activity::*;
 use crate::software::{Software, SOFTWARE};
 use crate::standard::dcat::{Agent, Catalog, ConformsTo, ContactPoint, DataService, Dataset, Distribution, DocumentRef, Publisher};
+use crate::standard::rads::aspect::Maturity;
+use crate::standard::rads::*;
 use crate::util::Constant;
 use crate::validation::Validate;
 use crate::*;

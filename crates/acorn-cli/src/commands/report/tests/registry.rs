@@ -17,7 +17,7 @@ async fn test_native_local_manifest_matches_direct_project_report() {
         let activity = ResearchActivity {
             logbook: Some(
                 Logbook::init()
-                    .entries(vec![acorn_schema::research_activity::ActivityEntry::init()
+                    .entries(vec![acorn_schema::standard::rads::ActivityEntry::init()
                         .category("software")
                         .identifier("release")
                         .project_id("pilot")

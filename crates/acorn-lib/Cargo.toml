@@ -129,7 +129,7 @@ tempfile = "3"
 tracing-subscriber = { workspace = true, features = ["fmt"] }
 
 [[bench]]
-name = "research_activity"
+name = "rads"
 harness = false
 
 [[bench]]

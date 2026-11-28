@@ -11,9 +11,9 @@
 //! - [InvenioRDM Documentation](https://inveniordm.docs.cern.ch/)
 //! - [Metadata Reference](https://inveniordm.docs.cern.ch/reference/metadata/)
 //!
-use crate::research_activity::s3a::Status;
 use crate::standard::crosswalk::{self, mapping::datacite_to_invenio, CrosswalkError, FieldValue, Fields, SchemaBuilder, SchemaExtractor};
 use crate::standard::datacite;
+use crate::standard::rads::s3a::Status;
 use crate::validation::{is_iso_639_language_code, is_programming_language, validate_person_or_org_identifier, Validate};
 use acorn_core::prelude::alloc::{format, vec, String, ToString, Vec};
 use acorn_core::util::ToProse;
@@ -33,6 +33,19 @@ pub enum AccessLevel {
     Public,
     /// Restricted to specific users/owners
     Restricted,
+}
+/// Supported identifier schemes for Invenio people and organizations
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PersonOrOrgIdentifierScheme {
+    /// Gemeinsame Normdatei identifier
+    Gnd,
+    /// International Standard Name Identifier
+    Isni,
+    /// Open Researcher and Contributor ID
+    Orcid,
+    /// Research Organization Registry identifier
+    Ror,
 }
 /// Access control information
 ///
@@ -511,19 +524,6 @@ pub struct PersonOrOrgIdentifier {
     /// Identifier value
     pub identifier: String,
 }
-/// Supported identifier schemes for Invenio people and organizations
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum PersonOrOrgIdentifierScheme {
-    /// Gemeinsame Normdatei identifier
-    Gnd,
-    /// International Standard Name Identifier
-    Isni,
-    /// Open Researcher and Contributor ID
-    Orcid,
-    /// Research Organization Registry identifier
-    Ror,
-}
 /// Top-level InvenioRDM record structure
 ///
 /// An InvenioRDM record represents a research object with metadata, files,
@@ -683,21 +683,6 @@ impl fmt::Display for AccessLevel {
             | AccessLevel::Public => write!(f, "public"),
             | AccessLevel::Restricted => write!(f, "restricted"),
         }
-    }
-}
-impl TryFrom<datacite::Record> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(record: datacite::Record) -> Result<Self, Self::Error> {
-        let mapping = datacite_to_invenio();
-        crosswalk::convert(&record, &mapping).map(|(record, _)| record)
-    }
-}
-impl TryFrom<&datacite::Record> for Record {
-    type Error = CrosswalkError;
-
-    fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
-        Record::try_from(record.clone())
     }
 }
 impl SchemaBuilder for Record {
@@ -921,5 +906,20 @@ impl ToProse for Record {
             )
             .collect::<Vec<String>>()
             .join("\n\n")
+    }
+}
+impl TryFrom<&datacite::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: &datacite::Record) -> Result<Self, Self::Error> {
+        Record::try_from(record.clone())
+    }
+}
+impl TryFrom<datacite::Record> for Record {
+    type Error = CrosswalkError;
+
+    fn try_from(record: datacite::Record) -> Result<Self, Self::Error> {
+        let mapping = datacite_to_invenio();
+        crosswalk::convert(&record, &mapping).map(|(record, _)| record)
     }
 }

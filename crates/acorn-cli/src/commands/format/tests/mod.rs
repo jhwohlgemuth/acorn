@@ -19,9 +19,9 @@ use acorn::util::constants::app::DISPLAY_PATH_CHARACTER_COUNT;
 use acorn_core::util::MimeType;
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::enrichment::Provider;
-use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::cff::Cff;
 use acorn_schema::standard::dublin_core::DublinCoreDocument;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::zon;
 use acorn_schema::standard::Standard;
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
@@ -212,43 +212,6 @@ async fn test_format_acre_directory_only_formats_canonical_names() -> Result<()>
     assert_eq!(fs::read_to_string(custom_ron)?, "// retained\n{}");
     Ok(())
 }
-
-#[tokio::test]
-async fn test_format_acre_ron_dry_run_write_and_invalid_preservation() -> Result<()> {
-    let temp_dir = temp_test_dir("format_acre_ron");
-    let _cleanup = TestCleanup::new(temp_dir.clone());
-    let path = temp_dir.join("custom.ron");
-    let source = "// removed on write\n{\"models\":[\"acme/example\"]}";
-    fs::write(&path, source)?;
-    let options = |dry_run| {
-        CommandOptions::init()
-            .maybe_path(Some(path.clone()))
-            .dry_run(dry_run)
-            .fuzzy(VocabularyFuzzyMode::Strict)
-            .interactive(false)
-            .no_color(true)
-            .offline(OFFLINE)
-            .threads(1)
-            .verbose(Verbosity::new(0, 0))
-            .build()
-    };
-    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(true)).await?;
-    assert_eq!(fs::read_to_string(&path)?, source);
-    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false)).await?;
-    let formatted = fs::read_to_string(&path)?;
-    assert!(!formatted.contains("removed on write"));
-    assert!(!formatted.contains("schemaVersion"));
-    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false)).await?;
-    assert_eq!(fs::read_to_string(&path)?, formatted);
-    fs::write(&path, "{\"models\":[}")?;
-    assert!(
-        run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false))
-            .await
-            .is_err()
-    );
-    assert_eq!(fs::read_to_string(&path)?, "{\"models\":[}");
-    Ok(())
-}
 #[tokio::test]
 async fn test_format_acre_jsonc_preserves_comments_trailing_commas_and_legacy_version_omission() -> Result<()> {
     let temp_dir = temp_test_dir("format_acre_jsonc");
@@ -310,6 +273,43 @@ async fn test_format_acre_rejects_workflow_options_without_loading_config() -> R
     )
     .await;
     assert!(result.is_err_and(|why| why.to_string().contains("--config is not supported")));
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_format_acre_ron_dry_run_write_and_invalid_preservation() -> Result<()> {
+    let temp_dir = temp_test_dir("format_acre_ron");
+    let _cleanup = TestCleanup::new(temp_dir.clone());
+    let path = temp_dir.join("custom.ron");
+    let source = "// removed on write\n{\"models\":[\"acme/example\"]}";
+    fs::write(&path, source)?;
+    let options = |dry_run| {
+        CommandOptions::init()
+            .maybe_path(Some(path.clone()))
+            .dry_run(dry_run)
+            .fuzzy(VocabularyFuzzyMode::Strict)
+            .interactive(false)
+            .no_color(true)
+            .offline(OFFLINE)
+            .threads(1)
+            .verbose(Verbosity::new(0, 0))
+            .build()
+    };
+    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(true)).await?;
+    assert_eq!(fs::read_to_string(&path)?, source);
+    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false)).await?;
+    let formatted = fs::read_to_string(&path)?;
+    assert!(!formatted.contains("removed on write"));
+    assert!(!formatted.contains("schemaVersion"));
+    run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false)).await?;
+    assert_eq!(fs::read_to_string(&path)?, formatted);
+    fs::write(&path, "{\"models\":[}")?;
+    assert!(
+        run(&None, false, &[], Standard::ApplicationConfigurationResearchEnablement, &options(false))
+            .await
+            .is_err()
+    );
+    assert_eq!(fs::read_to_string(&path)?, "{\"models\":[}");
     Ok(())
 }
 #[tokio::test]

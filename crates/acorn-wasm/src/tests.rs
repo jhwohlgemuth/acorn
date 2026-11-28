@@ -1,6 +1,6 @@
 use super::*;
 use acorn_core::big_o::{Dominance, SymbolGrowth};
-use acorn_schema::research_activity::{
+use acorn_schema::standard::rads::{
     ActivityDateType, ActivityOrganization, DatedOrganizationRole, ResearchActivityMetadata, TypedActivityDate, TypedIdentifier,
 };
 use acorn_schema::OneOrMany;

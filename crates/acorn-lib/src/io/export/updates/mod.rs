@@ -3,7 +3,7 @@ pub mod html;
 use crate::io::{zip_entries, ApiResult, InputOutput};
 use acorn_core::util::MarkdownSupport;
 use acorn_host::fs::SafePath;
-use acorn_schema::research_activity::{LogbookUpdates, ResearchActivity};
+use acorn_schema::standard::rads::{LogbookUpdates, ResearchActivity};
 use color_eyre::eyre::eyre;
 use quick_xml::escape::escape;
 use std::{

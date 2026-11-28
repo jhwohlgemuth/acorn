@@ -9,7 +9,7 @@
 //!
 //! ```rust
 //! use acorn_schema::pid::raid;
-//! use acorn_schema::research_activity::ResearchActivity;
+//! use acorn_schema::standard::rads::ResearchActivity;
 //! use acorn_schema::standard::crosswalk::{CrosswalkError, RaidExportOptions};
 //!
 //! fn export(activity: &ResearchActivity) -> Result<raid::Metadata, CrosswalkError> {
@@ -23,7 +23,7 @@
 //!
 //! ```rust
 //! use acorn_schema::pid::raid;
-//! use acorn_schema::research_activity::ResearchActivity;
+//! use acorn_schema::standard::rads::ResearchActivity;
 //! use acorn_schema::standard::crosswalk::{CrosswalkError, RaidImportOptions};
 //!
 //! fn import(metadata: &raid::Metadata, options: &RaidImportOptions) -> Result<ResearchActivity, CrosswalkError> {
@@ -40,13 +40,13 @@ use crate::pid::raid::{
     self, AccessType, CreditRole, DescriptionType, ObjectCategoryType, ObjectType, OrganizationRoleType, PositionType, RelatedRaidType, TitleType,
 };
 use crate::pid::{Identifier, PersistentIdentifierParse, PID, RAID};
-use crate::research_activity::output::Funding;
-use crate::research_activity::{
+use crate::standard::crosswalk::CrosswalkSchema::{Rad as RAD, Raid as RAID_STANDARD};
+use crate::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError};
+use crate::standard::rads::output::Funding;
+use crate::standard::rads::{
     ActivityContributor, ActivityDateType, ActivityOrganization, AgentIdentifier, ControlledSubject, DatedAgentRole, DatedOrganizationRole,
     ResearchActivity, ResearchActivityMetadata, RightsAccess, StructuredRights, TypedActivityDate, TypedIdentifier, TypedRelatedResource,
 };
-use crate::standard::crosswalk::CrosswalkSchema::{Rad as RAD, Raid as RAID_STANDARD};
-use crate::standard::crosswalk::{Conversion, ConversionWarning, Crosswalk, CrosswalkError};
 use crate::util::constants::app::{CREDIT_SCHEMA_URI, ISNI_SCHEMA_URI, ORCID_SCHEMA_URI, RAID_SCHEMA_URI};
 use crate::validation::{rules, Validate};
 use crate::{ContactPoint, Date, OneOrMany, Website};
@@ -266,6 +266,22 @@ impl ActivityOrganization {
         }
     }
 }
+impl From<&ResearchActivity> for Conversion<Option<Vec<raid::AlternateIdentifier>>> {
+    fn from(value: &ResearchActivity) -> Self {
+        let local = core::iter::once(raid::AlternateIdentifier {
+            id: value.meta.identifier.clone(),
+            alternate_identifier_type: APPLICATION.to_ascii_uppercase(),
+        });
+        let handles = value.meta.handle.as_ref().into_iter().flat_map(|values| {
+            values.iter().map(|value| raid::AlternateIdentifier {
+                id: value.clone(),
+                alternate_identifier_type: "Handle".to_string(),
+            })
+        });
+        let identifiers = local.chain(handles).collect::<Vec<_>>();
+        Self::new((!identifiers.is_empty()).then_some(identifiers), Vec::new())
+    }
+}
 impl TryFrom<&ResearchActivity> for Conversion<Option<raid::MetadataMetadata>> {
     type Error = CrosswalkError;
     fn try_from(value: &ResearchActivity) -> Result<Self, Self::Error> {
@@ -302,22 +318,6 @@ impl TryFrom<&ResearchActivity> for Conversion<Option<raid::MetadataMetadata>> {
                 )),
             })
         })
-    }
-}
-impl From<&ResearchActivity> for Conversion<Option<Vec<raid::AlternateIdentifier>>> {
-    fn from(value: &ResearchActivity) -> Self {
-        let local = core::iter::once(raid::AlternateIdentifier {
-            id: value.meta.identifier.clone(),
-            alternate_identifier_type: APPLICATION.to_ascii_uppercase(),
-        });
-        let handles = value.meta.handle.as_ref().into_iter().flat_map(|values| {
-            values.iter().map(|value| raid::AlternateIdentifier {
-                id: value.clone(),
-                alternate_identifier_type: "Handle".to_string(),
-            })
-        });
-        let identifiers = local.chain(handles).collect::<Vec<_>>();
-        Self::new((!identifiers.is_empty()).then_some(identifiers), Vec::new())
     }
 }
 impl raid::Contributor {

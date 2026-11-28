@@ -4,7 +4,7 @@ use crate::io::interactive::{PromptOutcome, Viewport};
 use acorn::io::{durable_replace_file, read_file_snapshot};
 use acorn_core::util::MimeType;
 use acorn_schema::codec::DocumentCodec;
-use acorn_schema::research_activity::{GraduationCandidates, ResearchActivity};
+use acorn_schema::standard::rads::{GraduationCandidates, ResearchActivity};
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::{eyre, Result};
 use data_encoding::HEXLOWER;

@@ -7,9 +7,9 @@ use crate::util::constants::app::{ORNL_COLOR_AQUA, ORNL_COLOR_ENERGY, ORNL_COLOR
 use crate::util::StringConversion;
 use acorn_core::prelude::HashMap;
 use acorn_core::prelude::{vec, Vec};
-use acorn_schema::research_activity::aspect::AspectFramework;
+use acorn_schema::standard::rads::aspect::AspectFramework;
 #[cfg(feature = "chart")]
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use bon::Builder;
 use color_eyre::eyre::eyre;
 use core::f64::consts::{FRAC_PI_2, FRAC_PI_4};

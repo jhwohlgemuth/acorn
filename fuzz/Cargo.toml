@@ -30,8 +30,8 @@ doc = false
 bench = false
 
 [[bin]]
-name = "research_activity"
-path = "fuzz_targets/research_activity.rs"
+name = "rads"
+path = "fuzz_targets/rads.rs"
 test = false
 doc = false
 bench = false

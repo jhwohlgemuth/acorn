@@ -27,7 +27,7 @@ use acorn_host::{
 };
 use acorn_schema::{
     pid::{Identifier, PID},
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
 };
 use color_eyre::eyre::{eyre, Report};
 use core::iter::once;

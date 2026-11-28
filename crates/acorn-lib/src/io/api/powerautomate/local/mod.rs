@@ -7,7 +7,7 @@ use crate::io::workflow::{LogbookProposal, ProcessRepositoryResponse};
 use crate::io::{durable_replace_file, read_file_snapshot, sync_parent_directory, ApiResult};
 use acorn_core::prelude::{String, Vec};
 use acorn_schema::hardware::memory::Memory;
-use acorn_schema::research_activity::LogbookEntry;
+use acorn_schema::standard::rads::LogbookEntry;
 use acorn_schema::validation::Validate;
 use color_eyre::eyre::eyre;
 use core::fmt;

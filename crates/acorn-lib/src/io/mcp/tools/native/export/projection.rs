@@ -21,43 +21,6 @@ use std::fs::create_dir_all;
 trait BoundedMediaInput: Sized {
     fn read_with_bounded_media(root: &Path, source: &Path) -> ApiResult<Self>;
 }
-#[cfg(any(feature = "pdf", feature = "powerpoint"))]
-impl BoundedMediaInput for ResearchActivity {
-    fn read_with_bounded_media(root: &Path, source: &Path) -> ApiResult<Self> {
-        Self::read(source.to_path_buf()).and_then(|activity| {
-            let limits = InputLimits::default();
-            RoutedInputPolicy::new(root, limits.clone()).and_then(|policy| {
-                activity
-                    .meta
-                    .media
-                    .iter()
-                    .flat_map(|media| media.iter())
-                    .filter_map(|media| match media {
-                        | MediaObject::Image(ImageObject { content_url: Some(url), .. }) if !url.trim().is_empty() => Some(url.trim()),
-                        | _ => None,
-                    })
-                    .enumerate()
-                    .try_fold(0_u64, |total, (index, url)| {
-                        source
-                            .parent()
-                            .unwrap_or_else(|| Path::new("."))
-                            .join(url)
-                            .canonicalize()
-                            .map_err(|why| eyre!("Resolve export media dependency — {why}"))
-                            .and_then(|path| policy.resolve(&InputReference::File(path)))
-                            .and_then(|resolved| {
-                                let bytes = resolved.files.iter().map(|file| u64::from(file.size.clone())).sum::<u64>();
-                                match total.checked_add(bytes) {
-                                    | Some(total) if index < limits.max_files && limits.max_total.can_contain(total) == Some(true) => Ok(total),
-                                    | _ => Err(eyre!("Export media dependencies exceed the bounded input policy")),
-                                }
-                            })
-                    })
-                    .map(|_| activity)
-            })
-        })
-    }
-}
 impl ExportBagInput {
     /// Build and verify a BagIt archive with the direct command's shared `Bag` service.
     pub fn execute(self, root: &Path) -> ApiResult<ExportBagOutput> {
@@ -357,7 +320,7 @@ impl ExportRenderInput {
         &self,
         source: &Path,
         destination: &Path,
-        write: fn(&acorn_schema::research_activity::LogbookUpdates, &Path) -> ApiResult<()>,
+        write: fn(&acorn_schema::standard::rads::LogbookUpdates, &Path) -> ApiResult<()>,
     ) -> ApiResult<()> {
         self.since
             .as_deref()
@@ -484,5 +447,42 @@ impl ExportRenderInput {
             },
             | Err(why) => Err(why),
         }
+    }
+}
+#[cfg(any(feature = "pdf", feature = "powerpoint"))]
+impl BoundedMediaInput for ResearchActivity {
+    fn read_with_bounded_media(root: &Path, source: &Path) -> ApiResult<Self> {
+        Self::read(source.to_path_buf()).and_then(|activity| {
+            let limits = InputLimits::default();
+            RoutedInputPolicy::new(root, limits.clone()).and_then(|policy| {
+                activity
+                    .meta
+                    .media
+                    .iter()
+                    .flat_map(|media| media.iter())
+                    .filter_map(|media| match media {
+                        | MediaObject::Image(ImageObject { content_url: Some(url), .. }) if !url.trim().is_empty() => Some(url.trim()),
+                        | _ => None,
+                    })
+                    .enumerate()
+                    .try_fold(0_u64, |total, (index, url)| {
+                        source
+                            .parent()
+                            .unwrap_or_else(|| Path::new("."))
+                            .join(url)
+                            .canonicalize()
+                            .map_err(|why| eyre!("Resolve export media dependency — {why}"))
+                            .and_then(|path| policy.resolve(&InputReference::File(path)))
+                            .and_then(|resolved| {
+                                let bytes = resolved.files.iter().map(|file| u64::from(file.size.clone())).sum::<u64>();
+                                match total.checked_add(bytes) {
+                                    | Some(total) if index < limits.max_files && limits.max_total.can_contain(total) == Some(true) => Ok(total),
+                                    | _ => Err(eyre!("Export media dependencies exceed the bounded input policy")),
+                                }
+                            })
+                    })
+                    .map(|_| activity)
+            })
+        })
     }
 }

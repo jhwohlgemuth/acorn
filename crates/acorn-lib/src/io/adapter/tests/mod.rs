@@ -6,8 +6,8 @@ use super::migrate::Migration;
 use super::*;
 use crate::test::utils::fixture_path;
 use acorn_schema::agent::opencode;
-use acorn_schema::research_activity::Sections;
 use acorn_schema::standard::cff::IdentifierType;
+use acorn_schema::standard::rads::Sections;
 use acorn_schema::standard::text::Document;
 use acorn_schema::standard::zon;
 use std::fs::{read, write};
@@ -76,7 +76,7 @@ fn test_field_migrations_detect_deprecated_rad_paths() {
 #[test]
 fn test_logbook_input_output_round_trips_supported_formats() {
     let directory = tempdir().expect("temporary directory should be created");
-    let entry: LogbookEntry = acorn_schema::research_activity::ActivityEntry::init()
+    let entry: LogbookEntry = acorn_schema::standard::rads::ActivityEntry::init()
         .identifier("first-entry")
         .project_id("example-project")
         .timestamp("2026-09-01T12:00:00Z")

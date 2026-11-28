@@ -96,7 +96,7 @@
 //! ```
 //!
 //! ```rust,no_run
-//! use acorn_schema::research_activity::ResearchActivity;
+//! use acorn_schema::standard::rads::ResearchActivity;
 //! use acorn_schema::Validate;
 //! use eserde::json::from_str;
 //!
@@ -123,8 +123,8 @@ use acorn_core::util::MimeType;
 use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::pid::{raid, Identifier, PersistentIdentifierParse, ISNI, ORCID, PID};
-use acorn_schema::research_activity::ResearchActivity;
 use acorn_schema::standard::crosswalk::{ConversionWarning, Crosswalk, DublinCoreImportOptions, RaidImportOptions};
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::{cff::Cff, datacite, dublin_core::DublinCoreDocument, invenio, Standard};
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use acorn_schema::ContactPoint;

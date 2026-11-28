@@ -4,7 +4,7 @@
 
 use crate::hardware::memory::Memory;
 use crate::oci;
-use crate::research_activity::aspect::data::Modality;
+use crate::standard::rads::aspect::data::Modality;
 #[cfg(feature = "std")]
 use crate::standard::zon;
 use crate::util::constants::app::DEFAULT_HUGGINGFACE_DOMAIN;
@@ -1191,19 +1191,6 @@ impl ModelSelectors {
         }
     }
 }
-#[cfg(feature = "std")]
-impl PromptFileAsset {
-    /// Load the embedded prompt asset as a UTF-8 string.
-    pub fn load(&self) -> AcornResult<String> {
-        match self {
-            | Self::Script(path) => Err(schema_error!("Rhai prompt script is not an embedded asset — {path}")),
-            | _ => {
-                let name = self.to_string();
-                PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
-            }
-        }
-    }
-}
 impl fmt::Display for PromptFileAsset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
@@ -1239,6 +1226,19 @@ impl From<&str> for PromptFileAsset {
 impl From<String> for PromptFileAsset {
     fn from(value: String) -> Self {
         Self::from(value.as_str())
+    }
+}
+#[cfg(feature = "std")]
+impl PromptFileAsset {
+    /// Load the embedded prompt asset as a UTF-8 string.
+    pub fn load(&self) -> AcornResult<String> {
+        match self {
+            | Self::Script(path) => Err(schema_error!("Rhai prompt script is not an embedded asset — {path}")),
+            | _ => {
+                let name = self.to_string();
+                PromptTemplate::from_asset(&name).ok_or_else(|| schema_error!("Prompt template not found — {name}"))
+            }
+        }
     }
 }
 #[cfg(feature = "std")]
@@ -1320,6 +1320,11 @@ impl PromptTemplate {
             })
     }
 }
+impl Default for PromptTemplateConfiguration {
+    fn default() -> Self {
+        PromptTemplateConfiguration::init().build()
+    }
+}
 #[cfg(feature = "std")]
 impl PromptTemplateConfiguration {
     /// Serialize configuration with canonical snake-case keys for prompt rendering.
@@ -1332,11 +1337,6 @@ impl PromptTemplateConfiguration {
                 )),
                 | _ => Err(schema_error!("Prompt configuration must serialize as an object")),
             })
-    }
-}
-impl Default for PromptTemplateConfiguration {
-    fn default() -> Self {
-        PromptTemplateConfiguration::init().build()
     }
 }
 impl From<&str> for Provider {
@@ -1406,6 +1406,14 @@ impl MarkdownSupport for ProviderDetails {
         }
     }
 }
+impl<'de> Deserialize<'de> for Quantization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(Self::from)
+    }
+}
 impl From<&str> for Quantization {
     fn from(value: &str) -> Self {
         let normalized = value.to_ascii_uppercase();
@@ -1465,14 +1473,6 @@ impl Quantization {
                 })
                 .map(Self::from)
         })
-    }
-}
-impl<'de> Deserialize<'de> for Quantization {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        String::deserialize(deserializer).map(Self::from)
     }
 }
 impl From<ModelSelector> for String {

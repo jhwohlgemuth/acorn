@@ -9,7 +9,7 @@ use crate::io::InputOutput;
 use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::util::SemanticVersion;
 use acorn_schema::agent::tools::ToolEffects;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use color_eyre::eyre::eyre;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

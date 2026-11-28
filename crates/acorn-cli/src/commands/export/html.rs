@@ -4,7 +4,7 @@ use acorn::io::{
     export::updates::html::{self as updates_html, LogbookUpdatesHtml as SharedLogbookUpdatesHtml, ReportHtmlAssets},
     ApiResult,
 };
-use acorn_schema::research_activity::LogbookUpdates;
+use acorn_schema::standard::rads::LogbookUpdates;
 
 pub(crate) trait LogbookUpdatesHtml {
     fn to_html(&self, full_timestamp: bool) -> ApiResult<String>;

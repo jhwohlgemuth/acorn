@@ -2,13 +2,13 @@
 use super::CrosswalkSchema::{DataCite as DATACITE, DublinCore as DUBLIN_CORE, RadOutput as RAD_OUTPUT};
 use super::{via_datacite, ConversionWarning, Crosswalk, CrosswalkError};
 use crate::pid::{PersistentIdentifier, PersistentIdentifierParse, DOI};
-use crate::research_activity::common::{ControlledSubject, StructuredRights, TypedIdentifier, TypedRelatedResource};
-use crate::research_activity::output::{Contributor, ResearchOutput};
-use crate::research_activity::{ResearchActivity, ResearchActivityMetadata};
 use crate::standard::dublin_core::{
     DublinCoreDescription, DublinCoreDocument, DublinCoreLiteral, DublinCoreNamespace, DublinCoreResource, DublinCoreValue, DCTERMS_NAMESPACE,
     ELEMENTS_NAMESPACE, TYPE_NAMESPACE,
 };
+use crate::standard::rads::common::{ControlledSubject, StructuredRights, TypedIdentifier, TypedRelatedResource};
+use crate::standard::rads::output::{Contributor, ResearchOutput};
+use crate::standard::rads::{ResearchActivity, ResearchActivityMetadata};
 use crate::standard::relation::Relation;
 use crate::standard::{
     datacite::{self, Description, DescriptionType, Publisher, ResourceTypeGeneral},
@@ -304,23 +304,6 @@ impl From<ResearchOutput> for DublinCoreResource {
             .unwrap_or_else(|| Self::blank_node("resource"))
     }
 }
-impl ResourceTypeGeneral {
-    fn dublin_core_term(&self) -> &'static str {
-        match self {
-            | ResourceTypeGeneral::Audiovisual => "MovingImage",
-            | ResourceTypeGeneral::Collection => "Collection",
-            | ResourceTypeGeneral::Dataset => "Dataset",
-            | ResourceTypeGeneral::Event => "Event",
-            | ResourceTypeGeneral::Image => "Image",
-            | ResourceTypeGeneral::InteractiveResource | ResourceTypeGeneral::ComputationalNotebook => "InteractiveResource",
-            | ResourceTypeGeneral::PhysicalObject => "PhysicalObject",
-            | ResourceTypeGeneral::Service => "Service",
-            | ResourceTypeGeneral::Software | ResourceTypeGeneral::Workflow => "Software",
-            | ResourceTypeGeneral::Sound => "Sound",
-            | _ => "Text",
-        }
-    }
-}
 impl Crosswalk<DublinCoreDocument> for ResearchActivity {
     fn crosswalk(&self) -> Result<(DublinCoreDocument, Vec<ConversionWarning>), CrosswalkError> {
         self.to_datacite_project().and_then(|(record, warnings)| {
@@ -442,32 +425,21 @@ impl Crosswalk<DublinCoreDocument> for ResearchOutput {
             })
     }
 }
-impl From<ResearchOutput> for Vec<ConversionWarning> {
-    fn from(output: ResearchOutput) -> Self {
-        [
-            output.access.map(|_| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "access")),
-            output
-                .funding
-                .map(|_| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "funding")),
-            output.geo_locations.map(|_| {
-                ConversionWarning::simplified(
-                    RAD_OUTPUT,
-                    DUBLIN_CORE,
-                    "geoLocations",
-                    format!("use {}:spatial explicitly", DublinCoreNamespace::MetadataTerms.prefix()),
-                )
-            }),
-            (!output.keywords.is_empty()).then(|| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "keywords")),
-            output
-                .related_items
-                .map(|_| ConversionWarning::simplified(RAD_OUTPUT, DUBLIN_CORE, "relatedItems", "use a DCMI relation property")),
-            output
-                .version
-                .map(|_| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "version")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
+impl ResourceTypeGeneral {
+    fn dublin_core_term(&self) -> &'static str {
+        match self {
+            | ResourceTypeGeneral::Audiovisual => "MovingImage",
+            | ResourceTypeGeneral::Collection => "Collection",
+            | ResourceTypeGeneral::Dataset => "Dataset",
+            | ResourceTypeGeneral::Event => "Event",
+            | ResourceTypeGeneral::Image => "Image",
+            | ResourceTypeGeneral::InteractiveResource | ResourceTypeGeneral::ComputationalNotebook => "InteractiveResource",
+            | ResourceTypeGeneral::PhysicalObject => "PhysicalObject",
+            | ResourceTypeGeneral::Service => "Service",
+            | ResourceTypeGeneral::Software | ResourceTypeGeneral::Workflow => "Software",
+            | ResourceTypeGeneral::Sound => "Sound",
+            | _ => "Text",
+        }
     }
 }
 impl From<DublinCoreDescription> for Vec<Description> {
@@ -498,6 +470,34 @@ impl From<DublinCoreDescription> for Vec<StructuredRights> {
                 | DublinCoreValue::Resource(value) => StructuredRights::init().maybe_rights_uri(value.as_iri().map(ToString::to_string)).build(),
             })
             .collect()
+    }
+}
+impl From<ResearchOutput> for Vec<ConversionWarning> {
+    fn from(output: ResearchOutput) -> Self {
+        [
+            output.access.map(|_| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "access")),
+            output
+                .funding
+                .map(|_| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "funding")),
+            output.geo_locations.map(|_| {
+                ConversionWarning::simplified(
+                    RAD_OUTPUT,
+                    DUBLIN_CORE,
+                    "geoLocations",
+                    format!("use {}:spatial explicitly", DublinCoreNamespace::MetadataTerms.prefix()),
+                )
+            }),
+            (!output.keywords.is_empty()).then(|| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "keywords")),
+            output
+                .related_items
+                .map(|_| ConversionWarning::simplified(RAD_OUTPUT, DUBLIN_CORE, "relatedItems", "use a DCMI relation property")),
+            output
+                .version
+                .map(|_| ConversionWarning::no_equivalent(RAD_OUTPUT, DUBLIN_CORE, "version")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
     }
 }
 fn nonempty<T>(values: Vec<T>) -> Option<Vec<T>> {

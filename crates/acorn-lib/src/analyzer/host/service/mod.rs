@@ -25,7 +25,7 @@ use acorn_core::{
 use acorn_host::terminal::Label;
 use acorn_schema::{
     pid::{raid, DOI},
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     standard::{
         cff::Cff,
         ckan, czml, datacite, dcat,

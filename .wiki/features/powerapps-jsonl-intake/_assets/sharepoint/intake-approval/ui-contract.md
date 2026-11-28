@@ -20,7 +20,7 @@ The November 12 compact typography revision uses Power Apps size 11 for shared i
 ## Authoritative sources
 
 - `crates/acorn-lib/src/io/api/powerautomate/form.rs` defines the admitted form envelope and the activity and status-update shapes.
-- `crates/acorn-schema/src/research_activity/logbook.rs` defines canonical values, limits, nested validation, and report context.
+- `crates/acorn-schema/src/standard/rads/logbook.rs` defines canonical values, limits, nested validation, and report context.
 - `crates/acorn-schema/src/types.rs` defines classification values.
 - `crates/acorn-lib/src/io/export/updates/html.rs` defines visible report content and ordering.
 - `../layout.pa.yaml` records the current contributor payload, recovery behavior, and fixed vocabularies.

@@ -10,7 +10,7 @@ use acorn_core::util::constants::app::APPLICATION;
 use acorn_core::util::SemanticVersion;
 use acorn_host::fs::SafePath;
 use acorn_schema::agent::tools::ToolEffects;
-use acorn_schema::research_activity::{LogbookUpdates, ReportingWindow, ResearchActivity};
+use acorn_schema::standard::rads::{LogbookUpdates, ReportingWindow, ResearchActivity};
 use color_eyre::eyre::eyre;
 use core::future::Future;
 use schemars::JsonSchema;

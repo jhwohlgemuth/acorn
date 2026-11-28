@@ -7,7 +7,7 @@ use acorn_core::prelude::{vec, ToString, Vec};
 use acorn_core::util::{MarkdownSupport, MimeType, ToProse};
 use acorn_schema::codec::DocumentCodec;
 use acorn_schema::hardware::Memory;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::Standard;
 use acorn_schema::vocabulary::VocabularyFuzzyMode;
 use futures::executor::block_on;

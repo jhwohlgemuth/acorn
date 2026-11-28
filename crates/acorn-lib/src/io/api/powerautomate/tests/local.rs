@@ -4,7 +4,7 @@ use super::super::local::{
 };
 use crate::io::config::ApplicationConfiguration;
 use crate::io::ApiResult;
-use acorn_schema::research_activity::{Logbook, ResearchActivity};
+use acorn_schema::standard::rads::{Logbook, ResearchActivity};
 use std::fs;
 use std::path::{Path, PathBuf};
 

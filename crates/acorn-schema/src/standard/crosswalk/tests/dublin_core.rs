@@ -1,12 +1,12 @@
 use super::super::{Crosswalk, DublinCoreImportOptions};
-use crate::research_activity::common::ControlledSubject;
-use crate::research_activity::output::{Contributor, ResearchOutput};
-use crate::research_activity::ResearchActivity;
 use crate::standard::datacite::{self, Description, DescriptionType, Publisher, ResourceTypeGeneral};
 use crate::standard::dublin_core::{
     DublinCoreDescription, DublinCoreDocument, DublinCoreLiteral, DublinCoreResource, DublinCoreValue, DCTERMS_NAMESPACE, ELEMENTS_NAMESPACE,
     TYPE_NAMESPACE,
 };
+use crate::standard::rads::common::ControlledSubject;
+use crate::standard::rads::output::{Contributor, ResearchOutput};
+use crate::standard::rads::ResearchActivity;
 use crate::{ContactPoint, OneOrMany};
 use acorn_core::prelude::{format, vec, ToString, Vec};
 use alloc::collections::BTreeMap;

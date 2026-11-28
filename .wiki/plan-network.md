@@ -9,15 +9,13 @@ okf_version: "0.1"
 
 This map records implementation dependencies among the active plans. Portfolio rank is maintained in the [planning index](index.md); dependency order can override rank when a prerequisite contract is not ready.
 
-**Priority (November 27, after CLA retirement):** [ABW](features/acorn-browser-workspace/index.md) remains first, followed by [FMT](features/browser-format-parity.md), [RDS](migrations/rads-module-migration/index.md), [DES](refactors/portable-module-cycles.md), [NTR](features/netrc-support.md), [CMD](refactors/command-macro-convergence.md), and [GAT](features/gather-extraction.md). ABW-11 still waits for ABW-18. RDS-01 precedes DES-01 on Schema roots; NTR-01 may use a free workspace-graph lock. CMD follows NTR on overlapping locks without depending on external NTR-07 acceptance. Claude ACP support is accepted and its integration locks are released.
+**Priority (November 27, after RADS migration):** [ABW](features/acorn-browser-workspace/index.md) remains first, followed by [FMT](features/browser-format-parity.md), [DES](refactors/portable-module-cycles.md), [NTR](features/netrc-support.md), [CMD](refactors/command-macro-convergence.md), and [GAT](features/gather-extraction.md). ABW-11 still waits for ABW-18. DES-01 may take Schema roots when free; NTR-01 may use a free workspace-graph lock. CMD follows NTR on overlapping locks without depending on external NTR-07 acceptance.
 
 ADP-05 and ADP-09 have landed. ADP-06 waits for PAR-16 native parity before heterogeneous validation. IMC-12 and IMC-14 are ready for the TUI consumer seam and reusable multi-select control. ADP's release dependency on PAR-16 remains unchanged.
 
 Executable detail lives in each plan's `# Execution phases` section. Cross-plan edges name stable phase IDs; completed phases are pruned without renumbering unfinished phases. A plan-level edge is not permission to start every phase in that plan.
 
 ## Boundary coordination
-
-- [RADS Rust module migration](migrations/rads-module-migration/index.md) RDS-01 introduces a temporary new path; RDS-02–08 migrate schema, portable, host, and CLI consumers; RDS-09/10 move the schema and crosswalk trees; RDS-11/12 align private modules and targets; RDS-13 removes the old public path and runs integration gates. It serializes shared schema files with ENR, FMT, dPID, and graph work, host files with API/MCP/export owners, and web files with ABW/GPH owners.
 
 - [Portable module cycles](refactors/portable-module-cycles.md) DES-01/02/03 are independent bounded changes in vocabulary, core, and analysis. Each must serialize with the matching schema, library-root, or analyzer/check contract owner. They do not gate broad `acorn-lib` extraction or browser/desktop work.
 

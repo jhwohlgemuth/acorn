@@ -4,7 +4,7 @@ use wasm_bindgen_test::wasm_bindgen_test;
 #[wasm_bindgen_test]
 fn test_activity_readability_runs_and_can_be_skipped() {
     let request = Request {
-        input: include_str!("../assets/examples/publications.json").into(),
+        input: include_str!("../../assets/examples/publications.json").into(),
         ..Request::default()
     };
     let checked = run(Tool::Activity, &request).expect("RAD validation");
@@ -94,9 +94,9 @@ fn test_big_o_discovery_compares_each_pair_in_order() {
 #[wasm_bindgen_test]
 fn test_bundled_research_activity_examples_validate() {
     for (name, content) in [
-        ("computing", include_str!("../assets/examples/computing.json")),
-        ("publications", include_str!("../assets/examples/publications.json")),
-        ("summary", include_str!("../assets/examples/summary.json")),
+        ("computing", include_str!("../../assets/examples/computing.json")),
+        ("publications", include_str!("../../assets/examples/publications.json")),
+        ("summary", include_str!("../../assets/examples/summary.json")),
     ] {
         let request = Request {
             input: content.into(),
@@ -234,7 +234,7 @@ fn test_metadata_boundary_options_preserve_portable_results() {
             "{tool}: {result}"
         );
     }
-    let content = include_str!("../assets/examples/publications.json");
+    let content = include_str!("../../assets/examples/publications.json");
     for mode in ["off", "relaxed", "strict"] {
         let request = Request {
             input: content.into(),
@@ -296,7 +296,7 @@ fn test_semantic_diff_example_ignores_formatting_and_reports_structured_changes(
 }
 #[wasm_bindgen_test]
 fn test_ten_real_browser_operations() {
-    let rad = include_str!("../assets/examples/publications.json");
+    let rad = include_str!("../../assets/examples/publications.json");
     let request = Request {
         input: rad.into(),
         ..Request::default()

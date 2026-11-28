@@ -2,7 +2,7 @@ use super::{export_admission, receipt_path, render_review_diff};
 use crate::cli::{Arguments, Commands, IntakeCommands};
 use acorn::io::api::gitlab::{self, Options};
 use acorn::io::api::powerautomate::{jsonl::AdmittedSubmission, Submission};
-use acorn_schema::research_activity::LogbookEntry;
+use acorn_schema::standard::rads::LogbookEntry;
 use alloc::sync::Arc;
 use axum::{
     extract::{Path as AxumPath, Query},

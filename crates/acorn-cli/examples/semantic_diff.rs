@@ -1,7 +1,7 @@
 //! Compare two research activity records after canonicalizing their data
 use acorn::analyzer::diff::{DiffFormat, DiffInput, SemanticDiff};
 use acorn_core::util::MimeType;
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::standard::Standard;
 use color_eyre::eyre::Result;
 

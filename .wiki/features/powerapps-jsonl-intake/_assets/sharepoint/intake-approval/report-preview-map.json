@@ -274,7 +274,7 @@
   "sourceFiles": [
     "crates/acorn-lib/src/io/api/powerautomate/form.rs",
     "crates/acorn-lib/src/io/export/updates/html.rs",
-    "crates/acorn-schema/src/research_activity/logbook.rs",
+    "crates/acorn-schema/src/standard/rads/logbook.rs",
     "crates/acorn-schema/src/types.rs",
     ".wiki/features/powerapps-jsonl-intake/_assets/sharepoint/layout.pa.yaml"
   ],

@@ -11,7 +11,7 @@ use crate::cli::{
 use acorn::io::{export::updates, ApiResult};
 use acorn_core::util::MimeType;
 use acorn_host::terminal::Label;
-use acorn_schema::research_activity::LogbookUpdates;
+use acorn_schema::standard::rads::LogbookUpdates;
 use color_eyre::eyre::eyre;
 use std::{
     fs::create_dir_all,

@@ -1,8 +1,8 @@
 use super::*;
-use acorn_schema::research_activity::LogbookEntry;
+use acorn_schema::standard::rads::LogbookEntry;
 
 fn entry(identifier: &str, summary: &str) -> LogbookEntry {
-    acorn_schema::research_activity::ActivityEntry::init()
+    acorn_schema::standard::rads::ActivityEntry::init()
         .identifier(identifier)
         .project_id("pilot")
         .timestamp("2026-09-18T12:00:00Z")

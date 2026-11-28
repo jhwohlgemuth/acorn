@@ -30,6 +30,7 @@ pub mod huwise;
 pub mod invenio;
 pub mod modelkit;
 pub mod ocp;
+pub mod rads;
 pub mod rdf;
 pub mod relation;
 pub mod text;
@@ -195,6 +196,11 @@ pub struct StandardsClaim {
     #[serde(default, deserialize_with = "option_string_trim")]
     pub evidence_uri: Option<String>,
 }
+impl<'de> Deserialize<'de> for ContributionKind {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(Self::from)
+    }
+}
 impl From<String> for ContributionKind {
     fn from(value: String) -> Self {
         let value = value.trim().to_string();
@@ -238,11 +244,6 @@ impl Validate for ContributionKind {
             | Self::Other(value) => rules::nonempty(value).map_err(|error| error.into_report("")),
             | _ => Ok(()),
         }
-    }
-}
-impl<'de> Deserialize<'de> for ContributionKind {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        String::deserialize(deserializer).map(Self::from)
     }
 }
 impl From<&Map<String, Value>> for Standard {

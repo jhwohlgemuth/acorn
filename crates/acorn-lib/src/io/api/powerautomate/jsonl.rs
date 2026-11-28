@@ -12,7 +12,7 @@ use crate::io::api::{
 use crate::io::config::{application, bucket};
 use crate::io::ApiResult;
 use acorn_core::Location;
-use acorn_schema::{research_activity, validation::Validate};
+use acorn_schema::{standard::rads, validation::Validate};
 use color_eyre::eyre::eyre;
 use futures::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ pub struct AdmittedSubmission {
     /// Canonicalized form; the original selector remains in source evidence.
     pub submission: form::Submission,
     /// Validated, authorized, cutoff-checked entry.
-    pub entry: research_activity::LogbookEntry,
+    pub entry: rads::LogbookEntry,
     /// Credential-free GitLab service URL fixed at admission.
     #[validate(url)]
     pub domain: String,

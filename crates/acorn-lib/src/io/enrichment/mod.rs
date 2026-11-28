@@ -12,9 +12,9 @@ use acorn_core::Location;
 use acorn_schema::enrichment::Provider;
 use acorn_schema::namespaces::DEFAULT_ORCID_SCHEMA_URI;
 use acorn_schema::pid::{PersistentIdentifier, PersistentIdentifierConvert, PersistentIdentifierParse, PublicationIdentifierType, DOI, ORCID, ROR};
-use acorn_schema::research_activity::output::{Contributor as OutputContributor, ResearchOutput};
-use acorn_schema::research_activity::{ActivityContributor, AgentIdentifier, EnrichmentProvenance, ResearchActivity, ResearchActivityMetadata};
 use acorn_schema::standard::cff::{Agent as CffAgent, Cff, Person as CffPerson, Reference as CffReference};
+use acorn_schema::standard::rads::output::{Contributor as OutputContributor, ResearchOutput};
+use acorn_schema::standard::rads::{ActivityContributor, AgentIdentifier, EnrichmentProvenance, ResearchActivity, ResearchActivityMetadata};
 use acorn_schema::standard::{datacite, invenio};
 use acorn_schema::{ContactPoint, OneOrMany, Organization, Website};
 use async_trait::async_trait;
@@ -27,14 +27,14 @@ mod cff;
 mod datacite_impl;
 mod invenio_impl;
 mod orcid;
-mod research_activity;
+mod rads;
 mod source;
 mod vocabulary;
 #[cfg(test)]
 pub(super) use orcid::{orcid_decision, OrcidBatch, OrcidResolution};
 pub(super) use orcid::{OrcidBatchResult, OrcidEnrichment, OrcidIdentity, OrcidPersonRef};
 #[cfg(test)]
-pub(super) use research_activity::ResearchActivityEnrichment;
+pub(super) use rads::ResearchActivityEnrichment;
 pub(crate) use vocabulary::vocabulary_decisions;
 
 /// Provider-specific enrichment operations for a supplied input type.
@@ -136,12 +136,6 @@ impl Default for Pipeline {
         Self::new(Provider::iter().collect())
     }
 }
-impl Pipeline {
-    /// Construct a pipeline in the supplied deterministic provider order.
-    pub fn new(providers: Vec<Provider>) -> Self {
-        Self { providers }
-    }
-}
 #[async_trait]
 impl<T> Enrich<(Location, T)> for Pipeline
 where
@@ -197,5 +191,11 @@ where
                 }
             })
             .await)
+    }
+}
+impl Pipeline {
+    /// Construct a pipeline in the supplied deterministic provider order.
+    pub fn new(providers: Vec<Provider>) -> Self {
+        Self { providers }
     }
 }

@@ -1,5 +1,5 @@
 //! Validate a research activity and inspect structured field errors
-use acorn_schema::research_activity::ResearchActivity;
+use acorn_schema::standard::rads::ResearchActivity;
 use acorn_schema::Validate;
 use color_eyre::eyre::{eyre, Result};
 

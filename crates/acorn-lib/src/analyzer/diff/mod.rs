@@ -4,7 +4,7 @@ use acorn_diff::{unified_diff, DiffValue, JsonPatch};
 use acorn_schema::{
     codec::DocumentCodec,
     pid::raid,
-    research_activity::ResearchActivity,
+    standard::rads::ResearchActivity,
     standard::{cff, czml, datacite, dcat, dublin_core::DublinCoreDocument, huwise, invenio, modelkit::kitfile::Kitfile, zon, Standard},
 };
 use core::{error::Error, fmt};
